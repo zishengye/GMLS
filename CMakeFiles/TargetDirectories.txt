@@ -1,3 +1,0 @@
-/home/zishengy/Projects/GMLS_Solver/CMakeFiles/rebuild_cache.dir
-/home/zishengy/Projects/GMLS_Solver/CMakeFiles/edit_cache.dir
-/home/zishengy/Projects/GMLS_Solver/CMakeFiles/nsmpi.dir
