@@ -168,7 +168,6 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
                 __boundingBoxCount[1]);
   }
   PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", __eta);
-  PetscPrintf(PETSC_COMM_WORLD, "==> Cutoff distance: %f\n", __cutoffDistance);
 
   __successInitialized = true;
 }

@@ -30,13 +30,17 @@ void GMLS_Solver::TimeIntegration() {
     __equationSolver = &GMLS_Solver::PoissonEquationManifold;
   }
 
+  if (__equationType == "Diffusion" && __manifoldOrder > 0) {
+    __equationSolver = &GMLS_Solver::DiffusionEquationManifold;
+  }
+
   if (__timeIntegrationMethod == "ForwardEuler") {
     ForwardEulerIntegration();
   }
 }
 
 void GMLS_Solver::ForwardEulerIntegration() {
-  for (double t = 0; t < __finalTime; t += __dt) {
+  for (double t = 0; t < __finalTime + 1e-5; t += __dt) {
     PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
     PetscPrintf(PETSC_COMM_WORLD, "==== Start of time integration ====\n");
     PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
@@ -56,6 +60,10 @@ void GMLS_Solver::ForwardEulerIntegration() {
       EmposeBoundaryCondition();
 
       BuildNeighborList();
+    }
+
+    if (t == 0) {
+      InitialCondition();
     }
 
     (this->*__equationSolver)();

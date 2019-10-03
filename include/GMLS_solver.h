@@ -21,6 +21,7 @@
 struct ParticleInfo {
   // geometry info
   std::vector<vec3> X;
+  std::vector<vec3> X_origin;
   std::vector<int> particleType;
   std::vector<vec3> particleSize;
   std::vector<vec3> normal;
@@ -33,6 +34,8 @@ struct ParticleInfo {
 
   // physical info
   std::vector<double> pressure;
+  std::vector<double> us;
+  std::vector<double> us_old;
 
   // GMLS info
   Compadre::GMLS *scalarBasis;
@@ -103,6 +106,11 @@ private:
   int __currentAdaptiveStep;
   double __currentTime;
   double __currentTimePeriod;
+
+  int __coordinateSystem;
+  // 1 cartesian coordinate system
+  // 2 cylindrical coordinate system
+  // 3 spherical coordinate system
 
   // particle info
   double __cutoffDistance;
@@ -222,9 +230,13 @@ private:
 
   void EmposeBoundaryCondition();
 
+  void InitialCondition();
+
   // equation type
   void PoissonEquation();
   void PoissonEquationManifold();
+  void DiffusionEquation();
+  void DiffusionEquationManifold();
   void StokesEquation();
   void NavierStokesEquation();
 

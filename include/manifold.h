@@ -7,9 +7,16 @@
 
 using namespace std;
 
-inline double Manifold(double x, double y) {
-  double z = x * x - 1;
-  return z;
+#define PI 3.1415926
+
+inline vec3 Manifold(double x, double y) {
+  double r = 1.0;
+  double theta = x;
+  double phi = y;
+  x = r * sin(phi) * cos(theta);
+  y = r * sin(phi) * sin(theta);
+  double z = r * cos(phi);
+  return vec3(x, y, z);
 }
 
 inline vec3 ManifoldNorm(double x, double y) {

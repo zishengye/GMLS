@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9.1)
-project (NS_SOLVER)
+project (GMLS_SOLVER)
 
 # set(CMAKE_VERBOSE_MAKEFILE on)
 
@@ -17,7 +17,7 @@ link_directories("/opt/kokkos/lib/")
 link_directories("/opt/petsc/lib/")
 link_directories("/opt/compadre/lib/")
 
-link_libraries("-lmpi -lmpicxx -lHYPRE -lpetsc -lfblas -lflapack -lstdc++")
+link_libraries("-lmpi -lmpicxx -lHYPRE -lpetsc -lfblas -lflapack -lstdc++ -lm")
 link_libraries("-lcompadre")
 link_libraries("-lkokkos")
 

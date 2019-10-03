@@ -30,6 +30,15 @@ int PetscSparseMatrix::FinalAssemble() {
   }
   __i[__row] = count;
 
+  ofstream file("output.mat", ios::trunc);
+  for (int i = 0; i < __row; i++) {
+    for (list<entry>::iterator it = __matrix[i].begin();
+         it != __matrix[i].end(); it++) {
+      file << i << '\t' << it->first << '\t' << it->second << endl;
+    }
+  }
+  file.close();
+
   MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __row, PETSC_DECIDE,
                             PETSC_DECIDE, __i.data(), __j.data(), __val.data(),
                             &__mat);

@@ -532,6 +532,6 @@ cmake_install.cmake
 
 Makefile
 
-./vtk
+./vtk/
 
 *.mat
