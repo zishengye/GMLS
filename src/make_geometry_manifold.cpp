@@ -133,7 +133,7 @@ void GMLS_Solver::InitFluidParticleManifold() {
   double xPos, yPos, zPos;
   int localIndex = __fluid.X.size();
 
-  double a = 4 * PI / (__boundingBoxCount[0] * __boundingBoxCount[1]);
+  double a = 4 * PI / (__boundingBoxCount[0]);
   double d = std::sqrt(a);
   int M_theta = std::round(PI / d);
   double d_theta = PI / M_theta;

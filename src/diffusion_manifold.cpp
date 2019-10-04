@@ -44,7 +44,7 @@ void GMLS_Solver::DiffusionEquationManifold() {
   double epsilonMultiplier;
   epsilonMultiplier = 1.5;
   int estimatedUpperBoundNumberNeighbors =
-      PI * pow(__cutoffDistance / __particleSize0[0], __dim) + 1;
+      PI * pow(__cutoffDistance / __particleSize0[1], __dim) + 1;
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
       "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
