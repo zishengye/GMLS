@@ -36,6 +36,7 @@ struct ParticleInfo {
   std::vector<double> pressure;
   std::vector<double> us;
   std::vector<double> us_old;
+  std::vector<vec3> flux;
 
   // GMLS info
   Compadre::GMLS *scalarBasis;

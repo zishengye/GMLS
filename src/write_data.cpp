@@ -7,6 +7,9 @@ using namespace std;
 
 void GMLS_Solver::WriteData() {
   static int writeStep = 0;
+  PetscPrintf(PETSC_COMM_WORLD,
+              ("writing to ./vtk/output_step" + to_string(writeStep) + ".vtk\n")
+                  .c_str());
   MasterOperation(0, [this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::trunc);
@@ -116,6 +119,24 @@ void GMLS_Solver::WriteData() {
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
     for (size_t i = 0; i < this->__fluid.X.size(); i++) {
       file << __eq.rhs[i] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, []() {
+    ofstream file;
+    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+    file << "SCALARS flux float 3" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([this]() {
+    ofstream file;
+    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+    for (size_t i = 0; i < this->__fluid.X.size(); i++) {
+      file << __fluid.flux[i][0] << ' ' << __fluid.flux[i][1] << ' '
+           << __fluid.flux[i][2] << endl;
     }
     file.close();
   });

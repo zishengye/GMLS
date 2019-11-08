@@ -62,9 +62,9 @@ void GMLS_Solver::ForwardEulerIntegration() {
       BuildNeighborList();
     }
 
-    if (t == 0) {
-      InitialCondition();
-    }
+    // if (t == 0) {
+    //   InitialCondition();
+    // }
 
     (this->*__equationSolver)();
 
