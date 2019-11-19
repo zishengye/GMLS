@@ -10,7 +10,7 @@ using namespace Compadre;
 void GMLS_Solver::DiffusionEquationManifold() {
   // create source and target coords
   int numSourceCoords = __backgroundParticle.coord.size();
-  int numTargetCoords = __fluid.X.size();
+  int numTargetCoords = __particle.X.size();
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
       "source coordinates", numSourceCoords, 3);
   Kokkos::View<double **>::HostMirror sourceCoords =
@@ -32,15 +32,15 @@ void GMLS_Solver::DiffusionEquationManifold() {
     }
   }
 
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
+  for (int i = 0; i < __particle.localParticleNum; i++) {
     for (int j = 0; j < 3; j++) {
-      targetCoords(i, j) = __fluid.X[i][j];
+      targetCoords(i, j) = __particle.X[i][j];
     }
   }
 
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
+  for (int i = 0; i < __particle.localParticleNum; i++) {
     for (int j = 0; j < 2; j++) {
-      normal(i, j) = __fluid.X[i][j];
+      normal(i, j) = __particle.X[i][j];
     }
     normal(i, 2) = 0.0;
   }
@@ -79,20 +79,19 @@ void GMLS_Solver::DiffusionEquationManifold() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nSetup neighbor lists\n");
 
-  __eq.rhs.resize(__fluid.localParticleNum);
-  __eq.x.resize(__fluid.localParticleNum);
-  __fluid.pressure.resize(__fluid.localParticleNum);
+  __eq.rhs.resize(__particle.localParticleNum);
+  __eq.x.resize(__particle.localParticleNum);
+  __particle.pressure.resize(__particle.localParticleNum);
 
-  if (__fluid.scalarBasis != nullptr) {
-    delete __fluid.scalarBasis;
+  if (__particle.scalarBasis != nullptr) {
+    delete __particle.scalarBasis;
   }
-  __fluid.scalarBasis = new GMLS(
-      ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
-      __polynomialOrder, "MANIFOLD", __manifoldOrder, 3);
-  // __fluid.scalarBasis =
-  //     new GMLS(__manifoldOrder, "MANIFOLD", __manifoldOrder, 3);
+  __particle.scalarBasis =
+      new GMLS(ScalarTaylorPolynomial,
+               StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
+               __dim, "QR", "MANIFOLD", "NO_CONSTRAINT", __manifoldOrder);
 
-  GMLS &pressureBasis = *__fluid.scalarBasis;
+  GMLS &pressureBasis = *__particle.scalarBasis;
 
   pressureBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
                                targetCoordsDevice, epsilonDevice);
@@ -120,12 +119,13 @@ void GMLS_Solver::DiffusionEquationManifold() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nGenerating Diffusion Matrix...\n");
 
-  PetscSparseMatrix A(__fluid.localParticleNum, __fluid.globalParticleNum);
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
+  PetscSparseMatrix A(__particle.localParticleNum,
+                      __particle.globalParticleNum);
+  for (int i = 0; i < __particle.localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
-    const int currentParticleGlobalIndex = __fluid.globalIndex[i];
-    double x = __fluid.X[i][0];
-    double zi = __fluid.X[i][2];
+    const int currentParticleGlobalIndex = __particle.globalIndex[i];
+    double x = __particle.X[i][0];
+    double zi = __particle.X[i][2];
     double kappa_i, kappa_j;
     if (zi < 0.4) {
       kappa_i = 16;
@@ -145,7 +145,7 @@ void GMLS_Solver::DiffusionEquationManifold() {
         const int neighborParticleIndex =
             __backgroundParticle.index[neighborLists(i, j + 1)];
 
-        double zj = __fluid.X[neighborLists(i, j + 1)][2];
+        double zj = __particle.X[neighborLists(i, j + 1)][2];
         if (zj < 0.4) {
           kappa_j = 16;
         } else if (zj < 0.8) {
@@ -172,14 +172,14 @@ void GMLS_Solver::DiffusionEquationManifold() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nDiffusion Matrix Assembled\n");
 
-  __eq.rhs.resize(__fluid.localParticleNum);
-  __eq.x.resize(__fluid.localParticleNum);
-  __fluid.us.resize(__fluid.localParticleNum);
-  __fluid.flux.resize(__fluid.localParticleNum);
+  __eq.rhs.resize(__particle.localParticleNum);
+  __eq.x.resize(__particle.localParticleNum);
+  __particle.us.resize(__particle.localParticleNum);
+  __particle.flux.resize(__particle.localParticleNum);
 
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
-    double x = __fluid.X[i][0];
-    double y = __fluid.X[i][1];
+  for (int i = 0; i < __particle.localParticleNum; i++) {
+    double x = __particle.X[i][0];
+    double y = __particle.X[i][1];
     if (x > 0) {
       if (y > 0) {
         __eq.rhs[i] = asin(y);
@@ -193,12 +193,15 @@ void GMLS_Solver::DiffusionEquationManifold() {
 
   A.Solve(__eq.rhs, __eq.x);
 
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
-    __fluid.us[i] = __eq.x[i];
+  for (int i = 0; i < __particle.localParticleNum; i++) {
+    __particle.us[i] = __eq.x[i];
   }
 
   // post-processing
-  GMLS postProcessingBasis(__polynomialOrder, "MANIFOLD", __manifoldOrder, 3);
+  GMLS postProcessingBasis(ScalarTaylorPolynomial,
+                           StaggeredEdgeAnalyticGradientIntegralSample,
+                           __polynomialOrder, __dim, "QR", "MANIFOLD",
+                           "NO_CONSTRAINT", __manifoldOrder);
   postProcessingBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
                                      targetCoordsDevice, epsilonDevice);
 
@@ -225,12 +228,12 @@ void GMLS_Solver::DiffusionEquationManifold() {
 
   auto postProcessingNeighborListsLengths =
       postProcessingBasis.getNeighborListsLengths();
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
+  for (int i = 0; i < __particle.localParticleNum; i++) {
     for (int j = 0; j < 3; j++) {
-      __fluid.flux[i][j] = 0.0;
+      __particle.flux[i][j] = 0.0;
     }
 
-    double zi = __fluid.X[i][2];
+    double zi = __particle.X[i][2];
     double kappa_i, kappa_j;
     if (zi < 0.4) {
       kappa_i = 16;
@@ -249,10 +252,10 @@ void GMLS_Solver::DiffusionEquationManifold() {
           __backgroundParticle.index[neighborLists(i, j + 1)];
 
       for (int k = 0; k < 3; k++) {
-        __fluid.flux[i][k] +=
+        __particle.flux[i][k] +=
             kappa_i *
             postProcessingAlpha(i, postProcessingGradientIndex[k], j) *
-            (__fluid.us[neighborParticleIndex] - __fluid.us[i]);
+            (__particle.us[neighborParticleIndex] - __particle.us[i]);
       }
     }
   }

@@ -10,7 +10,7 @@ using namespace Compadre;
 void GMLS_Solver::PoissonEquationManifold() {
   // create source and target coords
   int numSourceCoords = __backgroundParticle.coord.size();
-  int numTargetCoords = __fluid.X.size();
+  int numTargetCoords = __particle.X.size();
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
       "source coordinates", numSourceCoords, 3);
   Kokkos::View<double **>::HostMirror sourceCoords =
@@ -27,9 +27,9 @@ void GMLS_Solver::PoissonEquationManifold() {
     }
   }
 
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
+  for (int i = 0; i < __particle.localParticleNum; i++) {
     for (int j = 0; j < 3; j++) {
-      targetCoords(i, j) = __fluid.X[i][j];
+      targetCoords(i, j) = __particle.X[i][j];
     }
   }
 
@@ -65,18 +65,19 @@ void GMLS_Solver::PoissonEquationManifold() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nSetup neighbor lists\n");
 
-  __eq.rhs.resize(__fluid.localParticleNum);
-  __eq.x.resize(__fluid.localParticleNum);
-  __fluid.pressure.resize(__fluid.localParticleNum);
+  __eq.rhs.resize(__particle.localParticleNum);
+  __eq.x.resize(__particle.localParticleNum);
+  __particle.pressure.resize(__particle.localParticleNum);
 
-  if (__fluid.scalarBasis != nullptr) {
-    delete __fluid.scalarBasis;
+  if (__particle.scalarBasis != nullptr) {
+    delete __particle.scalarBasis;
   }
-  __fluid.scalarBasis = new GMLS(
-      ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
-      __polynomialOrder, "MANIFOLD", __manifoldOrder, 3);
+  __particle.scalarBasis =
+      new GMLS(ScalarTaylorPolynomial,
+               StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
+               __dim, "QR", "MANIFOLD", "NO_CONSTRAINT", __manifoldOrder);
 
-  GMLS &pressureBasis = *__fluid.scalarBasis;
+  GMLS &pressureBasis = *__particle.scalarBasis;
 
   pressureBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
                                targetCoordsDevice, epsilonDevice);
@@ -100,11 +101,12 @@ void GMLS_Solver::PoissonEquationManifold() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nGenerating Poisson Matrix...\n");
 
-  PetscSparseMatrix A(__fluid.localParticleNum, __fluid.globalParticleNum);
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
+  PetscSparseMatrix A(__particle.localParticleNum,
+                      __particle.globalParticleNum);
+  for (int i = 0; i < __particle.localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
-    const int currentParticleGlobalIndex = __fluid.globalIndex[i];
-    if (__fluid.particleType[i] != 0) {
+    const int currentParticleGlobalIndex = __particle.globalIndex[i];
+    if (__particle.particleType[i] != 0) {
       A.increment(currentParticleLocalIndex, currentParticleGlobalIndex, 1.0);
     } else {
       for (int j = 1; j < pressureNeighborListsLengths(i); j++) {
@@ -123,26 +125,26 @@ void GMLS_Solver::PoissonEquationManifold() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nPoisson Matrix Assembled\n");
 
-  __eq.rhs.resize(__fluid.localParticleNum);
-  __eq.x.resize(__fluid.localParticleNum);
-  __fluid.pressure.resize(__fluid.localParticleNum);
+  __eq.rhs.resize(__particle.localParticleNum);
+  __eq.x.resize(__particle.localParticleNum);
+  __particle.pressure.resize(__particle.localParticleNum);
 
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
-    if (__fluid.particleType[i] == 0) {
-      double x = __fluid.X[i][0];
-      double y = __fluid.X[i][1];
+  for (int i = 0; i < __particle.localParticleNum; i++) {
+    if (__particle.particleType[i] == 0) {
+      double x = __particle.X[i][0];
+      double y = __particle.X[i][1];
       double g = 1 + 4 * x * x;
       __eq.rhs[i] = 2.0 / g - 8.0 * x * x / g / g + 2.0;
     } else {
-      double x = __fluid.X[i][0];
-      double y = __fluid.X[i][1];
+      double x = __particle.X[i][0];
+      double y = __particle.X[i][1];
       __eq.rhs[i] = pow(x, 2) + pow(y, 2);
     }
   }
 
   A.Solve(__eq.rhs, __eq.x);
 
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
-    __fluid.pressure[i] = __eq.x[i];
+  for (int i = 0; i < __particle.localParticleNum; i++) {
+    __particle.pressure[i] = __eq.x[i];
   }
 }

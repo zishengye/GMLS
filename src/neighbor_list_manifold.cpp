@@ -43,12 +43,12 @@ void GMLS_Solver::BuildNeighborListManifold() {
   isNeighbor.resize(neighborNum);
   __neighborSendParticle.resize(neighborNum);
 
-  for (int i = 0; i < __fluid.localParticleNum; i++) {
-    __backgroundParticle.coord.push_back(__fluid.X[i]);
-    __backgroundParticle.index.push_back(__fluid.globalIndex[i]);
+  for (int i = 0; i < __particle.localParticleNum; i++) {
+    __backgroundParticle.coord.push_back(__particle.X[i]);
+    __backgroundParticle.index.push_back(__particle.globalIndex[i]);
     double xPos, yPos;
-    xPos = __fluid.X[i][0];
-    yPos = __fluid.X[i][1];
+    xPos = __particle.X[i][0];
+    yPos = __particle.X[i][1];
 
     isNeighbor[0] = PutParticleInNeighborList(0, [=]() {
       return xPos < __domainBoundingBox[0][0] + __cutoffDistance &&
@@ -88,8 +88,8 @@ void GMLS_Solver::BuildNeighborListManifold() {
 
     for (size_t j = 0; j < isNeighbor.size(); j++) {
       if (isNeighbor[j] == true) {
-        __neighborSendParticle[j].coord.push_back(__fluid.X[i]);
-        __neighborSendParticle[j].index.push_back(__fluid.globalIndex[i]);
+        __neighborSendParticle[j].coord.push_back(__particle.X[i]);
+        __neighborSendParticle[j].index.push_back(__particle.globalIndex[i]);
       }
     }
   }

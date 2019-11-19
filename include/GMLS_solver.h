@@ -158,13 +158,13 @@ private:
 
   void InsertParticle(vec3 &X, int particleType, vec3 &particleSize,
                       vec3 &normal, int globalIndex, double vol) {
-    __fluid.X.push_back(X);
-    __fluid.particleType.push_back(particleType);
-    __fluid.particleSize.push_back(particleSize);
-    __fluid.normal.push_back(normal);
-    __fluid.globalIndex.push_back(globalIndex);
-    __fluid.vol.push_back(vol);
-    __fluid.d.push_back(particleSize[0]);
+    __particle.X.push_back(X);
+    __particle.particleType.push_back(particleType);
+    __particle.particleSize.push_back(particleSize);
+    __particle.normal.push_back(normal);
+    __particle.globalIndex.push_back(globalIndex);
+    __particle.vol.push_back(vol);
+    __particle.d.push_back(particleSize[0]);
   }
 
   triple<int> __domainCount;
@@ -187,7 +187,7 @@ private:
   // fluid info
   double __eta;
 
-  ParticleInfo __fluid;
+  ParticleInfo __particle;
   ParticleInfo __gap;
   std::vector<bool> __neighborFlag;
   std::vector<neighborListInfo> __neighborSendParticle;

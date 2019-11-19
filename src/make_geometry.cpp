@@ -171,25 +171,26 @@ void GMLS_Solver::InitUniformParticleField() {
 
   SerialOperation([this]() {
     cout << "[Proc " << this->__myID << "]: generated "
-         << this->__fluid.X.size() << " particles." << endl;
+         << this->__particle.X.size() << " particles." << endl;
   });
 
-  __fluid.localParticleNum = this->__fluid.X.size();
-  MPI_Allreduce(&(__fluid.localParticleNum), &(__fluid.globalParticleNum), 1,
-                MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  __particle.localParticleNum = this->__particle.X.size();
+  MPI_Allreduce(&(__particle.localParticleNum), &(__particle.globalParticleNum),
+                1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
   vector<int> particleNum;
   particleNum.resize(__MPISize);
-  __fluid.particleOffset.resize(__MPISize + 1);
-  MPI_Allgather(&(__fluid.localParticleNum), 1, MPI_INT, particleNum.data(), 1,
-                MPI_INT, MPI_COMM_WORLD);
-  __fluid.particleOffset[0] = 0;
+  __particle.particleOffset.resize(__MPISize + 1);
+  MPI_Allgather(&(__particle.localParticleNum), 1, MPI_INT, particleNum.data(),
+                1, MPI_INT, MPI_COMM_WORLD);
+  __particle.particleOffset[0] = 0;
   for (int i = 0; i < __MPISize; i++) {
-    __fluid.particleOffset[i + 1] = __fluid.particleOffset[i] + particleNum[i];
+    __particle.particleOffset[i + 1] =
+        __particle.particleOffset[i] + particleNum[i];
   }
 
-  for (size_t i = 0; i < __fluid.globalIndex.size(); i++) {
-    __fluid.globalIndex[i] += __fluid.particleOffset[__myID];
+  for (size_t i = 0; i < __particle.globalIndex.size(); i++) {
+    __particle.globalIndex[i] += __particle.particleOffset[__myID];
   }
 }
 
@@ -204,7 +205,7 @@ void GMLS_Solver::InitFluidParticle() {
   if (__dim == 2) {
     zPos = 0.0;
     double vol = __particleSize0[0] * __particleSize0[1];
-    int localIndex = __fluid.X.size();
+    int localIndex = __particle.X.size();
     // fluid particle
     yPos = __domain[0][1] + __particleSize0[1] / 2.0;
     for (int j = 0; j < __domainCount[1]; j++) {
@@ -242,7 +243,7 @@ void GMLS_Solver::InitWallParticle() {
   vec3 normal;
   if (__dim == 2) {
     double vol = __particleSize0[0] * __particleSize0[1];
-    int localIndex = __fluid.X.size();
+    int localIndex = __particle.X.size();
     zPos = 0.0;
     // down
     if (__domainBoundaryType[0] != 0) {
@@ -322,7 +323,7 @@ void GMLS_Solver::InitWallParticle() {
   }
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
-    int localIndex = __fluid.X.size();
+    int localIndex = __particle.X.size();
 
     vec3 startPos, endPos;
     // face

@@ -24,8 +24,8 @@ int SearchCommand(int argc, char **argv, const string &commandName, T &res) {
 }
 
 GMLS_Solver::GMLS_Solver(int argc, char **argv) {
-  __fluid.scalarBasis = nullptr;
-  __fluid.vectorBasis = nullptr;
+  __particle.scalarBasis = nullptr;
+  __particle.vectorBasis = nullptr;
   // [default setup]
   __successInitialized = false;
 
@@ -173,9 +173,9 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
 }
 
 void GMLS_Solver::ClearMemory() {
-  __fluid.X.clear();
-  __fluid.particleType.clear();
-  __fluid.normal.clear();
-  __fluid.globalIndex.clear();
-  __fluid.vol.clear();
+  __particle.X.clear();
+  __particle.particleType.clear();
+  __particle.normal.clear();
+  __particle.globalIndex.clear();
+  __particle.vol.clear();
 }

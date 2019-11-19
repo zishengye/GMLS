@@ -86,25 +86,26 @@ void GMLS_Solver::InitUniformParticleManifoldField() {
 
   SerialOperation([this]() {
     cout << "[Proc " << this->__myID << "]: generated "
-         << this->__fluid.X.size() << " particles." << endl;
+         << this->__particle.X.size() << " particles." << endl;
   });
 
-  __fluid.localParticleNum = this->__fluid.X.size();
-  MPI_Allreduce(&(__fluid.localParticleNum), &(__fluid.globalParticleNum), 1,
-                MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  __particle.localParticleNum = this->__particle.X.size();
+  MPI_Allreduce(&(__particle.localParticleNum), &(__particle.globalParticleNum),
+                1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
   vector<int> particleNum;
   particleNum.resize(__MPISize);
-  __fluid.particleOffset.resize(__MPISize + 1);
-  MPI_Allgather(&(__fluid.localParticleNum), 1, MPI_INT, particleNum.data(), 1,
-                MPI_INT, MPI_COMM_WORLD);
-  __fluid.particleOffset[0] = 0;
+  __particle.particleOffset.resize(__MPISize + 1);
+  MPI_Allgather(&(__particle.localParticleNum), 1, MPI_INT, particleNum.data(),
+                1, MPI_INT, MPI_COMM_WORLD);
+  __particle.particleOffset[0] = 0;
   for (int i = 0; i < __MPISize; i++) {
-    __fluid.particleOffset[i + 1] = __fluid.particleOffset[i] + particleNum[i];
+    __particle.particleOffset[i + 1] =
+        __particle.particleOffset[i] + particleNum[i];
   }
 
-  for (size_t i = 0; i < __fluid.globalIndex.size(); i++) {
-    __fluid.globalIndex[i] += __fluid.particleOffset[__myID];
+  for (size_t i = 0; i < __particle.globalIndex.size(); i++) {
+    __particle.globalIndex[i] += __particle.particleOffset[__myID];
   }
 }
 
@@ -115,7 +116,7 @@ void GMLS_Solver::InitFluidParticleManifold() {
   // vec3 normal;
 
   // double vol = __particleSize0[0] * __particleSize0[1];
-  // int localIndex = __fluid.X.size();
+  // int localIndex = __particle.X.size();
   // // fluid particle
   // yPos = __domain[0][1] + __particleSize0[1] / 2.0;
   // for (int j = 0; j < __domainCount[1]; j++) {
@@ -124,14 +125,14 @@ void GMLS_Solver::InitFluidParticleManifold() {
   //     vec3 pos = Manifold(xPos, yPos);
   //     normal = ManifoldNorm(xPos, yPos);
   //     InsertParticle(pos, 0, __particleSize0, normal, localIndex++, vol);
-  //     __fluid.X_origin.push_back(vec3(xPos, yPos, 0.0));
+  //     __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
   //     xPos += __particleSize0[0];
   //   }
   //   yPos += __particleSize0[1];
   // }
 
   double xPos, yPos, zPos;
-  int localIndex = __fluid.X.size();
+  int localIndex = __particle.X.size();
 
   double dz = 2.0 / __boundingBoxCount[1];
   double dTheta = 2.0 * PI / __boundingBoxCount[0];
@@ -153,7 +154,7 @@ void GMLS_Solver::InitWallParticleManifold() {
   double xPos, yPos;
   vec3 normal;
   double vol = __particleSize0[0] * __particleSize0[1];
-  int localIndex = __fluid.X.size();
+  int localIndex = __particle.X.size();
   // down
   if (__domainBoundaryType[0] != 0) {
     xPos = __domain[0][0];
@@ -162,7 +163,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
-      __fluid.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
       xPos += __particleSize0[0];
     }
 
@@ -170,7 +171,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
-      __fluid.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
       xPos += __particleSize0[0];
     }
   }
@@ -183,7 +184,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
-      __fluid.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
       yPos += __particleSize0[1];
     }
 
@@ -191,7 +192,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
-      __fluid.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
       yPos += __particleSize0[1];
     }
   }
@@ -204,7 +205,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
-      __fluid.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
       xPos -= __particleSize0[0];
     }
 
@@ -212,7 +213,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
-      __fluid.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
       xPos -= __particleSize0[0];
     }
   }
@@ -225,7 +226,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
-      __fluid.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
       yPos -= __particleSize0[1];
     }
 
@@ -233,7 +234,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
-      __fluid.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
       yPos -= __particleSize0[1];
     }
   }

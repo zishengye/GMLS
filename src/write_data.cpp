@@ -17,16 +17,16 @@ void GMLS_Solver::WriteData() {
     file << "particlePositions" << endl;
     file << "ASCII" << endl;
     file << "DATASET POLYDATA" << endl;
-    file << "POINTS " << this->__fluid.globalParticleNum << " float" << endl;
+    file << "POINTS " << this->__particle.globalParticleNum << " float" << endl;
     file.close();
   });
 
   SerialOperation([this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    for (size_t i = 0; i < this->__fluid.X.size(); i++) {
-      file << __fluid.X[i][0] << ' ' << __fluid.X[i][1] << ' '
-           << __fluid.X[i][2] << endl;
+    for (size_t i = 0; i < this->__particle.X.size(); i++) {
+      file << __particle.X[i][0] << ' ' << __particle.X[i][1] << ' '
+           << __particle.X[i][2] << endl;
     }
     file.close();
   });
@@ -34,7 +34,7 @@ void GMLS_Solver::WriteData() {
   MasterOperation(0, [this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    file << "POINT_DATA " << this->__fluid.globalParticleNum << endl;
+    file << "POINT_DATA " << this->__particle.globalParticleNum << endl;
     file.close();
   });
 
@@ -49,8 +49,8 @@ void GMLS_Solver::WriteData() {
   SerialOperation([this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    for (size_t i = 0; i < this->__fluid.X.size(); i++) {
-      file << __fluid.vol[i] << endl;
+    for (size_t i = 0; i < this->__particle.X.size(); i++) {
+      file << __particle.vol[i] << endl;
     }
     file.close();
   });
@@ -66,8 +66,8 @@ void GMLS_Solver::WriteData() {
   SerialOperation([this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    for (size_t i = 0; i < this->__fluid.X.size(); i++) {
-      file << __fluid.particleType[i] << endl;
+    for (size_t i = 0; i < this->__particle.X.size(); i++) {
+      file << __particle.particleType[i] << endl;
     }
     file.close();
   });
@@ -83,8 +83,8 @@ void GMLS_Solver::WriteData() {
   SerialOperation([this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    for (size_t i = 0; i < this->__fluid.X.size(); i++) {
-      file << __fluid.d[i] << endl;
+    for (size_t i = 0; i < this->__particle.X.size(); i++) {
+      file << __particle.d[i] << endl;
     }
     file.close();
   });
@@ -100,8 +100,8 @@ void GMLS_Solver::WriteData() {
   SerialOperation([this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    for (size_t i = 0; i < this->__fluid.X.size(); i++) {
-      file << __fluid.us[i] << endl;
+    for (size_t i = 0; i < this->__particle.X.size(); i++) {
+      file << __particle.us[i] << endl;
     }
     file.close();
   });
@@ -117,7 +117,7 @@ void GMLS_Solver::WriteData() {
   SerialOperation([this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    for (size_t i = 0; i < this->__fluid.X.size(); i++) {
+    for (size_t i = 0; i < this->__particle.X.size(); i++) {
       file << __eq.rhs[i] << endl;
     }
     file.close();
@@ -134,9 +134,9 @@ void GMLS_Solver::WriteData() {
   SerialOperation([this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    for (size_t i = 0; i < this->__fluid.X.size(); i++) {
-      file << __fluid.flux[i][0] << ' ' << __fluid.flux[i][1] << ' '
-           << __fluid.flux[i][2] << endl;
+    for (size_t i = 0; i < this->__particle.X.size(); i++) {
+      file << __particle.flux[i][0] << ' ' << __particle.flux[i][1] << ' '
+           << __particle.flux[i][2] << endl;
     }
     file.close();
   });
