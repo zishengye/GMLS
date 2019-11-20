@@ -389,10 +389,10 @@ void GMLS_Solver::StokesEquation() {
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < __particle.globalParticleNum; i++) {
       if (__particle.particleType[i] == 0)
-        PI.increment(__particle.globalParticleNum, i, 1.0);
+        PI.increment(__particle.localParticleNum, i, 1.0);
     }
 
-    PI.increment(__particle.globalParticleNum, __particle.globalParticleNum,
+    PI.increment(__particle.localParticleNum, __particle.globalParticleNum,
                  100.0);
   }
 

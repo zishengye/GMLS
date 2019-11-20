@@ -39,7 +39,7 @@ public:
 
   // only for square matrix
   PetscSparseMatrix(int m /* local # of rows */, int N /* global # of cols */)
-      : __isAssembled(false), __row(m), __col(N) {
+      : __isAssembled(false), __row(m), __col(m), __Col(N) {
     __matrix.resize(m);
   }
 
@@ -56,7 +56,8 @@ public:
 
   void resize(int m, int n) {
     __row = m;
-    __col = n;
+    __col = m;
+    __Col = n;
     __matrix.resize(m);
   }
 
@@ -75,9 +76,6 @@ public:
 };
 
 void PetscSparseMatrix::increment(const int i, const int j, const double daij) {
-  if (j > __col) {
-    std::cout << "wrong input" << i << ", " << j << std::endl;
-  }
   if (std::abs(daij) > 1e-15) {
     bool inlist = false;
 

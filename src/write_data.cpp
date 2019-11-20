@@ -89,57 +89,25 @@ void GMLS_Solver::WriteData() {
     file.close();
   });
 
-  MasterOperation(0, []() {
-    ofstream file;
-    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    file << "SCALARS us float 1" << endl;
-    file << "LOOKUP_TABLE default" << endl;
-    file.close();
-  });
+  // physical data output, equation type depedent
+  if (__equationType == "diffusion") {
+    MasterOperation(0, []() {
+      ofstream file;
+      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+      file << "SCALARS us float 1" << endl;
+      file << "LOOKUP_TABLE default" << endl;
+      file.close();
+    });
 
-  SerialOperation([this]() {
-    ofstream file;
-    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    for (size_t i = 0; i < this->__particle.X.size(); i++) {
-      file << __particle.us[i] << endl;
-    }
-    file.close();
-  });
-
-  MasterOperation(0, []() {
-    ofstream file;
-    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    file << "SCALARS rhsScalar float 1" << endl;
-    file << "LOOKUP_TABLE default" << endl;
-    file.close();
-  });
-
-  SerialOperation([this]() {
-    ofstream file;
-    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    for (size_t i = 0; i < this->__particle.X.size(); i++) {
-      file << __eq.rhsScalar[i] << endl;
-    }
-    file.close();
-  });
-
-  MasterOperation(0, []() {
-    ofstream file;
-    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    file << "SCALARS flux float 3" << endl;
-    file << "LOOKUP_TABLE default" << endl;
-    file.close();
-  });
-
-  SerialOperation([this]() {
-    ofstream file;
-    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    for (size_t i = 0; i < this->__particle.X.size(); i++) {
-      file << __particle.flux[i][0] << ' ' << __particle.flux[i][1] << ' '
-           << __particle.flux[i][2] << endl;
-    }
-    file.close();
-  });
+    SerialOperation([this]() {
+      ofstream file;
+      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+      for (size_t i = 0; i < this->__particle.X.size(); i++) {
+        file << __particle.us[i] << endl;
+      }
+      file.close();
+    });
+  }
 
   writeStep++;
 }

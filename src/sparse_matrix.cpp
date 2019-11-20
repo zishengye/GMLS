@@ -30,24 +30,8 @@ int PetscSparseMatrix::FinalAssemble() {
   }
   __i[__row] = count;
 
-  // ofstream file("output.mat", ios::trunc);
-  // for (int i = 0; i < __row; i++) {
-  //   for (list<entry>::iterator it = __matrix[i].begin();
-  //        it != __matrix[i].end(); it++) {
-  //     file << i << '\t' << it->first << '\t' << it->second << endl;
-  //   }
-  // }
-  // file.close();
-
-  if (__Col == 0) {
-    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __row, PETSC_DECIDE,
-                              PETSC_DECIDE, __i.data(), __j.data(),
-                              __val.data(), &__mat);
-  } else {
-    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
-                              __Col, __i.data(), __j.data(), __val.data(),
-                              &__mat);
-  }
+  MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE, __Col,
+                            __i.data(), __j.data(), __val.data(), &__mat);
 
   __isAssembled = true;
 
@@ -163,7 +147,7 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   // final solve
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   KSPSolve(_ksp, _bp, _xp);
-  PetscPrintf(PETSC_COMM_WORLD, "finish _ksp solving\n");
+  PetscPrintf(PETSC_COMM_WORLD, "finish ksp solving\n");
 
   KSPDestroy(&_ksp);
 
@@ -197,7 +181,4 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   }
 
   MatDestroy(&_A);
-
-  ISDestroy(_isg);
-  ISDestroy(_isg + 1);
 }
