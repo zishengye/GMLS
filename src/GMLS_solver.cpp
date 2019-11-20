@@ -26,6 +26,8 @@ int SearchCommand(int argc, char **argv, const string &commandName, T &res) {
 GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   __particle.scalarBasis = nullptr;
   __particle.vectorBasis = nullptr;
+  __particle.scalarNeumannBoundaryBasis = nullptr;
+  __particle.vectorNeumannBoundaryBasis = nullptr;
   // [default setup]
   __successInitialized = false;
 

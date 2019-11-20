@@ -24,7 +24,7 @@ private:
   typedef std::pair<int, double> entry;
   std::vector<std::list<entry>> __matrix;
 
-  PetscInt __row, __col, __nnz;
+  PetscInt __row, __col, __nnz, __Col;
 
   Mat __mat;
 
@@ -35,10 +35,17 @@ private:
   inline void sortbyj();
 
 public:
-  PetscSparseMatrix() : __isAssembled(false) {}
+  PetscSparseMatrix() : __isAssembled(false), __row(0), __col(0), __Col(0) {}
 
+  // only for square matrix
   PetscSparseMatrix(int m /* local # of rows */, int N /* global # of cols */)
       : __isAssembled(false), __row(m), __col(N) {
+    __matrix.resize(m);
+  }
+
+  PetscSparseMatrix(int m /* local # of rows */, int n /* local # of cols */,
+                    int N /* global # of cols */)
+      : __isAssembled(false), __row(m), __col(n), __Col(N) {
     __matrix.resize(m);
   }
 
@@ -47,9 +54,9 @@ public:
       MatDestroy(&__mat);
   }
 
-  void resize(int m, int N) {
+  void resize(int m, int n) {
     __row = m;
-    __col = N;
+    __col = n;
     __matrix.resize(m);
   }
 
@@ -68,6 +75,9 @@ public:
 };
 
 void PetscSparseMatrix::increment(const int i, const int j, const double daij) {
+  if (j > __col) {
+    std::cout << "wrong input" << i << ", " << j << std::endl;
+  }
   if (std::abs(daij) > 1e-15) {
     bool inlist = false;
 
