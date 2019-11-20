@@ -251,7 +251,7 @@ void GMLS_Solver::InitWallParticle() {
       yPos = __domain[0][1];
       if (__domainBoundaryType[3] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(0.0, 1.0, 0.0);
+        normal = vec3(sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
         InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
         xPos += __particleSize0[0];
       }
@@ -270,7 +270,7 @@ void GMLS_Solver::InitWallParticle() {
       yPos = __domain[0][1];
       if (__domainBoundaryType[0] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(-1.0, 0.0, 0.0);
+        normal = vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
         InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
         yPos += __particleSize0[1];
       }
@@ -289,7 +289,7 @@ void GMLS_Solver::InitWallParticle() {
       yPos = __domain[1][1];
       if (__domainBoundaryType[1] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(0.0, -1.0, 0.0);
+        normal = vec3(-sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
         InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
         xPos -= __particleSize0[0];
       }
@@ -308,7 +308,7 @@ void GMLS_Solver::InitWallParticle() {
       yPos = __domain[1][1];
       if (__domainBoundaryType[2] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(1.0, 0.0, 0.0);
+        normal = vec3(sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
         InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
         yPos -= __particleSize0[1];
       }

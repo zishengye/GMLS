@@ -89,6 +89,24 @@ void GMLS_Solver::WriteData() {
     file.close();
   });
 
+  MasterOperation(0, []() {
+    ofstream file;
+    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+    file << "SCALARS n float 3" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([this]() {
+    ofstream file;
+    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+    for (size_t i = 0; i < this->__particle.X.size(); i++) {
+      file << __particle.normal[i][0] << ' ' << __particle.normal[i][1] << ' '
+           << __particle.normal[i][2] << endl;
+    }
+    file.close();
+  });
+
   // physical data output, equation type depedent
   if (__equationType == "Diffusion") {
     MasterOperation(0, []() {
@@ -141,6 +159,25 @@ void GMLS_Solver::WriteData() {
       for (size_t i = 0; i < this->__particle.X.size(); i++) {
         for (int axes = 0; axes < __dim; axes++)
           file << __particle.velocity[__dim * i + axes] << ' ';
+        file << endl;
+      }
+      file.close();
+    });
+
+    MasterOperation(0, [this]() {
+      ofstream file;
+      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+      file << "SCALARS rhs_u float " + to_string(__dim) << endl;
+      file << "LOOKUP_TABLE default" << endl;
+      file.close();
+    });
+
+    SerialOperation([this]() {
+      ofstream file;
+      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+      for (size_t i = 0; i < this->__particle.X.size(); i++) {
+        for (int axes = 0; axes < __dim; axes++)
+          file << __eq.rhsVector[__dim * i + axes] << ' ';
         file << endl;
       }
       file.close();

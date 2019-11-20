@@ -114,35 +114,22 @@ void GMLS_Solver::StokesEquation() {
       "tangent bundles", neumannBoundarynumTargetCoords, 3, 3);
   Kokkos::View<double ***>::HostMirror tangentBundles =
       Kokkos::create_mirror_view(tangentBundlesDevice);
-  int counter = 0;
-  if (__dim == 2)
-    for (int i = 0; i < __particle.localParticleNum; i++) {
-      if (__particle.particleType[i] != 0) {
-        tangentBundles(counter, 0, 0) = -__particle.normal[i][1];
-        tangentBundles(counter, 0, 1) = __particle.normal[i][0];
-        tangentBundles(counter, 0, 2) = 0.0;
-        tangentBundles(counter, 1, 0) = 0.0;
-        tangentBundles(counter, 1, 1) = 0.0;
-        tangentBundles(counter, 1, 2) = 1.0;
-        counter++;
-      }
-    }
 
-  if (__dim == 3)
-    for (int i = 0; i < __particle.localParticleNum; i++) {
-      if (__particle.particleType[i] != 0) {
-        tangentBundles(counter, 0, 0) = 0.0;
-        tangentBundles(counter, 0, 1) = __particle.normal[i][2];
-        tangentBundles(counter, 0, 2) = -__particle.normal[i][1];
-        tangentBundles(counter, 1, 0) = -__particle.normal[i][2];
-        tangentBundles(counter, 1, 1) = 0.0;
-        tangentBundles(counter, 1, 2) = __particle.normal[i][0];
-        tangentBundles(counter, 2, 0) = __particle.normal[i][2];
-        tangentBundles(counter, 2, 1) = -__particle.normal[i][0];
-        tangentBundles(counter, 2, 2) = 0.0;
-        counter++;
-      }
+  int counter = 0;
+  for (int i = 0; i < __particle.localParticleNum; i++) {
+    if (__particle.particleType[i] != 0) {
+      tangentBundles(counter, 0, 0) = 0.0;
+      tangentBundles(counter, 0, 1) = __particle.normal[i][2];
+      tangentBundles(counter, 0, 2) = -__particle.normal[i][1];
+      tangentBundles(counter, 1, 0) = -__particle.normal[i][2];
+      tangentBundles(counter, 1, 1) = 0.0;
+      tangentBundles(counter, 1, 2) = __particle.normal[i][0];
+      tangentBundles(counter, 2, 0) = __particle.normal[i][2];
+      tangentBundles(counter, 2, 1) = -__particle.normal[i][0];
+      tangentBundles(counter, 2, 2) = 0.0;
+      counter++;
     }
+  }
 
   Kokkos::deep_copy(tangentBundlesDevice, tangentBundles);
 
@@ -314,9 +301,11 @@ void GMLS_Solver::StokesEquation() {
 
         const int iPressureLocal = currentParticleLocalIndex;
         for (int axes1 = 0; axes1 < __dim; axes1++) {
-          const double dpdni = pressureNeumannBoundaryAlphas(
-              neumannBoudnaryIndex, pressureNeumannBoundaryGradientIndex[axes1],
-              j);
+          const double dpdni =
+              pressureNeumannBoundaryAlphas(
+                  neumannBoudnaryIndex,
+                  pressureNeumannBoundaryGradientIndex[axes1], j) *
+              __particle.normal[i][axes1];
 
           for (int axes2 = 0; axes2 < __dim; axes2++) {
             const int iVelocityGlobal =
@@ -413,23 +402,26 @@ void GMLS_Solver::StokesEquation() {
   xPressure.resize(localPressureDOF);
   xVelocity.resize(localVelocityDOF);
 
+  // boundary condition
   for (int i = 0; i < __particle.localParticleNum; i++) {
     if (__particle.particleType[i] != 0) {
-      rhsVelocity[3 * i] = __particle.X[i][1] * 1.0;
-      rhsVelocity[3 * i + 1] = 0.0;
-      rhsVelocity[3 * i + 2] = 0.0;
+      for (int axes = 0; axes < __dim; axes++) {
+        rhsVelocity[__dim * i + axes] =
+            __particle.X[i][1] * 1.0 * double(axes == 0);
+      }
     }
   }
 
   Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
 
+  cout << xPressure[__particle.localParticleNum] << endl;
   // copy data
   __particle.pressure.resize(__particle.localParticleNum);
   __particle.velocity.resize(__particle.localParticleNum * __dim);
 
   for (int i = 0; i < __particle.localParticleNum; i++) {
-    __particle.pressure[i] = __eq.xScalar[i];
+    __particle.pressure[i] = xPressure[i];
     for (int axes1 = 0; axes1 < __dim; axes1++)
-      __particle.velocity[__dim * i + axes1] = __eq.xVector[__dim * i + axes1];
+      __particle.velocity[__dim * i + axes1] = xVelocity[__dim * i + axes1];
   }
 }
