@@ -131,15 +131,15 @@ void GMLS_Solver::StokesEquation() {
   if (__dim == 3)
     for (int i = 0; i < __particle.localParticleNum; i++) {
       if (__particle.particleType[i] != 0) {
-        tangentBundles(counter, 0, 0) = -__particle.normal[i][1];
-        tangentBundles(counter, 0, 1) = __particle.normal[i][0];
-        tangentBundles(counter, 0, 2) = 0.0;
-        tangentBundles(counter, 1, 0) = 0.0;
+        tangentBundles(counter, 0, 0) = 0.0;
+        tangentBundles(counter, 0, 1) = __particle.normal[i][2];
+        tangentBundles(counter, 0, 2) = -__particle.normal[i][1];
+        tangentBundles(counter, 1, 0) = -__particle.normal[i][2];
         tangentBundles(counter, 1, 1) = 0.0;
-        tangentBundles(counter, 1, 2) = 1.0;
-        tangentBundles(counter, 2, 0) = 0.0;
-        tangentBundles(counter, 2, 1) = 0.0;
-        tangentBundles(counter, 2, 2) = 1.0;
+        tangentBundles(counter, 1, 2) = __particle.normal[i][0];
+        tangentBundles(counter, 2, 0) = __particle.normal[i][2];
+        tangentBundles(counter, 2, 1) = -__particle.normal[i][0];
+        tangentBundles(counter, 2, 2) = 0.0;
         counter++;
       }
     }
@@ -415,8 +415,9 @@ void GMLS_Solver::StokesEquation() {
 
   for (int i = 0; i < __particle.localParticleNum; i++) {
     if (__particle.particleType[i] != 0) {
-      rhsVelocity[2 * i] = __particle.X[i][1] * 1.0;
-      rhsVelocity[2 * i + 1] = 0.0;
+      rhsVelocity[3 * i] = __particle.X[i][1] * 1.0;
+      rhsVelocity[3 * i + 1] = 0.0;
+      rhsVelocity[3 * i + 2] = 0.0;
     }
   }
 
