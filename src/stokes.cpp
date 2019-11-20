@@ -413,6 +413,13 @@ void GMLS_Solver::StokesEquation() {
   xPressure.resize(localPressureDOF);
   xVelocity.resize(localVelocityDOF);
 
+  for (int i = 0; i < __particle.localParticleNum; i++) {
+    if (__particle.particleType[i] != 0) {
+      rhsVelocity[2 * i] = __particle.X[i][1] * 1.0;
+      rhsVelocity[2 * i + 1] = 0.0;
+    }
+  }
+
   Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
 
   // copy data
