@@ -44,7 +44,7 @@ int PetscSparseMatrix::FinalAssemble() {
                               PETSC_DECIDE, __i.data(), __j.data(),
                               __val.data(), &__mat);
   } else {
-    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __row, PETSC_DECIDE,
+    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
                               __Col, __i.data(), __j.data(), __val.data(),
                               &__mat);
   }

@@ -397,13 +397,9 @@ void GMLS_Solver::StokesEquation() {
   }
 
   LUV.FinalAssemble();
-  PetscPrintf(PETSC_COMM_WORLD, "LUV\n");
   DXY.FinalAssemble();
-  PetscPrintf(PETSC_COMM_WORLD, "DXY\n");
   GXY.FinalAssemble();
-  PetscPrintf(PETSC_COMM_WORLD, "GXY\n");
   PI.FinalAssemble();
-  PetscPrintf(PETSC_COMM_WORLD, "PI\n");
 
   PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
 
