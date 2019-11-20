@@ -9,19 +9,20 @@ using namespace std;
 
 #define PI 3.1415926
 
-inline vec3 Manifold(double x, double y) {
+inline vec3 Manifold(double xScalar, double y) {
   double r = 1.0;
-  double theta = x;
+  double theta = xScalar;
   double phi = y;
-  x = r * sin(phi) * cos(theta);
+  xScalar = r * sin(phi) * cos(theta);
   y = r * sin(phi) * sin(theta);
   double z = r * cos(phi);
-  return vec3(x, y, z);
+  return vec3(xScalar, y, z);
 }
 
-inline vec3 ManifoldNorm(double x, double y) {
+inline vec3 ManifoldNorm(double xScalar, double y) {
   double z = 1;
-  vec3 normal = vec3(-2 * x * (pow(y, 2) - 1), -2 * y * (pow(x, 2) - 1), z);
+  vec3 normal =
+      vec3(-2 * xScalar * (pow(y, 2) - 1), -2 * y * (pow(xScalar, 2) - 1), z);
   normal = normal * (1.0 / normal.mag());
 
   return normal;

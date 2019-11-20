@@ -79,8 +79,8 @@ void GMLS_Solver::DiffusionEquationManifold() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nSetup neighbor lists\n");
 
-  __eq.rhs.resize(__particle.localParticleNum);
-  __eq.x.resize(__particle.localParticleNum);
+  __eq.rhsScalar.resize(__particle.localParticleNum);
+  __eq.xScalar.resize(__particle.localParticleNum);
   __particle.pressure.resize(__particle.localParticleNum);
 
   if (__particle.scalarBasis != nullptr) {
@@ -124,7 +124,7 @@ void GMLS_Solver::DiffusionEquationManifold() {
   for (int i = 0; i < __particle.localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = __particle.globalIndex[i];
-    double x = __particle.X[i][0];
+    double xScalar = __particle.X[i][0];
     double zi = __particle.X[i][2];
     double kappa_i, kappa_j;
     if (zi < 0.4) {
@@ -138,7 +138,7 @@ void GMLS_Solver::DiffusionEquationManifold() {
     } else {
       kappa_i = 2;
     }
-    if (x > 0) {
+    if (xScalar > 0) {
       A.increment(currentParticleLocalIndex, currentParticleGlobalIndex, 1.0);
     } else {
       for (int j = 1; j < pressureNeighborListsLengths(i); j++) {
@@ -172,29 +172,29 @@ void GMLS_Solver::DiffusionEquationManifold() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nDiffusion Matrix Assembled\n");
 
-  __eq.rhs.resize(__particle.localParticleNum);
-  __eq.x.resize(__particle.localParticleNum);
+  __eq.rhsScalar.resize(__particle.localParticleNum);
+  __eq.xScalar.resize(__particle.localParticleNum);
   __particle.us.resize(__particle.localParticleNum);
   __particle.flux.resize(__particle.localParticleNum);
 
   for (int i = 0; i < __particle.localParticleNum; i++) {
-    double x = __particle.X[i][0];
+    double xScalar = __particle.X[i][0];
     double y = __particle.X[i][1];
-    if (x > 0) {
+    if (xScalar > 0) {
       if (y > 0) {
-        __eq.rhs[i] = asin(y);
+        __eq.rhsScalar[i] = asin(y);
       } else {
-        __eq.rhs[i] = asin(y) + 2 * PI;
+        __eq.rhsScalar[i] = asin(y) + 2 * PI;
       }
     } else {
-      __eq.rhs[i] = 0.0;
+      __eq.rhsScalar[i] = 0.0;
     }
   }
 
-  A.Solve(__eq.rhs, __eq.x);
+  A.Solve(__eq.rhsScalar, __eq.xScalar);
 
   for (int i = 0; i < __particle.localParticleNum; i++) {
-    __particle.us[i] = __eq.x[i];
+    __particle.us[i] = __eq.xScalar[i];
   }
 
   // post-processing

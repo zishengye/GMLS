@@ -287,9 +287,9 @@ void GMLS_Solver::BuildNeighborList() {
           int index = i + j * 3;
           if (__neighborFlag[index] == true) {
             int destination = (__nI + offsetX[i]) + (__nJ + offsetY[j]) * __nX;
-            int x = (i == 1) ? 1 : (i + 2) % 4;
+            int xScalar = (i == 1) ? 1 : (i + 2) % 4;
             int y = (j == 1) ? 1 : (j + 2) % 4;
-            sendOffset[index] = x + y * 3;
+            sendOffset[index] = xScalar + y * 3;
             sendCount[index] = __neighborSendParticle[index].coord.size();
             destinationIndex[index] = destination;
 
@@ -321,10 +321,10 @@ void GMLS_Solver::BuildNeighborList() {
               int destination = (__nI + offsetX[i]) +
                                 (__nJ + offsetY[j]) * __nX +
                                 (__nK + offsetZ[k]) * (__nX * __nY);
-              int x = (i == 1) ? 1 : (i + 2) % 4;
+              int xScalar = (i == 1) ? 1 : (i + 2) % 4;
               int y = (j == 1) ? 1 : (j + 2) % 4;
               int z = (k == 1) ? 1 : (k + 2) % 4;
-              sendOffset[index] = x + y * 3 + z * 9;
+              sendOffset[index] = xScalar + y * 3 + z * 9;
               sendCount[index] = __neighborSendParticle[index].coord.size();
               destinationIndex[index] = destination;
 

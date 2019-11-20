@@ -109,7 +109,7 @@ void GMLS_Solver::WriteData() {
   MasterOperation(0, []() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-    file << "SCALARS rhs float 1" << endl;
+    file << "SCALARS rhsScalar float 1" << endl;
     file << "LOOKUP_TABLE default" << endl;
     file.close();
   });
@@ -118,7 +118,7 @@ void GMLS_Solver::WriteData() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
     for (size_t i = 0; i < this->__particle.X.size(); i++) {
-      file << __eq.rhs[i] << endl;
+      file << __eq.rhsScalar[i] << endl;
     }
     file.close();
   });

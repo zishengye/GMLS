@@ -65,8 +65,8 @@ void GMLS_Solver::PoissonEquationManifold() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nSetup neighbor lists\n");
 
-  __eq.rhs.resize(__particle.localParticleNum);
-  __eq.x.resize(__particle.localParticleNum);
+  __eq.rhsScalar.resize(__particle.localParticleNum);
+  __eq.xScalar.resize(__particle.localParticleNum);
   __particle.pressure.resize(__particle.localParticleNum);
 
   if (__particle.scalarBasis != nullptr) {
@@ -125,26 +125,26 @@ void GMLS_Solver::PoissonEquationManifold() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nPoisson Matrix Assembled\n");
 
-  __eq.rhs.resize(__particle.localParticleNum);
-  __eq.x.resize(__particle.localParticleNum);
+  __eq.rhsScalar.resize(__particle.localParticleNum);
+  __eq.xScalar.resize(__particle.localParticleNum);
   __particle.pressure.resize(__particle.localParticleNum);
 
   for (int i = 0; i < __particle.localParticleNum; i++) {
     if (__particle.particleType[i] == 0) {
-      double x = __particle.X[i][0];
+      double xScalar = __particle.X[i][0];
       double y = __particle.X[i][1];
-      double g = 1 + 4 * x * x;
-      __eq.rhs[i] = 2.0 / g - 8.0 * x * x / g / g + 2.0;
+      double g = 1 + 4 * xScalar * xScalar;
+      __eq.rhsScalar[i] = 2.0 / g - 8.0 * xScalar * xScalar / g / g + 2.0;
     } else {
-      double x = __particle.X[i][0];
+      double xScalar = __particle.X[i][0];
       double y = __particle.X[i][1];
-      __eq.rhs[i] = pow(x, 2) + pow(y, 2);
+      __eq.rhsScalar[i] = pow(xScalar, 2) + pow(y, 2);
     }
   }
 
-  A.Solve(__eq.rhs, __eq.x);
+  A.Solve(__eq.rhsScalar, __eq.xScalar);
 
   for (int i = 0; i < __particle.localParticleNum; i++) {
-    __particle.pressure[i] = __eq.x[i];
+    __particle.pressure[i] = __eq.xScalar[i];
   }
 }

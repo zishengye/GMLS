@@ -57,10 +57,17 @@ public:
 
   int FinalAssemble();
 
+  // (*this) * x = rhs
   void Solve(std::vector<double> &rhs, std::vector<double> &x);
+
+  // [A Bt; B C] * [x; y] = [f; g]
+  friend void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt,
+                    PetscSparseMatrix &B, PetscSparseMatrix &C,
+                    std::vector<double> &f, std::vector<double> &g,
+                    std::vector<double> &x, std::vector<double> &y);
 };
 
-void PetscSparseMatrix::increment(const int i, const int j, double daij) {
+void PetscSparseMatrix::increment(const int i, const int j, const double daij) {
   if (std::abs(daij) > 1e-15) {
     bool inlist = false;
 

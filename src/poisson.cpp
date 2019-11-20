@@ -119,21 +119,21 @@ void GMLS_Solver::PoissonEquation() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nPoisson Matrix Assembled\n");
 
-  __eq.rhs.resize(__particle.localParticleNum);
-  __eq.x.resize(__particle.localParticleNum);
+  __eq.rhsScalar.resize(__particle.localParticleNum);
+  __eq.xScalar.resize(__particle.localParticleNum);
   __particle.pressure.resize(__particle.localParticleNum);
 
   for (int i = 0; i < __particle.localParticleNum; i++) {
     if (__particle.particleType[i] == 0) {
-      __eq.rhs[i] = 1.0;
+      __eq.rhsScalar[i] = 1.0;
     } else {
-      __eq.rhs[i] = 0.0;
+      __eq.rhsScalar[i] = 0.0;
     }
   }
 
-  A.Solve(__eq.rhs, __eq.x);
+  A.Solve(__eq.rhsScalar, __eq.xScalar);
 
   for (int i = 0; i < __particle.localParticleNum; i++) {
-    __particle.pressure[i] = __eq.x[i];
+    __particle.pressure[i] = __eq.xScalar[i];
   }
 }

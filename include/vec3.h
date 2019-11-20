@@ -64,8 +64,8 @@ public:
   }
 };
 
-template <class T> triple<T> operator+(triple<T> x, triple<T> y) {
-  return triple<T>(x[0] + y[0], x[1] + y[1], x[2] + y[2]);
+template <class T> triple<T> operator+(triple<T> xScalar, triple<T> y) {
+  return triple<T>(xScalar[0] + y[0], xScalar[1] + y[1], xScalar[2] + y[2]);
 }
 
 template <class T> double maxmag(std::vector<triple<T>> maxof) {

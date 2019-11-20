@@ -194,7 +194,7 @@ void GMLS_Solver::InitUniformParticleField() {
   }
 }
 
-bool GMLS_Solver::IsInGap(vec3 &x) { return false; }
+bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
 
 void GMLS_Solver::InitFluidParticle() {
   __cutoffDistance = 4.5 * std::max(__particleSize0[0], __particleSize0[1]);
