@@ -137,7 +137,7 @@ void GMLS_Solver::StokesEquation() {
   if (__particle.scalarBasis == nullptr)
     __particle.scalarBasis =
         new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder, __dim,
-                 "QR", "STANDARD", "NO_CONSTRAINT");
+                 "LU", "STANDARD", "NO_CONSTRAINT");
   GMLS &pressureBasis = *__particle.scalarBasis;
 
   pressureBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
@@ -169,7 +169,7 @@ void GMLS_Solver::StokesEquation() {
   if (__particle.scalarNeumannBoundaryBasis == nullptr) {
     __particle.scalarNeumannBoundaryBasis =
         new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder, __dim,
-                 "QR", "STANDARD", "NEUMANN_GRAD_SCALAR");
+                 "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
   }
   GMLS &pressureNeumannBoundaryBasis = *__particle.scalarNeumannBoundaryBasis;
 
@@ -382,7 +382,7 @@ void GMLS_Solver::StokesEquation() {
     }
 
     PI.increment(__particle.localParticleNum, __particle.globalParticleNum,
-                 100.0);
+                 1.0);
   }
 
   LUV.FinalAssemble();
