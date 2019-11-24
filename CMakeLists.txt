@@ -17,7 +17,7 @@ link_directories("/opt/kokkos/lib/")
 link_directories("/opt/petsc/lib/")
 link_directories("/opt/compadre/lib/")
 
-link_libraries("-lmpi -lmpicxx -lHYPRE -lpetsc -lfblas -lflapack -lstdc++ -lm")
+link_libraries("-lmpi -lmpicxx -lHYPRE -lpetsc -lfblas -lflapack -lstdc++ -lm -lgfortran")
 link_libraries("-lcompadre")
 link_libraries("-lkokkos")
 
