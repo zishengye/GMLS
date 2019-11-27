@@ -136,12 +136,12 @@ void GMLS_Solver::InitColloid() {
   double R = 1.0;
 
   for (int i = 0; i < NC; i++) {
-    __colloid.Ci_X.push_back(X0[i]);
-    __colloid.Ci_Theta.push_back(Theta0[i]);
-    __colloid.Ci_V.push_back(V0[i]);
-    __colloid.Ci_Omega.push_back(Omega0[i]);
-    __colloid.Ci_R.push_back(R);
-    __colloid.type.push_back(colloidType);
+    __rigidBody.Ci_X.push_back(X0[i]);
+    __rigidBody.Ci_Theta.push_back(Theta0[i]);
+    __rigidBody.Ci_V.push_back(V0[i]);
+    __rigidBody.Ci_Omega.push_back(Omega0[i]);
+    __rigidBody.Ci_R.push_back(R);
+    __rigidBody.type.push_back(colloidType);
   }
 }
 

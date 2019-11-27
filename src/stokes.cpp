@@ -111,22 +111,30 @@ void GMLS_Solver::StokesEquation() {
 
   // tangent bundle for neumann boundary particles
   Kokkos::View<double ***, Kokkos::DefaultExecutionSpace> tangentBundlesDevice(
-      "tangent bundles", neumannBoundaryNumTargetCoords, 3, 3);
+      "tangent bundles", neumannBoundaryNumTargetCoords, __dim, __dim);
   Kokkos::View<double ***>::HostMirror tangentBundles =
       Kokkos::create_mirror_view(tangentBundlesDevice);
 
   int counter = 0;
   for (int i = 0; i < __particle.localParticleNum; i++) {
     if (__particle.particleType[i] != 0) {
-      tangentBundles(counter, 0, 0) = 0.0;
-      tangentBundles(counter, 0, 1) = 0.0;
-      tangentBundles(counter, 0, 2) = 0.0;
-      tangentBundles(counter, 1, 0) = 0.0;
-      tangentBundles(counter, 1, 1) = 0.0;
-      tangentBundles(counter, 1, 2) = 0.0;
-      tangentBundles(counter, 2, 0) = __particle.normal[i][0];
-      tangentBundles(counter, 2, 1) = __particle.normal[i][1];
-      tangentBundles(counter, 2, 2) = __particle.normal[i][2];
+      if (__dim == 3) {
+        tangentBundles(counter, 0, 0) = 0.0;
+        tangentBundles(counter, 0, 1) = 0.0;
+        tangentBundles(counter, 0, 2) = 0.0;
+        tangentBundles(counter, 1, 0) = 0.0;
+        tangentBundles(counter, 1, 1) = 0.0;
+        tangentBundles(counter, 1, 2) = 0.0;
+        tangentBundles(counter, 2, 0) = __particle.normal[i][0];
+        tangentBundles(counter, 2, 1) = __particle.normal[i][1];
+        tangentBundles(counter, 2, 2) = __particle.normal[i][2];
+      }
+      if (__dim == 2) {
+        tangentBundles(counter, 0, 0) = 0.0;
+        tangentBundles(counter, 0, 1) = 0.0;
+        tangentBundles(counter, 1, 0) = __particle.normal[i][0];
+        tangentBundles(counter, 1, 1) = __particle.normal[i][1];
+      }
       counter++;
     }
   }
@@ -237,8 +245,7 @@ void GMLS_Solver::StokesEquation() {
   int localPressureDOF = __particle.localParticleNum;
   int globalPressureDOF = __particle.globalParticleNum + 1;
 
-  if (__myID == __MPISize - 1)
-    localPressureDOF++;
+  if (__myID == __MPISize - 1) localPressureDOF++;
 
   PetscSparseMatrix LUV(localVelocityDOF, localVelocityDOF, globalVelocityDOF);
   PetscSparseMatrix GXY(localVelocityDOF, localPressureDOF, globalPressureDOF);
@@ -313,7 +320,7 @@ void GMLS_Solver::StokesEquation() {
           }
         }
       }
-    } // end of velocity block
+    }  // end of velocity block
 
     // pressure block
     const int iPressureLocal = currentParticleLocalIndex;
@@ -364,7 +371,7 @@ void GMLS_Solver::StokesEquation() {
     // Lagrangian multipler
     PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
     // end of pressure block
-  } // end of fluid particle loop
+  }  // end of fluid particle loop
 
   // Lagrangian multipler for pressure
   if (__myID == __MPISize - 1) {
@@ -372,7 +379,7 @@ void GMLS_Solver::StokesEquation() {
       PI.increment(__particle.localParticleNum, i, 1.0);
 
       PI.increment(__particle.localParticleNum, __particle.globalParticleNum,
-                   100.0);
+                   0.0);
     }
   }
 
@@ -400,13 +407,12 @@ void GMLS_Solver::StokesEquation() {
         // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
         // rhsVelocity[__dim * i + axes] =
         //     2.5 * (1.0 - __particle.X[i][1] * __particle.X[i][1] / Hsqr) *
-        //     (1.0 - __particle.X[i][2] * __particle.X[i][2] / Hsqr) *
         //     double(axes == 0);
         // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes ==
         // 0);
         rhsVelocity[__dim * i + axes] =
             1.0 * double(axes == 0) *
-            double(abs(__particle.X[i][2] - __boundingBox[1][2]) < 1e-5);
+            double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
       }
     }
     rhsPressure[i] = 0.0;

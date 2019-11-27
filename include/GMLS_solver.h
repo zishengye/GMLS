@@ -46,7 +46,7 @@ struct ParticleInfo {
   Compadre::GMLS *vectorNeumannBoundaryBasis;
 };
 
-struct ColloidInfo {
+struct RigidBodyInfo {
   std::vector<vec3> Ci_X;
   std::vector<vec3> Ci_Theta;
   std::vector<vec3> Ci_V;
@@ -124,7 +124,7 @@ private:
   vec3 __particleSize0;
 
   // colloid info
-  ColloidInfo __colloid;
+  RigidBodyInfo __rigidBody;
 
   // domain info
   void SetBoundingBox();
@@ -140,6 +140,8 @@ private:
 
   void InitFluidParticleManifold();
   void InitWallParticleManifold();
+
+  void InitRigidBody();
 
   // manifold info
   int __manifoldOrder;
