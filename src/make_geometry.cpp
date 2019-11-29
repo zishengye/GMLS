@@ -124,27 +124,6 @@ void GMLS_Solver::SetDomainBoundary() {
   }
 }
 
-void GMLS_Solver::InitColloid() {
-  int NC = 0;
-  std::vector<vec3> Theta0, X0, V0, Omega0;
-  Theta0.resize(NC);
-  X0.resize(NC);
-  V0.resize(NC);
-  Omega0.resize(NC);
-
-  int colloidType = 1;
-  double R = 1.0;
-
-  for (int i = 0; i < NC; i++) {
-    __rigidBody.Ci_X.push_back(X0[i]);
-    __rigidBody.Ci_Theta.push_back(Theta0[i]);
-    __rigidBody.Ci_V.push_back(V0[i]);
-    __rigidBody.Ci_Omega.push_back(Omega0[i]);
-    __rigidBody.Ci_R.push_back(R);
-    __rigidBody.type.push_back(colloidType);
-  }
-}
-
 void GMLS_Solver::InitDomainDecomposition() {
   if (__dim == 3) {
     ProcessSplit(__nX, __nY, __nZ, __nI, __nJ, __nK, __MPISize, __myID);
@@ -320,7 +299,7 @@ void GMLS_Solver::InitWallParticle() {
         yPos -= __particleSize0[1];
       }
     }
-  } // end of 2d construction
+  }  // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = __particle.X.size();

@@ -82,7 +82,7 @@ int SearchCommand(int argc, char **argv, const std::string &commandName,
                   T &res);
 
 class GMLS_Solver {
-private:
+ private:
   // MPI setting
   int __myID;
   int __MPISize;
@@ -123,7 +123,7 @@ private:
 
   vec3 __particleSize0;
 
-  // colloid info
+  // rigid body info
   RigidBodyInfo __rigidBody;
 
   // domain info
@@ -231,14 +231,17 @@ private:
   void SplitMerge();
 
   // solving functions
-  void InitColloid();
-
   void InitUniformParticleField();
   void InitUniformParticleManifoldField();
 
   void EmposeBoundaryCondition();
 
   void InitialCondition();
+
+  // rigid body supporting functions
+  int IsInRigidBody(vec3 &pos);
+
+  void InitRigidBodySurfaceParticle();
 
   // equation type
   void PoissonEquation();
@@ -258,7 +261,8 @@ private:
   // operator
   void ClearMemory();
 
-  template <typename Func> void SerialOperation(Func operation) {
+  template <typename Func>
+  void SerialOperation(Func operation) {
     for (int i = 0; i < __MPISize; i++) {
       if (i == __myID) {
         operation();
@@ -267,7 +271,8 @@ private:
     }
   }
 
-  template <typename Func> void MasterOperation(int master, Func operation) {
+  template <typename Func>
+  void MasterOperation(int master, Func operation) {
     if (master == __myID) {
       operation();
     }
@@ -279,7 +284,7 @@ private:
 
   void WriteData();
 
-public:
+ public:
   GMLS_Solver(int argc, char **argv);
 
   void TimeIntegration();

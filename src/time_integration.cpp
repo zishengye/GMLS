@@ -5,14 +5,14 @@ void GMLS_Solver::TimeIntegration() {
     SetBoundingBox();
     SetBoundingBoxBoundary();
 
-    InitColloid();
+    InitRigidBody();
 
     InitDomainDecomposition();
   } else {
     SetBoundingBoxManifold();
     SetBoundingBoxBoundaryManifold();
 
-    InitColloid();
+    InitRigidBody();
 
     InitDomainDecompositionManifold();
   }
