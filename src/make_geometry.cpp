@@ -7,9 +7,9 @@ using namespace std;
 
 void GMLS_Solver::SetBoundingBox() {
   if (__dim == 3) {
-    __boundingBoxSize[0] = 2.0;
-    __boundingBoxSize[1] = 2.0;
-    __boundingBoxSize[2] = 2.0;
+    __boundingBoxSize[0] = 12.0;
+    __boundingBoxSize[1] = 12.0;
+    __boundingBoxSize[2] = 12.0;
 
     __boundingBox.push_back(vec3(-__boundingBoxSize[0] / 2.0,
                                  -__boundingBoxSize[1] / 2.0,
@@ -147,6 +147,7 @@ void GMLS_Solver::InitUniformParticleField() {
 
   InitFluidParticle();
   InitWallParticle();
+  InitRigidBodySurfaceParticle();
 
   SerialOperation([this]() {
     cout << "[Proc " << this->__myID << "]: generated "
@@ -176,7 +177,7 @@ void GMLS_Solver::InitUniformParticleField() {
 bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
 
 void GMLS_Solver::InitFluidParticle() {
-  __cutoffDistance = 4.5 * std::max(__particleSize0[0], __particleSize0[1]);
+  __cutoffDistance = 2.25 * std::max(__particleSize0[0], __particleSize0[1]);
 
   double xPos, yPos, zPos;
   vec3 normal = vec3(1.0, 0.0, 0.0);
@@ -299,7 +300,7 @@ void GMLS_Solver::InitWallParticle() {
         yPos -= __particleSize0[1];
       }
     }
-  }  // end of 2d construction
+  } // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = __particle.X.size();
@@ -466,7 +467,7 @@ void GMLS_Solver::InitWallParticle() {
         yPos -= 0.5 * __particleSize0[1];
       }
 
-      while (yPos > __domain[0][0] + 1e-5) {
+      while (yPos > __domain[0][1] + 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(2.0) / 2.0, 0.0, sqrt(2.0) / 2.0);
         InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);
@@ -543,7 +544,7 @@ void GMLS_Solver::InitWallParticle() {
         yPos -= 0.5 * __particleSize0[1];
       }
 
-      while (yPos > __domain[0][0] + 1e-5) {
+      while (yPos > __domain[0][1] + 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(2.0) / 2.0, 0.0, -sqrt(2.0) / 2.0);
         InsertParticle(pos, 2, __particleSize0, normal, localIndex++, vol);

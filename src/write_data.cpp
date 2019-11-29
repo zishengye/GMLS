@@ -7,17 +7,16 @@ using namespace std;
 
 void GMLS_Solver::WriteData() {
   static int writeStep = 0;
-  PetscPrintf(PETSC_COMM_WORLD,
-              ("writing to ./vtk/output_step" + to_string(writeStep) + ".vtk\n")
-                  .c_str());
+
   MasterOperation(0, [this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::trunc);
     file << "# vtk DataFile Version 2.0" << endl;
     file << "particlePositions" << endl;
     file << "ASCII" << endl;
-    file << "DATASET POLYDATA" << endl;
-    file << "POINTS " << this->__particle.globalParticleNum << " float" << endl;
+    file << "DATASET POLYDATA " << endl;
+    file << " POINTS " << this->__particle.globalParticleNum << " float"
+         << endl;
     file.close();
   });
 
@@ -113,7 +112,7 @@ void GMLS_Solver::WriteData() {
       ofstream file;
       file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
       file << "SCALARS us float 1" << endl;
-      file << "LOOKUP_TABLE default" << endl;
+      file << "LOOKUP_TABLE default " << endl;
       file.close();
     });
 
@@ -127,62 +126,60 @@ void GMLS_Solver::WriteData() {
     });
   }
 
-  if (__equationType == "Stokes") {
-    MasterOperation(0, []() {
-      ofstream file;
-      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-      file << "SCALARS p float 1" << endl;
-      file << "LOOKUP_TABLE default" << endl;
-      file.close();
-    });
+  // if (__equationType == "Stokes") {
+  //   MasterOperation(0, []() {
+  //     ofstream file;
+  //     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk",
+  //     ios::app); file << "SCALARS p float 1" << endl; file << "LOOKUP_TABLE
+  //     default " << endl; file.close();
+  //   });
 
-    SerialOperation([this]() {
-      ofstream file;
-      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-      for (size_t i = 0; i < this->__particle.X.size(); i++) {
-        file << __particle.pressure[i] << endl;
-      }
-      file.close();
-    });
+  //   SerialOperation([this]() {
+  //     ofstream file;
+  //     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk",
+  //     ios::app); for (size_t i = 0; i < this->__particle.X.size(); i++) {
+  //       file << __particle.pressure[i] << endl;
+  //     }
+  //     file.close();
+  //   });
 
-    MasterOperation(0, [this]() {
-      ofstream file;
-      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-      file << "SCALARS u float " + to_string(__dim) << endl;
-      file << "LOOKUP_TABLE default" << endl;
-      file.close();
-    });
+  //   MasterOperation(0, [this]() {
+  //     ofstream file;
+  //     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk",
+  //     ios::app); file << "SCALARS u float " + to_string(__dim) << endl; file
+  //     << "LOOKUP_TABLE default" << endl; file.close();
+  //   });
 
-    SerialOperation([this]() {
-      ofstream file;
-      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-      for (size_t i = 0; i < this->__particle.X.size(); i++) {
-        for (int axes = 0; axes < __dim; axes++)
-          file << __particle.velocity[__dim * i + axes] << ' ';
-        file << endl;
-      }
-      file.close();
-    });
+  //   SerialOperation([this]() {
+  //     ofstream file;
+  //     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk",
+  //     ios::app); for (size_t i = 0; i < this->__particle.X.size(); i++) {
+  //       for (int axes = 0; axes < __dim; axes++)
+  //         file << __particle.velocity[__dim * i + axes] << ' ';
+  //       file << endl;
+  //     }
+  //     file.close();
+  //   });
 
-    MasterOperation(0, [this]() {
-      ofstream file;
-      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-      file << "SCALARS rhs_u float " + to_string(__dim) << endl;
-      file << "LOOKUP_TABLE default" << endl;
-      file.close();
-    });
+  //   MasterOperation(0, [this]() {
+  //     ofstream file;
+  //     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk",
+  //     ios::app); file << "SCALARS rhs_u float " + to_string(__dim) << endl;
+  //     file << "LOOKUP_TABLE default" << endl;
+  //     file.close();
+  //   });
 
-    SerialOperation([this]() {
-      ofstream file;
-      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-      for (size_t i = 0; i < this->__particle.X.size(); i++) {
-        for (int axes = 0; axes < __dim; axes++)
-          file << __eq.rhsVector[__dim * i + axes] << ' ';
-        file << endl;
-      }
-      file.close();
-    });
-  }
+  //   SerialOperation([this]() {
+  //     ofstream file;
+  //     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk",
+  //     ios::app); for (size_t i = 0; i < this->__particle.X.size(); i++) {
+  //       for (int axes = 0; axes < __dim; axes++)
+  //         file << __eq.rhsVector[__dim * i + axes] << ' ';
+  //       file << endl;
+  //     }
+  //     file.close();
+  //   });
+  // }
 
   writeStep++;
 }

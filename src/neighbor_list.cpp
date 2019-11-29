@@ -116,7 +116,8 @@ void GMLS_Solver::BuildNeighborList() {
         return xPos > __domainBoundingBox[1][0] - __cutoffDistance &&
                yPos > __domainBoundingBox[1][1] - __cutoffDistance;
       });
-    } else if (__dim == 3) {
+    }
+    if (__dim == 3) {
       isNeighbor[0] = PutParticleInNeighborList(0, [=]() {
         return xPos < __domainBoundingBox[0][0] + __cutoffDistance &&
                yPos < __domainBoundingBox[0][1] + __cutoffDistance &&
@@ -308,7 +309,8 @@ void GMLS_Solver::BuildNeighborList() {
           }
         }
       }
-    } else if (__dim == 3) {
+    }
+    if (__dim == 3) {
       int offsetX[3] = {-1, 0, 1};
       int offsetY[3] = {-1, 0, 1};
       int offsetZ[3] = {-1, 0, 1};

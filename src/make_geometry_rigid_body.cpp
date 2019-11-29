@@ -27,6 +27,7 @@ void GMLS_Solver::InitRigidBody() {
     }
   }
 }
+
 int GMLS_Solver::IsInRigidBody(vec3 &pos) {
   for (size_t i = 0; i < __rigidBody.Ci_X.size(); i++) {
     vec3 dis = pos - __rigidBody.Ci_X[i];
@@ -58,7 +59,11 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
         vec3 normal = vec3(std::sin(theta) * std::cos(phi),
                            std::sin(theta) * std::sin(phi), cos(theta));
         vec3 pos = normal * r + __rigidBody.Ci_X[n];
-        InsertParticle(pos, 4, __particleSize0, normal, localIndex++, vol);
+        if (pos[0] > __domain[0][0] && pos[0] < __domain[1][0] &&
+            pos[1] > __domain[0][1] && pos[1] < __domain[1][1] &&
+            pos[2] > __domain[0][2] && pos[2] < __domain[1][2])
+          InsertParticle(pos, 4, __particleSize0, normal, localIndex++, vol,
+                         true);
       }
     }
   }

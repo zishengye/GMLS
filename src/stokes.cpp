@@ -5,6 +5,7 @@ using namespace std;
 using namespace Compadre;
 
 void GMLS_Solver::StokesEquation() {
+  int number_of_batches = 128;
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
@@ -66,7 +67,7 @@ void GMLS_Solver::StokesEquation() {
 
   const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 1.6;
+  double epsilonMultiplier = 2.2;
   int estimatedUpperBoundNumberNeighbors =
       pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
           minNeighbors, __dim, epsilonMultiplier);
@@ -142,292 +143,310 @@ void GMLS_Solver::StokesEquation() {
   Kokkos::deep_copy(tangentBundlesDevice, tangentBundles);
 
   // pressure basis
-  if (__particle.scalarBasis == nullptr)
-    __particle.scalarBasis =
-        new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder, __dim,
-                 "LU", "STANDARD", "NO_CONSTRAINT");
-  GMLS &pressureBasis = *__particle.scalarBasis;
+  // if (__particle.scalarBasis == nullptr)
+  //   __particle.scalarBasis =
+  //       new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder,
+  //       __dim,
+  //                "LU", "STANDARD", "NO_CONSTRAINT");
+  // GMLS &pressureBasis = *__particle.scalarBasis;
 
-  pressureBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
-                               targetCoordsDevice, epsilonDevice);
+  // pressureBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
+  //                              targetCoordsDevice, epsilonDevice);
 
-  vector<TargetOperation> pressureOperation(2);
-  pressureOperation[0] = LaplacianOfScalarPointEvaluation;
-  pressureOperation[1] = GradientOfScalarPointEvaluation;
+  // vector<TargetOperation> pressureOperation(2);
+  // pressureOperation[0] = LaplacianOfScalarPointEvaluation;
+  // pressureOperation[1] = GradientOfScalarPointEvaluation;
 
-  pressureBasis.addTargets(pressureOperation);
+  // pressureBasis.addTargets(pressureOperation);
 
-  pressureBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureBasis.setWeightingPower(2);
+  // pressureBasis.setWeightingType(WeightingFunctionType::Power);
+  // pressureBasis.setWeightingPower(2);
 
-  pressureBasis.generateAlphas();
+  // pressureBasis.generateAlphas(number_of_batches);
 
-  auto pressureAlphas = pressureBasis.getAlphas();
+  // auto pressureAlphas = pressureBasis.getAlphas();
 
-  const int pressureLaplacianIndex = pressureBasis.getAlphaColumnOffset(
-      LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
-  vector<int> pressureGradientIndex;
-  for (int i = 0; i < __dim; i++)
-    pressureGradientIndex.push_back(pressureBasis.getAlphaColumnOffset(
-        GradientOfScalarPointEvaluation, i, 0, 0, 0));
+  // const int pressureLaplacianIndex = pressureBasis.getAlphaColumnOffset(
+  //     LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
+  // vector<int> pressureGradientIndex;
+  // for (int i = 0; i < __dim; i++)
+  //   pressureGradientIndex.push_back(pressureBasis.getAlphaColumnOffset(
+  //       GradientOfScalarPointEvaluation, i, 0, 0, 0));
 
-  auto pressureNeighborListsLengths = pressureBasis.getNeighborListsLengths();
+  // auto pressureNeighborListsLengths =
+  // pressureBasis.getNeighborListsLengths();
 
-  // pressure Neumann boundary basis
-  if (__particle.scalarNeumannBoundaryBasis == nullptr) {
-    __particle.scalarNeumannBoundaryBasis =
-        new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder, __dim,
-                 "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
-  }
-  GMLS &pressureNeumannBoundaryBasis = *__particle.scalarNeumannBoundaryBasis;
+  // // pressure Neumann boundary basis
+  // if (__particle.scalarNeumannBoundaryBasis == nullptr) {
+  //   __particle.scalarNeumannBoundaryBasis =
+  //       new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder,
+  //       __dim,
+  //                "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
+  // }
+  // GMLS &pressureNeumannBoundaryBasis =
+  // *__particle.scalarNeumannBoundaryBasis;
 
-  pressureNeumannBoundaryBasis.setProblemData(
-      neumannBoundaryNeighborListsDevice, sourceCoordsDevice,
-      neumannBoundaryTargetCoordsDevice, neumannBoundaryEpsilonDevice);
-  pressureNeumannBoundaryBasis.setTangentBundle(tangentBundlesDevice);
+  // pressureNeumannBoundaryBasis.setProblemData(
+  //     neumannBoundaryNeighborListsDevice, sourceCoordsDevice,
+  //     neumannBoundaryTargetCoordsDevice, neumannBoundaryEpsilonDevice);
+  // pressureNeumannBoundaryBasis.setTangentBundle(tangentBundlesDevice);
 
-  vector<TargetOperation> pressureNeumannBoundaryOperations(1);
-  pressureNeumannBoundaryOperations[0] = LaplacianOfScalarPointEvaluation;
+  // vector<TargetOperation> pressureNeumannBoundaryOperations(1);
+  // pressureNeumannBoundaryOperations[0] = LaplacianOfScalarPointEvaluation;
 
-  pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
+  // pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
 
-  pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureNeumannBoundaryBasis.setWeightingPower(2);
+  // pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
+  // pressureNeumannBoundaryBasis.setWeightingPower(2);
 
-  pressureNeumannBoundaryBasis.generateAlphas();
+  // pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
-  auto pressureNeumannBoundaryAlphas = pressureNeumannBoundaryBasis.getAlphas();
+  // auto pressureNeumannBoundaryAlphas =
+  // pressureNeumannBoundaryBasis.getAlphas();
 
-  const int pressureNeumannBoundaryLaplacianIndex =
-      pressureNeumannBoundaryBasis.getAlphaColumnOffset(
-          LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
+  // const int pressureNeumannBoundaryLaplacianIndex =
+  //     pressureNeumannBoundaryBasis.getAlphaColumnOffset(
+  //         LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
 
-  auto pressureNeumannBoundaryNeighborListsLengths =
-      pressureNeumannBoundaryBasis.getNeighborListsLengths();
+  // auto pressureNeumannBoundaryNeighborListsLengths =
+  //     pressureNeumannBoundaryBasis.getNeighborListsLengths();
 
-  // velocity basis
-  if (__particle.vectorBasis == nullptr)
-    __particle.vectorBasis =
-        new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                 __polynomialOrder, __dim, "SVD", "STANDARD");
-  GMLS &velocityBasis = *__particle.vectorBasis;
+  // PetscPrintf(PETSC_COMM_WORLD, "flag\n");
 
-  velocityBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
-                               targetCoordsDevice, epsilonDevice);
+  // // velocity basis
+  // if (__particle.vectorBasis == nullptr)
+  //   __particle.vectorBasis =
+  //       new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
+  //                __polynomialOrder, __dim, "LU", "STANDARD");
+  // GMLS &velocityBasis = *__particle.vectorBasis;
 
-  vector<TargetOperation> veclocityOperation(1);
-  veclocityOperation[0] = CurlCurlOfVectorPointEvaluation;
+  // velocityBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
+  //                              targetCoordsDevice, epsilonDevice);
 
-  velocityBasis.addTargets(veclocityOperation);
+  // vector<TargetOperation> veclocityOperation(1);
+  // veclocityOperation[0] = CurlCurlOfVectorPointEvaluation;
 
-  velocityBasis.setWeightingType(WeightingFunctionType::Power);
-  velocityBasis.setWeightingPower(2);
+  // velocityBasis.addTargets(veclocityOperation);
 
-  velocityBasis.generateAlphas();
+  // velocityBasis.setWeightingType(WeightingFunctionType::Power);
+  // velocityBasis.setWeightingPower(2);
 
-  auto velocityAlphas = velocityBasis.getAlphas();
+  // velocityBasis.generateAlphas(number_of_batches);
 
-  vector<int> velocityCurCurlIndex;
-  for (int i = 0; i < __dim; i++) {
-    for (int j = 0; j < __dim; j++) {
-      velocityCurCurlIndex.push_back(velocityBasis.getAlphaColumnOffset(
-          CurlCurlOfVectorPointEvaluation, i, 0, j, 0));
-    }
-  }
+  // auto velocityAlphas = velocityBasis.getAlphas();
 
-  auto velocityNeighborListsLengths = velocityBasis.getNeighborListsLengths();
+  // vector<int> velocityCurCurlIndex;
+  // for (int i = 0; i < __dim; i++) {
+  //   for (int j = 0; j < __dim; j++) {
+  //     velocityCurCurlIndex.push_back(velocityBasis.getAlphaColumnOffset(
+  //         CurlCurlOfVectorPointEvaluation, i, 0, j, 0));
+  //   }
+  // }
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "\nGenerating Stokes Matrix...\n");
+  // auto velocityNeighborListsLengths =
+  // velocityBasis.getNeighborListsLengths();
 
-  int localVelocityDOF = __particle.localParticleNum * __dim;
-  int globalVelocityDOF = __particle.globalParticleNum * __dim;
-  int localPressureDOF = __particle.localParticleNum;
-  int globalPressureDOF = __particle.globalParticleNum + 1;
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // PetscPrintf(PETSC_COMM_WORLD, "\nGenerating Stokes Matrix...\n");
 
-  if (__myID == __MPISize - 1) localPressureDOF++;
+  // int localVelocityDOF = __particle.localParticleNum * __dim;
+  // int globalVelocityDOF = __particle.globalParticleNum * __dim;
+  // int localPressureDOF = __particle.localParticleNum;
+  // int globalPressureDOF = __particle.globalParticleNum + 1;
 
-  PetscSparseMatrix LUV(localVelocityDOF, localVelocityDOF, globalVelocityDOF);
-  PetscSparseMatrix GXY(localVelocityDOF, localPressureDOF, globalPressureDOF);
-  PetscSparseMatrix DXY(localPressureDOF, localVelocityDOF, globalVelocityDOF);
-  PetscSparseMatrix PI(localPressureDOF, localPressureDOF, globalPressureDOF);
+  // if (__myID == __MPISize - 1)
+  //   localPressureDOF++;
 
-  for (int i = 0; i < __particle.localParticleNum; i++) {
-    const int currentParticleLocalIndex = i;
-    const int currentParticleGlobalIndex = __particle.globalIndex[i];
-    // velocity block
-    if (__particle.particleType[i] == 0) {
-      for (int j = 1; j < velocityNeighborListsLengths(i); j++) {
-        const int neighborParticleIndex =
-            __backgroundParticle.index[neighborLists(i, j + 1)];
-        // inner fluid particle
+  // PetscSparseMatrix LUV(localVelocityDOF, localVelocityDOF,
+  // globalVelocityDOF); PetscSparseMatrix GXY(localVelocityDOF,
+  // localPressureDOF, globalPressureDOF); PetscSparseMatrix
+  // DXY(localPressureDOF, localVelocityDOF, globalVelocityDOF);
+  // PetscSparseMatrix PI(localPressureDOF, localPressureDOF,
+  // globalPressureDOF);
 
-        // curl curl u
-        for (int axes1 = 0; axes1 < __dim; axes1++) {
-          const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
-          for (int axes2 = 0; axes2 < __dim; axes2++) {
-            const int iVelocityGlobal =
-                __dim * currentParticleGlobalIndex + axes2;
-            const int jVelocityGlobal = __dim * neighborParticleIndex + axes2;
+  // for (int i = 0; i < __particle.localParticleNum; i++) {
+  //   const int currentParticleLocalIndex = i;
+  //   const int currentParticleGlobalIndex = __particle.globalIndex[i];
+  //   // velocity block
+  //   if (__particle.particleType[i] == 0) {
+  //     for (int j = 1; j < velocityNeighborListsLengths(i); j++) {
+  //       const int neighborParticleIndex =
+  //           __backgroundParticle.index[neighborLists(i, j + 1)];
+  //       // inner fluid particle
 
-            const double Lij =
-                __eta * velocityAlphas(
-                            i, velocityCurCurlIndex[axes1 * __dim + axes2], j);
+  //       // curl curl u
+  //       for (int axes1 = 0; axes1 < __dim; axes1++) {
+  //         const int iVelocityLocal = __dim * currentParticleLocalIndex +
+  //         axes1; for (int axes2 = 0; axes2 < __dim; axes2++) {
+  //           const int iVelocityGlobal =
+  //               __dim * currentParticleGlobalIndex + axes2;
+  //           const int jVelocityGlobal = __dim * neighborParticleIndex +
+  //           axes2;
 
-            LUV.increment(iVelocityLocal, jVelocityGlobal, Lij);
-            LUV.increment(iVelocityLocal, iVelocityGlobal, -Lij);
-          }
-        }
-      }
-    } else {
-      // wall boundary
-      for (int axes1 = 0; axes1 < __dim; axes1++) {
-        const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
-        const int iVelocityGlobal = __dim * currentParticleGlobalIndex + axes1;
+  //           const double Lij =
+  //               __eta * velocityAlphas(
+  //                           i, velocityCurCurlIndex[axes1 * __dim + axes2],
+  //                           j);
 
-        LUV.increment(iVelocityLocal, iVelocityGlobal, 1.0);
-      }
-    }
+  //           LUV.increment(iVelocityLocal, jVelocityGlobal, Lij);
+  //           LUV.increment(iVelocityLocal, iVelocityGlobal, -Lij);
+  //         }
+  //       }
+  //     }
+  //   } else {
+  //     // wall boundary
+  //     for (int axes1 = 0; axes1 < __dim; axes1++) {
+  //       const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
+  //       const int iVelocityGlobal = __dim * currentParticleGlobalIndex +
+  //       axes1;
 
-    // n \cdot grad p
-    if (__particle.particleType[i] != 0) {
-      const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-      for (int j = 1; j < pressureNeumannBoundaryNeighborListsLengths(
-                              neumannBoudnaryIndex);
-           j++) {
-        const int neighborParticleIndex =
-            __backgroundParticle.index[neighborLists(i, j + 1)];
+  //       LUV.increment(iVelocityLocal, iVelocityGlobal, 1.0);
+  //     }
+  //   }
 
-        const int iPressureLocal = currentParticleLocalIndex;
-        for (int axes1 = 0; axes1 < __dim; axes1++) {
-          const double dpdni =
-              pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-                  LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-                  neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0)) *
-              __particle.normal[i][axes1];
+  //   // n \cdot grad p
+  //   if (__particle.particleType[i] != 0) {
+  //     const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+  //     for (int j = 1; j < pressureNeumannBoundaryNeighborListsLengths(
+  //                             neumannBoudnaryIndex);
+  //          j++) {
+  //       const int neighborParticleIndex =
+  //           __backgroundParticle.index[neighborLists(i, j + 1)];
 
-          for (int axes2 = 0; axes2 < __dim; axes2++) {
-            const int iVelocityGlobal =
-                __dim * currentParticleGlobalIndex + axes2;
-            const int jVelocityGlobal = __dim * neighborParticleIndex + axes2;
+  //       const int iPressureLocal = currentParticleLocalIndex;
+  //       for (int axes1 = 0; axes1 < __dim; axes1++) {
+  //         const double dpdni =
+  //             pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+  //                 LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+  //                 neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0)) *
+  //             __particle.normal[i][axes1];
 
-            const double Lij =
-                __eta * velocityAlphas(
-                            i, velocityCurCurlIndex[axes1 * __dim + axes2], j);
+  //         for (int axes2 = 0; axes2 < __dim; axes2++) {
+  //           const int iVelocityGlobal =
+  //               __dim * currentParticleGlobalIndex + axes2;
+  //           const int jVelocityGlobal = __dim * neighborParticleIndex +
+  //           axes2;
 
-            DXY.increment(iPressureLocal, jVelocityGlobal, -Lij * dpdni);
-            DXY.increment(iPressureLocal, iVelocityGlobal, Lij * dpdni);
-          }
-        }
-      }
-    }  // end of velocity block
+  //           const double Lij =
+  //               __eta * velocityAlphas(
+  //                           i, velocityCurCurlIndex[axes1 * __dim + axes2],
+  //                           j);
 
-    // pressure block
-    const int iPressureLocal = currentParticleLocalIndex;
-    const int iPressureGlobal = currentParticleGlobalIndex;
+  //           DXY.increment(iPressureLocal, jVelocityGlobal, -Lij * dpdni);
+  //           DXY.increment(iPressureLocal, iVelocityGlobal, Lij * dpdni);
+  //         }
+  //       }
+  //     }
+  //   } // end of velocity block
 
-    if (__particle.particleType[i] == 0) {
-      for (int j = 1; j < pressureNeighborListsLengths(i); j++) {
-        const int neighborParticleIndex =
-            __backgroundParticle.index[neighborLists(i, j + 1)];
+  //   // pressure block
+  //   const int iPressureLocal = currentParticleLocalIndex;
+  //   const int iPressureGlobal = currentParticleGlobalIndex;
 
-        const int jPressureGlobal = neighborParticleIndex;
+  //   if (__particle.particleType[i] == 0) {
+  //     for (int j = 1; j < pressureNeighborListsLengths(i); j++) {
+  //       const int neighborParticleIndex =
+  //           __backgroundParticle.index[neighborLists(i, j + 1)];
 
-        const double Aij = pressureAlphas(i, pressureLaplacianIndex, j);
+  //       const int jPressureGlobal = neighborParticleIndex;
 
-        // laplacian p
-        PI.increment(iPressureLocal, jPressureGlobal, Aij);
-        PI.increment(iPressureLocal, iPressureGlobal, -Aij);
+  //       const double Aij = pressureAlphas(i, pressureLaplacianIndex, j);
 
-        for (int axes1 = 0; axes1 < __dim; axes1++) {
-          const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
+  //       // laplacian p
+  //       PI.increment(iPressureLocal, jPressureGlobal, Aij);
+  //       PI.increment(iPressureLocal, iPressureGlobal, -Aij);
 
-          const double Dijx =
-              pressureAlphas(i, pressureGradientIndex[axes1], j);
+  //       for (int axes1 = 0; axes1 < __dim; axes1++) {
+  //         const int iVelocityLocal = __dim * currentParticleLocalIndex +
+  //         axes1;
 
-          // grad p
-          GXY.increment(iVelocityLocal, jPressureGlobal, Dijx);
-          GXY.increment(iVelocityLocal, iPressureGlobal, -Dijx);
-        }
-      }
-    } else {
-      const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-      for (int j = 1; j < pressureNeumannBoundaryNeighborListsLengths(
-                              fluid2NeumannBoundary[i]);
-           j++) {
-        const int neighborParticleIndex =
-            __backgroundParticle.index[neighborLists(i, j + 1)];
+  //         const double Dijx =
+  //             pressureAlphas(i, pressureGradientIndex[axes1], j);
 
-        const int jPressureGlobal = neighborParticleIndex;
+  //         // grad p
+  //         GXY.increment(iVelocityLocal, jPressureGlobal, Dijx);
+  //         GXY.increment(iVelocityLocal, iPressureGlobal, -Dijx);
+  //       }
+  //     }
+  //   } else {
+  //     const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+  //     for (int j = 1; j < pressureNeumannBoundaryNeighborListsLengths(
+  //                             fluid2NeumannBoundary[i]);
+  //          j++) {
+  //       const int neighborParticleIndex =
+  //           __backgroundParticle.index[neighborLists(i, j + 1)];
 
-        const double Aij = pressureNeumannBoundaryAlphas(
-            neumannBoudnaryIndex, pressureNeumannBoundaryLaplacianIndex, j);
+  //       const int jPressureGlobal = neighborParticleIndex;
 
-        // laplacian p
-        PI.increment(iPressureLocal, jPressureGlobal, Aij);
-        PI.increment(iPressureLocal, iPressureGlobal, -Aij);
-      }
-    }
-    // Lagrangian multipler
-    PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
-    // end of pressure block
-  }  // end of fluid particle loop
+  //       const double Aij = pressureNeumannBoundaryAlphas(
+  //           neumannBoudnaryIndex, pressureNeumannBoundaryLaplacianIndex, j);
 
-  // Lagrangian multipler for pressure
-  if (__myID == __MPISize - 1) {
-    for (int i = 0; i < __particle.globalParticleNum; i++) {
-      PI.increment(__particle.localParticleNum, i, 1.0);
+  //       // laplacian p
+  //       PI.increment(iPressureLocal, jPressureGlobal, Aij);
+  //       PI.increment(iPressureLocal, iPressureGlobal, -Aij);
+  //     }
+  //   }
+  //   // Lagrangian multipler
+  //   PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
+  //   // end of pressure block
+  // } // end of fluid particle loop
 
-      PI.increment(__particle.localParticleNum, __particle.globalParticleNum,
-                   0.0);
-    }
-  }
+  // // Lagrangian multipler for pressure
+  // if (__myID == __MPISize - 1) {
+  //   for (int i = 0; i < __particle.globalParticleNum; i++) {
+  //     PI.increment(__particle.localParticleNum, i, 1.0);
 
-  LUV.FinalAssemble();
-  DXY.FinalAssemble();
-  GXY.FinalAssemble();
-  PI.FinalAssemble();
+  //     PI.increment(__particle.localParticleNum, __particle.globalParticleNum,
+  //                  0.0);
+  //   }
+  // }
 
-  PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
+  // LUV.FinalAssemble();
+  // DXY.FinalAssemble();
+  // GXY.FinalAssemble();
+  // PI.FinalAssemble();
 
-  vector<double> &rhsPressure = __eq.rhsScalar;
-  vector<double> &rhsVelocity = __eq.rhsVector;
-  vector<double> &xPressure = __eq.xScalar;
-  vector<double> &xVelocity = __eq.xVector;
+  // PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
 
-  rhsPressure.resize(localPressureDOF);
-  rhsVelocity.resize(localVelocityDOF);
-  xPressure.resize(localPressureDOF);
-  xVelocity.resize(localVelocityDOF);
+  // vector<double> &rhsPressure = __eq.rhsScalar;
+  // vector<double> &rhsVelocity = __eq.rhsVector;
+  // vector<double> &xPressure = __eq.xScalar;
+  // vector<double> &xVelocity = __eq.xVector;
 
-  // boundary condition
-  for (int i = 0; i < __particle.localParticleNum; i++) {
-    if (__particle.particleType[i] != 0) {
-      for (int axes = 0; axes < __dim; axes++) {
-        // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
-        // rhsVelocity[__dim * i + axes] =
-        //     2.5 * (1.0 - __particle.X[i][1] * __particle.X[i][1] / Hsqr) *
-        //     double(axes == 0);
-        // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes ==
-        // 0);
-        rhsVelocity[__dim * i + axes] =
-            1.0 * double(axes == 0) *
-            double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
-      }
-    }
-    rhsPressure[i] = 0.0;
-  }
+  // rhsPressure.resize(localPressureDOF);
+  // rhsVelocity.resize(localVelocityDOF);
+  // xPressure.resize(localPressureDOF);
+  // xVelocity.resize(localVelocityDOF);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
+  // // boundary condition
+  // for (int i = 0; i < __particle.localParticleNum; i++) {
+  //   if (__particle.particleType[i] != 0) {
+  //     for (int axes = 0; axes < __dim; axes++) {
+  //       // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
+  //       // rhsVelocity[__dim * i + axes] =
+  //       //     2.5 * (1.0 - __particle.X[i][1] * __particle.X[i][1] / Hsqr) *
+  //       //     double(axes == 0);
+  //       // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes
+  //       ==
+  //       // 0);
+  //       rhsVelocity[__dim * i + axes] =
+  //           1.0 * double(axes == 0) *
+  //           double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
+  //     }
+  //   }
+  //   rhsPressure[i] = 0.0;
+  // }
 
-  // copy data
-  __particle.pressure.resize(__particle.localParticleNum);
-  __particle.velocity.resize(__particle.localParticleNum * __dim);
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
 
-  for (int i = 0; i < __particle.localParticleNum; i++) {
-    __particle.pressure[i] = xPressure[i];
-    for (int axes1 = 0; axes1 < __dim; axes1++)
-      __particle.velocity[__dim * i + axes1] = xVelocity[__dim * i + axes1];
-  }
+  // // copy data
+  // __particle.pressure.resize(__particle.localParticleNum);
+  // __particle.velocity.resize(__particle.localParticleNum * __dim);
+
+  // for (int i = 0; i < __particle.localParticleNum; i++) {
+  //   __particle.pressure[i] = xPressure[i];
+  //   for (int axes1 = 0; axes1 < __dim; axes1++)
+  //     __particle.velocity[__dim * i + axes1] = xVelocity[__dim * i + axes1];
+  // }
 }
