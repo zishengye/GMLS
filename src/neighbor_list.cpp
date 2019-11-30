@@ -126,7 +126,7 @@ void GMLS_Solver::BuildNeighborList() {
 
       isNeighbor[1] = PutParticleInNeighborList(1, [=]() {
         return yPos < __domainBoundingBox[0][1] + __cutoffDistance &&
-               zPos < __domainBoundingBox[0][1] + __cutoffDistance;
+               zPos < __domainBoundingBox[0][2] + __cutoffDistance;
       });
 
       isNeighbor[2] = PutParticleInNeighborList(2, [=]() {

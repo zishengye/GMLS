@@ -55,16 +55,22 @@ void GMLS_Solver::SetDomainBoundary() {
     // 4 left face
     // 5 top face
     __domainBoundaryType.resize(6);
-    if (abs(__domain[0][0] - __boundingBox[0][0]) < 1e-6) {
-      __domainBoundaryType[4] = __boundingBoxBoundaryType[4];
-    } else {
-      __domainBoundaryType[4] = 0;
-    }
-
-    if (abs(__domain[0][1] - __boundingBox[0][1]) < 1e-6) {
+    if (abs(__domain[1][0] - __boundingBox[1][0]) < 1e-6) {
       __domainBoundaryType[0] = __boundingBoxBoundaryType[0];
     } else {
       __domainBoundaryType[0] = 0;
+    }
+
+    if (abs(__domain[1][1] - __boundingBox[1][1]) < 1e-6) {
+      __domainBoundaryType[1] = __boundingBoxBoundaryType[1];
+    } else {
+      __domainBoundaryType[1] = 0;
+    }
+
+    if (abs(__domain[0][0] - __boundingBox[0][0]) < 1e-6) {
+      __domainBoundaryType[2] = __boundingBoxBoundaryType[2];
+    } else {
+      __domainBoundaryType[2] = 0;
     }
 
     if (abs(__domain[0][2] - __boundingBox[0][2]) < 1e-6) {
@@ -73,16 +79,10 @@ void GMLS_Solver::SetDomainBoundary() {
       __domainBoundaryType[3] = 0;
     }
 
-    if (abs(__domain[1][0] - __boundingBox[1][0]) < 1e-6) {
-      __domainBoundaryType[1] = __boundingBoxBoundaryType[1];
+    if (abs(__domain[0][1] - __boundingBox[0][1]) < 1e-6) {
+      __domainBoundaryType[4] = __boundingBoxBoundaryType[4];
     } else {
-      __domainBoundaryType[1] = 0;
-    }
-
-    if (abs(__domain[1][1] - __boundingBox[1][1]) < 1e-6) {
-      __domainBoundaryType[2] = __boundingBoxBoundaryType[2];
-    } else {
-      __domainBoundaryType[2] = 0;
+      __domainBoundaryType[4] = 0;
     }
 
     if (abs(__domain[1][2] - __boundingBox[1][2]) < 1e-6) {
@@ -177,7 +177,7 @@ void GMLS_Solver::InitUniformParticleField() {
 bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
 
 void GMLS_Solver::InitFluidParticle() {
-  __cutoffDistance = 2.25 * std::max(__particleSize0[0], __particleSize0[1]);
+  __cutoffDistance = 3 * std::max(__particleSize0[0], __particleSize0[1]);
 
   double xPos, yPos, zPos;
   vec3 normal = vec3(1.0, 0.0, 0.0);
@@ -399,11 +399,11 @@ void GMLS_Solver::InitWallParticle() {
 
     // edge and corner
     // bottom 4 edges
-    if (__domainBoundaryType[0] != 0 && __domainBoundaryType[3] != 0) {
+    if (__domainBoundaryType[4] != 0 && __domainBoundaryType[3] != 0) {
       xPos = __domain[0][0];
       yPos = __domain[0][1];
       zPos = __domain[0][2];
-      if (__domainBoundaryType[4] != 0) {
+      if (__domainBoundaryType[2] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(3.0) / 3.0, sqrt(3.0) / 3.0, sqrt(3.0) / 3.0);
         InsertParticle(pos, 3, __particleSize0, normal, localIndex++, vol);
@@ -418,11 +418,11 @@ void GMLS_Solver::InitWallParticle() {
       }
     }
 
-    if (__domainBoundaryType[1] != 0 && __domainBoundaryType[3] != 0) {
+    if (__domainBoundaryType[0] != 0 && __domainBoundaryType[3] != 0) {
       xPos = __domain[1][0];
       yPos = __domain[0][1];
       zPos = __domain[0][2];
-      if (__domainBoundaryType[0] != 0) {
+      if (__domainBoundaryType[4] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(3.0) / 3.0, sqrt(3.0) / 3.0, sqrt(3.0) / 3.0);
         InsertParticle(pos, 3, __particleSize0, normal, localIndex++, vol);
@@ -437,11 +437,11 @@ void GMLS_Solver::InitWallParticle() {
       }
     }
 
-    if (__domainBoundaryType[2] != 0 && __domainBoundaryType[3] != 0) {
+    if (__domainBoundaryType[1] != 0 && __domainBoundaryType[3] != 0) {
       xPos = __domain[1][0];
       yPos = __domain[1][1];
       zPos = __domain[0][2];
-      if (__domainBoundaryType[1] != 0) {
+      if (__domainBoundaryType[0] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0, sqrt(3.0) / 3.0);
         InsertParticle(pos, 3, __particleSize0, normal, localIndex++, vol);
@@ -456,11 +456,11 @@ void GMLS_Solver::InitWallParticle() {
       }
     }
 
-    if (__domainBoundaryType[4] != 0 && __domainBoundaryType[3] != 0) {
+    if (__domainBoundaryType[2] != 0 && __domainBoundaryType[3] != 0) {
       xPos = __domain[0][0];
       yPos = __domain[1][1];
       zPos = __domain[0][2];
-      if (__domainBoundaryType[2] != 0) {
+      if (__domainBoundaryType[1] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0, sqrt(3.0) / 3.0);
         InsertParticle(pos, 3, __particleSize0, normal, localIndex++, vol);
@@ -476,11 +476,11 @@ void GMLS_Solver::InitWallParticle() {
     }
 
     // top 4 edges
-    if (__domainBoundaryType[0] != 0 && __domainBoundaryType[5] != 0) {
+    if (__domainBoundaryType[4] != 0 && __domainBoundaryType[5] != 0) {
       xPos = __domain[0][0];
       yPos = __domain[0][1];
       zPos = __domain[1][2];
-      if (__domainBoundaryType[4] != 0) {
+      if (__domainBoundaryType[2] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(3.0) / 3.0, sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0);
         InsertParticle(pos, 3, __particleSize0, normal, localIndex++, vol);
@@ -495,11 +495,11 @@ void GMLS_Solver::InitWallParticle() {
       }
     }
 
-    if (__domainBoundaryType[1] != 0 && __domainBoundaryType[5] != 0) {
+    if (__domainBoundaryType[0] != 0 && __domainBoundaryType[5] != 0) {
       xPos = __domain[1][0];
       yPos = __domain[0][1];
       zPos = __domain[1][2];
-      if (__domainBoundaryType[0] != 0) {
+      if (__domainBoundaryType[4] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(3.0) / 3.0, sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0);
         InsertParticle(pos, 3, __particleSize0, normal, localIndex++, vol);
@@ -514,11 +514,11 @@ void GMLS_Solver::InitWallParticle() {
       }
     }
 
-    if (__domainBoundaryType[2] != 0 && __domainBoundaryType[5] != 0) {
+    if (__domainBoundaryType[1] != 0 && __domainBoundaryType[5] != 0) {
       xPos = __domain[1][0];
       yPos = __domain[1][1];
       zPos = __domain[1][2];
-      if (__domainBoundaryType[1] != 0) {
+      if (__domainBoundaryType[0] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0);
         InsertParticle(pos, 3, __particleSize0, normal, localIndex++, vol);
@@ -533,11 +533,11 @@ void GMLS_Solver::InitWallParticle() {
       }
     }
 
-    if (__domainBoundaryType[4] != 0 && __domainBoundaryType[5] != 0) {
+    if (__domainBoundaryType[2] != 0 && __domainBoundaryType[5] != 0) {
       xPos = __domain[0][0];
       yPos = __domain[1][1];
       zPos = __domain[1][2];
-      if (__domainBoundaryType[2] != 0) {
+      if (__domainBoundaryType[1] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0);
         InsertParticle(pos, 3, __particleSize0, normal, localIndex++, vol);
@@ -555,7 +555,7 @@ void GMLS_Solver::InitWallParticle() {
     // middle 4 edges
     if (__domainBoundaryType[0] != 0 && __domainBoundaryType[1] != 0) {
       xPos = __domain[1][0];
-      yPos = __domain[0][1];
+      yPos = __domain[1][1];
       zPos = __domain[0][2] + 0.5 * __particleSize0[2];
       while (zPos < __domain[1][2] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
@@ -566,7 +566,7 @@ void GMLS_Solver::InitWallParticle() {
     }
 
     if (__domainBoundaryType[1] != 0 && __domainBoundaryType[2] != 0) {
-      xPos = __domain[1][0];
+      xPos = __domain[0][0];
       yPos = __domain[1][1];
       zPos = __domain[0][2] + 0.5 * __particleSize0[2];
       while (zPos < __domain[1][2] - 1e-5) {
@@ -579,7 +579,7 @@ void GMLS_Solver::InitWallParticle() {
 
     if (__domainBoundaryType[2] != 0 && __domainBoundaryType[4] != 0) {
       xPos = __domain[0][0];
-      yPos = __domain[1][1];
+      yPos = __domain[0][1];
       zPos = __domain[0][2] + 0.5 * __particleSize0[2];
       while (zPos < __domain[1][2] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
@@ -590,7 +590,7 @@ void GMLS_Solver::InitWallParticle() {
     }
 
     if (__domainBoundaryType[0] != 0 && __domainBoundaryType[4] != 0) {
-      xPos = __domain[0][0];
+      xPos = __domain[1][0];
       yPos = __domain[0][1];
       zPos = __domain[0][2] + 0.5 * __particleSize0[2];
       while (zPos < __domain[1][2] - 1e-5) {

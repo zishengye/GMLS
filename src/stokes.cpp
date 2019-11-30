@@ -5,7 +5,7 @@ using namespace std;
 using namespace Compadre;
 
 void GMLS_Solver::StokesEquation() {
-  int number_of_batches = 128;
+  int number_of_batches = 64;
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
@@ -16,6 +16,12 @@ void GMLS_Solver::StokesEquation() {
       "source coordinates", numSourceCoords, 3);
   Kokkos::View<double **>::HostMirror sourceCoords =
       Kokkos::create_mirror_view(sourceCoordsDevice);
+
+  for (size_t i = 0; i < __backgroundParticle.coord.size(); i++) {
+    for (int j = 0; j < 3; j++) {
+      sourceCoords(i, j) = __backgroundParticle.coord[i][j];
+    }
+  }
 
   int neumannBoundaryNumTargetCoords = 0;
   for (int i = 0; i < __particle.localParticleNum; i++) {
@@ -34,12 +40,6 @@ void GMLS_Solver::StokesEquation() {
                                         neumannBoundaryNumTargetCoords, 3);
   Kokkos::View<double **>::HostMirror neumannBoundaryTargetCoords =
       Kokkos::create_mirror_view(neumannBoundaryTargetCoordsDevice);
-
-  for (size_t i = 0; i < __backgroundParticle.coord.size(); i++) {
-    for (int j = 0; j < 3; j++) {
-      sourceCoords(i, j) = __backgroundParticle.coord[i][j];
-    }
-  }
 
   // create target coords
   vector<int> fluid2NeumannBoundary;
@@ -67,7 +67,7 @@ void GMLS_Solver::StokesEquation() {
 
   const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 2.2;
+  double epsilonMultiplier = 1.6;
   int estimatedUpperBoundNumberNeighbors =
       pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
           minNeighbors, __dim, epsilonMultiplier);
@@ -206,8 +206,6 @@ void GMLS_Solver::StokesEquation() {
   auto pressureNeumannBoundaryNeighborListsLengths =
       pressureNeumannBoundaryBasis.getNeighborListsLengths();
 
-  PetscPrintf(PETSC_COMM_WORLD, "flag\n");
-
   // velocity basis
   if (__particle.vectorBasis == nullptr)
     __particle.vectorBasis =
@@ -248,7 +246,8 @@ void GMLS_Solver::StokesEquation() {
   int localPressureDOF = __particle.localParticleNum;
   int globalPressureDOF = __particle.globalParticleNum + 1;
 
-  if (__myID == __MPISize - 1) localPressureDOF++;
+  if (__myID == __MPISize - 1)
+    localPressureDOF++;
 
   PetscSparseMatrix LUV(localVelocityDOF, localVelocityDOF, globalVelocityDOF);
   PetscSparseMatrix GXY(localVelocityDOF, localPressureDOF, globalPressureDOF);
@@ -323,7 +322,7 @@ void GMLS_Solver::StokesEquation() {
           }
         }
       }
-    }  // end of velocity block
+    } // end of velocity block
 
     // pressure block
     const int iPressureLocal = currentParticleLocalIndex;
@@ -374,7 +373,7 @@ void GMLS_Solver::StokesEquation() {
     // Lagrangian multipler
     PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
     // end of pressure block
-  }  // end of fluid particle loop
+  } // end of fluid particle loop
 
   // Lagrangian multipler for pressure
   if (__myID == __MPISize - 1) {
@@ -382,7 +381,7 @@ void GMLS_Solver::StokesEquation() {
       PI.increment(__particle.localParticleNum, i, 1.0);
 
       PI.increment(__particle.localParticleNum, __particle.globalParticleNum,
-                   0.0);
+                   100.0);
     }
   }
 

@@ -8,6 +8,55 @@ using namespace std;
 void GMLS_Solver::WriteData() {
   static int writeStep = 0;
 
+  int thread = 1;
+
+  MasterOperation(thread, [this]() {
+    ofstream file;
+    file.open("./vtk/domain_step" + to_string(writeStep) + ".vtk", ios::trunc);
+    file << "# vtk DataFile Version 2.0" << endl;
+    file << "particlePositions" << endl;
+    file << "ASCII" << endl;
+    file << "DATASET POLYDATA " << endl;
+    file << " POINTS " << this->__backgroundParticle.coord.size() << " float"
+         << endl;
+    file.close();
+  });
+
+  MasterOperation(thread, [this]() {
+    ofstream file;
+    file.open("./vtk/domain_step" + to_string(writeStep) + ".vtk", ios::app);
+    for (size_t i = 0; i < this->__backgroundParticle.coord.size(); i++) {
+      file << __backgroundParticle.coord[i][0] << ' '
+           << __backgroundParticle.coord[i][1] << ' '
+           << __backgroundParticle.coord[i][2] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(thread, [this]() {
+    ofstream file;
+    file.open("./vtk/domain_step" + to_string(writeStep) + ".vtk", ios::app);
+    file << "POINT_DATA " << this->__backgroundParticle.coord.size() << endl;
+    file.close();
+  });
+
+  MasterOperation(thread, [this]() {
+    ofstream file;
+    file.open("./vtk/domain_step" + to_string(writeStep) + ".vtk", ios::app);
+    file << "SCALARS index int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  MasterOperation(thread, [this]() {
+    ofstream file;
+    file.open("./vtk/domain_step" + to_string(writeStep) + ".vtk", ios::app);
+    for (size_t i = 0; i < this->__backgroundParticle.coord.size(); i++) {
+      file << __backgroundParticle.index[i] << endl;
+    }
+    file.close();
+  });
+
   MasterOperation(0, [this]() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::trunc);
