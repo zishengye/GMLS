@@ -5,7 +5,7 @@ using namespace std;
 using namespace Compadre;
 
 void GMLS_Solver::StokesEquation() {
-  int number_of_batches = 64;
+  int number_of_batches = 1;
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
@@ -16,10 +16,16 @@ void GMLS_Solver::StokesEquation() {
       "source coordinates", numSourceCoords, 3);
   Kokkos::View<double **>::HostMirror sourceCoords =
       Kokkos::create_mirror_view(sourceCoordsDevice);
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+      neumannBoundarySourceCoordsDevice("neumann boundary source coordinates",
+                                        numSourceCoords, 3);
+  Kokkos::View<double **>::HostMirror neumannBoundarySourceCoords =
+      Kokkos::create_mirror_view(neumannBoundarySourceCoordsDevice);
 
   for (size_t i = 0; i < __backgroundParticle.coord.size(); i++) {
     for (int j = 0; j < 3; j++) {
       sourceCoords(i, j) = __backgroundParticle.coord[i][j];
+      neumannBoundarySourceCoords(i, j) = __backgroundParticle.coord[i][j];
     }
   }
 
@@ -58,6 +64,8 @@ void GMLS_Solver::StokesEquation() {
   }
 
   Kokkos::deep_copy(sourceCoordsDevice, sourceCoords);
+  Kokkos::deep_copy(neumannBoundarySourceCoordsDevice,
+                    neumannBoundarySourceCoords);
   Kokkos::deep_copy(targetCoordsDevice, targetCoords);
   Kokkos::deep_copy(neumannBoundaryTargetCoordsDevice,
                     neumannBoundaryTargetCoords);
@@ -185,6 +193,7 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.setProblemData(
       neumannBoundaryNeighborListsDevice, sourceCoordsDevice,
       neumannBoundaryTargetCoordsDevice, neumannBoundaryEpsilonDevice);
+
   pressureNeumannBoundaryBasis.setTangentBundle(tangentBundlesDevice);
 
   vector<TargetOperation> pressureNeumannBoundaryOperations(1);
@@ -195,7 +204,21 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
   pressureNeumannBoundaryBasis.setWeightingPower(2);
 
+  for (int i = 0; i < neumannBoundaryNumTargetCoords; i++) {
+    for (int j = 0; j < neumannBoundaryNeighborLists(i, 0); j++) {
+      if (neumannBoundaryNeighborLists(i, j + 1) > numSourceCoords) {
+        cout << __myID << ' ' << i << ' ' << j << endl;
+      }
+    }
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscPrintf(MPI_COMM_WORLD, "flag\n");
+  MPI_Barrier(MPI_COMM_WORLD);
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscPrintf(MPI_COMM_WORLD, "flag\n");
+  MPI_Barrier(MPI_COMM_WORLD);
 
   auto pressureNeumannBoundaryAlphas = pressureNeumannBoundaryBasis.getAlphas();
 
@@ -224,6 +247,9 @@ void GMLS_Solver::StokesEquation() {
   velocityBasis.setWeightingType(WeightingFunctionType::Power);
   velocityBasis.setWeightingPower(2);
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscPrintf(MPI_COMM_WORLD, "flag\n");
+  MPI_Barrier(MPI_COMM_WORLD);
   velocityBasis.generateAlphas(number_of_batches);
 
   auto velocityAlphas = velocityBasis.getAlphas();

@@ -8,7 +8,7 @@ using namespace std;
 void GMLS_Solver::WriteData() {
   static int writeStep = 0;
 
-  int thread = 1;
+  int thread = 6;
 
   MasterOperation(thread, [this]() {
     ofstream file;
@@ -53,6 +53,56 @@ void GMLS_Solver::WriteData() {
     file.open("./vtk/domain_step" + to_string(writeStep) + ".vtk", ios::app);
     for (size_t i = 0; i < this->__backgroundParticle.coord.size(); i++) {
       file << __backgroundParticle.index[i] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(thread, [this]() {
+    ofstream file;
+    file.open("./vtk/domain_local_step" + to_string(writeStep) + ".vtk",
+              ios::trunc);
+    file << "# vtk DataFile Version 2.0" << endl;
+    file << "particlePositions" << endl;
+    file << "ASCII" << endl;
+    file << "DATASET POLYDATA " << endl;
+    file << " POINTS " << this->__particle.localParticleNum << " float" << endl;
+    file.close();
+  });
+
+  MasterOperation(thread, [this]() {
+    ofstream file;
+    file.open("./vtk/domain_local_step" + to_string(writeStep) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < this->__particle.localParticleNum; i++) {
+      file << __particle.X[i][0] << ' ' << __particle.X[i][1] << ' '
+           << __particle.X[i][2] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(thread, [this]() {
+    ofstream file;
+    file.open("./vtk/domain_local_step" + to_string(writeStep) + ".vtk",
+              ios::app);
+    file << "POINT_DATA " << this->__particle.localParticleNum << endl;
+    file.close();
+  });
+
+  MasterOperation(thread, [this]() {
+    ofstream file;
+    file.open("./vtk/domain_local_step" + to_string(writeStep) + ".vtk",
+              ios::app);
+    file << "SCALARS ID int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  MasterOperation(thread, [this]() {
+    ofstream file;
+    file.open("./vtk/domain_local_step" + to_string(writeStep) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < this->__particle.localParticleNum; i++) {
+      file << __particle.particleType[i] << endl;
     }
     file.close();
   });
