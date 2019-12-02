@@ -31,6 +31,7 @@ struct ParticleInfo {
   int globalParticleNum;
   std::vector<int> particleOffset;
   std::vector<double> d;
+  std::vector<size_t> attachedRigidBodyIndex;
 
   // physical info
   std::vector<double> pressure;
@@ -82,7 +83,7 @@ int SearchCommand(int argc, char **argv, const std::string &commandName,
                   T &res);
 
 class GMLS_Solver {
-private:
+ private:
   // MPI setting
   int __myID;
   int __MPISize;
@@ -165,7 +166,7 @@ private:
 
   void InsertParticle(vec3 &X, int particleType, vec3 &particleSize,
                       vec3 &normal, int globalIndex, double vol,
-                      bool rigidBodyParticle = false) {
+                      bool rigidBodyParticle = false, size_t rigidBodyIndex = -1) {
     if (rigidBodyParticle || IsInRigidBody(X) == -2) {
       __particle.X.push_back(X);
       __particle.particleType.push_back(particleType);
@@ -174,6 +175,7 @@ private:
       __particle.globalIndex.push_back(globalIndex);
       __particle.vol.push_back(vol);
       __particle.d.push_back(particleSize[0]);
+      __particle.attachedRigidBodyIndex.push_back(rigidBodyIndex);
     }
   }
 
@@ -264,7 +266,8 @@ private:
   // operator
   void ClearMemory();
 
-  template <typename Func> void SerialOperation(Func operation) {
+  template <typename Func>
+  void SerialOperation(Func operation) {
     for (int i = 0; i < __MPISize; i++) {
       if (i == __myID) {
         operation();
@@ -273,7 +276,8 @@ private:
     }
   }
 
-  template <typename Func> void MasterOperation(int master, Func operation) {
+  template <typename Func>
+  void MasterOperation(int master, Func operation) {
     if (master == __myID) {
       operation();
     }
@@ -285,7 +289,7 @@ private:
 
   void WriteData();
 
-public:
+ public:
   GMLS_Solver(int argc, char **argv);
 
   void TimeIntegration();

@@ -6,6 +6,51 @@
 using namespace std;
 
 int PetscSparseMatrix::FinalAssemble() {
+  // move data from outProcessIncrement
+  int myid, MPIsize;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
+
+  int sendCount = __unsorted_val.size();
+  vector<int> recvCount(MPIsize);
+  vector<int> displs(MPIsize + 1);
+
+  MPI_Gather(&sendCount, 1, MPI_INT, recvCount.data(), 1, MPI_INT, MPIsize - 1,
+             MPI_COMM_WORLD);
+
+  if (myid == MPIsize - 1) {
+    displs[0] = 0;
+    for (int i = 1; i <= MPIsize; i++) {
+      displs[i] = displs[i - 1] + recvCount[i - 1];
+    }
+  }
+
+  vector<PetscInt> iRecv;
+  vector<PetscInt> jRecv;
+  vector<PetscReal> valRecv;
+
+  iRecv.resize(displs[MPIsize]);
+  jRecv.resize(displs[MPIsize]);
+  valRecv.resize(displs[MPIsize]);
+
+  MPI_Gatherv(__unsorted_i.data(), sendCount, MPI_UNSIGNED, iRecv.data(),
+              recvCount.data(), displs.data(), MPI_UNSIGNED, MPIsize - 1,
+              MPI_COMM_WORLD);
+  MPI_Gatherv(__unsorted_j.data(), sendCount, MPI_UNSIGNED, jRecv.data(),
+              recvCount.data(), displs.data(), MPI_UNSIGNED, MPIsize - 1,
+              MPI_COMM_WORLD);
+  MPI_Gatherv(__unsorted_val.data(), sendCount, MPI_DOUBLE, valRecv.data(),
+              recvCount.data(), displs.data(), MPI_DOUBLE, MPIsize - 1,
+              MPI_COMM_WORLD);
+
+  // merge data
+  if (myid == MPIsize - 1) {
+    for (int i = 0; i < iRecv.size(); i++) {
+      this->increment(iRecv[i], jRecv[i], valRecv[i]);
+    }
+  }
+
+  // prepare data for Petsc construction
   sortbyj();
 
   __i.resize(__row + 1);

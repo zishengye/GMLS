@@ -219,16 +219,17 @@ void GMLS_Solver::StokesEquation() {
   if (__particle.vectorBasis == nullptr)
     __particle.vectorBasis =
         new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                 __polynomialOrder, __dim, "SVD", "STANDARD");
+                 __polynomialOrder, __dim, "LU", "STANDARD");
   GMLS &velocityBasis = *__particle.vectorBasis;
 
   velocityBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
                                targetCoordsDevice, epsilonDevice);
 
-  vector<TargetOperation> veclocityOperation(1);
-  veclocityOperation[0] = CurlCurlOfVectorPointEvaluation;
+  vector<TargetOperation> velocityOperation(2);
+  velocityOperation[0] = CurlCurlOfVectorPointEvaluation;
+  velocityOperation[1] = GradientOfVectorPointEvaluation;
 
-  velocityBasis.addTargets(veclocityOperation);
+  velocityBasis.addTargets(velocityOperation);
 
   velocityBasis.setWeightingType(WeightingFunctionType::Power);
   velocityBasis.setWeightingPower(2);
@@ -244,18 +245,44 @@ void GMLS_Solver::StokesEquation() {
           CurlCurlOfVectorPointEvaluation, i, 0, j, 0));
     }
   }
+  vector<int> velocityGradientIndex(pow(__dim, 3));
+  for (int i = 0; i < __dim; i++) {
+    for (int j = 0; j < __dim; j++) {
+      for (int k = 0; k < __dim; k++) {
+        velocityGradientIndex[(i * __dim + j) * __dim + k] =
+            velocityBasis.getAlphaColumnOffset(GradientOfVectorPointEvaluation,
+                                               i, j, k, 0);
+      }
+    }
+  }
 
   auto velocityNeighborListsLengths = velocityBasis.getNeighborListsLengths();
 
+  // matrix assembly
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nGenerating Stokes Matrix...\n");
 
+  int rigidBodyDof = (__dim == 3 ? 6 : 3);
+  int numRigidBody = __rigidBody.Ci_X.size();
+
   int localVelocityDOF = __particle.localParticleNum * __dim;
-  int globalVelocityDOF = __particle.globalParticleNum * __dim;
+  int globalVelocityDOF =
+      __particle.globalParticleNum * __dim + rigidBodyDof * numRigidBody;
   int localPressureDOF = __particle.localParticleNum;
   int globalPressureDOF = __particle.globalParticleNum + 1;
 
-  if (__myID == __MPISize - 1) localPressureDOF++;
+  if (__myID == __MPISize - 1) {
+    localVelocityDOF += rigidBodyDof * numRigidBody;
+    localPressureDOF++;
+  }
+
+  int localParticleNum = __particle.localParticleNum;
+  vector<int> globalParticleNum(__MPISize);
+  MPI_Allgather(&localParticleNum, 1, MPI_INT, globalParticleNum.data(), 1,
+                MPI_INT, MPI_COMM_WORLD);
+
+  int localRigidBodyOffset = globalParticleNum[__MPISize - 1] * __dim;
+  int globalRigidBodyOffset = __particle.globalParticleNum * __dim;
 
   PetscSparseMatrix LUV(localVelocityDOF, localVelocityDOF, globalVelocityDOF);
   PetscSparseMatrix GXY(localVelocityDOF, localPressureDOF, globalPressureDOF);
@@ -290,13 +317,128 @@ void GMLS_Solver::StokesEquation() {
         }
       }
     } else {
-      // wall boundary
+      // wall boundary (including particles on rigid body)
       for (int axes1 = 0; axes1 < __dim; axes1++) {
         const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
         const int iVelocityGlobal = __dim * currentParticleGlobalIndex + axes1;
 
         LUV.increment(iVelocityLocal, iVelocityGlobal, 1.0);
       }
+
+      // particles on rigid body
+      if (__particle.particleType[i] == 4) {
+        const int currentRigidBody = __particle.attachedRigidBodyIndex[i];
+        const int currentRigidBodyLocalOffset =
+            localRigidBodyOffset + rigidBodyDof * currentRigidBody;
+        const int currentRigidBodyGlobalOffset =
+            globalRigidBodyOffset + rigidBodyDof * currentRigidBody;
+
+        vec3 rci = __particle.X[i] - __rigidBody.Ci_X[currentRigidBody];
+        // translation
+        for (int axes1 = 0; axes1 < __dim; axes1++) {
+          const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
+          LUV.increment(iVelocityLocal, currentRigidBodyGlobalOffset + axes1,
+                        -1.0);
+        }
+
+        // rotation
+        if (__dim == 2) {
+        }
+        if (__dim == 3) {
+          for (int axes1 = 0; axes1 < 3; axes1++) {
+            const int iVelocityLocal =
+                __dim * currentParticleLocalIndex + axes1;
+
+            LUV.increment(iVelocityLocal,
+                          currentRigidBodyGlobalOffset + 3 + (axes1 + 2) % 3,
+                          rci[(axes1 + 1) % 3]);
+            LUV.increment(iVelocityLocal,
+                          currentRigidBodyGlobalOffset + 3 + (axes1 + 1) % 3,
+                          -rci[(axes1 + 2) % 3]);
+          }
+        }
+
+        const int iPressureGlobal = currentParticleGlobalIndex;
+
+        vec3 Ndr = __particle.normal[i] * pow(__particle.d[i], __dim - 1);
+
+        // apply pressure
+        for (int axes1 = 0; axes1 < __dim; axes1++) {
+          GXY.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                  iPressureGlobal, -Ndr[axes1]);
+        }
+
+        for (int j = 1; j < velocityNeighborListsLengths(i); j++) {
+          const int neighborParticleIndex =
+              __backgroundParticle.index[neighborLists(i, j + 1)];
+
+          // force balance
+          for (int axes1 = 0; axes1 < __dim; axes1++) {
+            // output component 1
+            for (int axes2 = 0; axes2 < __dim; axes2++) {
+              // output component 2
+              for (int axes3 = 0; axes3 < __dim; axes3++) {
+                // input component 1
+                const int jVelocityGlobal =
+                    __dim * neighborParticleIndex + axes3;
+                const int iVelocityGlobal =
+                    __dim * currentParticleGlobalIndex + axes3;
+                const int velocityGradientAlphaIndex =
+                    velocityGradientIndex[(axes1 * __dim + axes2) * __dim +
+                                          axes3];
+                const double f =
+                    __eta * velocityAlphas(i, velocityGradientAlphaIndex, j);
+                LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                        jVelocityGlobal, f * Ndr[axes2]);
+                LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                        iVelocityGlobal, -f * Ndr[axes2]);
+              }
+            }
+          }
+
+          // torque balance
+          if (__dim == 2) {
+          }
+          if (__dim == 3) {
+            for (int axes1 = 0; axes1 < __dim; axes1++) {
+              // output component 1
+              for (int axes2 = 0; axes2 < __dim; axes2++) {
+                // output component 2
+                for (int axes3 = 0; axes3 < __dim; axes3++) {
+                  // input component 1
+                  const int jVelocityGlobal =
+                      __dim * neighborParticleIndex + axes3;
+                  const int iVelocityGlobal =
+                      __dim * currentParticleGlobalIndex + axes3;
+
+                  const int velocityGradientAlphaIndex1 = velocityGradientIndex
+                      [(((axes1 + 2) % 3) * __dim + axes2) * __dim + axes3];
+                  const int velocityGradientAlphaIndex2 = velocityGradientIndex
+                      [(((axes1 + 1) % 3) * __dim + axes2) * __dim + axes3];
+
+                  const double f1 =
+                      __eta * velocityAlphas(i, velocityGradientAlphaIndex1, j);
+                  const double f2 =
+                      __eta * velocityAlphas(i, velocityGradientAlphaIndex2, j);
+
+                  LUV.outProcessIncrement(
+                      currentRigidBodyLocalOffset + 3 + axes1, jVelocityGlobal,
+                      rci[(axes1 + 1) % 3] * f1 * Ndr[axes2]);
+                  LUV.outProcessIncrement(
+                      currentRigidBodyLocalOffset + 3 + axes1, jVelocityGlobal,
+                      -rci[(axes1 + 2) % 3] * f2 * Ndr[axes2]);
+                  LUV.outProcessIncrement(
+                      currentRigidBodyLocalOffset + 3 + axes1, iVelocityGlobal,
+                      -rci[(axes1 + 1) % 3] * f1 * Ndr[axes2]);
+                  LUV.outProcessIncrement(
+                      currentRigidBodyLocalOffset + 3 + axes1, iVelocityGlobal,
+                      rci[(axes1 + 2) % 3] * f2 * Ndr[axes2]);
+                }
+              }
+            }
+          }
+        }
+      }  // end of particles on rigid body
     }
 
     // n \cdot grad p

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <algorithm>
 #include <assert.h>
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -18,7 +18,7 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
 }
 
 class PetscSparseMatrix {
-private:
+ private:
   bool __isAssembled;
 
   typedef std::pair<int, double> entry;
@@ -32,9 +32,13 @@ private:
   std::vector<PetscInt> __j;
   std::vector<PetscReal> __val;
 
+  std::vector<PetscInt> __unsorted_i;
+  std::vector<PetscInt> __unsorted_j;
+  std::vector<PetscReal> __unsorted_val;
+
   inline void sortbyj();
 
-public:
+ public:
   PetscSparseMatrix() : __isAssembled(false), __row(0), __col(0), __Col(0) {}
 
   // only for square matrix
@@ -50,8 +54,7 @@ public:
   }
 
   ~PetscSparseMatrix() {
-    if (__isAssembled)
-      MatDestroy(&__mat);
+    if (__isAssembled) MatDestroy(&__mat);
   }
 
   void resize(int m, int n) {
@@ -62,6 +65,7 @@ public:
   }
 
   inline void increment(const int i, const int j, double daij);
+  inline void outProcessIncrement(const int i, const int j, double daij);
 
   int FinalAssemble();
 
@@ -75,7 +79,8 @@ public:
                     std::vector<double> &x, std::vector<double> &y);
 };
 
-void PetscSparseMatrix::increment(const int i, const int j, const double daij) {
+void PetscSparseMatrix::increment(const PetscInt i, const PetscInt j,
+                                  const double daij) {
   if (std::abs(daij) > 1e-15) {
     bool inlist = false;
 
@@ -92,6 +97,13 @@ void PetscSparseMatrix::increment(const int i, const int j, const double daij) {
       __matrix[i].push_back(entry(j, daij));
     }
   }
+}
+
+void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
+                                            const double daij) {
+  __unsorted_i.push_back(i);
+  __unsorted_j.push_back(j);
+  __unsorted_val.push_back(daij);
 }
 
 void PetscSparseMatrix::sortbyj() {

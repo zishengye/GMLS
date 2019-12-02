@@ -63,7 +63,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
             pos[1] > __domain[0][1] && pos[1] < __domain[1][1] &&
             pos[2] > __domain[0][2] && pos[2] < __domain[1][2])
           InsertParticle(pos, 4, __particleSize0, normal, localIndex++, vol,
-                         true);
+                         true, n);
       }
     }
   }
