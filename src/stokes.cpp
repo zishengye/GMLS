@@ -204,21 +204,7 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
   pressureNeumannBoundaryBasis.setWeightingPower(2);
 
-  for (int i = 0; i < neumannBoundaryNumTargetCoords; i++) {
-    for (int j = 0; j < neumannBoundaryNeighborLists(i, 0); j++) {
-      if (neumannBoundaryNeighborLists(i, j + 1) > numSourceCoords) {
-        cout << __myID << ' ' << i << ' ' << j << endl;
-      }
-    }
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  PetscPrintf(MPI_COMM_WORLD, "flag\n");
-  MPI_Barrier(MPI_COMM_WORLD);
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
-  MPI_Barrier(MPI_COMM_WORLD);
-  PetscPrintf(MPI_COMM_WORLD, "flag\n");
-  MPI_Barrier(MPI_COMM_WORLD);
 
   auto pressureNeumannBoundaryAlphas = pressureNeumannBoundaryBasis.getAlphas();
 
@@ -233,7 +219,7 @@ void GMLS_Solver::StokesEquation() {
   if (__particle.vectorBasis == nullptr)
     __particle.vectorBasis =
         new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                 __polynomialOrder, __dim, "LU", "STANDARD");
+                 __polynomialOrder, __dim, "SVD", "STANDARD");
   GMLS &velocityBasis = *__particle.vectorBasis;
 
   velocityBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
@@ -247,9 +233,6 @@ void GMLS_Solver::StokesEquation() {
   velocityBasis.setWeightingType(WeightingFunctionType::Power);
   velocityBasis.setWeightingPower(2);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  PetscPrintf(MPI_COMM_WORLD, "flag\n");
-  MPI_Barrier(MPI_COMM_WORLD);
   velocityBasis.generateAlphas(number_of_batches);
 
   auto velocityAlphas = velocityBasis.getAlphas();
@@ -272,8 +255,7 @@ void GMLS_Solver::StokesEquation() {
   int localPressureDOF = __particle.localParticleNum;
   int globalPressureDOF = __particle.globalParticleNum + 1;
 
-  if (__myID == __MPISize - 1)
-    localPressureDOF++;
+  if (__myID == __MPISize - 1) localPressureDOF++;
 
   PetscSparseMatrix LUV(localVelocityDOF, localVelocityDOF, globalVelocityDOF);
   PetscSparseMatrix GXY(localVelocityDOF, localPressureDOF, globalPressureDOF);
@@ -348,7 +330,7 @@ void GMLS_Solver::StokesEquation() {
           }
         }
       }
-    } // end of velocity block
+    }  // end of velocity block
 
     // pressure block
     const int iPressureLocal = currentParticleLocalIndex;
@@ -399,7 +381,7 @@ void GMLS_Solver::StokesEquation() {
     // Lagrangian multipler
     PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
     // end of pressure block
-  } // end of fluid particle loop
+  }  // end of fluid particle loop
 
   // Lagrangian multipler for pressure
   if (__myID == __MPISize - 1) {
@@ -436,11 +418,10 @@ void GMLS_Solver::StokesEquation() {
         // rhsVelocity[__dim * i + axes] =
         //     2.5 * (1.0 - __particle.X[i][1] * __particle.X[i][1] / Hsqr) *
         //     double(axes == 0);
-        // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes ==
-        // 0);
-        rhsVelocity[__dim * i + axes] =
-            1.0 * double(axes == 0) *
-            double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
+        rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes == 0);
+        // rhsVelocity[__dim * i + axes] =
+        //     1.0 * double(axes == 0) *
+        //     double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
       }
     }
     rhsPressure[i] = 0.0;
