@@ -438,13 +438,7 @@ void GMLS_Solver::StokesEquation() {
             }
           }
         }
-
-        if (__myID == __MPISize - 1)
-          for (int axes = 0; axes < rigidBodyDof; axes++) {
-            LUV.increment(currentRigidBodyLocalOffset + axes,
-                          currentRigidBodyGlobalOffset + axes, 1e-10);
-          }
-      } // end of particles on rigid body
+      }  // end of particles on rigid body
     }
 
     // n \cdot grad p
@@ -478,7 +472,7 @@ void GMLS_Solver::StokesEquation() {
           }
         }
       }
-    } // end of velocity block
+    }  // end of velocity block
 
     // pressure block
     const int iPressureLocal = currentParticleLocalIndex;
@@ -529,7 +523,7 @@ void GMLS_Solver::StokesEquation() {
     // Lagrangian multipler
     PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
     // end of pressure block
-  } // end of fluid particle loop
+  }  // end of fluid particle loop
 
   // Lagrangian multipler for pressure
   if (__myID == __MPISize - 1) {
@@ -540,6 +534,20 @@ void GMLS_Solver::StokesEquation() {
                    100.0);
     }
   }
+
+  // rigid body dof stabilization
+  if (__myID == __MPISize - 1)
+    for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
+      const int currentRigidBody = i;
+      const int currentRigidBodyLocalOffset =
+          localRigidBodyOffset + rigidBodyDof * currentRigidBody;
+      const int currentRigidBodyGlobalOffset =
+          globalRigidBodyOffset + rigidBodyDof * currentRigidBody;
+      for (int axes = 0; axes < rigidBodyDof; axes++) {
+        LUV.increment(currentRigidBodyLocalOffset + axes,
+                      currentRigidBodyGlobalOffset + axes, 1e-10);
+      }
+    }
 
   LUV.FinalAssemble();
   DXY.FinalAssemble();
@@ -576,7 +584,8 @@ void GMLS_Solver::StokesEquation() {
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
+  // Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
+  LUV.Solve(rhsVelocity, xVelocity);
 
   // copy data
   __particle.pressure.resize(__particle.localParticleNum);
@@ -586,5 +595,13 @@ void GMLS_Solver::StokesEquation() {
     __particle.pressure[i] = xPressure[i];
     for (int axes1 = 0; axes1 < __dim; axes1++)
       __particle.velocity[__dim * i + axes1] = xVelocity[__dim * i + axes1];
+  }
+
+  if (__myID == __MPISize) {
+    for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
+      cout << xVelocity[localRigidBodyOffset + i * 6] << ' '
+           << xVelocity[localRigidBodyOffset + i * 6 + 1] << ' '
+           << xVelocity[localRigidBodyOffset + i * 6 + 2] << endl;
+    }
   }
 }
