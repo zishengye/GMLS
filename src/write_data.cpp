@@ -279,6 +279,26 @@ void GMLS_Solver::WriteData() {
       }
       file.close();
     });
+
+    MasterOperation(0, [this]() {
+      ofstream file;
+      file.open("./txt/output_step" + to_string(writeStep) + ".txt", ios::app);
+      for (int i = 0; i < this->__rigidBody.Ci_X.size(); i++) {
+        for (int j = 0; j < this->__dim; j++) {
+          cout << __rigidBody.Ci_X[i][j] << ' ';
+        }
+        for (int j = 0; j < this->__dim; j++) {
+          cout << __rigidBody.Ci_Theta[i][j] << ' ';
+        }
+        for (int j = 0; j < this->__dim; j++) {
+          cout << __rigidBody.Ci_V[i][j] << ' ';
+        }
+        for (int j = 0; j < this->__dim; j++) {
+          cout << __rigidBody.Ci_Omega[i][j] << ' ';
+        }
+      }
+      file.close();
+    });
   }
 
   writeStep++;

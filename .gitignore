@@ -535,3 +535,5 @@ Makefile
 vtk/
 
 *.mat
+
+txt/
