@@ -610,6 +610,23 @@ void GMLS_Solver::StokesEquation() {
       cout << xVelocity[localRigidBodyOffset + i * 6] << ' '
            << xVelocity[localRigidBodyOffset + i * 6 + 1] << ' '
            << xVelocity[localRigidBodyOffset + i * 6 + 2] << endl;
+      for (int j = 0; j < __dim; j++) {
+        __rigidBody.Ci_V[i][j] = xVelocity[localRigidBodyOffset + i * 6 + j];
+        __rigidBody.Ci_Omega[i][j] =
+            xVelocity[localRigidBodyOffset + i * 6 + 3 + j];
+      }
+    }
+  }
+
+  MPI_Bcast(__rigidBody.Ci_V.data(), __dim * __rigidBody.Ci_X.size(),
+            MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
+  MPI_Bcast(__rigidBody.Ci_Omega.data(), __dim * __rigidBody.Ci_X.size(),
+            MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
+
+  for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
+    for (int j = 0; j < 3; j++) {
+      __rigidBody.Ci_X[i][j] += __rigidBody.Ci_V[i][j] * __dt;
+      __rigidBody.Ci_Theta[i][j] += __rigidBody.Ci_Omega[i][j] * __dt;
     }
   }
 }
