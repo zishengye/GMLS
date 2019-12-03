@@ -565,6 +565,9 @@ void GMLS_Solver::StokesEquation() {
   vector<double> &xPressure = __eq.xScalar;
   vector<double> &xVelocity = __eq.xVector;
 
+  rhsPressure.clear();
+  rhsVelocity.clear();
+
   rhsPressure.resize(localPressureDOF);
   rhsVelocity.resize(localVelocityDOF);
   xPressure.resize(localPressureDOF);
