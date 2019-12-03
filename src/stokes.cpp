@@ -592,8 +592,8 @@ void GMLS_Solver::StokesEquation() {
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  // Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
-  LUV.Solve(rhsVelocity, xVelocity);
+  Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
+  // LUV.Solve(rhsVelocity, xVelocity);
 
   // copy data
   __particle.pressure.resize(__particle.localParticleNum);
