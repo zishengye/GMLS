@@ -605,7 +605,7 @@ void GMLS_Solver::StokesEquation() {
       __particle.velocity[__dim * i + axes1] = xVelocity[__dim * i + axes1];
   }
 
-  if (__myID == __MPISize) {
+  if (__myID == __MPISize - 1) {
     for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
       cout << xVelocity[localRigidBodyOffset + i * 6] << ' '
            << xVelocity[localRigidBodyOffset + i * 6 + 1] << ' '
