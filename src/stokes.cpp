@@ -438,7 +438,7 @@ void GMLS_Solver::StokesEquation() {
             }
           }
         }
-      }  // end of particles on rigid body
+      } // end of particles on rigid body
     }
 
     // n \cdot grad p
@@ -472,7 +472,7 @@ void GMLS_Solver::StokesEquation() {
           }
         }
       }
-    }  // end of velocity block
+    } // end of velocity block
 
     // pressure block
     const int iPressureLocal = currentParticleLocalIndex;
@@ -523,7 +523,7 @@ void GMLS_Solver::StokesEquation() {
     // Lagrangian multipler
     PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
     // end of pressure block
-  }  // end of fluid particle loop
+  } // end of fluid particle loop
 
   // Lagrangian multipler for pressure
   if (__myID == __MPISize - 1) {

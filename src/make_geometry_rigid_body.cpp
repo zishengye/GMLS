@@ -1,6 +1,9 @@
 #include "GMLS_solver.h"
 
 #include <cmath>
+#include <iostream>
+
+using namespace std;
 
 void GMLS_Solver::InitRigidBody() {
   // initialize data storage
@@ -47,23 +50,23 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
   double vol = pow(h, 3);
   double a = pow(h, 2);
   for (size_t n = 0; n < __rigidBody.Ci_X.size(); n++) {
-    int M_theta = std::round(M_PI / h);
+    int M_theta = round(M_PI / h);
     double d_theta = M_PI / M_theta;
     double d_phi = a / d_theta;
     double r = __rigidBody.Ci_R[n];
     for (int i = 0; i < M_theta; ++i) {
       double theta = M_PI * (i + 0.5) / M_theta;
-      int M_phi = std::round(2 * M_PI * std::sin(theta) / d_phi);
+      int M_phi = round(2 * M_PI * sin(theta) / d_phi);
       for (int j = 0; j < M_phi; ++j) {
         double phi = 2 * M_PI * j / M_phi;
-        vec3 normal = vec3(std::sin(theta) * std::cos(phi),
-                           std::sin(theta) * std::sin(phi), cos(theta));
+        vec3 normal =
+            vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
         vec3 pos = normal * r + __rigidBody.Ci_X[n];
         if (pos[0] > __domain[0][0] && pos[0] < __domain[1][0] &&
             pos[1] > __domain[0][1] && pos[1] < __domain[1][1] &&
             pos[2] > __domain[0][2] && pos[2] < __domain[1][2])
-          InsertParticle(pos, 4, __particleSize0, normal, localIndex++, vol,
-                         true, n);
+          InsertParticle(pos, 4, __particleSize0, normal, localIndex, vol, true,
+                         n);
       }
     }
   }

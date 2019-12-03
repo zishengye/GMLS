@@ -8,7 +8,7 @@ using namespace std;
 void GMLS_Solver::WriteData() {
   static int writeStep = 0;
 
-  int thread = 6;
+  int thread = 3;
 
   MasterOperation(thread, [this]() {
     ofstream file;

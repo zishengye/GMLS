@@ -97,7 +97,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
     KSPSolve(_ksp, _rhs, _x);
-    PetscPrintf(PETSC_COMM_WORLD, "_ksp solving finished\n");
+    PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
     KSPDestroy(&_ksp);
 
