@@ -383,15 +383,19 @@ void GMLS_Solver::StokesEquation() {
                     __dim * neighborParticleIndex + axes3;
                 const int iVelocityGlobal =
                     __dim * currentParticleGlobalIndex + axes3;
-                const int velocityGradientAlphaIndex =
+                const int velocityGradientAlphaIndex1 =
                     velocityGradientIndex[(axes1 * __dim + axes2) * __dim +
                                           axes3];
-                const double f =
-                    __eta * velocityAlphas(i, velocityGradientAlphaIndex, j);
+                const int velocityGradientAlphaIndex2 =
+                    velocityGradientIndex[(axes2 * __dim + axes1) * __dim +
+                                          axes3];
+                const double sigma =
+                    __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
+                             velocityAlphas(i, velocityGradientAlphaIndex2, j));
                 LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                        jVelocityGlobal, f * Ndr[axes2]);
+                                        jVelocityGlobal, sigma * Ndr[axes2]);
                 LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                        iVelocityGlobal, -f * Ndr[axes2]);
+                                        iVelocityGlobal, -sigma * Ndr[axes2]);
               }
             }
           }
