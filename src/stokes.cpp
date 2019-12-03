@@ -438,6 +438,12 @@ void GMLS_Solver::StokesEquation() {
             }
           }
         }
+
+        if (__myID == __MPISize - 1)
+          for (int axes = 0; axes < rigidBodyDof; axes++) {
+            LUV.increment(currentRigidBodyLocalOffset + axes,
+                          currentRigidBodyGlobalOffset + axes, 1e-10);
+          }
       } // end of particles on rigid body
     }
 
@@ -560,13 +566,13 @@ void GMLS_Solver::StokesEquation() {
         // rhsVelocity[__dim * i + axes] =
         //     2.5 * (1.0 - __particle.X[i][1] * __particle.X[i][1] / Hsqr) *
         //     double(axes == 0);
-        rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes == 0);
-        // rhsVelocity[__dim * i + axes] =
-        //     1.0 * double(axes == 0) *
-        //     double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
+        // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes ==
+        // 0);
+        rhsVelocity[__dim * i + axes] =
+            1.0 * double(axes == 0) *
+            double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
       }
     }
-    rhsPressure[i] = 0.0;
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
