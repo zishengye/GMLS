@@ -603,9 +603,6 @@ void GMLS_Solver::StokesEquation() {
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
-      cout << xVelocity[localRigidBodyOffset + i * 6] << ' '
-           << xVelocity[localRigidBodyOffset + i * 6 + 1] << ' '
-           << xVelocity[localRigidBodyOffset + i * 6 + 2] << endl;
       for (int j = 0; j < __dim; j++) {
         __rigidBody.Ci_V[i][j] = xVelocity[localRigidBodyOffset + i * 6 + j];
         __rigidBody.Ci_Omega[i][j] =
@@ -625,14 +622,6 @@ void GMLS_Solver::StokesEquation() {
     for (int j = 0; j < 3; j++) {
       __rigidBody.Ci_X[i][j] += __rigidBody.Ci_V[i][j] * __dt;
       __rigidBody.Ci_Theta[i][j] += __rigidBody.Ci_Omega[i][j] * __dt;
-    }
-  }
-
-  if (__myID == 0) {
-    cout << endl;
-    for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
-      cout << __rigidBody.Ci_X[i][0] << ' ' << __rigidBody.Ci_X[i][1] << ' '
-           << __rigidBody.Ci_X[i][2] << endl;
     }
   }
 }
