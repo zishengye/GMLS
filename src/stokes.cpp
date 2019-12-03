@@ -363,10 +363,10 @@ void GMLS_Solver::StokesEquation() {
         vec3 Ndr = __particle.normal[i] * pow(__particle.d[i], __dim - 1);
 
         // apply pressure
-        // for (int axes1 = 0; axes1 < __dim; axes1++) {
-        //   GXY.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-        //                           iPressureGlobal, -Ndr[axes1]);
-        // }
+        for (int axes1 = 0; axes1 < __dim; axes1++) {
+          GXY.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                  iPressureGlobal, -Ndr[axes1]);
+        }
 
         // for (int j = 1; j < velocityNeighborListsLengths(i); j++) {
         //   const int neighborParticleIndex =
