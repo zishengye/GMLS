@@ -549,7 +549,7 @@ void GMLS_Solver::StokesEquation() {
           globalRigidBodyOffset + rigidBodyDof * currentRigidBody;
       for (int axes = 0; axes < rigidBodyDof; axes++) {
         LUV.increment(currentRigidBodyLocalOffset + axes,
-                      currentRigidBodyGlobalOffset + axes, 1.0);
+                      currentRigidBodyGlobalOffset + axes, 1e-8);
       }
     }
 
