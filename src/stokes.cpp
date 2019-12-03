@@ -399,44 +399,52 @@ void GMLS_Solver::StokesEquation() {
           // torque balance
           if (__dim == 2) {
           }
-          if (__dim == 3) {
-            for (int axes1 = 0; axes1 < __dim; axes1++) {
-              // output component 1
-              for (int axes2 = 0; axes2 < __dim; axes2++) {
-                // output component 2
-                for (int axes3 = 0; axes3 < __dim; axes3++) {
-                  // input component 1
-                  const int jVelocityGlobal =
-                      __dim * neighborParticleIndex + axes3;
-                  const int iVelocityGlobal =
-                      __dim * currentParticleGlobalIndex + axes3;
+          // if (__dim == 3) {
+          //   for (int axes1 = 0; axes1 < __dim; axes1++) {
+          //     // output component 1
+          //     for (int axes2 = 0; axes2 < __dim; axes2++) {
+          //       // output component 2
+          //       for (int axes3 = 0; axes3 < __dim; axes3++) {
+          //         // input component 1
+          //         const int jVelocityGlobal =
+          //             __dim * neighborParticleIndex + axes3;
+          //         const int iVelocityGlobal =
+          //             __dim * currentParticleGlobalIndex + axes3;
 
-                  const int velocityGradientAlphaIndex1 = velocityGradientIndex
-                      [(((axes1 + 2) % 3) * __dim + axes2) * __dim + axes3];
-                  const int velocityGradientAlphaIndex2 = velocityGradientIndex
-                      [(((axes1 + 1) % 3) * __dim + axes2) * __dim + axes3];
+          //         const int velocityGradientAlphaIndex1 =
+          //         velocityGradientIndex
+          //             [(((axes1 + 2) % 3) * __dim + axes2) * __dim + axes3];
+          //         const int velocityGradientAlphaIndex2 =
+          //         velocityGradientIndex
+          //             [(((axes1 + 1) % 3) * __dim + axes2) * __dim + axes3];
 
-                  const double f1 =
-                      __eta * velocityAlphas(i, velocityGradientAlphaIndex1, j);
-                  const double f2 =
-                      __eta * velocityAlphas(i, velocityGradientAlphaIndex2, j);
+          //         const double f1 =
+          //             __eta * velocityAlphas(i, velocityGradientAlphaIndex1,
+          //             j);
+          //         const double f2 =
+          //             __eta * velocityAlphas(i, velocityGradientAlphaIndex2,
+          //             j);
 
-                  LUV.outProcessIncrement(
-                      currentRigidBodyLocalOffset + 3 + axes1, jVelocityGlobal,
-                      rci[(axes1 + 1) % 3] * f1 * Ndr[axes2]);
-                  LUV.outProcessIncrement(
-                      currentRigidBodyLocalOffset + 3 + axes1, jVelocityGlobal,
-                      -rci[(axes1 + 2) % 3] * f2 * Ndr[axes2]);
-                  LUV.outProcessIncrement(
-                      currentRigidBodyLocalOffset + 3 + axes1, iVelocityGlobal,
-                      -rci[(axes1 + 1) % 3] * f1 * Ndr[axes2]);
-                  LUV.outProcessIncrement(
-                      currentRigidBodyLocalOffset + 3 + axes1, iVelocityGlobal,
-                      rci[(axes1 + 2) % 3] * f2 * Ndr[axes2]);
-                }
-              }
-            }
-          }
+          //         LUV.outProcessIncrement(
+          //             currentRigidBodyLocalOffset + 3 + axes1,
+          //             jVelocityGlobal, rci[(axes1 + 1) % 3] * f1 *
+          //             Ndr[axes2]);
+          //         LUV.outProcessIncrement(
+          //             currentRigidBodyLocalOffset + 3 + axes1,
+          //             jVelocityGlobal, -rci[(axes1 + 2) % 3] * f2 *
+          //             Ndr[axes2]);
+          //         LUV.outProcessIncrement(
+          //             currentRigidBodyLocalOffset + 3 + axes1,
+          //             iVelocityGlobal, -rci[(axes1 + 1) % 3] * f1 *
+          //             Ndr[axes2]);
+          //         LUV.outProcessIncrement(
+          //             currentRigidBodyLocalOffset + 3 + axes1,
+          //             iVelocityGlobal, rci[(axes1 + 2) % 3] * f2 *
+          //             Ndr[axes2]);
+          //       }
+          //     }
+          //   }
+          // }
         }
       }  // end of particles on rigid body
     }
