@@ -618,10 +618,12 @@ void GMLS_Solver::StokesEquation() {
     }
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
   MPI_Bcast(__rigidBody.Ci_V.data(), __dim * __rigidBody.Ci_X.size(),
             MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
   MPI_Bcast(__rigidBody.Ci_Omega.data(), __dim * __rigidBody.Ci_X.size(),
             MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
+  MPI_Barrier(MPI_COMM_WORLD);
 
   for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
     for (int j = 0; j < 3; j++) {
