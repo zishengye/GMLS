@@ -593,7 +593,7 @@ void GMLS_Solver::StokesEquation() {
 
   MPI_Barrier(MPI_COMM_WORLD);
   Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
-  // LUV.Solve(rhsVelocity, xVelocity);
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // copy data
   __particle.pressure.resize(__particle.localParticleNum);
@@ -627,6 +627,14 @@ void GMLS_Solver::StokesEquation() {
     for (int j = 0; j < 3; j++) {
       __rigidBody.Ci_X[i][j] += __rigidBody.Ci_V[i][j] * __dt;
       __rigidBody.Ci_Theta[i][j] += __rigidBody.Ci_Omega[i][j] * __dt;
+    }
+  }
+
+  if (__myID == 0) {
+    cout << endl;
+    for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
+      cout << __rigidBody.Ci_X[i][0] << ' ' << __rigidBody.Ci_X[i][1] << ' '
+           << __rigidBody.Ci_X[i][2] << endl;
     }
   }
 }
