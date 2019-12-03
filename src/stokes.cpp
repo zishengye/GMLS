@@ -75,7 +75,7 @@ void GMLS_Solver::StokesEquation() {
 
   const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 1;
+  double epsilonMultiplier = 1.6;
   int estimatedUpperBoundNumberNeighbors =
       pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
           minNeighbors, __dim, epsilonMultiplier);
