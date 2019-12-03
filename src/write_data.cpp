@@ -282,7 +282,8 @@ void GMLS_Solver::WriteData() {
 
     MasterOperation(0, [this]() {
       ofstream file;
-      file.open("./txt/output_step" + to_string(writeStep) + ".txt", ios::app);
+      file.open("./txt/output_step" + to_string(writeStep) + ".txt",
+                ios::trunc);
       for (int i = 0; i < this->__rigidBody.Ci_X.size(); i++) {
         for (int j = 0; j < this->__dim; j++) {
           file << __rigidBody.Ci_X[i][j] << ' ';
