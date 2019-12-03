@@ -34,9 +34,9 @@ void GMLS_Solver::InitRigidBody() {
 int GMLS_Solver::IsInRigidBody(vec3 &pos) {
   for (size_t i = 0; i < __rigidBody.Ci_X.size(); i++) {
     vec3 dis = pos - __rigidBody.Ci_X[i];
-    if (dis.mag() < __rigidBody.Ci_R[i]) {
+    if (dis.mag() < __rigidBody.Ci_R[i] - 0.5 * __particleSize0[0]) {
       return -1;
-    } else if (dis.mag() < __rigidBody.Ci_R[i] + 0.5 * __particleSize0[0]) {
+    } else if (dis.mag() < __rigidBody.Ci_R[i]) {
       return i;
     }
   }
