@@ -146,8 +146,8 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   double *d;
   VecGetArray(_diag, &d);
   for (size_t i = 0; i < f.size(); i++) {
-    if (abs(*d) < 1e-15) {
-      *d = 1e-3;
+    if (abs(*d) < 1e-6) {
+      *d = 1e-6;
     }
   }
   VecRestoreArray(_diag, &d);
