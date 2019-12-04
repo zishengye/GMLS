@@ -37,7 +37,7 @@ int GMLS_Solver::IsInRigidBody(vec3 &pos) {
     if (dis.mag() < __rigidBody.Ci_R[i] - 0.5 * __particleSize0[0]) {
       return -1;
     } else if ((dis.mag() + 1e-15) <
-               (__rigidBody.Ci_R[i] + 0.5 * __particleSize0[0])) {
+               (__rigidBody.Ci_R[i] + pow(0.5, __dim) * __particleSize0[0])) {
       return i;
     }
   }
@@ -63,9 +63,9 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
         vec3 normal =
             vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
         vec3 pos = normal * r + __rigidBody.Ci_X[n];
-        if (pos[0] > __domain[0][0] && pos[0] < __domain[1][0] &&
-            pos[1] > __domain[0][1] && pos[1] < __domain[1][1] &&
-            pos[2] > __domain[0][2] && pos[2] < __domain[1][2])
+        if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
+            pos[1] >= __domain[0][1] && pos[1] < __domain[1][1] &&
+            pos[2] >= __domain[0][2] && pos[2] < __domain[1][2])
           InsertParticle(pos, 4, __particleSize0, normal, localIndex, vol, true,
                          n);
       }
