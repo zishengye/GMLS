@@ -7,7 +7,7 @@ using namespace std;
 
 void GMLS_Solver::InitRigidBody() {
   // initialize data storage
-  int Nr = 1;
+  int Nr = 27;
 
   __rigidBody.Ci_X.resize(Nr);
   __rigidBody.Ci_Theta.resize(Nr);
@@ -18,23 +18,23 @@ void GMLS_Solver::InitRigidBody() {
   __rigidBody.Ci_R.resize(Nr);
   __rigidBody.type.resize(Nr);
 
-  // for (int i = 0; i < 3; i++) {
-  //   for (int j = 0; j < 3; j++) {
-  //     for (int k = 0; k < 3; k++) {
-  //       const int index = i * 9 + j * 3 + k;
-  //       __rigidBody.Ci_X[index][0] = (i - 1) * 3;
-  //       __rigidBody.Ci_X[index][1] = (j - 1) * 3;
-  //       __rigidBody.Ci_X[index][2] = (k - 1) * 3;
-  //       __rigidBody.Ci_R[index] = 1.0;
-  //     }
-  //   }
-  // }
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      for (int k = 0; k < 3; k++) {
+        const int index = i * 9 + j * 3 + k;
+        __rigidBody.Ci_X[index][0] = (i - 1) * 3;
+        __rigidBody.Ci_X[index][1] = (j - 1) * 3;
+        __rigidBody.Ci_X[index][2] = (k - 1) * 3;
+        __rigidBody.Ci_R[index] = 1.0;
+      }
+    }
+  }
 
-  __rigidBody.Ci_X[0][0] = -1;
-  __rigidBody.Ci_X[0][1] = -1;
-  __rigidBody.Ci_X[0][2] = -1;
+  // __rigidBody.Ci_X[0][0] = -1;
+  // __rigidBody.Ci_X[0][1] = -1;
+  // __rigidBody.Ci_X[0][2] = -1;
 
-  __rigidBody.Ci_R[0] = 1.0;
+  // __rigidBody.Ci_R[0] = 1.0;
 }
 
 int GMLS_Solver::IsInRigidBody(vec3 &pos) {
