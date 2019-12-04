@@ -526,17 +526,14 @@ void GMLS_Solver::StokesEquation() {
     }
     // Lagrangian multipler
     PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
+    PI.outProcessIncrement(__particle.localParticleNum, i, 1.0);
     // end of pressure block
   }  // end of fluid particle loop
 
   // Lagrangian multipler for pressure
   if (__myID == __MPISize - 1) {
-    for (int i = 0; i < __particle.globalParticleNum; i++) {
-      PI.increment(__particle.localParticleNum, i, 1.0);
-
-      PI.increment(__particle.localParticleNum, __particle.globalParticleNum,
-                   10000.0);
-    }
+    PI.increment(__particle.localParticleNum, __particle.globalParticleNum,
+                 10000.0);
   }
 
   LUV.FinalAssemble();
