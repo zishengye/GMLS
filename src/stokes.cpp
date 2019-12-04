@@ -535,7 +535,7 @@ void GMLS_Solver::StokesEquation() {
       PI.increment(__particle.localParticleNum, i, 1.0);
 
       PI.increment(__particle.localParticleNum, __particle.globalParticleNum,
-                   0.0);
+                   10000.0);
     }
   }
 
