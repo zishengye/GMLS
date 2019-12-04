@@ -77,8 +77,8 @@ void GMLS_Solver::StokesEquation() {
 
   double epsilonMultiplier = 1.5;
   int estimatedUpperBoundNumberNeighbors =
-      pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
-          minNeighbors, __dim, epsilonMultiplier);
+      5 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
+              minNeighbors, __dim, epsilonMultiplier);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
       "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
