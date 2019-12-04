@@ -600,17 +600,29 @@ void GMLS_Solver::StokesEquation() {
     }
   }
 
+  vector<double> velocity(__rigidBody.Ci_X.size() * __dim);
+  vector<double> omega(__rigidBody.Ci_X.size() * __dim);
+
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i < __rigidBody.Ci_X.size(); ++i) {
+      for (int j = 0; j < 3; ++j) {
+        velocity[3 * i + j] = __rigidBody.Ci_V[i][j];
+        omega[3 * i + j] = __rigidBody.Ci_Omega[i][j];
+      }
+    }
+  }
+
   MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Bcast(__rigidBody.Ci_V.data(), __dim * __rigidBody.Ci_X.size(),
-            MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
-  MPI_Bcast(__rigidBody.Ci_Omega.data(), __dim * __rigidBody.Ci_X.size(),
-            MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
+  MPI_Bcast(velocity.data(), __dim * __rigidBody.Ci_X.size(), MPI_DOUBLE,
+            __MPISize - 1, MPI_COMM_WORLD);
+  MPI_Bcast(omega.data(), __dim * __rigidBody.Ci_X.size(), MPI_DOUBLE,
+            __MPISize - 1, MPI_COMM_WORLD);
   MPI_Barrier(MPI_COMM_WORLD);
 
   for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
     for (int j = 0; j < 3; j++) {
-      __rigidBody.Ci_X[i][j] += __rigidBody.Ci_V[i][j] * __dt;
-      __rigidBody.Ci_Theta[i][j] += __rigidBody.Ci_Omega[i][j] * __dt;
+      __rigidBody.Ci_X[i][j] += velocity[__dim * i + j] * __dt;
+      __rigidBody.Ci_Theta[i][j] += omega[__dim * i + j] * __dt;
     }
   }
 }
