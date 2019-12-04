@@ -219,7 +219,7 @@ void GMLS_Solver::StokesEquation() {
   if (__particle.vectorBasis == nullptr)
     __particle.vectorBasis =
         new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                 __polynomialOrder, __dim, "SVD", "STANDARD");
+                 __polynomialOrder, __dim, "LU", "STANDARD");
   GMLS &velocityBasis = *__particle.vectorBasis;
 
   velocityBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
