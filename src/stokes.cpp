@@ -506,6 +506,10 @@ void GMLS_Solver::StokesEquation() {
           GXY.increment(iVelocityLocal, iPressureGlobal, -Dijx);
         }
       }
+
+      // Lagrangian multipler
+      PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
+      PI.outProcessIncrement(__particle.localParticleNum, iPressureGlobal, 1.0);
     } else {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       for (int j = 1; j < pressureNeumannBoundaryNeighborListsLengths(
@@ -524,9 +528,6 @@ void GMLS_Solver::StokesEquation() {
         PI.increment(iPressureLocal, iPressureGlobal, -Aij);
       }
     }
-    // Lagrangian multipler
-    PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
-    PI.outProcessIncrement(__particle.localParticleNum, iPressureGlobal, 1.0);
     // end of pressure block
   }  // end of fluid particle loop
 
