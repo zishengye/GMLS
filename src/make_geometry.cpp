@@ -7,9 +7,9 @@ using namespace std;
 
 void GMLS_Solver::SetBoundingBox() {
   if (__dim == 3) {
-    __boundingBoxSize[0] = 2.0;
-    __boundingBoxSize[1] = 2.0;
-    __boundingBoxSize[2] = 2.0;
+    __boundingBoxSize[0] = 12.0;
+    __boundingBoxSize[1] = 12.0;
+    __boundingBoxSize[2] = 12.0;
 
     __boundingBox.push_back(vec3(-__boundingBoxSize[0] / 2.0,
                                  -__boundingBoxSize[1] / 2.0,
