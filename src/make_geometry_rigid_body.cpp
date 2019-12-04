@@ -20,12 +20,14 @@ void GMLS_Solver::InitRigidBody() {
 
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 3; j++) {
-      for (int k = 0; k < 3; k += 2) {
-        const int index = i * 9 + j * 3 + k;
-        __rigidBody.Ci_X[index][0] = (i - 1) * 3;
-        __rigidBody.Ci_X[index][1] = (j - 1) * 3;
-        __rigidBody.Ci_X[index][2] = (k - 1) * 3;
-        __rigidBody.Ci_R[index] = 1.0;
+      for (int k = 0; k < 3; k++) {
+        if (j != 2 && k != 1) {
+          const int index = i * 9 + j * 3 + k;
+          __rigidBody.Ci_X[index][0] = (i - 1) * 3;
+          __rigidBody.Ci_X[index][1] = (j - 1) * 3;
+          __rigidBody.Ci_X[index][2] = (k - 1) * 3;
+          __rigidBody.Ci_R[index] = 1.0;
+        }
       }
     }
   }
