@@ -142,6 +142,16 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   VecSetSizes(_diag, f.size(), PETSC_DECIDE);
   VecSetType(_diag, VECMPI);
   MatGetDiagonal(_ASub[0], _diag);
+
+  double *d;
+  VecGetArray(_diag, &d);
+  for (size_t i = 0; i < f.size(); i++) {
+    if (*d < 1e-15) {
+      *d = 1e-6;
+    }
+  }
+  VecRestoreArray(_diag, &d);
+
   VecReciprocal(_diag);
   MatDiagonalScale(_ASub[1], _diag, NULL);
 

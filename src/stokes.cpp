@@ -535,23 +535,9 @@ void GMLS_Solver::StokesEquation() {
       PI.increment(__particle.localParticleNum, i, 1.0);
 
       PI.increment(__particle.localParticleNum, __particle.globalParticleNum,
-                   100.0);
+                   0.0);
     }
   }
-
-  // rigid body dof stabilization
-  if (__myID == __MPISize - 1)
-    for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
-      const int currentRigidBody = i;
-      const int currentRigidBodyLocalOffset =
-          localRigidBodyOffset + rigidBodyDof * currentRigidBody;
-      const int currentRigidBodyGlobalOffset =
-          globalRigidBodyOffset + rigidBodyDof * currentRigidBody;
-      for (int axes = 0; axes < rigidBodyDof; axes++) {
-        LUV.increment(currentRigidBodyLocalOffset + axes,
-                      currentRigidBodyGlobalOffset + axes, 1e-8);
-      }
-    }
 
   LUV.FinalAssemble();
   DXY.FinalAssemble();
