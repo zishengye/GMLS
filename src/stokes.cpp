@@ -283,6 +283,7 @@ void GMLS_Solver::StokesEquation() {
 
   int localRigidBodyOffset = globalParticleNum[__MPISize - 1] * __dim;
   int globalRigidBodyOffset = __particle.globalParticleNum * __dim;
+  int lagrangeMultiplerOffset = globalParticleNum[__MPISize - 1];
 
   PetscSparseMatrix LUV(localVelocityDOF, localVelocityDOF, globalVelocityDOF);
   PetscSparseMatrix GXY(localVelocityDOF, localPressureDOF, globalPressureDOF);
@@ -509,7 +510,7 @@ void GMLS_Solver::StokesEquation() {
 
       // Lagrangian multipler
       PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
-      PI.outProcessIncrement(__particle.localParticleNum, iPressureGlobal, 1.0);
+      PI.outProcessIncrement(lagrangeMultiplerOffset, iPressureGlobal, 1.0);
     } else {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       for (int j = 1; j < pressureNeumannBoundaryNeighborListsLengths(
