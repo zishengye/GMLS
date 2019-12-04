@@ -75,7 +75,7 @@ void GMLS_Solver::StokesEquation() {
 
   const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 1.5;
+  double epsilonMultiplier = 1.6;
   int estimatedUpperBoundNumberNeighbors =
       pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
           minNeighbors, __dim, epsilonMultiplier);
@@ -219,7 +219,7 @@ void GMLS_Solver::StokesEquation() {
   if (__particle.vectorBasis == nullptr)
     __particle.vectorBasis =
         new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                 __polynomialOrder, __dim, "LU", "STANDARD");
+                 __polynomialOrder, __dim, "SVD", "STANDARD");
   GMLS &velocityBasis = *__particle.vectorBasis;
 
   velocityBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
@@ -534,8 +534,7 @@ void GMLS_Solver::StokesEquation() {
 
   // Lagrangian multipler for pressure
   if (__myID == __MPISize - 1) {
-    PI.increment(lagrangeMultiplerOffset, __particle.globalParticleNum,
-                 10000.0);
+    PI.increment(lagrangeMultiplerOffset, __particle.globalParticleNum, 2.0);
   }
 
   LUV.FinalAssemble();
@@ -569,7 +568,7 @@ void GMLS_Solver::StokesEquation() {
         // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes ==
         // 0);
         rhsVelocity[__dim * i + axes] =
-            3.0 * double(axes == 0) *
+            1.0 * double(axes == 0) *
             double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
       }
     }

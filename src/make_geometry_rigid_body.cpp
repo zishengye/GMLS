@@ -7,7 +7,7 @@ using namespace std;
 
 void GMLS_Solver::InitRigidBody() {
   // initialize data storage
-  int Nr = 12;
+  int Nr = 0;
 
   __rigidBody.Ci_X.resize(Nr);
   __rigidBody.Ci_Theta.resize(Nr);
@@ -18,18 +18,18 @@ void GMLS_Solver::InitRigidBody() {
   __rigidBody.Ci_R.resize(Nr);
   __rigidBody.type.resize(Nr);
 
-  int index = 0;
-  for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 2; j++) {
-      for (int k = 0; k < 3; k++) {
-        __rigidBody.Ci_X[index][0] = 6 * i - 3;
-        __rigidBody.Ci_X[index][1] = 6 * j - 3;
-        __rigidBody.Ci_X[index][2] = (k - 1) * 3;
-        __rigidBody.Ci_R[index] = 1.0;
-        index++;
-      }
-    }
-  }
+  // int index = 0;
+  // for (int i = 0; i < 2; i++) {
+  //   for (int j = 0; j < 2; j++) {
+  //     for (int k = 0; k < 3; k++) {
+  //       __rigidBody.Ci_X[index][0] = 6 * i - 3;
+  //       __rigidBody.Ci_X[index][1] = 6 * j - 3;
+  //       __rigidBody.Ci_X[index][2] = (k - 1) * 3;
+  //       __rigidBody.Ci_R[index] = 1.0;
+  //       index++;
+  //     }
+  //   }
+  // }
 
   // __rigidBody.Ci_X[0][0] = -1;
   // __rigidBody.Ci_X[0][1] = -1;
