@@ -570,7 +570,7 @@ void GMLS_Solver::StokesEquation() {
         // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes ==
         // 0);
         rhsVelocity[__dim * i + axes] =
-            12.0 * double(axes == 0) *
+            3.0 * double(axes == 0) *
             double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
       }
     }
