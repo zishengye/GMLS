@@ -599,25 +599,24 @@ void GMLS_Solver::StokesEquation() {
         //     double(axes == 0);
         // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes ==
         // 0);
-        rhsVelocity[__dim * i + axes] =
-            1.0 * double(axes == 0) *
-            double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
+        // rhsVelocity[__dim * i + axes] =
+        //     1.0 * double(axes == 0) *
+        //     double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
       }
     }
   }
 
-  // if (__myID == __MPISize - 1) {
-  //   for (int i = 0; i < numRigidBody; i++) {
-  //     for (int j = 0; j < translationDof; j++)
-  //       rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + j] =
-  //           1e-10 / __dt * __rigidBody.Ci_V[i][j];
-  //     for (int j = 0; j < rotationDof; j++) {
-  //       rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + translationDof
-  //       +
-  //                   j] = 1e-10 / __dt * __rigidBody.Ci_Omega[i][j];
-  //     }
-  //   }
-  // }
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i < numRigidBody; i++) {
+      // for (int j = 0; j < translationDof; j++)
+      //   rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + j] =
+      //       1e-10 / __dt * __rigidBody.Ci_V[i][j];
+      for (int j = 0; j < rotationDof; j++) {
+        rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + translationDof +
+                    j] = 1.0;
+      }
+    }
+  }
 
   MPI_Barrier(MPI_COMM_WORLD);
   Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
