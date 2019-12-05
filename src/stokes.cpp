@@ -418,30 +418,38 @@ void GMLS_Solver::StokesEquation() {
                     [(((axes1 + 2) % translationDof) * __dim + axes2) * __dim +
                      axes3];
                 const int velocityGradientAlphaIndex2 = velocityGradientIndex
+                    [(axes2 * __dim + ((axes1 + 2) % translationDof)) * __dim +
+                     axes3];
+                const int velocityGradientAlphaIndex3 = velocityGradientIndex
                     [(((axes1 + 1) % translationDof) * __dim + axes2) * __dim +
                      axes3];
+                const int velocityGradientAlphaIndex4 = velocityGradientIndex
+                    [(axes2 * __dim + ((axes1 + 1) % translationDof)) * __dim +
+                     axes3];
 
-                const double f1 =
-                    __eta * velocityAlphas(i, velocityGradientAlphaIndex1, j);
-                const double f2 =
-                    __eta * velocityAlphas(i, velocityGradientAlphaIndex2, j);
+                const double sigma1 =
+                    __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
+                             velocityAlphas(i, velocityGradientAlphaIndex2, j));
+                const double sigma2 =
+                    __eta * (velocityAlphas(i, velocityGradientAlphaIndex3, j) +
+                             velocityAlphas(i, velocityGradientAlphaIndex4, j));
 
                 LUV.outProcessIncrement(
                     currentRigidBodyLocalOffset + translationDof + axes1,
                     jVelocityGlobal,
-                    rci[(axes1 + 1) % translationDof] * f1 * Ndr[axes2]);
+                    rci[(axes1 + 1) % translationDof] * sigma1 * Ndr[axes2]);
                 LUV.outProcessIncrement(
                     currentRigidBodyLocalOffset + translationDof + axes1,
                     jVelocityGlobal,
-                    -rci[(axes1 + 2) % translationDof] * f2 * Ndr[axes2]);
+                    -rci[(axes1 + 2) % translationDof] * sigma2 * Ndr[axes2]);
                 LUV.outProcessIncrement(
                     currentRigidBodyLocalOffset + translationDof + axes1,
                     iVelocityGlobal,
-                    -rci[(axes1 + 1) % translationDof] * f1 * Ndr[axes2]);
+                    -rci[(axes1 + 1) % translationDof] * sigma1 * Ndr[axes2]);
                 LUV.outProcessIncrement(
                     currentRigidBodyLocalOffset + translationDof + axes1,
                     iVelocityGlobal,
-                    rci[(axes1 + 2) % translationDof] * f2 * Ndr[axes2]);
+                    rci[(axes1 + 2) % translationDof] * sigma2 * Ndr[axes2]);
               }
             }
           }
