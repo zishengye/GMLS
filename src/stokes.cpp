@@ -352,11 +352,11 @@ void GMLS_Solver::StokesEquation() {
 
           LUV.increment(iVelocityLocal,
                         currentRigidBodyGlobalOffset + translationDof +
-                            (axes1 + 2) % translationDof,
+                            (axes1 + 2) % rotationDof,
                         rci[(axes1 + 1) % translationDof]);
           LUV.increment(iVelocityLocal,
                         currentRigidBodyGlobalOffset + translationDof +
-                            (axes1 + 1) % translationDof,
+                            (axes1 + 1) % rotationDof,
                         -rci[(axes1 + 2) % translationDof]);
         }
 
@@ -377,14 +377,15 @@ void GMLS_Solver::StokesEquation() {
           // force balance
           for (int axes1 = 0; axes1 < __dim; axes1++) {
             // output component 1
-            for (int axes2 = 0; axes2 < __dim; axes2++) {
-              // output component 2
-              for (int axes3 = 0; axes3 < __dim; axes3++) {
-                // input component 1
-                const int jVelocityGlobal =
-                    __dim * neighborParticleIndex + axes3;
-                const int iVelocityGlobal =
-                    __dim * currentParticleGlobalIndex + axes3;
+            for (int axes3 = 0; axes3 < __dim; axes3++) {
+              // input component 1
+              const int jVelocityGlobal = __dim * neighborParticleIndex + axes3;
+              const int iVelocityGlobal =
+                  __dim * currentParticleGlobalIndex + axes3;
+
+              double f = 0;
+              for (int axes2 = 0; axes2 < __dim; axes2++) {
+                // output component 2
                 const int velocityGradientAlphaIndex1 =
                     velocityGradientIndex[(axes1 * __dim + axes2) * __dim +
                                           axes3];
@@ -394,63 +395,57 @@ void GMLS_Solver::StokesEquation() {
                 const double sigma =
                     __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
                              velocityAlphas(i, velocityGradientAlphaIndex2, j));
-                LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                        jVelocityGlobal, sigma * Ndr[axes2]);
-                LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                        iVelocityGlobal, -sigma * Ndr[axes2]);
+
+                f += sigma * Ndr[axes2];
               }
+              LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                      jVelocityGlobal, f);
+              LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                      iVelocityGlobal, -f);
             }
           }
 
           // torque balance
           for (int axes1 = 0; axes1 < __dim; axes1++) {
             // output component 1
-            for (int axes2 = 0; axes2 < __dim; axes2++) {
-              // output component 2
-              for (int axes3 = 0; axes3 < __dim; axes3++) {
-                // input component 1
-                const int jVelocityGlobal =
-                    __dim * neighborParticleIndex + axes3;
-                const int iVelocityGlobal =
-                    __dim * currentParticleGlobalIndex + axes3;
+            for (int axes3 = 0; axes3 < __dim; axes3++) {
+              // input component 1
+              const int jVelocityGlobal = __dim * neighborParticleIndex + axes3;
+              const int iVelocityGlobal =
+                  __dim * currentParticleGlobalIndex + axes3;
 
-                const int velocityGradientAlphaIndex1 = velocityGradientIndex
-                    [(((axes1 + 2) % translationDof) * __dim + axes2) * __dim +
-                     axes3];
-                const int velocityGradientAlphaIndex2 = velocityGradientIndex
-                    [(axes2 * __dim + ((axes1 + 2) % translationDof)) * __dim +
-                     axes3];
-                const int velocityGradientAlphaIndex3 = velocityGradientIndex
-                    [(((axes1 + 1) % translationDof) * __dim + axes2) * __dim +
-                     axes3];
-                const int velocityGradientAlphaIndex4 = velocityGradientIndex
-                    [(axes2 * __dim + ((axes1 + 1) % translationDof)) * __dim +
-                     axes3];
-
-                const double sigma1 =
+              double f = 0;
+              for (int axes2 = 0; axes2 < __dim; axes2++) {
+                // output component 2
+                const int velocityGradientAlphaIndex1 =
+                    velocityGradientIndex[(axes1 * __dim + axes2) * __dim +
+                                          axes3];
+                const int velocityGradientAlphaIndex2 =
+                    velocityGradientIndex[(axes2 * __dim + axes1) * __dim +
+                                          axes3];
+                const double sigma =
                     __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
                              velocityAlphas(i, velocityGradientAlphaIndex2, j));
-                const double sigma2 =
-                    __eta * (velocityAlphas(i, velocityGradientAlphaIndex3, j) +
-                             velocityAlphas(i, velocityGradientAlphaIndex4, j));
 
-                LUV.outProcessIncrement(
-                    currentRigidBodyLocalOffset + translationDof + axes1,
-                    jVelocityGlobal,
-                    rci[(axes1 + 1) % translationDof] * sigma1 * Ndr[axes2]);
-                LUV.outProcessIncrement(
-                    currentRigidBodyLocalOffset + translationDof + axes1,
-                    jVelocityGlobal,
-                    -rci[(axes1 + 2) % translationDof] * sigma2 * Ndr[axes2]);
-                LUV.outProcessIncrement(
-                    currentRigidBodyLocalOffset + translationDof + axes1,
-                    iVelocityGlobal,
-                    -rci[(axes1 + 1) % translationDof] * sigma1 * Ndr[axes2]);
-                LUV.outProcessIncrement(
-                    currentRigidBodyLocalOffset + translationDof + axes1,
-                    iVelocityGlobal,
-                    rci[(axes1 + 2) % translationDof] * sigma2 * Ndr[axes2]);
+                f += sigma * Ndr[axes2];
               }
+              LUV.outProcessIncrement(
+                  currentRigidBodyLocalOffset + translationDof +
+                      (axes1 + 1) % rotationDof,
+                  jVelocityGlobal, f * rci[(axes1 + 2) % rotationDof]);
+              LUV.outProcessIncrement(
+                  currentRigidBodyLocalOffset + translationDof +
+                      (axes1 + 2) % rotationDof,
+                  jVelocityGlobal, -f * rci[(axes1 + 2) % rotationDof]);
+
+              LUV.outProcessIncrement(
+                  currentRigidBodyLocalOffset + translationDof +
+                      (axes1 + 1) % rotationDof,
+                  iVelocityGlobal, -f * rci[(axes1 + 2) % rotationDof]);
+              LUV.outProcessIncrement(
+                  currentRigidBodyLocalOffset + translationDof +
+                      (axes1 + 2) % rotationDof,
+                  iVelocityGlobal, f * rci[(axes1 + 2) % rotationDof]);
             }
           }
         }
