@@ -633,40 +633,48 @@ void GMLS_Solver::StokesEquation() {
   }
 
   if (__myID == __MPISize - 1) {
-    for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
-      for (int j = 0; j < __dim; j++) {
-        __rigidBody.Ci_V[i][j] = xVelocity[localRigidBodyOffset + i * 6 + j];
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < translationDof; j++) {
+        __rigidBody.Ci_V[i][j] =
+            xVelocity[localRigidBodyOffset + i * rigidBodyDof + j];
+      }
+      for (int j = 0; j < rotationDof; j++) {
         __rigidBody.Ci_Omega[i][j] =
-            xVelocity[localRigidBodyOffset + i * 6 + 3 + j];
+            xVelocity[localRigidBodyOffset + i * rigidBodyDof + translationDof +
+                      j];
       }
     }
   }
 
-  vector<double> velocity(__rigidBody.Ci_X.size() * __dim);
-  vector<double> omega(__rigidBody.Ci_X.size() * __dim);
+  vector<double> velocity(numRigidBody * translationDof);
+  vector<double> omega(numRigidBody * rotationDof);
 
   if (__myID == __MPISize - 1) {
-    for (int i = 0; i < __rigidBody.Ci_X.size(); ++i) {
-      for (int j = 0; j < 3; ++j) {
-        velocity[3 * i + j] = __rigidBody.Ci_V[i][j];
-        omega[3 * i + j] = __rigidBody.Ci_Omega[i][j];
+    for (int i = 0; i < numRigidBody; ++i) {
+      for (int j = 0; j < translationDof; ++j) {
+        velocity[translationDof * i + j] = __rigidBody.Ci_V[i][j];
+      }
+      for (int j = 0; j < rotationDof; ++j) {
+        omega[rotationDof * i + j] = __rigidBody.Ci_Omega[i][j];
       }
     }
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Bcast(velocity.data(), __dim * __rigidBody.Ci_X.size(), MPI_DOUBLE,
+  MPI_Bcast(velocity.data(), translationDof * numRigidBody, MPI_DOUBLE,
             __MPISize - 1, MPI_COMM_WORLD);
-  MPI_Bcast(omega.data(), __dim * __rigidBody.Ci_X.size(), MPI_DOUBLE,
-            __MPISize - 1, MPI_COMM_WORLD);
+  MPI_Bcast(omega.data(), rotationDof * numRigidBody, MPI_DOUBLE, __MPISize - 1,
+            MPI_COMM_WORLD);
   MPI_Barrier(MPI_COMM_WORLD);
 
-  for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
-    for (int j = 0; j < 3; j++) {
-      __rigidBody.Ci_V[i][j] = velocity[3 * i + j];
-      __rigidBody.Ci_Omega[i][j] = omega[3 * i + j];
-      __rigidBody.Ci_X[i][j] += velocity[__dim * i + j] * __dt;
-      __rigidBody.Ci_Theta[i][j] += omega[__dim * i + j] * __dt;
+  for (int i = 0; i < numRigidBody; i++) {
+    for (int j = 0; j < translationDof; j++) {
+      __rigidBody.Ci_V[i][j] = velocity[translationDof * i + j];
+      __rigidBody.Ci_X[i][j] += velocity[translationDof * i + j] * __dt;
+    }
+    for (int j = 0; j < rotationDof; ++j) {
+      __rigidBody.Ci_Omega[i][j] = omega[rotationDof * i + j];
+      __rigidBody.Ci_Theta[i][j] += omega[rotationDof * i + j] * __dt;
     }
   }
 }
