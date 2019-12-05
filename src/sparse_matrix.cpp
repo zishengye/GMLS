@@ -45,7 +45,7 @@ int PetscSparseMatrix::FinalAssemble() {
 
   // merge data
   if (myid == MPIsize - 1) {
-    for (size_t i = 0; i < iRecv.size(); i++) {
+    for (int i = 0; i < iRecv.size(); i++) {
       this->increment(iRecv[i], jRecv[i], valRecv[i]);
     }
   }
@@ -142,6 +142,15 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   VecSetSizes(_diag, f.size(), PETSC_DECIDE);
   VecSetType(_diag, VECMPI);
   MatGetDiagonal(_ASub[0], _diag);
+
+  double *d;
+  VecGetArray(_diag, &d);
+  for (size_t i = 0; i < f.size(); i++) {
+    if (abs(*d) < 1e-15) {
+      *d = 1e-15;
+    }
+  }
+  VecRestoreArray(_diag, &d);
 
   VecReciprocal(_diag);
   MatDiagonalScale(_ASub[1], _diag, NULL);

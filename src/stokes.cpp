@@ -547,8 +547,8 @@ void GMLS_Solver::StokesEquation() {
     // end of pressure block
   }  // end of fluid particle loop
 
-  // Lagrangian multipler for pressure
   if (__myID == __MPISize - 1) {
+    // Lagrangian multipler for pressure
     PI.increment(lagrangeMultiplerOffset, __particle.globalParticleNum, 2.0);
 
     // for (int i = 0; i < numRigidBody; i++) {
