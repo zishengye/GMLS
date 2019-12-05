@@ -45,7 +45,7 @@ int PetscSparseMatrix::FinalAssemble() {
 
   // merge data
   if (myid == MPIsize - 1) {
-    for (int i = 0; i < iRecv.size(); i++) {
+    for (size_t i = 0; i < iRecv.size(); i++) {
       this->increment(iRecv[i], jRecv[i], valRecv[i]);
     }
   }

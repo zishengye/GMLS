@@ -542,19 +542,19 @@ void GMLS_Solver::StokesEquation() {
   if (__myID == __MPISize - 1) {
     PI.increment(lagrangeMultiplerOffset, __particle.globalParticleNum, 2.0);
 
-    // for (int i = 0; i < numRigidBody; i++) {
-    //   for (int j = 0; j < translationDof; j++) {
-    //     LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
-    //                   globalRigidBodyOffset + rigidBodyDof * i + j,
-    //                   1e-10 / __dt);
-    //   }
-    //   for (int j = 0; j < rotationDof; j++) {
-    //     LUV.increment(
-    //         localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-    //         globalRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-    //         1e-10 / __dt);
-    //   }
-    // }
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < translationDof; j++) {
+        LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
+                      globalRigidBodyOffset + rigidBodyDof * i + j,
+                      1e-10 / __dt);
+      }
+      for (int j = 0; j < rotationDof; j++) {
+        LUV.increment(
+            localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+            globalRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+            1e-10 / __dt);
+      }
+    }
   }
 
   LUV.FinalAssemble();
