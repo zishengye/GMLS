@@ -535,6 +535,19 @@ void GMLS_Solver::StokesEquation() {
   // Lagrangian multipler for pressure
   if (__myID == __MPISize - 1) {
     PI.increment(lagrangeMultiplerOffset, __particle.globalParticleNum, 2.0);
+
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < __dim; j++) {
+        LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
+                      globalRigidBodyOffset + rigidBodyDof * i + j,
+                      1e-10 / __dt);
+      }
+      for (int j = 0; j < __dim; j++) {
+        LUV.increment(localRigidBodyOffset + rigidBodyDof * i + 3 + j,
+                      globalRigidBodyOffset + rigidBodyDof * i + 3 + j,
+                      1e-10 / __dt);
+      }
+    }
   }
 
   LUV.FinalAssemble();
@@ -570,6 +583,18 @@ void GMLS_Solver::StokesEquation() {
         rhsVelocity[__dim * i + axes] =
             1.0 * double(axes == 0) *
             double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
+      }
+    }
+  }
+
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < __dim; j++)
+        rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + j] =
+            1e-10 / __dt * __rigidBody.Ci_V[i][j];
+      for (int j = 0; j < __dim; j++) {
+        rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + 3 + j] =
+            1e-10 / __dt * __rigidBody.Ci_Omega[i][j];
       }
     }
   }
