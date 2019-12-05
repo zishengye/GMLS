@@ -551,19 +551,19 @@ void GMLS_Solver::StokesEquation() {
     // Lagrangian multipler for pressure
     PI.increment(lagrangeMultiplerOffset, __particle.globalParticleNum, 2.0);
 
-    // for (int i = 0; i < numRigidBody; i++) {
-    //   for (int j = 0; j < translationDof; j++) {
-    //     LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
-    //                   globalRigidBodyOffset + rigidBodyDof * i + j,
-    //                   1e-10 / __dt);
-    //   }
-    //   for (int j = 0; j < rotationDof; j++) {
-    //     LUV.increment(
-    //         localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-    //         globalRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-    //         1e-10 / __dt);
-    //   }
-    // }
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < translationDof; j++) {
+        LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
+                      globalRigidBodyOffset + rigidBodyDof * i + j,
+                      1e-10 / __dt);
+      }
+      for (int j = 0; j < rotationDof; j++) {
+        LUV.increment(
+            localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+            globalRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+            1e-10 / __dt);
+      }
+    }
   }
 
   LUV.FinalAssemble();
@@ -605,12 +605,13 @@ void GMLS_Solver::StokesEquation() {
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
-      // for (int j = 0; j < translationDof; j++)
-      //   rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + j] =
-      //       1e-10 / __dt * __rigidBody.Ci_V[i][j];
-      for (int j = 0; j < 1; j++) {
+      for (int j = 0; j < translationDof; j++)
+        rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + j] =
+            1e-10 / __dt * __rigidBody.Ci_V[i][j];
+      for (int j = 0; j < rotationDof; j++) {
         rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + translationDof +
-                    j] = 1.0;
+                    j] =
+            1e-10 / __dt * __rigidBody.Ci_Omega[i][j] + double(j == 1);
       }
     }
   }
