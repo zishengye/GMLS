@@ -648,6 +648,8 @@ void GMLS_Solver::StokesEquation() {
 
   for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
     for (int j = 0; j < 3; j++) {
+      __rigidBody.Ci_V[i][j] = velocity[3 * i + j];
+      __rigidBody.Ci_Omega[i][j] = omega[3 * i + j];
       __rigidBody.Ci_X[i][j] += velocity[__dim * i + j] * __dt;
       __rigidBody.Ci_Theta[i][j] += omega[__dim * i + j] * __dt;
     }
