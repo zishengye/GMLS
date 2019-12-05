@@ -369,18 +369,15 @@ void GMLS_Solver::StokesEquation() {
           GXY.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
                                   iPressureGlobal, -dA[axes1]);
         }
-        for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-          GXY.outProcessIncrement(
-              currentRigidBodyLocalOffset + translationDof + axes1,
-              iPressureGlobal,
-              -rci[(axes1 + 1) % translationDof] *
-                  dA[(axes1 + 2) % translationDof]);
-          GXY.outProcessIncrement(
-              currentRigidBodyLocalOffset + translationDof + axes1,
-              iPressureGlobal,
-              rci[(axes1 + 2) % translationDof] *
-                  dA[(axes1 + 1) % translationDof]);
-        }
+        // for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+        //   GXY.outProcessIncrement(
+        //       currentRigidBodyLocalOffset + translationDof + axes1,
+        //       iPressureGlobal,
+        //       rci[(axes1 + 2) % translationDof] *
+        //               dA[(axes1 + 1) % translationDof] -
+        //           rci[(axes1 + 1) % translationDof] *
+        //               dA[(axes1 + 2) % translationDof]);
+        // }
 
         for (int j = 1; j < velocityNeighborListsLengths(i); j++) {
           const int neighborParticleIndex =
@@ -554,19 +551,19 @@ void GMLS_Solver::StokesEquation() {
   if (__myID == __MPISize - 1) {
     PI.increment(lagrangeMultiplerOffset, __particle.globalParticleNum, 2.0);
 
-    for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < translationDof; j++) {
-        LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
-                      globalRigidBodyOffset + rigidBodyDof * i + j,
-                      1e-10 / __dt);
-      }
-      for (int j = 0; j < rotationDof; j++) {
-        LUV.increment(
-            localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-            globalRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-            1e-10 / __dt);
-      }
-    }
+    // for (int i = 0; i < numRigidBody; i++) {
+    //   for (int j = 0; j < translationDof; j++) {
+    //     LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
+    //                   globalRigidBodyOffset + rigidBodyDof * i + j,
+    //                   1e-10 / __dt);
+    //   }
+    //   for (int j = 0; j < rotationDof; j++) {
+    //     LUV.increment(
+    //         localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+    //         globalRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+    //         1e-10 / __dt);
+    //   }
+    // }
   }
 
   LUV.FinalAssemble();
@@ -608,13 +605,12 @@ void GMLS_Solver::StokesEquation() {
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < translationDof; j++)
-        rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + j] =
-            1e-10 / __dt * __rigidBody.Ci_V[i][j];
-      for (int j = 0; j < rotationDof; j++) {
+      // for (int j = 0; j < translationDof; j++)
+      //   rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + j] =
+      //       1e-10 / __dt * __rigidBody.Ci_V[i][j];
+      for (int j = 0; j < 1; j++) {
         rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + translationDof +
-                    j] =
-            1e-10 / __dt * __rigidBody.Ci_Omega[i][j] + double(j == 0);
+                    j] = 1.0;
       }
     }
   }
