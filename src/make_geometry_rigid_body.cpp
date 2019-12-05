@@ -7,7 +7,7 @@ using namespace std;
 
 void GMLS_Solver::InitRigidBody() {
   // initialize data storage
-  int Nr = 0;
+  int Nr = 1;
 
   // __rigidBody.Ci_X.resize(Nr);
   // __rigidBody.Ci_Theta.resize(Nr);
@@ -31,11 +31,11 @@ void GMLS_Solver::InitRigidBody() {
   //   }
   // }
 
-  // __rigidBody.Ci_X[0][0] = -1;
-  // __rigidBody.Ci_X[0][1] = -1;
-  // __rigidBody.Ci_X[0][2] = -1;
+  __rigidBody.Ci_X[0][0] = -1;
+  __rigidBody.Ci_X[0][1] = -1;
+  __rigidBody.Ci_X[0][2] = -1;
 
-  // __rigidBody.Ci_R[0] = 1.0;
+  __rigidBody.Ci_R[0] = 1.0;
 }
 
 int GMLS_Solver::IsInRigidBody(vec3 &pos) {
