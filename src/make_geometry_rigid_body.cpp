@@ -57,6 +57,9 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
   double h = __particleSize0[0] / 2.0;
   double vol = pow(h, 3);
   double a = pow(h, 2);
+
+  vec3 particleSize = vec3(h, h, h);
+
   for (size_t n = 0; n < __rigidBody.Ci_X.size(); n++) {
     int M_theta = round(M_PI / h);
     double d_theta = M_PI / M_theta;
@@ -73,7 +76,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
         if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
             pos[1] >= __domain[0][1] && pos[1] < __domain[1][1] &&
             pos[2] >= __domain[0][2] && pos[2] < __domain[1][2])
-          InsertParticle(pos, 4, __particleSize0, normal, localIndex, vol, true,
+          InsertParticle(pos, 4, particleSize, normal, localIndex, vol, true,
                          n);
       }
     }
