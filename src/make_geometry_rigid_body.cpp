@@ -54,7 +54,7 @@ int GMLS_Solver::IsInRigidBody(vec3 &pos) {
 
 void GMLS_Solver::InitRigidBodySurfaceParticle() {
   int localIndex = __particle.X.size();
-  double h = __particleSize0[0];
+  double h = __particleSize0[0] / 2.0;
   double vol = pow(h, 3);
   double a = pow(h, 2);
   for (size_t n = 0; n < __rigidBody.Ci_X.size(); n++) {
