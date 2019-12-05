@@ -611,7 +611,7 @@ void GMLS_Solver::StokesEquation() {
       // for (int j = 0; j < translationDof; j++)
       //   rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + j] =
       //       1e-10 / __dt * __rigidBody.Ci_V[i][j];
-      for (int j = 0; j < rotationDof; j++) {
+      for (int j = 0; j < 1; j++) {
         rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + translationDof +
                     j] = 1.0;
       }
