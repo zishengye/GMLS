@@ -263,25 +263,6 @@ void GMLS_Solver::WriteData() {
 
     MasterOperation(0, [this]() {
       ofstream file;
-      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-      file << "SCALARS rhs_u float " + to_string(__dim) << endl;
-      file << "LOOKUP_TABLE default" << endl;
-      file.close();
-    });
-
-    SerialOperation([this]() {
-      ofstream file;
-      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
-      for (size_t i = 0; i < this->__eq.rhsVector.size() / __dim; i++) {
-        for (int axes = 0; axes < __dim; axes++)
-          file << __eq.rhsVector[__dim * i + axes] << ' ';
-        file << endl;
-      }
-      file.close();
-    });
-
-    MasterOperation(0, [this]() {
-      ofstream file;
       file.open("./txt/output_step" + to_string(writeStep) + ".txt",
                 ios::trunc);
       for (int i = 0; i < this->__rigidBody.Ci_X.size(); i++) {
