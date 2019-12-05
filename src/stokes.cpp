@@ -362,12 +362,24 @@ void GMLS_Solver::StokesEquation() {
 
         const int iPressureGlobal = currentParticleGlobalIndex;
 
-        vec3 Ndr = __particle.normal[i] * pow(__particle.d[i], __dim - 1);
+        vec3 dA = __particle.normal[i] * pow(__particle.d[i], __dim - 1);
 
         // apply pressure
         for (int axes1 = 0; axes1 < translationDof; axes1++) {
           GXY.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                  iPressureGlobal, -Ndr[axes1]);
+                                  iPressureGlobal, -dA[axes1]);
+        }
+        for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+          GXY.outProcessIncrement(
+              currentRigidBodyLocalOffset + translationDof + axes1,
+              iPressureGlobal,
+              -rci[(axes1 + 1) % translationDof] *
+                  dA[(axes1 + 2) % translationDof]);
+          GXY.outProcessIncrement(
+              currentRigidBodyLocalOffset + translationDof + axes1,
+              iPressureGlobal,
+              rci[(axes1 + 2) % translationDof] *
+                  dA[(axes1 + 1) % translationDof]);
         }
 
         for (int j = 1; j < velocityNeighborListsLengths(i); j++) {
@@ -396,7 +408,7 @@ void GMLS_Solver::StokesEquation() {
                     __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
                              velocityAlphas(i, velocityGradientAlphaIndex2, j));
 
-                f += sigma * Ndr[axes2];
+                f += sigma * dA[axes2];
               }
               LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
                                       jVelocityGlobal, f);
@@ -427,7 +439,7 @@ void GMLS_Solver::StokesEquation() {
                     __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
                              velocityAlphas(i, velocityGradientAlphaIndex2, j));
 
-                f += sigma * Ndr[axes2];
+                f += sigma * dA[axes2];
               }
               LUV.outProcessIncrement(
                   currentRigidBodyLocalOffset + translationDof +
