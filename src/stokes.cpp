@@ -451,213 +451,211 @@ void GMLS_Solver::StokesEquation() {
           //       }
           //     }
           //   }
-          // }
-        }  // end of particles on rigid body
-      }
+        }
+      }  // end of particles on rigid body
+    }
 
-      // n \cdot grad p
-      if (__particle.particleType[i] != 0) {
-        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-        for (int j = 1; j < pressureNeumannBoundaryNeighborListsLengths(
-                                neumannBoudnaryIndex);
-             j++) {
-          const int neighborParticleIndex =
-              __backgroundParticle.index[neighborLists(i, j + 1)];
+    // n \cdot grad p
+    if (__particle.particleType[i] != 0) {
+      const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+      for (int j = 1; j < pressureNeumannBoundaryNeighborListsLengths(
+                              neumannBoudnaryIndex);
+           j++) {
+        const int neighborParticleIndex =
+            __backgroundParticle.index[neighborLists(i, j + 1)];
 
-          const int iPressureLocal = currentParticleLocalIndex;
-          for (int axes1 = 0; axes1 < __dim; axes1++) {
-            const double dpdni =
-                pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-                    LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-                    neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0)) *
-                __particle.normal[i][axes1];
+        const int iPressureLocal = currentParticleLocalIndex;
+        for (int axes1 = 0; axes1 < __dim; axes1++) {
+          const double dpdni =
+              pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+                  LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+                  neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0)) *
+              __particle.normal[i][axes1];
 
-            for (int axes2 = 0; axes2 < __dim; axes2++) {
-              const int iVelocityGlobal =
-                  __dim * currentParticleGlobalIndex + axes2;
-              const int jVelocityGlobal = __dim * neighborParticleIndex + axes2;
+          for (int axes2 = 0; axes2 < __dim; axes2++) {
+            const int iVelocityGlobal =
+                __dim * currentParticleGlobalIndex + axes2;
+            const int jVelocityGlobal = __dim * neighborParticleIndex + axes2;
 
-              const double Lij =
-                  __eta *
-                  velocityAlphas(i, velocityCurCurlIndex[axes1 * __dim + axes2],
-                                 j);
+            const double Lij =
+                __eta * velocityAlphas(
+                            i, velocityCurCurlIndex[axes1 * __dim + axes2], j);
 
-              DXY.increment(iPressureLocal, jVelocityGlobal, -Lij * dpdni);
-              DXY.increment(iPressureLocal, iVelocityGlobal, Lij * dpdni);
-            }
+            DXY.increment(iPressureLocal, jVelocityGlobal, -Lij * dpdni);
+            DXY.increment(iPressureLocal, iVelocityGlobal, Lij * dpdni);
           }
         }
-      }  // end of velocity block
+      }
+    }  // end of velocity block
 
-      // pressure block
-      const int iPressureLocal = currentParticleLocalIndex;
-      const int iPressureGlobal = currentParticleGlobalIndex;
+    // pressure block
+    const int iPressureLocal = currentParticleLocalIndex;
+    const int iPressureGlobal = currentParticleGlobalIndex;
 
-      if (__particle.particleType[i] == 0) {
-        for (int j = 1; j < pressureNeighborListsLengths(i); j++) {
-          const int neighborParticleIndex =
-              __backgroundParticle.index[neighborLists(i, j + 1)];
+    if (__particle.particleType[i] == 0) {
+      for (int j = 1; j < pressureNeighborListsLengths(i); j++) {
+        const int neighborParticleIndex =
+            __backgroundParticle.index[neighborLists(i, j + 1)];
 
-          const int jPressureGlobal = neighborParticleIndex;
+        const int jPressureGlobal = neighborParticleIndex;
 
-          const double Aij = pressureAlphas(i, pressureLaplacianIndex, j);
+        const double Aij = pressureAlphas(i, pressureLaplacianIndex, j);
 
-          // laplacian p
-          PI.increment(iPressureLocal, jPressureGlobal, Aij);
-          PI.increment(iPressureLocal, iPressureGlobal, -Aij);
+        // laplacian p
+        PI.increment(iPressureLocal, jPressureGlobal, Aij);
+        PI.increment(iPressureLocal, iPressureGlobal, -Aij);
 
-          for (int axes1 = 0; axes1 < __dim; axes1++) {
-            const int iVelocityLocal =
-                __dim * currentParticleLocalIndex + axes1;
+        for (int axes1 = 0; axes1 < __dim; axes1++) {
+          const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
 
-            const double Dijx =
-                pressureAlphas(i, pressureGradientIndex[axes1], j);
+          const double Dijx =
+              pressureAlphas(i, pressureGradientIndex[axes1], j);
 
-            // grad p
-            GXY.increment(iVelocityLocal, jPressureGlobal, Dijx);
-            GXY.increment(iVelocityLocal, iPressureGlobal, -Dijx);
-          }
-        }
-
-        // Lagrangian multipler
-        PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
-        PI.outProcessIncrement(lagrangeMultiplerOffset, iPressureGlobal, 1.0);
-      } else {
-        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-        for (int j = 1; j < pressureNeumannBoundaryNeighborListsLengths(
-                                fluid2NeumannBoundary[i]);
-             j++) {
-          const int neighborParticleIndex =
-              __backgroundParticle.index[neighborLists(i, j + 1)];
-
-          const int jPressureGlobal = neighborParticleIndex;
-
-          const double Aij = pressureNeumannBoundaryAlphas(
-              neumannBoudnaryIndex, pressureNeumannBoundaryLaplacianIndex, j);
-
-          // laplacian p
-          PI.increment(iPressureLocal, jPressureGlobal, Aij);
-          PI.increment(iPressureLocal, iPressureGlobal, -Aij);
+          // grad p
+          GXY.increment(iVelocityLocal, jPressureGlobal, Dijx);
+          GXY.increment(iVelocityLocal, iPressureGlobal, -Dijx);
         }
       }
-      // end of pressure block
-    }  // end of fluid particle loop
 
-    // Lagrangian multipler for pressure
-    if (__myID == __MPISize - 1) {
-      PI.increment(lagrangeMultiplerOffset, __particle.globalParticleNum, 2.0);
+      // Lagrangian multipler
+      PI.increment(iPressureLocal, __particle.globalParticleNum, 1.0);
+      PI.outProcessIncrement(lagrangeMultiplerOffset, iPressureGlobal, 1.0);
+    } else {
+      const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+      for (int j = 1; j < pressureNeumannBoundaryNeighborListsLengths(
+                              fluid2NeumannBoundary[i]);
+           j++) {
+        const int neighborParticleIndex =
+            __backgroundParticle.index[neighborLists(i, j + 1)];
 
-      // for (int i = 0; i < numRigidBody; i++) {
-      //   for (int j = 0; j < translationDof; j++) {
-      //     LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
-      //                   globalRigidBodyOffset + rigidBodyDof * i + j,
-      //                   1e-10 / __dt);
-      //   }
-      //   for (int j = 0; j < rotationDof; j++) {
-      //     LUV.increment(
-      //         localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-      //         globalRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-      //         1e-10 / __dt);
-      //   }
-      // }
-    }
+        const int jPressureGlobal = neighborParticleIndex;
 
-    LUV.FinalAssemble();
-    DXY.FinalAssemble();
-    GXY.FinalAssemble();
-    PI.FinalAssemble();
+        const double Aij = pressureNeumannBoundaryAlphas(
+            neumannBoudnaryIndex, pressureNeumannBoundaryLaplacianIndex, j);
 
-    PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
-
-    vector<double> &rhsPressure = __eq.rhsScalar;
-    vector<double> &rhsVelocity = __eq.rhsVector;
-    vector<double> &xPressure = __eq.xScalar;
-    vector<double> &xVelocity = __eq.xVector;
-
-    rhsPressure.clear();
-    rhsVelocity.clear();
-
-    rhsPressure.resize(localPressureDof);
-    rhsVelocity.resize(localVelocityDof);
-    xPressure.resize(localPressureDof);
-    xVelocity.resize(localVelocityDof);
-
-    // boundary condition
-    for (int i = 0; i < __particle.localParticleNum; i++) {
-      if (__particle.particleType[i] != 0) {
-        for (int axes = 0; axes < __dim; axes++) {
-          // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
-          // rhsVelocity[__dim * i + axes] =
-          //     2.5 * (1.0 - __particle.X[i][1] * __particle.X[i][1] / Hsqr) *
-          //     double(axes == 0);
-          // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes ==
-          // 0);
-          rhsVelocity[__dim * i + axes] =
-              1.0 * double(axes == 0) *
-              double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
-        }
+        // laplacian p
+        PI.increment(iPressureLocal, jPressureGlobal, Aij);
+        PI.increment(iPressureLocal, iPressureGlobal, -Aij);
       }
     }
+    // end of pressure block
+  }  // end of fluid particle loop
 
-    if (__myID == __MPISize - 1) {
-      for (int i = 0; i < numRigidBody; i++) {
-        for (int j = 0; j < translationDof; j++)
-          rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + j] =
-              1e-10 / __dt * __rigidBody.Ci_V[i][j];
-        for (int j = 0; j < rotationDof; j++) {
-          rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + translationDof +
-                      j] = 1e-10 / __dt * __rigidBody.Ci_Omega[i][j];
-        }
-      }
-    }
+  // Lagrangian multipler for pressure
+  if (__myID == __MPISize - 1) {
+    PI.increment(lagrangeMultiplerOffset, __particle.globalParticleNum, 2.0);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
-    MPI_Barrier(MPI_COMM_WORLD);
+    // for (int i = 0; i < numRigidBody; i++) {
+    //   for (int j = 0; j < translationDof; j++) {
+    //     LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
+    //                   globalRigidBodyOffset + rigidBodyDof * i + j,
+    //                   1e-10 / __dt);
+    //   }
+    //   for (int j = 0; j < rotationDof; j++) {
+    //     LUV.increment(
+    //         localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+    //         globalRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+    //         1e-10 / __dt);
+    //   }
+    // }
+  }
 
-    // copy data
-    __particle.pressure.resize(__particle.localParticleNum);
-    __particle.velocity.resize(__particle.localParticleNum * __dim);
+  LUV.FinalAssemble();
+  DXY.FinalAssemble();
+  GXY.FinalAssemble();
+  PI.FinalAssemble();
 
-    for (int i = 0; i < __particle.localParticleNum; i++) {
-      __particle.pressure[i] = xPressure[i];
-      for (int axes1 = 0; axes1 < __dim; axes1++)
-        __particle.velocity[__dim * i + axes1] = xVelocity[__dim * i + axes1];
-    }
+  PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
 
-    if (__myID == __MPISize - 1) {
-      for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
-        for (int j = 0; j < __dim; j++) {
-          __rigidBody.Ci_V[i][j] = xVelocity[localRigidBodyOffset + i * 6 + j];
-          __rigidBody.Ci_Omega[i][j] =
-              xVelocity[localRigidBodyOffset + i * 6 + 3 + j];
-        }
-      }
-    }
+  vector<double> &rhsPressure = __eq.rhsScalar;
+  vector<double> &rhsVelocity = __eq.rhsVector;
+  vector<double> &xPressure = __eq.xScalar;
+  vector<double> &xVelocity = __eq.xVector;
 
-    vector<double> velocity(__rigidBody.Ci_X.size() * __dim);
-    vector<double> omega(__rigidBody.Ci_X.size() * __dim);
+  rhsPressure.clear();
+  rhsVelocity.clear();
 
-    if (__myID == __MPISize - 1) {
-      for (int i = 0; i < __rigidBody.Ci_X.size(); ++i) {
-        for (int j = 0; j < 3; ++j) {
-          velocity[3 * i + j] = __rigidBody.Ci_V[i][j];
-          omega[3 * i + j] = __rigidBody.Ci_Omega[i][j];
-        }
-      }
-    }
+  rhsPressure.resize(localPressureDof);
+  rhsVelocity.resize(localVelocityDof);
+  xPressure.resize(localPressureDof);
+  xVelocity.resize(localVelocityDof);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(velocity.data(), __dim * __rigidBody.Ci_X.size(), MPI_DOUBLE,
-              __MPISize - 1, MPI_COMM_WORLD);
-    MPI_Bcast(omega.data(), __dim * __rigidBody.Ci_X.size(), MPI_DOUBLE,
-              __MPISize - 1, MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
-      for (int j = 0; j < 3; j++) {
-        __rigidBody.Ci_X[i][j] += velocity[__dim * i + j] * __dt;
-        __rigidBody.Ci_Theta[i][j] += omega[__dim * i + j] * __dt;
+  // boundary condition
+  for (int i = 0; i < __particle.localParticleNum; i++) {
+    if (__particle.particleType[i] != 0) {
+      for (int axes = 0; axes < __dim; axes++) {
+        // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
+        // rhsVelocity[__dim * i + axes] =
+        //     2.5 * (1.0 - __particle.X[i][1] * __particle.X[i][1] / Hsqr) *
+        //     double(axes == 0);
+        // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes ==
+        // 0);
+        rhsVelocity[__dim * i + axes] =
+            1.0 * double(axes == 0) *
+            double(abs(__particle.X[i][1] - __boundingBox[1][1]) < 1e-5);
       }
     }
   }
+
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < translationDof; j++)
+        rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + j] =
+            1e-10 / __dt * __rigidBody.Ci_V[i][j];
+      for (int j = 0; j < rotationDof; j++) {
+        rhsVelocity[localRigidBodyOffset + rigidBodyDof * i + translationDof +
+                    j] = 1e-10 / __dt * __rigidBody.Ci_Omega[i][j];
+      }
+    }
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // copy data
+  __particle.pressure.resize(__particle.localParticleNum);
+  __particle.velocity.resize(__particle.localParticleNum * __dim);
+
+  for (int i = 0; i < __particle.localParticleNum; i++) {
+    __particle.pressure[i] = xPressure[i];
+    for (int axes1 = 0; axes1 < __dim; axes1++)
+      __particle.velocity[__dim * i + axes1] = xVelocity[__dim * i + axes1];
+  }
+
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
+      for (int j = 0; j < __dim; j++) {
+        __rigidBody.Ci_V[i][j] = xVelocity[localRigidBodyOffset + i * 6 + j];
+        __rigidBody.Ci_Omega[i][j] =
+            xVelocity[localRigidBodyOffset + i * 6 + 3 + j];
+      }
+    }
+  }
+
+  vector<double> velocity(__rigidBody.Ci_X.size() * __dim);
+  vector<double> omega(__rigidBody.Ci_X.size() * __dim);
+
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i < __rigidBody.Ci_X.size(); ++i) {
+      for (int j = 0; j < 3; ++j) {
+        velocity[3 * i + j] = __rigidBody.Ci_V[i][j];
+        omega[3 * i + j] = __rigidBody.Ci_Omega[i][j];
+      }
+    }
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Bcast(velocity.data(), __dim * __rigidBody.Ci_X.size(), MPI_DOUBLE,
+            __MPISize - 1, MPI_COMM_WORLD);
+  MPI_Bcast(omega.data(), __dim * __rigidBody.Ci_X.size(), MPI_DOUBLE,
+            __MPISize - 1, MPI_COMM_WORLD);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  for (int i = 0; i < __rigidBody.Ci_X.size(); i++) {
+    for (int j = 0; j < 3; j++) {
+      __rigidBody.Ci_X[i][j] += velocity[__dim * i + j] * __dt;
+      __rigidBody.Ci_Theta[i][j] += omega[__dim * i + j] * __dt;
+    }
+  }
+}
