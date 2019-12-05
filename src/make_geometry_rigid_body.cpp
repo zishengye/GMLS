@@ -9,14 +9,14 @@ void GMLS_Solver::InitRigidBody() {
   // initialize data storage
   int Nr = 1;
 
-  // __rigidBody.Ci_X.resize(Nr);
-  // __rigidBody.Ci_Theta.resize(Nr);
-  // __rigidBody.Ci_V.resize(Nr);
-  // __rigidBody.Ci_Omega.resize(Nr);
-  // __rigidBody.Ci_F.resize(Nr);
-  // __rigidBody.Ci_Torque.resize(Nr);
-  // __rigidBody.Ci_R.resize(Nr);
-  // __rigidBody.type.resize(Nr);
+  __rigidBody.Ci_X.resize(Nr);
+  __rigidBody.Ci_Theta.resize(Nr);
+  __rigidBody.Ci_V.resize(Nr);
+  __rigidBody.Ci_Omega.resize(Nr);
+  __rigidBody.Ci_F.resize(Nr);
+  __rigidBody.Ci_Torque.resize(Nr);
+  __rigidBody.Ci_R.resize(Nr);
+  __rigidBody.type.resize(Nr);
 
   // int index = 0;
   // for (int i = 0; i < 2; i++) {
