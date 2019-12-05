@@ -338,6 +338,7 @@ void GMLS_Solver::StokesEquation() {
             globalRigidBodyOffset + rigidBodyDof * currentRigidBody;
 
         vec3 rci = __particle.X[i] - __rigidBody.Ci_X[currentRigidBody];
+        // non-slip condition
         // translation
         for (int axes1 = 0; axes1 < translationDof; axes1++) {
           const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
@@ -346,7 +347,7 @@ void GMLS_Solver::StokesEquation() {
         }
 
         // rotation
-        for (int axes1 = 0; axes1 < translationDof; axes1++) {
+        for (int axes1 = 0; axes1 < __dim; axes1++) {
           const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
 
           LUV.increment(iVelocityLocal,
