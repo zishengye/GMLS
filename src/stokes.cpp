@@ -346,7 +346,7 @@ void GMLS_Solver::StokesEquation() {
         }
 
         // rotation
-        for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+        for (int axes1 = 0; axes1 < translationDof; axes1++) {
           const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
 
           LUV.increment(iVelocityLocal,
@@ -538,19 +538,19 @@ void GMLS_Solver::StokesEquation() {
   if (__myID == __MPISize - 1) {
     PI.increment(lagrangeMultiplerOffset, __particle.globalParticleNum, 2.0);
 
-    // for (int i = 0; i < numRigidBody; i++) {
-    //   for (int j = 0; j < translationDof; j++) {
-    //     LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
-    //                   globalRigidBodyOffset + rigidBodyDof * i + j,
-    //                   1e-10 / __dt);
-    //   }
-    //   for (int j = 0; j < rotationDof; j++) {
-    //     LUV.increment(
-    //         localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-    //         globalRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-    //         1e-10 / __dt);
-    //   }
-    // }
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < translationDof; j++) {
+        LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
+                      globalRigidBodyOffset + rigidBodyDof * i + j,
+                      1e-10 / __dt);
+      }
+      for (int j = 0; j < rotationDof; j++) {
+        LUV.increment(
+            localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+            globalRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+            1e-10 / __dt);
+      }
+    }
   }
 
   LUV.FinalAssemble();
