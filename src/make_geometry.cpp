@@ -232,9 +232,9 @@ void GMLS_Solver::InitWallParticle() {
       if (__domainBoundaryType[3] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-        xPos += __particleSize0[0];
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
       }
+      xPos += 0.5 * __particleSize0[0];
 
       while (xPos < __domain[1][0] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
@@ -251,9 +251,9 @@ void GMLS_Solver::InitWallParticle() {
       if (__domainBoundaryType[0] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-        yPos += __particleSize0[1];
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
       }
+      yPos += 0.5 * __particleSize0[1];
 
       while (yPos < __domain[1][1] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
@@ -270,9 +270,9 @@ void GMLS_Solver::InitWallParticle() {
       if (__domainBoundaryType[1] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-        xPos -= __particleSize0[0];
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
       }
+      xPos -= 0.5 * __particleSize0[0];
 
       while (xPos > __domain[0][0] + 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
@@ -289,9 +289,9 @@ void GMLS_Solver::InitWallParticle() {
       if (__domainBoundaryType[2] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-        yPos -= __particleSize0[1];
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
       }
+      yPos -= 0.5 * __particleSize0[1];
 
       while (yPos > __domain[0][1] + 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
@@ -300,7 +300,7 @@ void GMLS_Solver::InitWallParticle() {
         yPos -= __particleSize0[1];
       }
     }
-  }  // end of 2d construction
+  } // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = __particle.X.size();

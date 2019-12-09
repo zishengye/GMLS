@@ -1,7 +1,7 @@
 #pragma once
 
-#include <assert.h>
 #include <algorithm>
+#include <assert.h>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -18,10 +18,10 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
 }
 
 class PetscSparseMatrix {
- private:
+private:
   bool __isAssembled;
 
-  typedef std::pair<int, double> entry;
+  typedef std::pair<PetscInt, double> entry;
   std::vector<std::list<entry>> __matrix;
 
   PetscInt __row, __col, __nnz, __Col;
@@ -38,34 +38,38 @@ class PetscSparseMatrix {
 
   inline void sortbyj();
 
- public:
+public:
   PetscSparseMatrix() : __isAssembled(false), __row(0), __col(0), __Col(0) {}
 
   // only for square matrix
-  PetscSparseMatrix(int m /* local # of rows */, int N /* global # of cols */)
+  PetscSparseMatrix(PetscInt m /* local # of rows */,
+                    PetscInt N /* global # of cols */)
       : __isAssembled(false), __row(m), __col(m), __Col(N) {
     __matrix.resize(m);
   }
 
-  PetscSparseMatrix(int m /* local # of rows */, int n /* local # of cols */,
-                    int N /* global # of cols */)
+  PetscSparseMatrix(PetscInt m /* local # of rows */,
+                    PetscInt n /* local # of cols */,
+                    PetscInt N /* global # of cols */)
       : __isAssembled(false), __row(m), __col(n), __Col(N) {
     __matrix.resize(m);
   }
 
   ~PetscSparseMatrix() {
-    if (__isAssembled) MatDestroy(&__mat);
+    if (__isAssembled)
+      MatDestroy(&__mat);
   }
 
-  void resize(int m, int n) {
+  void resize(PetscInt m, PetscInt n) {
     __row = m;
     __col = m;
     __Col = n;
     __matrix.resize(m);
   }
 
-  inline void increment(const int i, const int j, double daij);
-  inline void outProcessIncrement(const int i, const int j, double daij);
+  inline void increment(const PetscInt i, const PetscInt j, double daij);
+  inline void outProcessIncrement(const PetscInt i, const PetscInt j,
+                                  double daij);
 
   int FinalAssemble();
 
@@ -107,7 +111,7 @@ void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
 }
 
 void PetscSparseMatrix::sortbyj() {
-  for (int i = 0; i < __row; i++) {
+  for (PetscInt i = 0; i < __row; i++) {
     __matrix[i].sort(compare_index);
   }
 }
