@@ -23,20 +23,43 @@ void GMLS_Solver::StokesEquation() {
     }
   }
 
+  int neumannBoundaryNumTargetCoords = 0;
+  for (int i = 0; i < __particle.localParticleNum; i++) {
+    if (__particle.particleType[i] != 0) {
+      neumannBoundaryNumTargetCoords++;
+    }
+  }
+
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace> targetCoordsDevice(
       "target coordinates", numTargetCoords, 3);
   Kokkos::View<double **>::HostMirror targetCoords =
       Kokkos::create_mirror_view(targetCoordsDevice);
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+      neumannBoundaryTargetCoordsDevice("neumann target coordinates",
+                                        neumannBoundaryNumTargetCoords, 3);
+  Kokkos::View<double **>::HostMirror neumannBoundaryTargetCoords =
+      Kokkos::create_mirror_view(neumannBoundaryTargetCoordsDevice);
 
   // create target coords
+  vector<int> fluid2NeumannBoundary;
+  int iNeumanBoundary = 0;
   for (int i = 0; i < __particle.localParticleNum; i++) {
     for (int j = 0; j < 3; j++) {
       targetCoords(i, j) = __particle.X[i][j];
+    }
+    fluid2NeumannBoundary.push_back(iNeumanBoundary);
+    if (__particle.particleType[i] != 0) {
+      for (int j = 0; j < 3; j++) {
+        neumannBoundaryTargetCoords(iNeumanBoundary, j) = __particle.X[i][j];
+      }
+      iNeumanBoundary++;
     }
   }
 
   Kokkos::deep_copy(sourceCoordsDevice, sourceCoords);
   Kokkos::deep_copy(targetCoordsDevice, targetCoords);
+  Kokkos::deep_copy(neumannBoundaryTargetCoordsDevice,
+                    neumannBoundaryTargetCoords);
 
   // neighbor search
   auto pointCloudSearch(CreatePointCloudSearch(sourceCoords));
@@ -53,41 +76,66 @@ void GMLS_Solver::StokesEquation() {
   Kokkos::View<int **>::HostMirror neighborLists =
       Kokkos::create_mirror_view(neighborListsDevice);
 
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+      neumannBoundaryNeighborListsDevice("neumann boundary neighbor lists",
+                                         neumannBoundaryNumTargetCoords,
+                                         estimatedUpperBoundNumberNeighbors);
+  Kokkos::View<int **>::HostMirror neumannBoundaryNeighborLists =
+      Kokkos::create_mirror_view(neumannBoundaryNeighborListsDevice);
+
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilonDevice(
       "h supports", numTargetCoords);
   Kokkos::View<double *>::HostMirror epsilon =
       Kokkos::create_mirror_view(epsilonDevice);
 
+  Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+      neumannBoundaryEpsilonDevice("neumann boundary h supports",
+                                   neumannBoundaryNumTargetCoords);
+  Kokkos::View<double *>::HostMirror neumannBoundaryEpsilon =
+      Kokkos::create_mirror_view(neumannBoundaryEpsilonDevice);
+
   pointCloudSearch.generateNeighborListsFromKNNSearch(
       targetCoords, neighborLists, epsilon, minNeighbors, __dim,
       epsilonMultiplier, NULL, __cutoffDistance);
 
+  pointCloudSearch.generateNeighborListsFromKNNSearch(
+      neumannBoundaryTargetCoords, neumannBoundaryNeighborLists,
+      neumannBoundaryEpsilon, minNeighbors, __dim, epsilonMultiplier, NULL,
+      __cutoffDistance);
+
   Kokkos::deep_copy(neighborListsDevice, neighborLists);
   Kokkos::deep_copy(epsilonDevice, epsilon);
+  Kokkos::deep_copy(neumannBoundaryNeighborListsDevice,
+                    neumannBoundaryNeighborLists);
+  Kokkos::deep_copy(neumannBoundaryEpsilonDevice, neumannBoundaryEpsilon);
 
   // tangent bundle for neumann boundary particles
   Kokkos::View<double ***, Kokkos::DefaultExecutionSpace> tangentBundlesDevice(
-      "tangent bundles", numTargetCoords, __dim, __dim);
+      "tangent bundles", neumannBoundaryNumTargetCoords, __dim, __dim);
   Kokkos::View<double ***>::HostMirror tangentBundles =
       Kokkos::create_mirror_view(tangentBundlesDevice);
 
+  int counter = 0;
   for (int i = 0; i < __particle.localParticleNum; i++) {
-    if (__dim == 3) {
-      tangentBundles(i, 0, 0) = 0.0;
-      tangentBundles(i, 0, 1) = 0.0;
-      tangentBundles(i, 0, 2) = 0.0;
-      tangentBundles(i, 1, 0) = 0.0;
-      tangentBundles(i, 1, 1) = 0.0;
-      tangentBundles(i, 1, 2) = 0.0;
-      tangentBundles(i, 2, 0) = __particle.normal[i][0];
-      tangentBundles(i, 2, 1) = __particle.normal[i][1];
-      tangentBundles(i, 2, 2) = __particle.normal[i][2];
-    }
-    if (__dim == 2) {
-      tangentBundles(i, 0, 0) = 0.0;
-      tangentBundles(i, 0, 1) = 0.0;
-      tangentBundles(i, 1, 0) = __particle.normal[i][0];
-      tangentBundles(i, 1, 1) = __particle.normal[i][1];
+    if (__particle.particleType[i] != 0) {
+      if (__dim == 3) {
+        tangentBundles(counter, 0, 0) = 0.0;
+        tangentBundles(counter, 0, 1) = 0.0;
+        tangentBundles(counter, 0, 2) = 0.0;
+        tangentBundles(counter, 1, 0) = 0.0;
+        tangentBundles(counter, 1, 1) = 0.0;
+        tangentBundles(counter, 1, 2) = 0.0;
+        tangentBundles(counter, 2, 0) = __particle.normal[i][0];
+        tangentBundles(counter, 2, 1) = __particle.normal[i][1];
+        tangentBundles(counter, 2, 2) = __particle.normal[i][2];
+      }
+      if (__dim == 2) {
+        tangentBundles(counter, 0, 0) = 0.0;
+        tangentBundles(counter, 0, 1) = 0.0;
+        tangentBundles(counter, 1, 0) = __particle.normal[i][0];
+        tangentBundles(counter, 1, 1) = __particle.normal[i][1];
+      }
+      counter++;
     }
   }
 
@@ -97,7 +145,7 @@ void GMLS_Solver::StokesEquation() {
   if (__particle.scalarBasis == nullptr)
     __particle.scalarBasis = new GMLS(
         ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
-        __polynomialOrder, __dim, "QR", "STANDARD", "NO_CONSTRAINT");
+        __polynomialOrder, __dim, "SVD", "STANDARD", "NO_CONSTRAINT");
   GMLS &pressureBasis = *__particle.scalarBasis;
 
   pressureBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
@@ -127,15 +175,15 @@ void GMLS_Solver::StokesEquation() {
 
   // pressure Neumann boundary basis
   if (__particle.scalarNeumannBoundaryBasis == nullptr) {
-    __particle.scalarNeumannBoundaryBasis = new GMLS(
-        ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
-        __polynomialOrder, __dim, "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
+    __particle.scalarNeumannBoundaryBasis =
+        new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder, __dim,
+                 "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
   }
   GMLS &pressureNeumannBoundaryBasis = *__particle.scalarNeumannBoundaryBasis;
 
   pressureNeumannBoundaryBasis.setProblemData(
-      neighborListsDevice, sourceCoordsDevice, targetCoordsDevice,
-      epsilonDevice);
+      neumannBoundaryNeighborListsDevice, sourceCoordsDevice,
+      neumannBoundaryTargetCoordsDevice, neumannBoundaryEpsilonDevice);
 
   pressureNeumannBoundaryBasis.setTangentBundle(tangentBundlesDevice);
 
@@ -409,8 +457,10 @@ void GMLS_Solver::StokesEquation() {
 
     // n \cdot grad p
     if (__particle.particleType[i] != 0) {
+      const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-          LaplacianOfScalarPointEvaluation, i, neighborLists(i, 0));
+          LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+          neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
 
       for (int j = 1; j < neighborLists(i, 0); j++) {
         const int neighborParticleIndex =
@@ -466,6 +516,8 @@ void GMLS_Solver::StokesEquation() {
       PI.outProcessIncrement(lagrangeMultiplerOffset, iPressureGlobal, 1.0);
     }
     if (__particle.particleType[i] != 0) {
+      const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+
       for (int j = 1; j < neighborLists(i, 0); j++) {
         const int neighborParticleIndex =
             __backgroundParticle.index[neighborLists(i, j + 1)];
@@ -473,7 +525,7 @@ void GMLS_Solver::StokesEquation() {
         const int jPressureGlobal = neighborParticleIndex;
 
         const double Aij = pressureNeumannBoundaryAlphas(
-            i, pressureNeumannBoundaryLaplacianIndex, j);
+            neumannBoudnaryIndex, pressureNeumannBoundaryLaplacianIndex, j);
 
         // laplacian p
         PI.increment(iPressureLocal, jPressureGlobal, Aij);
