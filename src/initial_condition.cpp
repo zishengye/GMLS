@@ -1,4 +1,4 @@
-#include "GMLS_solver.h"
+#include "gmls_solver.h"
 #include "manifold.h"
 #include "sparse_matrix.h"
 

@@ -1,4 +1,4 @@
-#include "GMLS_solver.h"
+#include "gmls_solver.h"
 
 bool GMLS_Solver::NeedRefinement() {
   if (__adaptive_step > 0) {

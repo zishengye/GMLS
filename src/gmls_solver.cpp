@@ -1,33 +1,10 @@
-#include "GMLS_solver.h"
+#include "gmls_solver.h"
 
 #include <iostream>
 
 using namespace std;
 
-template <typename T>
-int SearchCommand(int argc, char **argv, const string &commandName, T &res) {
-  int i;
-  for (i = 1; i < argc; i++) {
-    if (commandName.compare(argv[i]) == 0) {
-      break;
-    }
-  }
-
-  if (i != argc) {
-    stringstream converter(argv[i + 1]);
-    converter >> res;
-
-    return 0;
-  } else {
-    return 1;
-  }
-}
-
 GMLS_Solver::GMLS_Solver(int argc, char **argv) {
-  __particle.scalarBasis = nullptr;
-  __particle.vectorBasis = nullptr;
-  __particle.scalarNeumannBoundaryBasis = nullptr;
-  __particle.vectorNeumannBoundaryBasis = nullptr;
   __adaptive_step = 0;
   // [default setup]
   __successInitialized = false;

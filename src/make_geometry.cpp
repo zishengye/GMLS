@@ -1,5 +1,5 @@
-#include "GMLS_solver.h"
 #include "domain_decomposition.h"
+#include "gmls_solver.h"
 
 #include <iostream>
 
@@ -602,5 +602,3 @@ void GMLS_Solver::InitWallParticle() {
     }
   }
 }
-
-void GMLS_Solver::SplitMerge() {}
