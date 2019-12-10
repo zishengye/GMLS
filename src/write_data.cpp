@@ -5,7 +5,7 @@
 
 using namespace std;
 
-void GMLS_Solver::WriteData() {
+void GMLS_Solver::WriteDataTimeStep() {
   static int writeStep = 0;
 
   // int thread = 3;
@@ -265,7 +265,7 @@ void GMLS_Solver::WriteData() {
       ofstream file;
       file.open("./txt/output_step" + to_string(writeStep) + ".txt",
                 ios::trunc);
-      for (int i = 0; i < this->__rigidBody.Ci_X.size(); i++) {
+      for (size_t i = 0; i < this->__rigidBody.Ci_X.size(); i++) {
         for (int j = 0; j < this->__dim; j++) {
           file << __rigidBody.Ci_X[i][j] << ' ';
         }
@@ -286,3 +286,5 @@ void GMLS_Solver::WriteData() {
 
   writeStep++;
 }
+
+void GMLS_Solver::WriteDataAdaptiveStep() {}

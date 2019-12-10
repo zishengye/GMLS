@@ -71,7 +71,7 @@ void GMLS_Solver::DiffusionEquationManifold() {
       Kokkos::create_mirror_view(epsilonDevice);
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
-      targetCoords, neighborLists, epsilon, minNeighbors, __dim,
+      true, targetCoords, neighborLists, epsilon, minNeighbors, __dim,
       epsilonMultiplier, NULL);
 
   Kokkos::deep_copy(neighborListsDevice, neighborLists);

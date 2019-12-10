@@ -300,7 +300,7 @@ void GMLS_Solver::InitWallParticle() {
         yPos -= __particleSize0[1];
       }
     }
-  } // end of 2d construction
+  }  // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = __particle.X.size();
@@ -602,3 +602,5 @@ void GMLS_Solver::InitWallParticle() {
     }
   }
 }
+
+void GMLS_Solver::SplitMerge() {}

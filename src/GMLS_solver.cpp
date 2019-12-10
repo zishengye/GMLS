@@ -28,6 +28,7 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   __particle.vectorBasis = nullptr;
   __particle.scalarNeumannBoundaryBasis = nullptr;
   __particle.vectorNeumannBoundaryBasis = nullptr;
+  __adaptive_step = 0;
   // [default setup]
   __successInitialized = false;
 

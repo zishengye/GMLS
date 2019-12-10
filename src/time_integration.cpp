@@ -66,14 +66,18 @@ void GMLS_Solver::ForwardEulerIntegration() {
     //   InitialCondition();
     // }
 
-    (this->*__equationSolver)();
+    while (NeedRefinement()) {
+      (this->*__equationSolver)();
+
+      WriteDataAdaptiveStep();
+    }
 
     PetscPrintf(PETSC_COMM_WORLD, "\n=================================\n");
     PetscPrintf(PETSC_COMM_WORLD, "==== End of time integration ====\n");
     PetscPrintf(PETSC_COMM_WORLD, "=================================\n\n");
 
     if (__writeData != 0) {
-      WriteData();
+      WriteDataTimeStep();
     }
   }
 }

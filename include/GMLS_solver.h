@@ -83,7 +83,7 @@ int SearchCommand(int argc, char **argv, const std::string &commandName,
                   T &res);
 
 class GMLS_Solver {
-private:
+ private:
   // MPI setting
   int __myID;
   int __MPISize;
@@ -233,9 +233,6 @@ private:
     return __neighborFlag[neighborBlockNum] && cond();
   }
 
-  // adaptive refinement
-  void SplitMerge();
-
   // solving functions
   void InitUniformParticleField();
   void InitUniformParticleManifoldField();
@@ -243,6 +240,15 @@ private:
   void EmposeBoundaryCondition();
 
   void InitialCondition();
+
+  // particle adjustment
+  bool NeedRefinement();
+
+  // adaptive refinement
+  void SplitMergeVectorField();
+  void SplitMergeScalarField();
+
+  int __adaptive_step;
 
   // rigid body supporting functions
   int IsInRigidBody(vec3 &pos);
@@ -260,6 +266,7 @@ private:
   // function pointer
   void (GMLS_Solver::*__equationSolver)(void);
   void (GMLS_Solver::*__particleUniformInitializer)(void);
+  void (GMLS_Solver::*__splitMerger)(void);
 
   // time integration scheme
   void ForwardEulerIntegration();
@@ -267,7 +274,8 @@ private:
   // operator
   void ClearMemory();
 
-  template <typename Func> void SerialOperation(Func operation) {
+  template <typename Func>
+  void SerialOperation(Func operation) {
     for (int i = 0; i < __MPISize; i++) {
       if (i == __myID) {
         operation();
@@ -276,7 +284,8 @@ private:
     }
   }
 
-  template <typename Func> void MasterOperation(int master, Func operation) {
+  template <typename Func>
+  void MasterOperation(int master, Func operation) {
     if (master == __myID) {
       operation();
     }
@@ -286,9 +295,10 @@ private:
   template <typename Func>
   void CollectiveWrite(std::string filename, Func operation) {}
 
-  void WriteData();
+  void WriteDataTimeStep();
+  void WriteDataAdaptiveStep();
 
-public:
+ public:
   GMLS_Solver(int argc, char **argv);
 
   void TimeIntegration();
