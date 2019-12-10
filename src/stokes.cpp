@@ -95,11 +95,11 @@ void GMLS_Solver::StokesEquation() {
       Kokkos::create_mirror_view(neumannBoundaryEpsilonDevice);
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
-      targetCoords, neighborLists, epsilon, minNeighbors, __dim,
+      true, targetCoords, neighborLists, epsilon, minNeighbors, __dim,
       epsilonMultiplier, NULL, __cutoffDistance);
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
-      neumannBoundaryTargetCoords, neumannBoundaryNeighborLists,
+      true, neumannBoundaryTargetCoords, neumannBoundaryNeighborLists,
       neumannBoundaryEpsilon, minNeighbors, __dim, epsilonMultiplier, NULL,
       __cutoffDistance);
 
@@ -177,7 +177,7 @@ void GMLS_Solver::StokesEquation() {
   if (__particle.scalarNeumannBoundaryBasis == nullptr) {
     __particle.scalarNeumannBoundaryBasis =
         new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder, __dim,
-                 "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
+                 "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
   }
   GMLS &pressureNeumannBoundaryBasis = *__particle.scalarNeumannBoundaryBasis;
 

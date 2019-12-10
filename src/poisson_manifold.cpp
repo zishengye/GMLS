@@ -57,7 +57,7 @@ void GMLS_Solver::PoissonEquationManifold() {
       Kokkos::create_mirror_view(epsilonDevice);
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
-      targetCoords, neighborLists, epsilon, minNeighbors, __dim,
+      true, targetCoords, neighborLists, epsilon, minNeighbors, __dim,
       epsilonMultiplier, NULL, __cutoffDistance);
 
   Kokkos::deep_copy(neighborListsDevice, neighborLists);
