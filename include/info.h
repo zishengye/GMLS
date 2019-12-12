@@ -6,64 +6,37 @@
 #include <string>
 #include <vector>
 
+#include "Compadre_GMLS.hpp"
+
 #include "vec3.h"
 
-struct ParticleInfo {
-  // geometry info
-  std::vector<vec3> X;
-  std::vector<vec3> X_origin;
-  std::vector<int> particleType;
-  std::vector<vec3> particleSize;
-  std::vector<vec3> normal;
-  std::vector<int> globalIndex;
-  std::vector<double> vol;
-  int localParticleNum;
-  int globalParticleNum;
-  std::vector<int> particleOffset;
-  std::vector<double> d;
-  std::vector<size_t> attachedRigidBodyIndex;
+template <class T>
+class infoEntity {
+ private:
+  std::map<std::string, T*> __entity;
 
-  // physical info
-  std::vector<double> pressure;
-  std::vector<double> velocity;
-  std::vector<double> us;
-  std::vector<double> us_old;
-  std::vector<vec3> flux;
+ public:
+  infoEntity() {}
 
-  // GMLS info
-  // Compadre::GMLS *scalarBasis;
-  // Compadre::GMLS *vectorBasis;
-  // Compadre::GMLS *scalarNeumannBoundaryBasis;
-  // Compadre::GMLS *vectorNeumannBoundaryBasis;
-};
+  T& Register(std::string entityName) {
+    __entity.insert(std::make_pair(entityName, new T));
 
-struct RigidBodyInfo {
-  std::vector<vec3> Ci_X;
-  std::vector<vec3> Ci_Theta;
-  std::vector<vec3> Ci_V;
-  std::vector<vec3> Ci_Omega;
-  std::vector<vec3> Ci_F;
-  std::vector<vec3> Ci_Torque;
-  std::vector<double> Ci_R;
-  std::vector<int> type;
-};
-
-struct EquationInfo {
-  std::vector<vec3> F;
-  std::vector<vec3> gradP;
-  std::vector<double> dP;
-  std::vector<double> rhsScalar;
-  std::vector<double> rhsVector;
-  std::vector<double> xScalar;
-  std::vector<double> xVector;
-};
-
-struct neighborListInfo {
-  std::vector<vec3> coord;
-  std::vector<int> index;
-
-  void clear() {
-    coord.clear();
-    index.clear();
+    return *__entity.at(entityName);
   }
+
+  T& Register(std::string entityName, T* entity) {
+    __entity.insert(std::make_pair(entityName, entity));
+
+    return *entity;
+  }
+
+  T& GetHandle(std::string entityName) { return *__entity.at(entityName); }
+};
+
+typedef infoEntity<Compadre::GMLS> gmlsInfo;
+
+struct GeneralInfo {
+  infoEntity<std::vector<vec3>> vector;
+  infoEntity<std::vector<double>> scalar;
+  infoEntity<std::vector<int>> index;
 };

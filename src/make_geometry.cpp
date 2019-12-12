@@ -142,41 +142,92 @@ void GMLS_Solver::InitDomainDecomposition() {
   InitNeighborList();
 }
 
-void GMLS_Solver::InitUniformParticleField() {
-  ClearMemory();
+void GMLS_Solver::InitParticle() {
+  __background.vector.Register("coord");
+  __background.vector.Register("source coord");
+  __background.index.Register("index");
+  __background.index.Register("source index");
 
-  InitFluidParticle();
-  InitWallParticle();
+  __field.vector.Register("coord");
+  __field.vector.Register("normal");
+  __field.vector.Register("size");
+  __field.index.Register("particle type");
+  __field.index.Register("global index");
+  __field.index.Register("attached rigid body index");
+  __field.index.Register("particle number");
+}
+
+void GMLS_Solver::ClearParticle() {
+  static auto &backgroundCoord = __background.vector.GetHandle("coord");
+  static auto &sourceCoord = __background.vector.GetHandle("source coord");
+  static auto &backgroundIndex = __background.index.GetHandle("index");
+  static auto &sourceIndex = __background.index.GetHandle("source index");
+
+  static auto &coord = __field.vector.GetHandle("coord");
+  static auto &normal = __field.vector.GetHandle("normal");
+  static auto &size = __field.vector.GetHandle("size");
+  static auto &particleType = __field.index.GetHandle("particle type");
+  static auto &globalIndex = __field.index.GetHandle("global index");
+  static auto &attachedRigidBodyIndex =
+      __field.index.GetHandle("attached rigid body index");
+  static auto &particleNum = __field.index.GetHandle("particle number");
+
+  backgroundCoord.clear();
+  sourceCoord.clear();
+  backgroundCoord.clear();
+  sourceIndex.clear();
+
+  coord.clear();
+  normal.clear();
+  size.clear();
+  particleType.clear();
+  globalIndex.clear();
+  attachedRigidBodyIndex.clear();
+  particleNum.clear();
+}
+
+void GMLS_Solver::InitUniformParticleField() {
+  static vector<vec3> &coord = __field.vector.GetHandle("coord");
+  static vector<int> &globalIndex = __field.index.GetHandle("global index");
+  static vector<int> &particleNum = __field.index.GetHandle("particle number");
+
+  ClearParticle();
+
+  InitFieldParticle();
+  InitFieldBoundaryParticle();
   InitRigidBodySurfaceParticle();
 
   SerialOperation([this]() {
-    cout << "[Proc " << this->__myID << "]: generated "
-         << this->__particle.X.size() << " particles." << endl;
+    cout << "[Proc " << this->__myID << "]: generated " << coord.size()
+         << " particles." << endl;
   });
 
-  __particle.localParticleNum = this->__particle.X.size();
-  MPI_Allreduce(&(__particle.localParticleNum), &(__particle.globalParticleNum),
-                1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  particleNum.resize(2 + __MPISize);
 
-  vector<int> particleNum;
+  int &localParticleNum = particleNum[0];
+  int &globalParticleNum = particleNum[1];
+  localParticleNum = coord.size();
+  MPI_Allreduce(&localParticleNum, &globalParticleNum, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  vector<int> particleOffset;
   particleNum.resize(__MPISize);
-  __particle.particleOffset.resize(__MPISize + 1);
-  MPI_Allgather(&(__particle.localParticleNum), 1, MPI_INT, particleNum.data(),
-                1, MPI_INT, MPI_COMM_WORLD);
-  __particle.particleOffset[0] = 0;
+  particleOffset.resize(__MPISize + 1);
+  MPI_Allgather(&localParticleNum, 1, MPI_INT, particleNum.data() + 2, 1,
+                MPI_INT, MPI_COMM_WORLD);
+  particleOffset[0] = 0;
   for (int i = 0; i < __MPISize; i++) {
-    __particle.particleOffset[i + 1] =
-        __particle.particleOffset[i] + particleNum[i];
+    particleOffset[i + 1] = particleOffset[i] + particleNum[i + 2];
   }
 
-  for (size_t i = 0; i < __particle.globalIndex.size(); i++) {
-    __particle.globalIndex[i] += __particle.particleOffset[__myID];
+  for (size_t i = 0; i < globalIndex.size(); i++) {
+    globalIndex[i] += particleOffset[__myID];
   }
 }
 
 bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
 
-void GMLS_Solver::InitFluidParticle() {
+void GMLS_Solver::InitFieldParticle() {
   __cutoffDistance = 4.5 * std::max(__particleSize0[0], __particleSize0[1]);
 
   double xPos, yPos, zPos;
@@ -185,7 +236,7 @@ void GMLS_Solver::InitFluidParticle() {
   if (__dim == 2) {
     zPos = 0.0;
     double vol = __particleSize0[0] * __particleSize0[1];
-    int localIndex = __particle.X.size();
+    int localIndex = 0;
     // fluid particle
     yPos = __domain[0][1] + __particleSize0[1] / 2.0;
     for (int j = 0; j < __domainCount[1]; j++) {
@@ -218,12 +269,14 @@ void GMLS_Solver::InitFluidParticle() {
   }
 }
 
-void GMLS_Solver::InitWallParticle() {
+void GMLS_Solver::InitFieldBoundaryParticle() {
+  static vector<vec3> &coord = __field.vector.GetHandle("coord");
+
   double xPos, yPos, zPos;
   vec3 normal;
   if (__dim == 2) {
     double vol = __particleSize0[0] * __particleSize0[1];
-    int localIndex = __particle.X.size();
+    int localIndex = coord.size();
     zPos = 0.0;
     // down
     if (__domainBoundaryType[0] != 0) {
@@ -303,7 +356,7 @@ void GMLS_Solver::InitWallParticle() {
   }  // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
-    int localIndex = __particle.X.size();
+    int localIndex = coord.size();
 
     vec3 startPos, endPos;
     // face

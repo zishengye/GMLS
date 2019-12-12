@@ -66,8 +66,15 @@ class GMLS_Solver {
 
   vec3 __particleSize0;
 
+  GeneralInfo __background;
+  GeneralInfo __field;
+  GeneralInfo __eq;
+
   // rigid body info
-  RigidBodyInfo __rigidBody;
+  GeneralInfo __rigidBody;
+
+  // gmls info
+  gmlsInfo __gmls;
 
   // domain info
   void SetBoundingBox();
@@ -78,11 +85,11 @@ class GMLS_Solver {
   void SetBoundingBoxBoundaryManifold();
   void SetDomainBoundaryManifold();
 
-  void InitFluidParticle();
-  void InitWallParticle();
+  void InitFieldParticle();
+  void InitFieldBoundaryParticle();
 
-  void InitFluidParticleManifold();
-  void InitWallParticleManifold();
+  void InitFieldParticleManifold();
+  void InitFieldBoundaryParticleManifold();
 
   void InitRigidBody();
 
@@ -110,15 +117,23 @@ class GMLS_Solver {
                       vec3 &normal, int &globalIndex, double vol,
                       bool rigidBodyParticle = false,
                       size_t rigidBodyIndex = -1) {
+    static std::vector<vec3> &_coord = __field.vector.GetHandle("coord");
+    static std::vector<vec3> &_normal = __field.vector.GetHandle("normal");
+    static std::vector<vec3> &_particleSize = __field.vector.GetHandle("size");
+    static std::vector<int> &_globalIndex =
+        __field.index.GetHandle("global index");
+    static std::vector<int> &_particleType =
+        __field.index.GetHandle("particle type");
+    static std::vector<int> &_attachedRigidBodyIndex =
+        __field.index.GetHandle("attached rigid body index");
+
     if (rigidBodyParticle || IsInRigidBody(X) == -2) {
-      __particle.X.push_back(X);
-      __particle.particleType.push_back(particleType);
-      __particle.particleSize.push_back(particleSize);
-      __particle.normal.push_back(normal);
-      __particle.globalIndex.push_back(globalIndex++);
-      __particle.vol.push_back(vol);
-      __particle.d.push_back(particleSize[0]);
-      __particle.attachedRigidBodyIndex.push_back(rigidBodyIndex);
+      _coord.push_back(X);
+      _particleType.push_back(particleType);
+      _particleSize.push_back(particleSize);
+      _normal.push_back(normal);
+      _globalIndex.push_back(globalIndex++);
+      _attachedRigidBodyIndex.push_back(rigidBodyIndex);
     }
   }
 
@@ -139,19 +154,10 @@ class GMLS_Solver {
   int __nI, __nJ, __nK;
   // process block coordinate
 
-  // fluid info
+  // fluid parameter
   double __eta;
 
-  ParticleInfo __particle;
-  ParticleInfo __gap;
-  std::vector<bool> __neighborFlag;
-  std::vector<neighborListInfo> __neighborSendParticle;
-  neighborListInfo __backgroundParticle;
-
   bool IsInGap(vec3 &xScalar);
-
-  // equation info
-  EquationInfo __eq;
 
   // domain decomposition
   void InitDomainDecomposition();
@@ -170,12 +176,18 @@ class GMLS_Solver {
   MPI_Win __neighborWinParticleCoord;
   MPI_Win __neighborWinParticleIndex;
 
+  GeneralInfo __neighbor;
+
   template <typename Cond>
   bool PutParticleInNeighborList(int neighborBlockNum, Cond cond) {
-    return __neighborFlag[neighborBlockNum] && cond();
+    static std::vector<int> &neighborFlag =
+        __neighbor.index.GetHandle("neighbor flag");
+    return neighborFlag[neighborBlockNum] && cond();
   }
 
   // solving functions
+  void InitParticle();
+  void ClearParticle();
   void InitUniformParticleField();
   void InitUniformParticleManifoldField();
 
@@ -203,10 +215,12 @@ class GMLS_Solver {
   void DiffusionEquation();
   void DiffusionEquationManifold();
   void StokesEquation();
+  void StokesEquationInitialization();
   void NavierStokesEquation();
 
   // function pointer
   void (GMLS_Solver::*__equationSolver)(void);
+  void (GMLS_Solver::*__equationSolverInitialization)(void);
   void (GMLS_Solver::*__particleUniformInitializer)(void);
   void (GMLS_Solver::*__splitMerger)(void);
 
@@ -214,8 +228,6 @@ class GMLS_Solver {
   void ForwardEulerIntegration();
 
   // operator
-  void ClearMemory();
-
   template <typename Func>
   void SerialOperation(Func operation) {
     for (int i = 0; i < __MPISize; i++) {

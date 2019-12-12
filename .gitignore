@@ -539,3 +539,5 @@ vtk/
 txt/
 
 lib/
+
+*.mtl

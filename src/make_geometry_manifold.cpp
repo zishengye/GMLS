@@ -79,37 +79,43 @@ void GMLS_Solver::InitDomainDecompositionManifold() {
 }
 
 void GMLS_Solver::InitUniformParticleManifoldField() {
-  ClearMemory();
+  static vector<vec3> &coord = __field.vector.GetHandle("coord");
+  static vector<int> &globalIndex = __field.index.GetHandle("global index");
+  static vector<int> &particleNum = __field.index.GetHandle("particle number");
+  ClearParticle();
 
-  InitFluidParticleManifold();
-  InitWallParticleManifold();
+  InitFieldParticleManifold();
+  InitFieldBoundaryParticleManifold();
 
   SerialOperation([this]() {
-    cout << "[Proc " << this->__myID << "]: generated "
-         << this->__particle.X.size() << " particles." << endl;
+    cout << "[Proc " << this->__myID << "]: generated " << coord.size()
+         << " particles." << endl;
   });
 
-  __particle.localParticleNum = this->__particle.X.size();
-  MPI_Allreduce(&(__particle.localParticleNum), &(__particle.globalParticleNum),
-                1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  particleNum.resize(2 + __MPISize);
 
-  vector<int> particleNum;
+  int &localParticleNum = particleNum[0];
+  int &globalParticleNum = particleNum[1];
+  localParticleNum = coord.size();
+  MPI_Allreduce(&localParticleNum, &globalParticleNum, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  vector<int> particleOffset;
   particleNum.resize(__MPISize);
-  __particle.particleOffset.resize(__MPISize + 1);
-  MPI_Allgather(&(__particle.localParticleNum), 1, MPI_INT, particleNum.data(),
-                1, MPI_INT, MPI_COMM_WORLD);
-  __particle.particleOffset[0] = 0;
+  particleOffset.resize(__MPISize + 1);
+  MPI_Allgather(&localParticleNum, 1, MPI_INT, particleNum.data() + 2, 1,
+                MPI_INT, MPI_COMM_WORLD);
+  particleOffset[0] = 0;
   for (int i = 0; i < __MPISize; i++) {
-    __particle.particleOffset[i + 1] =
-        __particle.particleOffset[i] + particleNum[i];
+    particleOffset[i + 1] = particleOffset[i] + particleNum[i + 2];
   }
 
-  for (size_t i = 0; i < __particle.globalIndex.size(); i++) {
-    __particle.globalIndex[i] += __particle.particleOffset[__myID];
+  for (size_t i = 0; i < globalIndex.size(); i++) {
+    globalIndex[i] += particleOffset[__myID];
   }
 }
 
-void GMLS_Solver::InitFluidParticleManifold() {
+void GMLS_Solver::InitFieldParticleManifold() {
   __cutoffDistance = 4.5 * std::max(__particleSize0[0], __particleSize0[1]);
 
   // double xPos, yPos;
@@ -132,7 +138,7 @@ void GMLS_Solver::InitFluidParticleManifold() {
   // }
 
   double xPos, yPos, zPos;
-  int localIndex = __particle.X.size();
+  int localIndex = 0;
 
   double dz = 2.0 / __boundingBoxCount[1];
   double dTheta = 2.0 * PI / __boundingBoxCount[0];
@@ -150,11 +156,14 @@ void GMLS_Solver::InitFluidParticleManifold() {
   }
 }
 
-void GMLS_Solver::InitWallParticleManifold() {
+void GMLS_Solver::InitFieldBoundaryParticleManifold() {
+  static vector<vec3> &coord = __field.vector.GetHandle("coord");
+  static vector<vec3> &chartCoord = __field.vector.GetHandle("chart coord");
+
   double xPos, yPos;
   vec3 normal;
   double vol = __particleSize0[0] * __particleSize0[1];
-  int localIndex = __particle.X.size();
+  int localIndex = coord.size();
   // down
   if (__domainBoundaryType[0] != 0) {
     xPos = __domain[0][0];
@@ -163,7 +172,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      chartCoord.push_back(vec3(xPos, yPos, 0.0));
       xPos += __particleSize0[0];
     }
 
@@ -171,7 +180,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      chartCoord.push_back(vec3(xPos, yPos, 0.0));
       xPos += __particleSize0[0];
     }
   }
@@ -184,7 +193,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      chartCoord.push_back(vec3(xPos, yPos, 0.0));
       yPos += __particleSize0[1];
     }
 
@@ -192,7 +201,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      chartCoord.push_back(vec3(xPos, yPos, 0.0));
       yPos += __particleSize0[1];
     }
   }
@@ -205,7 +214,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      chartCoord.push_back(vec3(xPos, yPos, 0.0));
       xPos -= __particleSize0[0];
     }
 
@@ -213,7 +222,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      chartCoord.push_back(vec3(xPos, yPos, 0.0));
       xPos -= __particleSize0[0];
     }
   }
@@ -226,7 +235,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      chartCoord.push_back(vec3(xPos, yPos, 0.0));
       yPos -= __particleSize0[1];
     }
 
@@ -234,7 +243,7 @@ void GMLS_Solver::InitWallParticleManifold() {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
       InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-      __particle.X_origin.push_back(vec3(xPos, yPos, 0.0));
+      chartCoord.push_back(vec3(xPos, yPos, 0.0));
       yPos -= __particleSize0[1];
     }
   }

@@ -151,18 +151,3 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
 
   __successInitialized = true;
 }
-
-void GMLS_Solver::ClearMemory() {
-  __particle.X.clear();
-  __particle.X_origin.clear();
-  __particle.particleType.clear();
-  __particle.particleSize.clear();
-  __particle.normal.clear();
-  __particle.globalIndex.clear();
-  __particle.vol.clear();
-  __particle.localParticleNum = 0;
-  __particle.globalParticleNum = 0;
-  __particle.particleOffset.clear();
-  __particle.d.clear();
-  __particle.attachedRigidBodyIndex.clear();
-}

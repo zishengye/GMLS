@@ -6,11 +6,13 @@
 using namespace std;
 
 void GMLS_Solver::InitNeighborList() {
+  vector<int> &neighborFlag = __neighbor.index.Register("neighbor flag");
+
   int neighborNum = pow(3, __dim);
 
-  __neighborFlag.resize(neighborNum);
+  neighborFlag.resize(neighborNum);
   for (int i = 0; i < neighborNum; i++) {
-    __neighborFlag[i] = false;
+    neighborFlag[i] = false;
   }
 
   if (__dim == 2) {
@@ -24,7 +26,7 @@ void GMLS_Solver::InitNeighborList() {
             int destination = (__nI + offsetX[i]) + (__nJ + offsetY[j]) * __nX;
             if (destination >= 0 && destination != __myID &&
                 destination < __MPISize) {
-              __neighborFlag[i + j * 3] = true;
+              neighborFlag[i + j * 3] = true;
             }
           }
         }
@@ -47,7 +49,7 @@ void GMLS_Solver::InitNeighborList() {
                                   (__nK + offsetZ[k]) * (__nX * __nY);
                 if (destination >= 0 && destination != __myID &&
                     destination < __MPISize) {
-                  __neighborFlag[i + j * 3 + k * 9] = true;
+                  neighborFlag[i + j * 3 + k * 9] = true;
                 }
               }
             }
@@ -59,24 +61,36 @@ void GMLS_Solver::InitNeighborList() {
 }
 
 void GMLS_Solver::BuildNeighborList() {
+  static vector<int> &neighborFlag =
+      __neighbor.index.GetHandle("neighbor flag");
+  static vector<vec3> &backgroundSourceCoord =
+      __background.vector.GetHandle("source coord");
+  static vector<int> &backgroundSourceIndex =
+      __background.index.GetHandle("source index");
+  static vector<vec3> &coord = __field.vector.GetHandle("coord");
+  static vector<int> &globalIndex = __field.index.GetHandle("global index");
+  static vector<int> &particleNum = __field.index.GetHandle("particle number");
+
   PetscPrintf(PETSC_COMM_WORLD, "\nBuilding neighbor list...\n");
   // set up neighbor list for communication
-  __backgroundParticle.clear();
-  for (size_t i = 0; i < __neighborSendParticle.size(); i++) {
-    __neighborSendParticle[i].clear();
-  }
+  backgroundSourceCoord.clear();
+  vector<vector<vec3>> neighborSendParticleCoord;
+  vector<vector<int>> neighborSendParticleIndex;
+
   vector<bool> isNeighbor;
   int neighborNum = pow(3, __dim);
   isNeighbor.resize(neighborNum);
-  __neighborSendParticle.resize(neighborNum);
+  neighborSendParticleCoord.resize(neighborNum);
+  neighborSendParticleIndex.resize(neighborNum);
 
-  for (int i = 0; i < __particle.localParticleNum; i++) {
-    __backgroundParticle.coord.push_back(__particle.X[i]);
-    __backgroundParticle.index.push_back(__particle.globalIndex[i]);
+  int &localParticleNum = particleNum[0];
+  for (int i = 0; i < localParticleNum; i++) {
+    backgroundSourceCoord.push_back(coord[i]);
+    backgroundSourceIndex.push_back(globalIndex[i]);
     double xPos, yPos, zPos;
-    xPos = __particle.X[i][0];
-    yPos = __particle.X[i][1];
-    zPos = __particle.X[i][2];
+    xPos = coord[i][0];
+    yPos = coord[i][1];
+    zPos = coord[i][2];
     for (auto it = isNeighbor.begin(); it != isNeighbor.end(); it++) {
       *it = false;
     }
@@ -253,8 +267,8 @@ void GMLS_Solver::BuildNeighborList() {
 
     for (size_t j = 0; j < isNeighbor.size(); j++) {
       if (isNeighbor[j] == true) {
-        __neighborSendParticle[j].coord.push_back(__particle.X[i]);
-        __neighborSendParticle[j].index.push_back(__particle.globalIndex[i]);
+        neighborSendParticleCoord[j].push_back(coord[i]);
+        neighborSendParticleIndex[j].push_back(globalIndex[i]);
       }
     }
   }
@@ -286,12 +300,12 @@ void GMLS_Solver::BuildNeighborList() {
       for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
           int index = i + j * 3;
-          if (__neighborFlag[index] == true) {
+          if (neighborFlag[index] == true) {
             int destination = (__nI + offsetX[i]) + (__nJ + offsetY[j]) * __nX;
             int xScalar = (i == 1) ? 1 : (i + 2) % 4;
             int y = (j == 1) ? 1 : (j + 2) % 4;
             sendOffset[index] = xScalar + y * 3;
-            sendCount[index] = __neighborSendParticle[index].coord.size();
+            sendCount[index] = neighborSendParticleCoord[index].size();
             destinationIndex[index] = destination;
 
             MPI_Win_lock(MPI_LOCK_SHARED, destination, 0, __neighborWinIndex);
@@ -319,7 +333,7 @@ void GMLS_Solver::BuildNeighborList() {
         for (int j = 0; j < 3; j++) {
           for (int k = 0; k < 3; k++) {
             int index = i + j * 3 + k * 9;
-            if (__neighborFlag[index] == true) {
+            if (neighborFlag[index] == true) {
               int destination = (__nI + offsetX[i]) +
                                 (__nJ + offsetY[j]) * __nX +
                                 (__nK + offsetZ[k]) * (__nX * __nY);
@@ -327,7 +341,7 @@ void GMLS_Solver::BuildNeighborList() {
               int y = (j == 1) ? 1 : (j + 2) % 4;
               int z = (k == 1) ? 1 : (k + 2) % 4;
               sendOffset[index] = xScalar + y * 3 + z * 9;
-              sendCount[index] = __neighborSendParticle[index].coord.size();
+              sendCount[index] = neighborSendParticleCoord[index].size();
               destinationIndex[index] = destination;
 
               MPI_Win_lock(MPI_LOCK_SHARED, destination, 0, __neighborWinIndex);
@@ -355,7 +369,7 @@ void GMLS_Solver::BuildNeighborList() {
     for (int i = 0; i < neighborNum; i++) {
       offset[i + 1] = offset[i] + neighborCount[i];
 
-      if (__neighborFlag[i] == true) {
+      if (neighborFlag[i] == true) {
         MPI_Win_lock(MPI_LOCK_SHARED, destinationIndex[i], 0,
                      __neighborWinOffset);
         MPI_Put(&offset[i], 1, MPI_INT, destinationIndex[i], sendOffset[i], 1,
@@ -382,12 +396,12 @@ void GMLS_Solver::BuildNeighborList() {
                    totalNeighborParticleNum * sizeof(int), sizeof(int),
                    MPI_INFO_NULL, MPI_COMM_WORLD, &__neighborWinParticleIndex);
     for (int i = 0; i < neighborNum; i++) {
-      if (__neighborFlag[i] == true) {
+      if (neighborFlag[i] == true) {
         sendParticleCoord.clear();
-        int sendCount = __neighborSendParticle[i].coord.size();
+        int sendCount = neighborSendParticleCoord[i].size();
         for (int j = 0; j < sendCount; j++) {
           for (int k = 0; k < 3; k++) {
-            sendParticleCoord.push_back(__neighborSendParticle[i].coord[j][k]);
+            sendParticleCoord.push_back(neighborSendParticleCoord[i][j][k]);
           }
         }
         MPI_Win_lock(MPI_LOCK_SHARED, destinationIndex[i], 0,
@@ -398,7 +412,7 @@ void GMLS_Solver::BuildNeighborList() {
         MPI_Put(sendParticleCoord.data(), sendCount * 3, MPI_DOUBLE,
                 destinationIndex[i], neighborOffset[i] * 3, sendCount * 3,
                 MPI_DOUBLE, __neighborWinParticleCoord);
-        MPI_Put(__neighborSendParticle[i].index.data(), sendCount, MPI_INT,
+        MPI_Put(neighborSendParticleIndex[i].data(), sendCount, MPI_INT,
                 destinationIndex[i], neighborOffset[i], sendCount, MPI_INT,
                 __neighborWinParticleIndex);
 
@@ -412,10 +426,10 @@ void GMLS_Solver::BuildNeighborList() {
     MPI_Barrier(MPI_COMM_WORLD);
 
     for (int i = 0; i < totalNeighborParticleNum; i++) {
-      __backgroundParticle.coord.push_back(vec3(recvParticleCoord[i * 3],
-                                                recvParticleCoord[i * 3 + 1],
-                                                recvParticleCoord[i * 3 + 2]));
-      __backgroundParticle.index.push_back(recvParticleIndex[i]);
+      backgroundSourceCoord.push_back(vec3(recvParticleCoord[i * 3],
+                                           recvParticleCoord[i * 3 + 1],
+                                           recvParticleCoord[i * 3 + 2]));
+      backgroundSourceIndex.push_back(recvParticleIndex[i]);
     }
 
     MPI_Win_free(&__neighborWinCount);
@@ -428,12 +442,11 @@ void GMLS_Solver::BuildNeighborList() {
   }
 
   SerialOperation([=]() {
-    if (__backgroundParticle.coord.size() != __backgroundParticle.index.size())
+    if (backgroundSourceCoord.size() != backgroundSourceIndex.size())
       cout << "[Proc " << __myID
            << "]: wrong generation of background particles" << endl;
     else
       cout << "[Proc " << __myID << "]: generated "
-           << __backgroundParticle.coord.size() << " background particles."
-           << endl;
+           << backgroundSourceCoord.size() << " background particles." << endl;
   });
 }

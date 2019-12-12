@@ -22,6 +22,8 @@ class triple {
 
   T &operator[](int i) { return data[i]; }
 
+  const T operator[](const int i) const { return data[i]; }
+
   void operator+=(triple<T> y) {
     data[0] += y[0];
     data[1] += y[1];

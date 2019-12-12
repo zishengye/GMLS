@@ -1,83 +1,91 @@
 #include "gmls_solver.h"
 
+using namespace std;
+using namespace Compadre;
+
 void GMLS_Solver::TimeIntegration() {
-  //   if (__manifoldOrder == 0) {
-  //     SetBoundingBox();
-  //     SetBoundingBoxBoundary();
+  InitParticle();
 
-  //     InitRigidBody();
+  if (__manifoldOrder == 0) {
+    SetBoundingBox();
+    SetBoundingBoxBoundary();
 
-  //     InitDomainDecomposition();
-  //   } else {
-  //     SetBoundingBoxManifold();
-  //     SetBoundingBoxBoundaryManifold();
+    InitRigidBody();
 
-  //     InitRigidBody();
+    InitDomainDecomposition();
+  } else {
+    SetBoundingBoxManifold();
+    SetBoundingBoxBoundaryManifold();
 
-  //     InitDomainDecompositionManifold();
-  //   }
+    InitRigidBody();
 
-  //   // equation type selection
-  //   if (__equationType == "Stokes" && __manifoldOrder == 0) {
-  //     __equationSolver = &GMLS_Solver::StokesEquation;
-  //   }
+    InitDomainDecompositionManifold();
+  }
 
-  //   if (__equationType == "Poisson" && __manifoldOrder == 0) {
-  //     __equationSolver = &GMLS_Solver::PoissonEquation;
-  //   }
+  // equation type selection and initialization
+  if (__equationType == "Stokes" && __manifoldOrder == 0) {
+    __equationSolverInitialization = &GMLS_Solver::StokesEquationInitialization;
+    __equationSolver = &GMLS_Solver::StokesEquation;
+  }
 
-  //   if (__equationType == "Poisson" && __manifoldOrder > 0) {
-  //     __equationSolver = &GMLS_Solver::PoissonEquationManifold;
-  //   }
+  if (__equationType == "Poisson" && __manifoldOrder == 0) {
+    __equationSolver = &GMLS_Solver::PoissonEquation;
+  }
 
-  //   if (__equationType == "Diffusion" && __manifoldOrder > 0) {
-  //     __equationSolver = &GMLS_Solver::DiffusionEquationManifold;
-  //   }
+  if (__equationType == "Poisson" && __manifoldOrder > 0) {
+    __equationSolver = &GMLS_Solver::PoissonEquationManifold;
+  }
 
-  //   if (__timeIntegrationMethod == "ForwardEuler") {
-  //     ForwardEulerIntegration();
-  //   }
-  // }
+  if (__equationType == "Diffusion" && __manifoldOrder > 0) {
+    __equationSolver = &GMLS_Solver::DiffusionEquationManifold;
+  }
 
-  // void GMLS_Solver::ForwardEulerIntegration() {
-  //   for (double t = 0; t < __finalTime + 1e-5; t += __dt) {
-  //     PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
-  //     PetscPrintf(PETSC_COMM_WORLD, "==== Start of time integration ====\n");
-  //     PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
-  //     PetscPrintf(PETSC_COMM_WORLD, "==> Current time: %f s\n", t);
-  //     PetscPrintf(PETSC_COMM_WORLD, "==> current time step: %f s\n", __dt);
+  if (__timeIntegrationMethod == "ForwardEuler") {
+    ForwardEulerIntegration();
+  }
+}
 
-  //     PetscPrintf(PETSC_COMM_WORLD, "\nGenerating uniform particle
-  //     field...\n"); if (__manifoldOrder > 0) {
-  //       InitUniformParticleManifoldField();
+void GMLS_Solver::ForwardEulerIntegration() {
+  (this->*__equationSolverInitialization)();
 
-  //       EmposeBoundaryCondition();
+  for (double t = 0; t < __finalTime + 1e-5; t += __dt) {
+    PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
+    PetscPrintf(PETSC_COMM_WORLD, "==== Start of time integration ====\n");
+    PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
+    PetscPrintf(PETSC_COMM_WORLD, "==> Current time: %f s\n", t);
+    PetscPrintf(PETSC_COMM_WORLD, "==> current time step: %f s\n", __dt);
 
-  //       BuildNeighborListManifold();
-  //     } else {
-  //       InitUniformParticleField();
+    PetscPrintf(PETSC_COMM_WORLD, "\nGenerating uniform particle field...\n");
+    if (__manifoldOrder > 0) {
+      InitUniformParticleManifoldField();
 
-  //       EmposeBoundaryCondition();
+      EmposeBoundaryCondition();
 
-  //       BuildNeighborList();
-  //     }
+      BuildNeighborListManifold();
+    } else {
+      InitUniformParticleField();
 
-  //     // if (t == 0) {
-  //     //   InitialCondition();
-  //     // }
+      EmposeBoundaryCondition();
 
-  //     while (NeedRefinement()) {
-  //       (this->*__equationSolver)();
+      BuildNeighborList();
+    }
 
-  //       WriteDataAdaptiveStep();
-  //     }
+    // if (t == 0) {
+    //   InitialCondition();
+    // }
 
-  PetscPrintf(PETSC_COMM_WORLD, "\n=================================\n");
-  PetscPrintf(PETSC_COMM_WORLD, "==== End of time integration ====\n");
-  PetscPrintf(PETSC_COMM_WORLD, "=================================\n\n");
+    while (NeedRefinement()) {
+      (this->*__equationSolver)();
 
-  // if (__writeData != 0) {
-  //   WriteDataTimeStep();
-  // }
-  // }
+      WriteDataAdaptiveStep();
+    }
+
+    PetscPrintf(PETSC_COMM_WORLD, "\n=================================\n");
+    PetscPrintf(PETSC_COMM_WORLD, "==== End of time integration ====\n");
+    PetscPrintf(PETSC_COMM_WORLD, "=================================\n\n");
+
+    if (__writeData != 0) {
+      WriteDataTimeStep();
+    }
+  }
 }
