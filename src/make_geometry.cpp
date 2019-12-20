@@ -188,8 +188,6 @@ void GMLS_Solver::ClearParticle() {
 
 void GMLS_Solver::InitUniformParticleField() {
   static vector<vec3> &coord = __field.vector.GetHandle("coord");
-  static vector<int> &globalIndex = __field.index.GetHandle("global index");
-  static vector<int> &particleNum = __field.index.GetHandle("particle number");
 
   ClearParticle();
 
@@ -197,10 +195,13 @@ void GMLS_Solver::InitUniformParticleField() {
   InitFieldBoundaryParticle();
   InitRigidBodySurfaceParticle();
 
-  SerialOperation([this]() {
-    cout << "[Proc " << this->__myID << "]: generated " << coord.size()
-         << " particles." << endl;
-  });
+  ParticleIndex();
+}
+
+void GMLS_Solver::ParticleIndex() {
+  static vector<vec3> &coord = __field.vector.GetHandle("coord");
+  static vector<int> &globalIndex = __field.index.GetHandle("global index");
+  static vector<int> &particleNum = __field.index.GetHandle("particle number");
 
   particleNum.resize(2 + __MPISize);
 
@@ -211,7 +212,6 @@ void GMLS_Solver::InitUniformParticleField() {
                 MPI_COMM_WORLD);
 
   vector<int> particleOffset;
-  particleNum.resize(__MPISize);
   particleOffset.resize(__MPISize + 1);
   MPI_Allgather(&localParticleNum, 1, MPI_INT, particleNum.data() + 2, 1,
                 MPI_INT, MPI_COMM_WORLD);
@@ -221,8 +221,13 @@ void GMLS_Solver::InitUniformParticleField() {
   }
 
   for (size_t i = 0; i < globalIndex.size(); i++) {
-    globalIndex[i] += particleOffset[__myID];
+    globalIndex[i] = i + particleOffset[__myID];
   }
+
+  SerialOperation([this]() {
+    cout << "[Proc " << this->__myID << "]: generated " << coord.size()
+         << " particles." << endl;
+  });
 }
 
 bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
@@ -651,6 +656,108 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
         normal = vec3(-sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
         InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
         zPos += __particleSize0[2];
+      }
+    }
+  }
+}
+
+void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
+  static auto &particleType = __field.index.GetHandle("particle type");
+
+  vector<int> fieldSplitTag;
+  vector<int> fieldBoundarySplitTag;
+
+  for (auto tag : splitTag) {
+    if (particleType[tag] == 0) {
+      fieldSplitTag.push_back(tag);
+    } else {
+      fieldBoundarySplitTag.push_back(tag);
+    }
+  }
+
+  SplitFieldParticle(fieldSplitTag);
+  SplitFieldBoundaryParticle(fieldBoundarySplitTag);
+
+  ParticleIndex();
+}
+
+void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
+  static auto &coord = __field.vector.GetHandle("coord");
+  static auto &normal = __field.vector.GetHandle("normal");
+  static auto &particleSize = __field.vector.GetHandle("size");
+  static auto &globalIndex = __field.index.GetHandle("global index");
+  static auto &particleType = __field.index.GetHandle("particle type");
+  static auto &attachedRigidBodyIndex =
+      __field.index.GetHandle("attached rigid body index");
+
+  int localIndex = coord.size();
+
+  if (__dim == 2) {
+    for (auto tag : splitTag) {
+      vec3 origin = coord[tag];
+      const double xDelta = particleSize[tag][0] * 0.25;
+      const double yDelta = particleSize[tag][1] * 0.25;
+      bool insert = false;
+      for (int i = -1; i < 2; i += 2) {
+        for (int j = -1; j < 2; j += 2) {
+          vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
+          if (!insert) {
+            if (IsInRigidBody(newPos) == -2) {
+              coord[tag] = newPos;
+              particleSize[tag][0] /= 2.0;
+              particleSize[tag][1] /= 2.0;
+
+              insert = true;
+            }
+          } else {
+            double vol = particleSize[tag][0] * particleSize[tag][1];
+            InsertParticle(newPos, particleType[tag], particleSize[tag],
+                           normal[tag], localIndex, vol);
+          }
+        }
+      }
+    }
+  }
+}
+
+void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
+  static auto &coord = __field.vector.GetHandle("coord");
+  static auto &normal = __field.vector.GetHandle("normal");
+  static auto &particleSize = __field.vector.GetHandle("size");
+  static auto &globalIndex = __field.index.GetHandle("global index");
+  static auto &particleType = __field.index.GetHandle("particle type");
+  static auto &attachedRigidBodyIndex =
+      __field.index.GetHandle("attached rigid body index");
+
+  int localIndex = coord.size();
+
+  if (__dim == 2) {
+    for (auto tag : splitTag) {
+      if (particleType[tag] == 1) {
+        // corner particle
+        particleSize[tag][0] /= 2.0;
+        particleSize[tag][1] /= 2.0;
+      } else {
+        vec3 origin = coord[tag];
+        const double xDelta = particleSize[tag][0] * 0.25 * normal[tag][1];
+        const double yDelta = particleSize[tag][1] * 0.25 * normal[tag][0];
+        bool insert = false;
+        for (int i = -1; i < 2; i += 2) {
+          vec3 newPos = origin + vec3(i * xDelta, i * yDelta, 0.0);
+          if (!insert) {
+            if (IsInRigidBody(newPos) == -2) {
+              coord[tag] = newPos;
+              particleSize[tag][0] /= 2.0;
+              particleSize[tag][1] /= 2.0;
+
+              insert = true;
+            }
+          } else {
+            double vol = particleSize[tag][0] * particleSize[tag][1];
+            InsertParticle(newPos, particleType[tag], particleSize[tag],
+                           normal[tag], localIndex, vol);
+          }
+        }
       }
     }
   }

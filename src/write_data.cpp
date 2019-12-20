@@ -286,4 +286,60 @@ void GMLS_Solver::WriteDataTimeStep() {
   writeStep++;
 }
 
-void GMLS_Solver::WriteDataAdaptiveStep() {}
+void GMLS_Solver::WriteDataAdaptiveStep() {
+  vector<vec3> &coord = __field.vector.GetHandle("coord");
+  vector<vec3> &particleSize = __field.vector.GetHandle("size");
+  vector<vec3> &normal = __field.vector.GetHandle("normal");
+  vector<int> &particleType = __field.index.GetHandle("particle type");
+  vector<int> &particleNum = __field.index.GetHandle("particle number");
+  int &globalParticleNum = particleNum[1];
+
+  MasterOperation(0, [globalParticleNum, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::trunc);
+    file << "# vtk DataFile Version 2.0" << endl;
+    file << "particlePositions" << endl;
+    file << "ASCII" << endl;
+    file << "DATASET POLYDATA " << endl;
+    file << " POINTS " << globalParticleNum << " float" << endl;
+    file.close();
+  });
+
+  SerialOperation([coord, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < coord.size(); i++) {
+      file << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [globalParticleNum, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "POINT_DATA " << globalParticleNum << endl;
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "SCALARS ID int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([particleType, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < particleType.size(); i++) {
+      file << particleType[i] << endl;
+    }
+    file.close();
+  });
+}

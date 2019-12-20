@@ -74,11 +74,10 @@ void GMLS_Solver::ForwardEulerIntegration() {
     //   InitialCondition();
     // }
 
-    while (NeedRefinement()) {
-      (this->*__equationSolver)();
-
+    do {
       WriteDataAdaptiveStep();
-    }
+      (this->*__equationSolver)();
+    } while (NeedRefinement());
 
     PetscPrintf(PETSC_COMM_WORLD, "\n=================================\n");
     PetscPrintf(PETSC_COMM_WORLD, "==== End of time integration ====\n");

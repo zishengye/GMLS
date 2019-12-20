@@ -85,12 +85,6 @@ class GMLS_Solver {
   void SetBoundingBoxBoundaryManifold();
   void SetDomainBoundaryManifold();
 
-  void InitFieldParticle();
-  void InitFieldBoundaryParticle();
-
-  void InitFieldParticleManifold();
-  void InitFieldBoundaryParticleManifold();
-
   void InitRigidBody();
 
   // manifold info
@@ -170,13 +164,22 @@ class GMLS_Solver {
   void InitNeighborListManifold();
   void BuildNeighborListManifold();
 
+  void DataSwapAmongNeighbor(std::vector<int> &sendData,
+                             std::vector<int> &recvData);
+  void DataSwapAmongNeighbor(std::vector<vec3> &sendData,
+                             std::vector<double> &recvData);
+  void DataSwapAmongNeighbor(std::vector<std::vector<double>> &sendData,
+                             std::vector<double> &recvData,
+                             const int unitLength);
+
   MPI_Win __neighborWinCount;
   MPI_Win __neighborWinIndex;
   MPI_Win __neighborWinOffset;
-  MPI_Win __neighborWinParticleCoord;
-  MPI_Win __neighborWinParticleIndex;
+  MPI_Win __neighborWinParticleSwap;
 
   GeneralInfo __neighbor;
+
+  std::vector<std::vector<int>> __neighborSendParticleIndex;
 
   template <typename Cond>
   bool PutParticleInNeighborList(int neighborBlockNum, Cond cond) {
@@ -195,12 +198,22 @@ class GMLS_Solver {
 
   void InitialCondition();
 
+  void InitFieldParticle();
+  void InitFieldBoundaryParticle();
+
+  void InitFieldParticleManifold();
+  void InitFieldBoundaryParticleManifold();
+
+  void ParticleIndex();
+
   // particle adjustment
   bool NeedRefinement();
 
   // adaptive refinement
-  void SplitMergeVectorField();
-  void SplitMergeScalarField();
+  void SplitParticle(std::vector<int> &splitTag);
+
+  void SplitFieldParticle(std::vector<int> &splitTag);
+  void SplitFieldBoundaryParticle(std::vector<int> &splitTag);
 
   int __adaptive_step;
 
