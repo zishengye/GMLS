@@ -19,8 +19,9 @@ void GMLS_Solver::StokesEquationInitialization() {
                            __polynomialOrder, __dim, "SVD", "STANDARD"));
   __gmls.Register(
       "pressure basis neumann boundary",
-      new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder, __dim,
-               "LU", "STANDARD", "NEUMANN_GRAD_SCALAR"));
+      new GMLS(ScalarTaylorPolynomial,
+               StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
+               __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
   __gmls.Register(
       "velocity basis",
       new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
@@ -148,12 +149,12 @@ void GMLS_Solver::StokesEquation() {
       Kokkos::create_mirror_view(neumannBoundaryEpsilonDevice);
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
-      false, targetCoords, neighborLists, epsilon, minNeighbors, __dim,
-      epsilonMultiplier, NULL, __cutoffDistance);
+      false, targetCoords, neighborLists, epsilon, minNeighbors,
+      epsilonMultiplier, __cutoffDistance);
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
       false, neumannBoundaryTargetCoords, neumannBoundaryNeighborLists,
-      neumannBoundaryEpsilon, minNeighbors, __dim, epsilonMultiplier, NULL,
+      neumannBoundaryEpsilon, minNeighbors, epsilonMultiplier,
       __cutoffDistance);
 
   Kokkos::deep_copy(neighborListsDevice, neighborLists);
@@ -490,9 +491,11 @@ void GMLS_Solver::StokesEquation() {
           LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
           neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
 
-      for (int j = 1; j < neighborLists(i, 0); j++) {
+      for (int j = 1; j < neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0);
+           j++) {
         const int neighborParticleIndex =
-            backgroundSourceIndex[neighborLists(i, j + 1)];
+            backgroundSourceIndex[neumannBoundaryNeighborLists(
+                neumannBoudnaryIndex, j + 1)];
 
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           for (int axes2 = 0; axes2 < __dim; axes2++) {
@@ -605,15 +608,13 @@ void GMLS_Solver::StokesEquation() {
     double x = coord[i][0];
     double y = coord[i][1];
     for (int axes = 0; axes < __dim; axes++) {
-      // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
-      // rhsVelocity[__dim * i + axes] =
-      //     2.5 * (1.0 - __particle.X[i][1] * __particle.X[i][1] / Hsqr) *
-      //     double(axes == 0);
-      // rhsVelocity[__dim * i + axes] = __particle.X[i][1] * double(axes ==
-      // 0);
+      double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
       rhsVelocity[__dim * i + axes] =
-          1.0 * double(axes == 0) *
-          double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
+          2.5 * (1.0 - coord[i][1] * coord[i][1] / Hsqr) * double(axes == 0);
+      // rhsVelocity[__dim * i + axes] = coord[i][1] * double(axes == 0);
+      // rhsVelocity[__dim * i + axes] =
+      //     1.0 * double(axes == 0) *
+      //     double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
     }
 
     rhsPressure[i] = 0.0;

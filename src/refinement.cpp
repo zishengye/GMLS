@@ -143,7 +143,7 @@ bool GMLS_Solver::NeedRefinement() {
               globalError);
 
   // mark stage
-  if (__adaptive_step < 2) {
+  if (__adaptive_step < 0) {
     double alpha = pow(0.95, __adaptive_step);
     vector<int> splitTag;
     for (int i = 0; i < localParticleNum; i++) {
@@ -164,7 +164,7 @@ bool GMLS_Solver::NeedRefinement() {
     BuildNeighborList();
   }
 
-  if (__adaptive_step > 1) return false;
+  if (__adaptive_step >= 0) return false;
 
   __adaptive_step++;
 
