@@ -14,7 +14,7 @@ void GMLS_Solver::InitRigidBody() {
       __rigidBody.vector.Register("angular velocity");
   vector<double> &rigidBodySize = __rigidBody.scalar.Register("size");
   // initialize data storage
-  int Nr = 0;
+  int Nr = 27;
 
   rigidBodyPosition.resize(Nr);
   rigidBodyOrientation.resize(Nr);
@@ -22,18 +22,17 @@ void GMLS_Solver::InitRigidBody() {
   rigidBodyAngularVelocity.resize(Nr);
   rigidBodySize.resize(Nr);
 
-  // int index = 0;
-  // for (int i = 0; i < 2; i++) {
-  //   for (int j = 0; j < 2; j++) {
-  //     for (int k = 0; k < 3; k++) {
-  //       rigidBodyCoord[index][0] = 6 * i - 3;
-  //       rigidBodyCoord[index][1] = 6 * j - 3;
-  //       rigidBodyCoord[index][2] = (k - 1) * 3;
-  //       rigidBodyCoord[index] = 1.0;
-  //       index++;
-  //     }
-  //   }
-  // }
+  int index = 0;
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      for (int k = 0; k < 3; k++) {
+        rigidBodyPosition[index][0] = (i - 1) * 3;
+        rigidBodyPosition[index][1] = (j - 1) * 3;
+        rigidBodyPosition[index][2] = (k - 1) * 3;
+        index++;
+      }
+    }
+  }
 
   // rigidBodyCoord[0][0] = 0;
   // rigidBodyCoord[0][1] = 0;
