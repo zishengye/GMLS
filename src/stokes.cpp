@@ -22,6 +22,7 @@ void GMLS_Solver::StokesEquationInitialization() {
       new GMLS(ScalarTaylorPolynomial,
                StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
                __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
+
   if (__dim == 2) {
     __gmls.Register(
         "velocity basis",
@@ -31,7 +32,7 @@ void GMLS_Solver::StokesEquationInitialization() {
     __gmls.Register(
         "velocity basis",
         new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                 __polynomialOrder, __dim, "LU", "STANDARD"));
+                 __polynomialOrder, __dim, "QR", "STANDARD"));
   }
 }
 
@@ -129,8 +130,8 @@ void GMLS_Solver::StokesEquation() {
 
   double epsilonMultiplier = 1.5;
   int estimatedUpperBoundNumberNeighbors =
-      pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
-          minNeighbors, __dim, epsilonMultiplier);
+      8 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
+              minNeighbors, __dim, epsilonMultiplier);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
       "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
