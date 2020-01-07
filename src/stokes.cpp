@@ -123,11 +123,11 @@ void GMLS_Solver::StokesEquation() {
                     neumannBoundaryTargetCoords);
 
   // neighbor search
-  auto pointCloudSearch(CreatePointCloudSearch(sourceCoords));
+  auto pointCloudSearch(CreatePointCloudSearch(sourceCoords, __dim));
 
   const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 1.6;
+  double epsilonMultiplier = 1.5;
   int estimatedUpperBoundNumberNeighbors =
       pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
           minNeighbors, __dim, epsilonMultiplier);
@@ -157,12 +157,11 @@ void GMLS_Solver::StokesEquation() {
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
       false, targetCoords, neighborLists, epsilon, minNeighbors,
-      epsilonMultiplier, __cutoffDistance);
+      epsilonMultiplier);
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
       false, neumannBoundaryTargetCoords, neumannBoundaryNeighborLists,
-      neumannBoundaryEpsilon, minNeighbors, epsilonMultiplier,
-      __cutoffDistance);
+      neumannBoundaryEpsilon, minNeighbors, epsilonMultiplier);
 
   Kokkos::deep_copy(neighborListsDevice, neighborLists);
   Kokkos::deep_copy(epsilonDevice, epsilon);
@@ -313,7 +312,7 @@ void GMLS_Solver::StokesEquation() {
 
   int localRigidBodyOffset = particleNum[__MPISize + 1] * __dim;
   int globalRigidBodyOffset = globalParticleNum * __dim;
-  int lagrangeMultiplerOffset = particleNum[__MPISize + 1];
+  int lagrangeMultiplierOffset = particleNum[__MPISize + 1];
 
   PetscSparseMatrix LUV(localVelocityDof, localVelocityDof, globalVelocityDof);
   PetscSparseMatrix GXY(localVelocityDof, localPressureDof, globalPressureDof);
@@ -548,9 +547,9 @@ void GMLS_Solver::StokesEquation() {
         }
       }
 
-      // Lagrangian multipler
+      // Lagrangian multiplier
       PI.increment(iPressureLocal, globalParticleNum, 1.0);
-      PI.outProcessIncrement(lagrangeMultiplerOffset, iPressureGlobal, 1.0);
+      PI.outProcessIncrement(lagrangeMultiplierOffset, iPressureGlobal, 1.0);
     }
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
@@ -573,8 +572,8 @@ void GMLS_Solver::StokesEquation() {
   }  // end of fluid particle loop
 
   if (__myID == __MPISize - 1) {
-    // Lagrangian multipler for pressure
-    PI.increment(lagrangeMultiplerOffset, globalParticleNum, 0.0);
+    // Lagrangian multiplier for pressure
+    PI.increment(lagrangeMultiplierOffset, globalParticleNum, 0.0);
 
     for (int i = 0; i < numRigidBody; i++) {
       for (int j = 0; j < translationDof; j++) {
