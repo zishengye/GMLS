@@ -602,62 +602,57 @@ void GMLS_Solver::StokesEquation() {
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  // Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
+  Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
   MPI_Barrier(MPI_COMM_WORLD);
 
   // result verification
-  for (int i = 0; i < localParticleNum; i++) {
-    if (particleType[i] != 0) {
-      double p =
-          pow(coord[i][0], 2) + pow(coord[i][1], 2) * pow(coord[i][2], 2);
-      double lap_p = 0.0;
-      double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-          LaplacianOfScalarPointEvaluation, fluid2NeumannBoundary[i],
-          neumannBoundaryNeighborLists(fluid2NeumannBoundary[i], 0));
-      for (int j = 0; j < neumannBoundaryNeighborLists(i, 0); j++) {
-        const int neighborParticleIndex =
-            neumannBoundaryNeighborLists(i, j + 1);
+  // for (int i = 0; i < localParticleNum; i++) {
+  //   if (particleType[i] != 0) {
+  //     double p = pow(coord[i][0], 2) + pow(coord[i][1], 2);
+  //     double lap_p = 0.0;
+  //     double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+  //         LaplacianOfScalarPointEvaluation, fluid2NeumannBoundary[i],
+  //         neumannBoundaryNeighborLists(fluid2NeumannBoundary[i], 0));
+  //     for (int j = 0; j < neighborLists(i, 0); j++) {
+  //       const int neighborParticleIndex = neighborLists(i, j + 1);
 
-        double neighbor_p =
-            pow(backgroundSourceCoord[neighborParticleIndex][0], 2) +
-            pow(backgroundSourceCoord[neighborParticleIndex][1], 2) +
-            pow(backgroundSourceCoord[neighborParticleIndex][2], 2);
+  //       double neighbor_p =
+  //           pow(backgroundSourceCoord[neighborParticleIndex][0], 2) +
+  //           pow(backgroundSourceCoord[neighborParticleIndex][1], 2);
 
-        const double Aij = pressureNeumannBoundaryAlphas(
-            i, pressureNeumannBoundaryLaplacianIndex, j);
+  //       double Aij = pressureNeumannBoundaryAlphas(
+  //           fluid2NeumannBoundary[i], pressureNeumannBoundaryLaplacianIndex,
+  //           j);
 
-        lap_p += Aij * (p - neighbor_p);
-      }
+  //       lap_p += Aij * (p - neighbor_p);
+  //     }
 
-      double unmodified = lap_p;
-      lap_p += bi * (normal[i][0] * 2 * coord[i][0] +
-                     normal[i][1] * 2 * coord[i][1] +
-                     normal[i][2] * 2 * coord[i][2]);
+  //     lap_p += bi * (normal[i][0] * 2 * coord[i][0] +
+  //                    normal[i][1] * 2 * coord[i][1]);
 
-      std::cout << unmodified << ' ' << lap_p << ' ' << ' ' << coord[i][0]
-                << ' ' << coord[i][1] << endl;
-    }
-    // if (particleType[i] == 0) {
-    //   double p = pow(coord[i][0], 2) + pow(coord[i][1], 2);
-    //   double lap_p = 0.0;
-    //   for (int j = 0; j < neighborLists(i, 0); j++) {
-    //     const int neighborParticleIndex = neighborLists(i, j + 1);
+  //     std::cout << lap_p << ' ' << bi << ' ' << ' ' << coord[i][0] << ' '
+  //               << coord[i][1] << endl;
+  //   }
+  // if (particleType[i] == 0) {
+  //   double p = pow(coord[i][0], 2) + pow(coord[i][1], 2);
+  //   double lap_p = 0.0;
+  //   for (int j = 0; j < neighborLists(i, 0); j++) {
+  //     const int neighborParticleIndex = neighborLists(i, j + 1);
 
-    //     double neighbor_p =
-    //         pow(backgroundSourceCoord[neighborParticleIndex][0], 2) +
-    //         pow(backgroundSourceCoord[neighborParticleIndex][1], 2);
+  //     double neighbor_p =
+  //         pow(backgroundSourceCoord[neighborParticleIndex][0], 2) +
+  //         pow(backgroundSourceCoord[neighborParticleIndex][1], 2);
 
-    //     const double Aij =
-    //         pressureAlphas(i, pressureNeumannBoundaryLaplacianIndex, j);
+  //     const double Aij =
+  //         pressureAlphas(i, pressureNeumannBoundaryLaplacianIndex, j);
 
-    //     lap_p += Aij * (p - neighbor_p);
-    //   }
+  //     lap_p += Aij * (p - neighbor_p);
+  //   }
 
-    //   std::cout << lap_p << ' ' << ' ' << coord[i][0] << ' ' << coord[i][1]
-    //             << endl;
-    // }
-  }
-
+  //   std::cout << lap_p << ' ' << ' ' << coord[i][0] << ' ' << coord[i][1]
+  //             << endl;
+  // }
+  // }
   MPI_Barrier(MPI_COMM_WORLD);
 
   // copy data
