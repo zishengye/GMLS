@@ -14,12 +14,12 @@ void GMLS_Solver::StokesEquationInitialization() {
   __field.scalar.Register("x pressure");
 
   __gmls.Register("pressure basis",
-                  new GMLS(VectorTaylorPolynomial, StaggeredEdgeIntegralSample,
+                  new GMLS(ScalarTaylorPolynomial,
                            StaggeredEdgeAnalyticGradientIntegralSample,
                            __polynomialOrder, __dim, "SVD", "STANDARD"));
   __gmls.Register(
       "pressure basis neumann boundary",
-      new GMLS(VectorTaylorPolynomial, StaggeredEdgeIntegralSample,
+      new GMLS(ScalarTaylorPolynomial,
                StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
                __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
 
@@ -128,7 +128,7 @@ void GMLS_Solver::StokesEquation() {
 
   const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 2.2;
+  double epsilonMultiplier = 1.5;
   int estimatedUpperBoundNumberNeighbors =
       8 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
               minNeighbors, __dim, epsilonMultiplier);
@@ -592,11 +592,10 @@ void GMLS_Solver::StokesEquation() {
     double y = coord[i][1];
     if (particleType[i] != 0) {
       for (int axes = 0; axes < __dim; axes++) {
-        // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
-        // rhsVelocity[__dim * i + axes] =
-        //     1.5 * (1.0 - coord[i][1] * coord[i][1] / Hsqr) * double(axes ==
-        //     0);
-        rhsVelocity[__dim * i + axes] = coord[i][1] * double(axes == 0);
+        double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
+        rhsVelocity[__dim * i + axes] =
+            1.5 * (1.0 - coord[i][1] * coord[i][1] / Hsqr) * double(axes == 0);
+        // rhsVelocity[__dim * i + axes] = coord[i][1] * double(axes == 0);
         // rhsVelocity[__dim * i + axes] =
         //     1.0 * double(axes == 0) *
         //     double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);

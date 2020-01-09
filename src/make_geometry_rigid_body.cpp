@@ -25,7 +25,7 @@ void GMLS_Solver::InitRigidBody() {
   rigidBodyPosition[0][0] = 0.0;
   rigidBodyPosition[0][1] = 1.0;
   rigidBodyPosition[0][2] = 0.0;
-  rigidBodySize[0] = 1.0;
+  rigidBodySize[0] = 1.1;
 
   // int index = 0;
   // for (int i = 0; i < 3; i++) {
