@@ -215,6 +215,10 @@ void GMLS_Solver::StokesEquation() {
   pressureBasis.setWeightingType(WeightingFunctionType::Power);
   pressureBasis.setWeightingPower(2);
 
+  pressureBasis.setOrderOfQuadraturePoints(2);
+  pressureBasis.setDimensionOfQuadraturePoints(1);
+  pressureBasis.setQuadratureType("LINE");
+
   pressureBasis.generateAlphas(number_of_batches);
 
   auto pressureAlphas = pressureBasis.getAlphas();
@@ -242,6 +246,10 @@ void GMLS_Solver::StokesEquation() {
 
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
   pressureNeumannBoundaryBasis.setWeightingPower(2);
+
+  pressureNeumannBoundaryBasis.setOrderOfQuadraturePoints(2);
+  pressureNeumannBoundaryBasis.setDimensionOfQuadraturePoints(1);
+  pressureNeumannBoundaryBasis.setQuadratureType("LINE");
 
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
