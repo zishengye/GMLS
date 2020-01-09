@@ -128,7 +128,7 @@ void GMLS_Solver::StokesEquation() {
 
   const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 1.5;
+  double epsilonMultiplier = 2.2;
   int estimatedUpperBoundNumberNeighbors =
       8 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
               minNeighbors, __dim, epsilonMultiplier);
@@ -215,9 +215,9 @@ void GMLS_Solver::StokesEquation() {
   pressureBasis.setWeightingType(WeightingFunctionType::Power);
   pressureBasis.setWeightingPower(2);
 
-  pressureBasis.setOrderOfQuadraturePoints(2);
-  pressureBasis.setDimensionOfQuadraturePoints(1);
-  pressureBasis.setQuadratureType("LINE");
+  // pressureBasis.setOrderOfQuadraturePoints(2);
+  // pressureBasis.setDimensionOfQuadraturePoints(1);
+  // pressureBasis.setQuadratureType("LINE");
 
   pressureBasis.generateAlphas(number_of_batches);
 
@@ -247,9 +247,9 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
   pressureNeumannBoundaryBasis.setWeightingPower(2);
 
-  pressureNeumannBoundaryBasis.setOrderOfQuadraturePoints(2);
-  pressureNeumannBoundaryBasis.setDimensionOfQuadraturePoints(1);
-  pressureNeumannBoundaryBasis.setQuadratureType("LINE");
+  // pressureNeumannBoundaryBasis.setOrderOfQuadraturePoints(2);
+  // pressureNeumannBoundaryBasis.setDimensionOfQuadraturePoints(1);
+  // pressureNeumannBoundaryBasis.setQuadratureType("LINE");
 
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
@@ -617,47 +617,61 @@ void GMLS_Solver::StokesEquation() {
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
+  // Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
   MPI_Barrier(MPI_COMM_WORLD);
 
   // result verification
-  // for (int i = 0; i < localParticleNum; i++) {
-  //   if (particleType[i] != 0) {
-  //     double p = xPressure[i];
-  //     double lap_p = 0.0;
-  //     double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-  //         DivergenceOfVectorPointEvaluation, fluid2NeumannBoundary[i],
-  //         neumannBoundaryNeighborLists(fluid2NeumannBoundary[i], 0));
-  //     double curlcurl_u[2] = {0.0, 0.0};
-  //     for (int j = 0; j < neighborLists(i, 0); j++) {
-  //       const int neighborParticleIndex =
-  //           backgroundSourceIndex[neighborLists(i, j + 1)];
+  for (int i = 0; i < localParticleNum; i++) {
+    if (particleType[i] != 0) {
+      double p =
+          pow(coord[i][0], 2) + pow(coord[i][1], 2) * pow(coord[i][2], 2);
+      double lap_p = 0.0;
+      double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+          DivergenceOfVectorPointEvaluation, fluid2NeumannBoundary[i],
+          neumannBoundaryNeighborLists(fluid2NeumannBoundary[i], 0));
+      for (int j = 0; j < neumannBoundaryNeighborLists(i, 0); j++) {
+        const int neighborParticleIndex =
+            neumannBoundaryNeighborLists(i, j + 1);
 
-  //       double neighbor_p = xPressure[neighborParticleIndex];
+        double neighbor_p =
+            pow(backgroundSourceCoord[neighborParticleIndex][0], 2) +
+            pow(backgroundSourceCoord[neighborParticleIndex][1], 2) +
+            pow(backgroundSourceCoord[neighborParticleIndex][2], 2);
 
-  //       const double Aij = pressureNeumannBoundaryAlphas(
-  //           i, pressureNeumannBoundaryLaplacianIndex, j);
+        const double Aij = pressureNeumannBoundaryAlphas(
+            i, pressureNeumannBoundaryLaplacianIndex, j);
 
-  //       lap_p += Aij * (p - neighbor_p);
+        lap_p += Aij * (p - neighbor_p);
+      }
 
-  //       for (int axes1 = 0; axes1 < __dim; axes1++) {
-  //         for (int axes2 = 0; axes2 < __dim; axes2++) {
-  //           double Lij =
-  //               __eta * velocityAlphas(
-  //                           i, velocityCurlCurlIndex[axes1 * __dim + axes2],
-  //                           j);
-  //           curlcurl_u[axes1] += Lij * xVelocity[2 * j + axes2];
-  //         }
-  //       }
-  //     }
+      double unmodified = lap_p;
+      lap_p += bi * (normal[i][0] * 2 * coord[i][0] +
+                     normal[i][1] * 2 * coord[i][1] +
+                     normal[i][2] * 2 * coord[i][2]);
 
-  //     lap_p -=
-  //         bi * (normal[i][0] * curlcurl_u[0] + normal[i][1] * curlcurl_u[1]);
+      std::cout << unmodified << ' ' << lap_p << ' ' << ' ' << coord[i][0]
+                << ' ' << coord[i][1] << endl;
+    }
+    // if (particleType[i] == 0) {
+    //   double p = pow(coord[i][0], 2) + pow(coord[i][1], 2);
+    //   double lap_p = 0.0;
+    //   for (int j = 0; j < neighborLists(i, 0); j++) {
+    //     const int neighborParticleIndex = neighborLists(i, j + 1);
 
-  //     std::cout << lap_p << ' ' << ' ' << coord[i][0] << ' ' << coord[i][1]
-  //               << endl;
-  //   }
-  // }
+    //     double neighbor_p =
+    //         pow(backgroundSourceCoord[neighborParticleIndex][0], 2) +
+    //         pow(backgroundSourceCoord[neighborParticleIndex][1], 2);
+
+    //     const double Aij =
+    //         pressureAlphas(i, pressureNeumannBoundaryLaplacianIndex, j);
+
+    //     lap_p += Aij * (p - neighbor_p);
+    //   }
+
+    //   std::cout << lap_p << ' ' << ' ' << coord[i][0] << ' ' << coord[i][1]
+    //             << endl;
+    // }
+  }
 
   MPI_Barrier(MPI_COMM_WORLD);
 
