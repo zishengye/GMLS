@@ -14,12 +14,12 @@ void GMLS_Solver::StokesEquationInitialization() {
   __field.scalar.Register("x pressure");
 
   __gmls.Register("pressure basis",
-                  new GMLS(ScalarTaylorPolynomial,
+                  new GMLS(VectorTaylorPolynomial, StaggeredEdgeIntegralSample,
                            StaggeredEdgeAnalyticGradientIntegralSample,
                            __polynomialOrder, __dim, "SVD", "STANDARD"));
   __gmls.Register(
       "pressure basis neumann boundary",
-      new GMLS(ScalarTaylorPolynomial,
+      new GMLS(VectorTaylorPolynomial, StaggeredEdgeIntegralSample,
                StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
                __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
 
@@ -215,9 +215,9 @@ void GMLS_Solver::StokesEquation() {
   pressureBasis.setWeightingType(WeightingFunctionType::Power);
   pressureBasis.setWeightingPower(2);
 
-  // pressureBasis.setOrderOfQuadraturePoints(2);
-  // pressureBasis.setDimensionOfQuadraturePoints(1);
-  // pressureBasis.setQuadratureType("LINE");
+  pressureBasis.setOrderOfQuadraturePoints(2);
+  pressureBasis.setDimensionOfQuadraturePoints(1);
+  pressureBasis.setQuadratureType("LINE");
 
   pressureBasis.generateAlphas(number_of_batches);
 
@@ -247,9 +247,9 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
   pressureNeumannBoundaryBasis.setWeightingPower(2);
 
-  // pressureNeumannBoundaryBasis.setOrderOfQuadraturePoints(2);
-  // pressureNeumannBoundaryBasis.setDimensionOfQuadraturePoints(1);
-  // pressureNeumannBoundaryBasis.setQuadratureType("LINE");
+  pressureNeumannBoundaryBasis.setOrderOfQuadraturePoints(2);
+  pressureNeumannBoundaryBasis.setDimensionOfQuadraturePoints(1);
+  pressureNeumannBoundaryBasis.setQuadratureType("LINE");
 
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
