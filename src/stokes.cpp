@@ -14,12 +14,12 @@ void GMLS_Solver::StokesEquationInitialization() {
   __field.scalar.Register("x pressure");
 
   __gmls.Register("pressure basis",
-                  new GMLS(VectorTaylorPolynomial, StaggeredEdgeIntegralSample,
+                  new GMLS(ScalarTaylorPolynomial,
                            StaggeredEdgeAnalyticGradientIntegralSample,
                            __polynomialOrder, __dim, "SVD", "STANDARD"));
   __gmls.Register(
       "pressure basis neumann boundary",
-      new GMLS(VectorTaylorPolynomial, StaggeredEdgeIntegralSample,
+      new GMLS(ScalarTaylorPolynomial,
                StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
                __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
 
@@ -207,17 +207,13 @@ void GMLS_Solver::StokesEquation() {
                                targetCoordsDevice, epsilonDevice);
 
   vector<TargetOperation> pressureOperation(2);
-  pressureOperation[0] = DivergenceOfVectorPointEvaluation;
+  pressureOperation[0] = LaplacianOfScalarPointEvaluation;
   pressureOperation[1] = GradientOfScalarPointEvaluation;
 
   pressureBasis.addTargets(pressureOperation);
 
   pressureBasis.setWeightingType(WeightingFunctionType::Power);
   pressureBasis.setWeightingPower(2);
-
-  pressureBasis.setOrderOfQuadraturePoints(2);
-  pressureBasis.setDimensionOfQuadraturePoints(1);
-  pressureBasis.setQuadratureType("LINE");
 
   pressureBasis.generateAlphas(number_of_batches);
 
@@ -240,16 +236,12 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.setTangentBundle(tangentBundlesDevice);
 
   vector<TargetOperation> pressureNeumannBoundaryOperations(1);
-  pressureNeumannBoundaryOperations[0] = DivergenceOfVectorPointEvaluation;
+  pressureNeumannBoundaryOperations[0] = LaplacianOfScalarPointEvaluation;
 
   pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
 
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
   pressureNeumannBoundaryBasis.setWeightingPower(2);
-
-  pressureNeumannBoundaryBasis.setOrderOfQuadraturePoints(2);
-  pressureNeumannBoundaryBasis.setDimensionOfQuadraturePoints(1);
-  pressureNeumannBoundaryBasis.setQuadratureType("LINE");
 
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
@@ -478,7 +470,7 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-          DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
+          LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
           neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
       for (int j = 0; j < neighborLists(i, 0); j++) {
         const int neighborParticleIndex =
@@ -604,7 +596,7 @@ void GMLS_Solver::StokesEquation() {
       // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       // const double bi =
       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-      //     DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
+      //     LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
       //     neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
       // rhsPressure[i] = (normal[i][0] + normal[i][1]) * bi;
       // rhsVelocity[__dim * i] = pow(coord[i][0], 2) - pow(coord[i][1], 2);
@@ -627,7 +619,7 @@ void GMLS_Solver::StokesEquation() {
           pow(coord[i][0], 2) + pow(coord[i][1], 2) * pow(coord[i][2], 2);
       double lap_p = 0.0;
       double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-          DivergenceOfVectorPointEvaluation, fluid2NeumannBoundary[i],
+          LaplacianOfScalarPointEvaluation, fluid2NeumannBoundary[i],
           neumannBoundaryNeighborLists(fluid2NeumannBoundary[i], 0));
       for (int j = 0; j < neumannBoundaryNeighborLists(i, 0); j++) {
         const int neighborParticleIndex =
