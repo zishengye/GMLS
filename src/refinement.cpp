@@ -64,7 +64,7 @@ bool GMLS_Solver::NeedRefinement() {
       }
     }
 
-    for (int j = 1; j < velocityNeighborListsLengths(i); j++) {
+    for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
       const int neighborParticleIndex = neighborLists(i, j + 1);
       for (int axes1 = 0; axes1 < __dim; axes1++) {
         for (int axes2 = 0; axes2 < __dim; axes2++) {
@@ -100,7 +100,7 @@ bool GMLS_Solver::NeedRefinement() {
   }
 
   for (int i = 0; i < localParticleNum; i++) {
-    for (int j = 1; j < velocityNeighborListsLengths(i); j++) {
+    for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
       const int neighborParticleIndex = neighborLists(i, j + 1);
       for (int axes = 0; axes < gradientComponentNum; axes++) {
         recoveredVelocityGradient[i][axes] +=

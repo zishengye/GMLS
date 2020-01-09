@@ -207,7 +207,7 @@ void GMLS_Solver::StokesEquation() {
                                targetCoordsDevice, epsilonDevice);
 
   vector<TargetOperation> pressureOperation(2);
-  pressureOperation[0] = LaplacianOfScalarPointEvaluation;
+  pressureOperation[0] = DivergenceOfVectorPointEvaluation;
   pressureOperation[1] = GradientOfScalarPointEvaluation;
 
   pressureBasis.addTargets(pressureOperation);
@@ -219,12 +219,12 @@ void GMLS_Solver::StokesEquation() {
 
   auto pressureAlphas = pressureBasis.getAlphas();
 
-  const int pressureLaplacianIndex = pressureBasis.getAlphaColumnOffset(
-      LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
+  const int pressureLaplacianIndex =
+      pressureBasis.getAlphaColumnOffset(pressureOperation[0], 0, 0, 0, 0);
   vector<int> pressureGradientIndex;
   for (int i = 0; i < __dim; i++)
-    pressureGradientIndex.push_back(pressureBasis.getAlphaColumnOffset(
-        GradientOfScalarPointEvaluation, i, 0, 0, 0));
+    pressureGradientIndex.push_back(
+        pressureBasis.getAlphaColumnOffset(pressureOperation[1], i, 0, 0, 0));
 
   auto pressureNeighborListsLengths = pressureBasis.getNeighborListsLengths();
 
@@ -236,7 +236,7 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.setTangentBundle(tangentBundlesDevice);
 
   vector<TargetOperation> pressureNeumannBoundaryOperations(1);
-  pressureNeumannBoundaryOperations[0] = LaplacianOfScalarPointEvaluation;
+  pressureNeumannBoundaryOperations[0] = DivergenceOfVectorPointEvaluation;
 
   pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
 
@@ -249,7 +249,7 @@ void GMLS_Solver::StokesEquation() {
 
   const int pressureNeumannBoundaryLaplacianIndex =
       pressureNeumannBoundaryBasis.getAlphaColumnOffset(
-          LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
+          pressureNeumannBoundaryOperations[0], 0, 0, 0, 0);
 
   auto pressureNeumannBoundaryNeighborListsLengths =
       pressureNeumannBoundaryBasis.getNeighborListsLengths();
@@ -271,10 +271,10 @@ void GMLS_Solver::StokesEquation() {
 
   auto velocityAlphas = velocityBasis.getAlphas();
 
-  vector<int> velocityCurCurlIndex(pow(__dim, 2));
+  vector<int> velocityCurlCurlIndex(pow(__dim, 2));
   for (int i = 0; i < __dim; i++) {
     for (int j = 0; j < __dim; j++) {
-      velocityCurCurlIndex[i * __dim + j] = velocityBasis.getAlphaColumnOffset(
+      velocityCurlCurlIndex[i * __dim + j] = velocityBasis.getAlphaColumnOffset(
           CurlCurlOfVectorPointEvaluation, i, 0, j, 0);
     }
   }
@@ -328,7 +328,7 @@ void GMLS_Solver::StokesEquation() {
     const int iPressureGlobal = currentParticleGlobalIndex;
     // velocity block
     if (particleType[i] == 0) {
-      for (int j = 1; j < velocityNeighborListsLengths(i); j++) {
+      for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
         const int neighborParticleIndex =
             backgroundSourceIndex[neighborLists(i, j + 1)];
         // inner fluid particle
@@ -343,10 +343,9 @@ void GMLS_Solver::StokesEquation() {
 
             const double Lij =
                 __eta * velocityAlphas(
-                            i, velocityCurCurlIndex[axes1 * __dim + axes2], j);
+                            i, velocityCurlCurlIndex[axes1 * __dim + axes2], j);
 
             LUV.increment(iVelocityLocal, jVelocityGlobal, Lij);
-            LUV.increment(iVelocityLocal, iVelocityGlobal, -Lij);
           }
         }
       }
@@ -399,30 +398,30 @@ void GMLS_Solver::StokesEquation() {
           GXY.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
                                   iPressureGlobal, -dA[axes1]);
         }
-        for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-          GXY.outProcessIncrement(
-              currentRigidBodyLocalOffset + translationDof + axes1,
-              iPressureGlobal,
-              rci[(axes1 + 2) % translationDof] *
-                      dA[(axes1 + 1) % translationDof] -
-                  rci[(axes1 + 1) % translationDof] *
-                      dA[(axes1 + 2) % translationDof]);
-        }
+        // for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+        //   GXY.outProcessIncrement(
+        //       currentRigidBodyLocalOffset + translationDof + axes1,
+        //       iPressureGlobal,
+        //       rci[(axes1 + 2) % translationDof] *
+        //               dA[(axes1 + 1) % translationDof] -
+        //           rci[(axes1 + 1) % translationDof] *
+        //               dA[(axes1 + 2) % translationDof]);
+        // }
 
-        for (int j = 1; j < velocityNeighborListsLengths(i); j++) {
+        for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
           const int neighborParticleIndex =
               backgroundSourceIndex[neighborLists(i, j + 1)];
 
-          // force balance
-          for (int axes1 = 0; axes1 < __dim; axes1++) {
-            // output component 1
-            for (int axes3 = 0; axes3 < __dim; axes3++) {
-              // input component 1
-              const int jVelocityGlobal = __dim * neighborParticleIndex + axes3;
-              const int iVelocityGlobal =
-                  __dim * currentParticleGlobalIndex + axes3;
+          for (int axes3 = 0; axes3 < __dim; axes3++) {
+            const int jVelocityGlobal = __dim * neighborParticleIndex + axes3;
 
-              double f = 0;
+            double *f = new double[__dim];
+            for (int axes1 = 0; axes1 < __dim; axes1++) {
+              f[axes1] = 0.0;
+            }
+
+            for (int axes1 = 0; axes1 < __dim; axes1++) {
+              // output component 1
               for (int axes2 = 0; axes2 < __dim; axes2++) {
                 // output component 2
                 const int velocityGradientAlphaIndex1 =
@@ -435,57 +434,33 @@ void GMLS_Solver::StokesEquation() {
                     __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
                              velocityAlphas(i, velocityGradientAlphaIndex2, j));
 
-                f += sigma * dA[axes2];
+                f[axes1] += sigma * dA[axes2];
               }
-              LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                      jVelocityGlobal, f);
-              LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                      iVelocityGlobal, -f);
             }
-          }
 
-          // torque balance
-          for (int axes1 = 0; axes1 < __dim; axes1++) {
-            // output component 1
-            for (int axes3 = 0; axes3 < __dim; axes3++) {
-              // input component 1
-              const int jVelocityGlobal = __dim * neighborParticleIndex + axes3;
-              const int iVelocityGlobal =
-                  __dim * currentParticleGlobalIndex + axes3;
+            // force balance
+            for (int axes1 = 0; axes1 < __dim; axes1++) {
+              LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                      jVelocityGlobal, f[axes1]);
+            }
 
-              double f = 0;
-              for (int axes2 = 0; axes2 < __dim; axes2++) {
-                // output component 2
-                const int velocityGradientAlphaIndex1 =
-                    velocityGradientIndex[(axes1 * __dim + axes2) * __dim +
-                                          axes3];
-                const int velocityGradientAlphaIndex2 =
-                    velocityGradientIndex[(axes2 * __dim + axes1) * __dim +
-                                          axes3];
-                const double sigma =
-                    __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
-                             velocityAlphas(i, velocityGradientAlphaIndex2, j));
-
-                f += sigma * dA[axes2];
+            // torque balance
+            if (__dim == 2) {
+              LUV.outProcessIncrement(
+                  currentRigidBodyLocalOffset + translationDof, jVelocityGlobal,
+                  rci[0] * f[1] - rci[1] * f[0]);
+            } else {
+              for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+                LUV.outProcessIncrement(
+                    currentRigidBodyLocalOffset + translationDof + axes1,
+                    jVelocityGlobal,
+                    rci[(axes1 + 1) % translationDof] *
+                            f[(axes1 + 2) % translationDof] -
+                        rci[(axes1 + 2) % translationDof] *
+                            f[(axes1 + 1) % translationDof]);
               }
-              LUV.outProcessIncrement(
-                  currentRigidBodyLocalOffset + translationDof +
-                      (axes1 + 1) % rotationDof,
-                  jVelocityGlobal, f * rci[(axes1 + 2) % rotationDof]);
-              LUV.outProcessIncrement(
-                  currentRigidBodyLocalOffset + translationDof +
-                      (axes1 + 2) % rotationDof,
-                  jVelocityGlobal, -f * rci[(axes1 + 2) % rotationDof]);
-
-              LUV.outProcessIncrement(
-                  currentRigidBodyLocalOffset + translationDof +
-                      (axes1 + 1) % rotationDof,
-                  iVelocityGlobal, -f * rci[(axes1 + 2) % rotationDof]);
-              LUV.outProcessIncrement(
-                  currentRigidBodyLocalOffset + translationDof +
-                      (axes1 + 2) % rotationDof,
-                  iVelocityGlobal, f * rci[(axes1 + 2) % rotationDof]);
             }
+            delete[] f;
           }
         }
       }  // end of particles on rigid body
@@ -495,28 +470,22 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-          LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+          DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
           neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-      for (int j = 1; j < neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0);
-           j++) {
+      for (int j = 0; j < neighborLists(i, 0); j++) {
         const int neighborParticleIndex =
-            backgroundSourceIndex[neumannBoundaryNeighborLists(
-                neumannBoudnaryIndex, j + 1)];
+            backgroundSourceIndex[neighborLists(i, j + 1)];
 
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           for (int axes2 = 0; axes2 < __dim; axes2++) {
-            const int iVelocityGlobal =
-                __dim * currentParticleGlobalIndex + axes2;
             const int jVelocityGlobal = __dim * neighborParticleIndex + axes2;
 
             const double Lij =
                 __eta * velocityAlphas(
-                            i, velocityCurCurlIndex[axes1 * __dim + axes2], j);
+                            i, velocityCurlCurlIndex[axes1 * __dim + axes2], j);
 
             DXY.increment(iPressureLocal, jVelocityGlobal,
                           -bi * normal[i][axes1] * Lij);
-            DXY.increment(iPressureLocal, iVelocityGlobal,
-                          bi * normal[i][axes1] * Lij);
           }
         }
       }
@@ -524,7 +493,7 @@ void GMLS_Solver::StokesEquation() {
 
     // pressure block
     if (particleType[i] == 0) {
-      for (int j = 1; j < neighborLists(i, 0); j++) {
+      for (int j = 0; j < neighborLists(i, 0); j++) {
         const int neighborParticleIndex =
             backgroundSourceIndex[neighborLists(i, j + 1)];
 
@@ -533,8 +502,8 @@ void GMLS_Solver::StokesEquation() {
         const double Aij = pressureAlphas(i, pressureLaplacianIndex, j);
 
         // laplacian p
-        PI.increment(iPressureLocal, jPressureGlobal, Aij);
-        PI.increment(iPressureLocal, iPressureGlobal, -Aij);
+        PI.increment(iPressureLocal, jPressureGlobal, -Aij);
+        PI.increment(iPressureLocal, iPressureGlobal, Aij);
 
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
@@ -543,8 +512,8 @@ void GMLS_Solver::StokesEquation() {
               pressureAlphas(i, pressureGradientIndex[axes1], j);
 
           // grad p
-          GXY.increment(iVelocityLocal, jPressureGlobal, Dijx);
-          GXY.increment(iVelocityLocal, iPressureGlobal, -Dijx);
+          GXY.increment(iVelocityLocal, jPressureGlobal, -Dijx);
+          GXY.increment(iVelocityLocal, iPressureGlobal, Dijx);
         }
       }
 
@@ -555,7 +524,7 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
 
-      for (int j = 1; j < neighborLists(i, 0); j++) {
+      for (int j = 0; j < neighborLists(i, 0); j++) {
         const int neighborParticleIndex =
             backgroundSourceIndex[neighborLists(i, j + 1)];
 
@@ -565,8 +534,8 @@ void GMLS_Solver::StokesEquation() {
             neumannBoudnaryIndex, pressureNeumannBoundaryLaplacianIndex, j);
 
         // laplacian p
-        PI.increment(iPressureLocal, jPressureGlobal, Aij);
-        PI.increment(iPressureLocal, iPressureGlobal, -Aij);
+        PI.increment(iPressureLocal, jPressureGlobal, -Aij);
+        PI.increment(iPressureLocal, iPressureGlobal, Aij);
       }
     }
     // end of pressure block
@@ -616,23 +585,23 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0) {
       for (int axes = 0; axes < __dim; axes++) {
         double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
-        // rhsVelocity[__dim * i + axes] =
-        //     1.5 * (1.0 - coord[i][1] * coord[i][1] / Hsqr) * double(axes ==
-        //     0);
-        // rhsVelocity[__dim * i + axes] = coord[i][1] * double(axes == 0);
         rhsVelocity[__dim * i + axes] =
-            1.0 * double(axes == 0) *
-            double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
+            1.5 * (1.0 - coord[i][1] * coord[i][1] / Hsqr) * double(axes == 0);
+        // rhsVelocity[__dim * i + axes] = coord[i][1] * double(axes == 0);
+        // rhsVelocity[__dim * i + axes] =
+        //     1.0 * double(axes == 0) *
+        //     double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
         // rhsVelocity[__dim * i + axes] = 0.0;
       }
       // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       // const double bi =
       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-      //     LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+      //     DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
       //     neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-      // rhsPressure[i] =
-      //     (2 * coord[i][0] * normal[i][0] - 2 * coord[i][1] * normal[i][1]) *
-      //     bi;
+      // rhsPressure[i] = (normal[i][0] + normal[i][1]) * bi;
+      // rhsVelocity[__dim * i] = pow(coord[i][0], 2) - pow(coord[i][1], 2);
+      // rhsVelocity[__dim * i + 1] = -pow(coord[i][0], 2) + pow(coord[i][1],
+      // 2);
     } else {
       // rhsVelocity[__dim * i] = 2 * coord[i][0];
       // rhsVelocity[__dim * i + 1] = -2 * coord[i][1];
@@ -641,6 +610,47 @@ void GMLS_Solver::StokesEquation() {
 
   MPI_Barrier(MPI_COMM_WORLD);
   Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // result verification
+  // for (int i = 0; i < localParticleNum; i++) {
+  //   if (particleType[i] != 0) {
+  //     double p = xPressure[i];
+  //     double lap_p = 0.0;
+  //     double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+  //         DivergenceOfVectorPointEvaluation, fluid2NeumannBoundary[i],
+  //         neumannBoundaryNeighborLists(fluid2NeumannBoundary[i], 0));
+  //     double curlcurl_u[2] = {0.0, 0.0};
+  //     for (int j = 0; j < neighborLists(i, 0); j++) {
+  //       const int neighborParticleIndex =
+  //           backgroundSourceIndex[neighborLists(i, j + 1)];
+
+  //       double neighbor_p = xPressure[neighborParticleIndex];
+
+  //       const double Aij = pressureNeumannBoundaryAlphas(
+  //           i, pressureNeumannBoundaryLaplacianIndex, j);
+
+  //       lap_p += Aij * (p - neighbor_p);
+
+  //       for (int axes1 = 0; axes1 < __dim; axes1++) {
+  //         for (int axes2 = 0; axes2 < __dim; axes2++) {
+  //           double Lij =
+  //               __eta * velocityAlphas(
+  //                           i, velocityCurlCurlIndex[axes1 * __dim + axes2],
+  //                           j);
+  //           curlcurl_u[axes1] += Lij * xVelocity[2 * j + axes2];
+  //         }
+  //       }
+  //     }
+
+  //     lap_p -=
+  //         bi * (normal[i][0] * curlcurl_u[0] + normal[i][1] * curlcurl_u[1]);
+
+  //     std::cout << lap_p << ' ' << ' ' << coord[i][0] << ' ' << coord[i][1]
+  //               << endl;
+  //   }
+  // }
+
   MPI_Barrier(MPI_COMM_WORLD);
 
   // copy data

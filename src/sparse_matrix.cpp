@@ -138,20 +138,9 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
 
   // setup schur complement approximation
   Vec _diag;
-  VecCreate(PETSC_COMM_WORLD, &_diag);
-  VecSetSizes(_diag, f.size(), PETSC_DECIDE);
-  VecSetType(_diag, VECMPI);
+  MatCreateVecs(_ASub[0], &_diag, NULL);
+
   MatGetDiagonal(_ASub[0], _diag);
-
-  double *d;
-  VecGetArray(_diag, &d);
-  for (size_t i = 0; i < f.size(); i++) {
-    if (abs(*d) < 1e-15) {
-      *d = 1e-15;
-    }
-  }
-  VecRestoreArray(_diag, &d);
-
   VecReciprocal(_diag);
   MatDiagonalScale(_ASub[1], _diag, NULL);
 
