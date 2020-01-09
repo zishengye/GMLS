@@ -23,7 +23,7 @@ void GMLS_Solver::InitRigidBody() {
   rigidBodySize.resize(Nr);
 
   rigidBodyPosition[0][0] = 0.0;
-  rigidBodyPosition[0][1] = 0.0;
+  rigidBodyPosition[0][1] = 1.0;
   rigidBodyPosition[0][2] = 0.0;
   rigidBodySize[0] = 1.0;
 
