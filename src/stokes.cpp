@@ -23,17 +23,10 @@ void GMLS_Solver::StokesEquationInitialization() {
                StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
                __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
 
-  if (__dim == 2) {
-    __gmls.Register(
-        "velocity basis",
-        new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                 __polynomialOrder, __dim, "SVD", "STANDARD"));
-  } else {
-    __gmls.Register(
-        "velocity basis",
-        new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                 __polynomialOrder, __dim, "QR", "STANDARD"));
-  }
+  __gmls.Register(
+      "velocity basis",
+      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
+               __polynomialOrder, __dim, "SVD", "STANDARD"));
 }
 
 void GMLS_Solver::StokesEquation() {
