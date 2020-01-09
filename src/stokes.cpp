@@ -14,12 +14,12 @@ void GMLS_Solver::StokesEquationInitialization() {
   __field.scalar.Register("x pressure");
 
   __gmls.Register("pressure basis",
-                  new GMLS(ScalarTaylorPolynomial,
+                  new GMLS(VectorTaylorPolynomial,
                            StaggeredEdgeAnalyticGradientIntegralSample,
                            __polynomialOrder, __dim, "SVD", "STANDARD"));
   __gmls.Register(
       "pressure basis neumann boundary",
-      new GMLS(ScalarTaylorPolynomial,
+      new GMLS(VectorTaylorPolynomial,
                StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
                __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
 
