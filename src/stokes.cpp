@@ -128,7 +128,7 @@ void GMLS_Solver::StokesEquation() {
 
   const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 2.7;
+  double epsilonMultiplier = 1.5;
   int estimatedUpperBoundNumberNeighbors =
       8 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
               minNeighbors, __dim, epsilonMultiplier);
@@ -445,21 +445,21 @@ void GMLS_Solver::StokesEquation() {
             }
 
             // torque balance
-            if (__dim == 2) {
-              LUV.outProcessIncrement(
-                  currentRigidBodyLocalOffset + translationDof, jVelocityGlobal,
-                  rci[0] * f[1] - rci[1] * f[0]);
-            } else {
-              for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-                LUV.outProcessIncrement(
-                    currentRigidBodyLocalOffset + translationDof + axes1,
-                    jVelocityGlobal,
-                    rci[(axes1 + 1) % translationDof] *
-                            f[(axes1 + 2) % translationDof] -
-                        rci[(axes1 + 2) % translationDof] *
-                            f[(axes1 + 1) % translationDof]);
-              }
-            }
+            // if (__dim == 2) {
+            //   LUV.outProcessIncrement(
+            //       currentRigidBodyLocalOffset + translationDof,
+            //       jVelocityGlobal, rci[0] * f[1] - rci[1] * f[0]);
+            // } else {
+            //   for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+            //     LUV.outProcessIncrement(
+            //         currentRigidBodyLocalOffset + translationDof + axes1,
+            //         jVelocityGlobal,
+            //         rci[(axes1 + 1) % translationDof] *
+            //                 f[(axes1 + 2) % translationDof] -
+            //             rci[(axes1 + 2) % translationDof] *
+            //                 f[(axes1 + 1) % translationDof]);
+            //   }
+            // }
             delete[] f;
           }
         }
