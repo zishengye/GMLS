@@ -597,24 +597,24 @@ void GMLS_Solver::StokesEquation() {
         //     double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
         // rhsVelocity[__dim * i + axes] = 0.0;
       }
-      double x = coord[i][0] / __boundingBoxSize[0];
-      double y = coord[i][1] / __boundingBoxSize[1];
-      rhsVelocity[__dim * i] =
-          cos(x * M_PI + M_PI / 2.0) * sin(y * M_PI + M_PI / 2.0);
-      rhsVelocity[__dim * i + 1] =
-          -sin(x * M_PI + M_PI / 2.0) * cos(y * M_PI + M_PI / 2.0);
       // double x = coord[i][0] / __boundingBoxSize[0];
       // double y = coord[i][1] / __boundingBoxSize[1];
-      // double z = coord[i][2] / __boundingBoxSize[2];
-      // rhsVelocity[__dim * i] = cos(x * M_PI + M_PI / 2.0) *
-      //                          sin(y * M_PI + M_PI / 2.0) *
-      //                          sin(z * M_PI + M_PI / 2.0);
-      // rhsVelocity[__dim * i + 1] = -2 * sin(x * M_PI + M_PI / 2.0) *
-      //                              cos(y * M_PI + M_PI / 2.0) *
-      //                              sin(z * M_PI + M_PI / 2.0);
-      // rhsVelocity[__dim * i + 2] = sin(x * M_PI + M_PI / 2.0) *
-      //                              sin(y * M_PI + M_PI / 2.0) *
-      //                              cos(z * M_PI + M_PI / 2.0);
+      // rhsVelocity[__dim * i] =
+      //     cos(x * M_PI + M_PI / 2.0) * sin(y * M_PI + M_PI / 2.0);
+      // rhsVelocity[__dim * i + 1] =
+      //     -sin(x * M_PI + M_PI / 2.0) * cos(y * M_PI + M_PI / 2.0);
+      double x = coord[i][0] / __boundingBoxSize[0];
+      double y = coord[i][1] / __boundingBoxSize[1];
+      double z = coord[i][2] / __boundingBoxSize[2];
+      rhsVelocity[__dim * i] = cos(x * M_PI + M_PI / 2.0) *
+                               sin(y * M_PI + M_PI / 2.0) *
+                               sin(z * M_PI + M_PI / 2.0);
+      rhsVelocity[__dim * i + 1] = -2 * sin(x * M_PI + M_PI / 2.0) *
+                                   cos(y * M_PI + M_PI / 2.0) *
+                                   sin(z * M_PI + M_PI / 2.0);
+      rhsVelocity[__dim * i + 2] = sin(x * M_PI + M_PI / 2.0) *
+                                   sin(y * M_PI + M_PI / 2.0) *
+                                   cos(z * M_PI + M_PI / 2.0);
       rhsPressure[i] = 0.0;
       // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       // const double bi =
