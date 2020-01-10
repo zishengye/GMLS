@@ -381,17 +381,17 @@ void GMLS_Solver::StokesEquation() {
         }
 
         // rotation
-        for (int axes1 = 0; axes1 < __dim; axes1++) {
+        for (int axes1 = 0; axes1 < translationDof; axes1++) {
           const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
 
           LUV.increment(iVelocityLocal,
                         currentRigidBodyGlobalOffset + translationDof +
                             (axes1 + 2) % rotationDof,
-                        rci[(axes1 + 1) % translationDof]);
+                        -rci[(axes1 + 1) % translationDof]);
           LUV.increment(iVelocityLocal,
                         currentRigidBodyGlobalOffset + translationDof +
                             (axes1 + 1) % rotationDof,
-                        -rci[(axes1 + 2) % translationDof]);
+                        rci[(axes1 + 2) % translationDof]);
         }
 
         const int iPressureGlobal = currentParticleGlobalIndex;
