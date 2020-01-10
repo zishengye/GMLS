@@ -176,7 +176,7 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   PCFieldSplitSetIS(_pc, "0", _isg[0]);
   PCFieldSplitSetIS(_pc, "1", _isg[1]);
 
-  PCFieldSplitSetSchurPre(_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, _ASub[4]);
+  // PCFieldSplitSetSchurPre(_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, _ASub[4]);
 
   // setup sub solver
   KSP *_subKsp;
