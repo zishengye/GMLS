@@ -218,6 +218,8 @@ bool GMLS_Solver::NeedRefinement() {
   PetscPrintf(PETSC_COMM_WORLD, "Total error for gradient of velocity: %f\n",
               globalError);
 
+  delete all_velocity;
+
   // mark stage
   if (__adaptive_step < 1) {
     double alpha = pow(0.9, __adaptive_step);
