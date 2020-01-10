@@ -342,8 +342,6 @@ void GMLS_Solver::StokesEquation() {
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
           for (int axes2 = 0; axes2 < __dim; axes2++) {
-            const int iVelocityGlobal =
-                __dim * currentParticleGlobalIndex + axes2;
             const int jVelocityGlobal = __dim * neighborParticleIndex + axes2;
 
             const double Lij =
@@ -585,7 +583,7 @@ void GMLS_Solver::StokesEquation() {
 
   // boundary condition
   for (int i = 0; i < localParticleNum; i++) {
-    if (particleType[i] != 0) {
+    if (particleType[i] != 0 && particleType[i] < 4) {
       for (int axes = 0; axes < __dim; axes++) {
         // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
         // rhsVelocity[__dim * i + axes] =
@@ -636,9 +634,8 @@ void GMLS_Solver::StokesEquation() {
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  // Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure,
-  //       numRigidBody, rigidBodyDof);
-  LUV.Solve(rhsVelocity, xVelocity);
+  Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure,
+        numRigidBody, rigidBodyDof);
   MPI_Barrier(MPI_COMM_WORLD);
   // copy data
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
