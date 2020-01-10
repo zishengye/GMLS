@@ -18,5 +18,12 @@
 -fieldsplit_0_fieldsplit_0_ksp_type preonly -fieldsplit_0_fieldsplit_0_ksp_max_it 1
 -fieldsplit_0_fieldsplit_1_ksp_type preonly -fieldsplit_0_fieldsplit_1_ksp_max_it 1
 -fieldsplit_0_ksp_rtol 1e-3
+-fieldsplit_1_ksp_type fgmres
+-fieldsplit_1_ksp_rtol 1e-3
 -fieldsplit_1_pc_type lu
--fieldsplit_1_pc_hypre_type boomeramg -fieldsplit_1_pc_hypre_boomeramg_interp_type direct -fieldsplit_1_pc_hypre_boomeramg_coarsen_type Ruge-Stueben
+-fieldsplit_1_fieldsplit_0_pc_type lu
+-fieldsplit_1_fieldsplit_1_pc_type lu
+-fieldsplit_1_fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_1_fieldsplit_0_pc_hypre_boomeramg_interp_type classical -fieldsplit_1_fieldsplit_0_pc_hypre_boomeramg_coarsen_type CLJP
+-fieldsplit_1_fieldsplit_0_ksp_monitor
+-fieldsplit_1_ksp_converged_reason
+-ksp_converged_reason

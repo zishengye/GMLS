@@ -128,7 +128,7 @@ void GMLS_Solver::StokesEquation() {
   double epsilonMultiplier = 2.2;
   int estimatedUpperBoundNumberNeighbors =
       pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
-              minNeighbors, __dim, epsilonMultiplier);
+          minNeighbors, __dim, epsilonMultiplier);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
       "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
@@ -537,19 +537,20 @@ void GMLS_Solver::StokesEquation() {
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
-    PI.increment(lagrangeMultiplierOffset, globalParticleNum, 50000.0);
+    PI.increment(lagrangeMultiplierOffset, globalParticleNum, 0.0);
 
-    for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < translationDof; j++) {
-        LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
-                      globalRigidBodyOffset + rigidBodyDof * i + j, 1.0);
-      }
-      for (int j = 0; j < rotationDof; j++) {
-        LUV.increment(
-            localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
-            globalRigidBodyOffset + rigidBodyDof * i + translationDof + j, 1.0);
-      }
-    }
+    // for (int i = 0; i < numRigidBody; i++) {
+    //   for (int j = 0; j < translationDof; j++) {
+    //     LUV.increment(localRigidBodyOffset + rigidBodyDof * i + j,
+    //                   globalRigidBodyOffset + rigidBodyDof * i + j, 1.0);
+    //   }
+    //   for (int j = 0; j < rotationDof; j++) {
+    //     LUV.increment(
+    //         localRigidBodyOffset + rigidBodyDof * i + translationDof + j,
+    //         globalRigidBodyOffset + rigidBodyDof * i + translationDof +
+    //         j, 1.0);
+    //   }
+    // }
   }
 
   LUV.FinalAssemble();
@@ -598,16 +599,22 @@ void GMLS_Solver::StokesEquation() {
       }
       double x = coord[i][0] / __boundingBoxSize[0];
       double y = coord[i][1] / __boundingBoxSize[1];
-      double z = coord[i][2] / __boundingBoxSize[2];
-      rhsVelocity[__dim * i] = cos(x * M_PI + M_PI / 2.0) *
-                               sin(y * M_PI + M_PI / 2.0) *
-                               sin(z * M_PI + M_PI / 2.0);
-      rhsVelocity[__dim * i + 1] = -2 * sin(x * M_PI + M_PI / 2.0) *
-                                   cos(y * M_PI + M_PI / 2.0) *
-                                   sin(z * M_PI + M_PI / 2.0);
-      rhsVelocity[__dim * i + 2] = sin(x * M_PI + M_PI / 2.0) *
-                                   sin(y * M_PI + M_PI / 2.0) *
-                                   cos(z * M_PI + M_PI / 2.0);
+      rhsVelocity[__dim * i] =
+          cos(x * M_PI + M_PI / 2.0) * sin(y * M_PI + M_PI / 2.0);
+      rhsVelocity[__dim * i + 1] =
+          -sin(x * M_PI + M_PI / 2.0) * cos(y * M_PI + M_PI / 2.0);
+      // double x = coord[i][0] / __boundingBoxSize[0];
+      // double y = coord[i][1] / __boundingBoxSize[1];
+      // double z = coord[i][2] / __boundingBoxSize[2];
+      // rhsVelocity[__dim * i] = cos(x * M_PI + M_PI / 2.0) *
+      //                          sin(y * M_PI + M_PI / 2.0) *
+      //                          sin(z * M_PI + M_PI / 2.0);
+      // rhsVelocity[__dim * i + 1] = -2 * sin(x * M_PI + M_PI / 2.0) *
+      //                              cos(y * M_PI + M_PI / 2.0) *
+      //                              sin(z * M_PI + M_PI / 2.0);
+      // rhsVelocity[__dim * i + 2] = sin(x * M_PI + M_PI / 2.0) *
+      //                              sin(y * M_PI + M_PI / 2.0) *
+      //                              cos(z * M_PI + M_PI / 2.0);
       rhsPressure[i] = 0.0;
       // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       // const double bi =

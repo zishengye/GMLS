@@ -183,7 +183,7 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   PetscInt n = 1;
   PCSetUp(_pc);
   PCFieldSplitGetSubKSP(_pc, &n, &_subKsp);
-  // KSPSetOperators(_subKsp[1], _ASub[4], _ASub[4]);
+  KSPSetOperators(_subKsp[1], _ASub[4], _ASub[4]);
   KSPSetFromOptions(_subKsp[0]);
   KSPSetOperators(_subKsp[0], _ASub[0], _ASub[0]);
 
@@ -250,6 +250,65 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   KSPSetOperators(_subsubKsp[1], sub_S, sub_S);
   KSPSetFromOptions(_subsubKsp[0]);
   PetscFree(_subsubKsp);
+
+  // vector<PetscInt> idx3, idx4;
+  // MatGetOwnershipRange(_ASub[4], &localN1, &localN2);
+  // if (myId != MPIsize - 1) {
+  //   idx3.resize(localN2 - localN1);
+  //   idx4.resize(0);
+  //   for (int i = 0; i < localN2 - localN1; i++) {
+  //     idx3[i] = localN1 + i;
+  //   }
+  // } else {
+  //   idx3.resize(localN2 - localN1 - 1);
+  //   idx4.resize(1);
+
+  //   for (int i = 0; i < localN2 - localN1 - 1; i++) {
+  //     idx3[i] = localN1 + i;
+  //   }
+  //   idx4[0] = localN2 - 1;
+  // }
+
+  // IS isg3, isg4;
+  // ISCreateGeneral(MPI_COMM_WORLD, idx3.size(), idx3.data(),
+  // PETSC_COPY_VALUES,
+  //                 &isg3);
+  // ISCreateGeneral(MPI_COMM_WORLD, idx4.size(), idx4.data(),
+  // PETSC_COPY_VALUES,
+  //                 &isg4);
+
+  // Mat S_A, S_Bt, S_B, S_S;
+
+  // MatCreateSubMatrix(_ASub[4], isg3, isg3, MAT_INITIAL_MATRIX, &S_A);
+  // MatCreateSubMatrix(_ASub[4], isg3, isg4, MAT_INITIAL_MATRIX, &S_Bt);
+  // MatCreateSubMatrix(_ASub[4], isg4, isg3, MAT_INITIAL_MATRIX, &S_B);
+
+  // MatCreateVecs(S_A, &_diag, NULL);
+
+  // MatGetDiagonal(S_A, _diag);
+  // VecReciprocal(_diag);
+  // MatDiagonalScale(S_Bt, _diag, NULL);
+
+  // MatMatMult(S_B, S_Bt, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &S_S);
+
+  // MatScale(S_S, -1.0);
+
+  // PC subpc_s;
+  // KSPGetPC(_subKsp[1], &subpc_s);
+
+  // PCFieldSplitSetIS(subpc_s, "0", isg3);
+  // PCFieldSplitSetIS(subpc_s, "1", isg4);
+
+  // PCFieldSplitSetSchurPre(subpc_s, PC_FIELDSPLIT_SCHUR_PRE_USER, S_S);
+
+  // // setup sub solver
+  // KSP *_subsubKsp_s;
+  // PCSetFromOptions(subpc_s);
+  // PCSetUp(subpc_s);
+  // PCFieldSplitGetSubKSP(subpc_s, &n, &_subsubKsp_s);
+  // KSPSetOperators(_subsubKsp_s[1], S_S, S_S);
+  // KSPSetFromOptions(_subsubKsp_s[0]);
+  // PetscFree(_subsubKsp_s);
   PetscFree(_subKsp);
 
   MPI_Barrier(MPI_COMM_WORLD);
