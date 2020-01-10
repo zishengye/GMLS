@@ -392,7 +392,6 @@ void GMLS_Solver::StokesEquation() {
                         currentRigidBodyGlobalOffset + translationDof +
                             (axes1 + 1) % rotationDof,
                         -rci[(axes1 + 2) % translationDof]);
-          cout << rci[(axes1 + 1) % translationDof] << endl;
         }
 
         const int iPressureGlobal = currentParticleGlobalIndex;
@@ -637,8 +636,9 @@ void GMLS_Solver::StokesEquation() {
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure,
-        numRigidBody, rigidBodyDof);
+  // Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure,
+  //       numRigidBody, rigidBodyDof);
+  LUV.Solve(rhsVelocity, xVelocity);
   MPI_Barrier(MPI_COMM_WORLD);
   // copy data
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
