@@ -1,7 +1,7 @@
 #pragma once
 
-#include <algorithm>
 #include <assert.h>
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -18,7 +18,7 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
 }
 
 class PetscSparseMatrix {
-private:
+ private:
   bool __isAssembled;
 
   typedef std::pair<PetscInt, double> entry;
@@ -38,7 +38,7 @@ private:
 
   inline void sortbyj();
 
-public:
+ public:
   PetscSparseMatrix() : __isAssembled(false), __row(0), __col(0), __Col(0) {}
 
   // only for square matrix
@@ -56,8 +56,7 @@ public:
   }
 
   ~PetscSparseMatrix() {
-    if (__isAssembled)
-      MatDestroy(&__mat);
+    if (__isAssembled) MatDestroy(&__mat);
   }
 
   void resize(PetscInt m, PetscInt n) {
@@ -80,7 +79,8 @@ public:
   friend void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt,
                     PetscSparseMatrix &B, PetscSparseMatrix &C,
                     std::vector<double> &f, std::vector<double> &g,
-                    std::vector<double> &x, std::vector<double> &y);
+                    std::vector<double> &x, std::vector<double> &y,
+                    int numRigidBody, int rigidBodyDof);
 };
 
 void PetscSparseMatrix::increment(const PetscInt i, const PetscInt j,

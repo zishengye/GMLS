@@ -14,7 +14,7 @@ void GMLS_Solver::InitRigidBody() {
       __rigidBody.vector.Register("angular velocity");
   vector<double> &rigidBodySize = __rigidBody.scalar.Register("size");
   // initialize data storage
-  int Nr = 1;
+  int Nr = 8;
 
   rigidBodyPosition.resize(Nr);
   rigidBodyOrientation.resize(Nr);
@@ -22,23 +22,23 @@ void GMLS_Solver::InitRigidBody() {
   rigidBodyAngularVelocity.resize(Nr);
   rigidBodySize.resize(Nr);
 
-  rigidBodyPosition[0][0] = 0.0;
-  rigidBodyPosition[0][1] = 1.0;
-  rigidBodyPosition[0][2] = 0.0;
-  rigidBodySize[0] = 1.0;
+  // rigidBodyPosition[0][0] = 0.0;
+  // rigidBodyPosition[0][1] = 0.5;
+  // rigidBodyPosition[0][2] = 0.0;
+  // rigidBodySize[0] = 0.1;
 
-  // int index = 0;
-  // for (int i = 0; i < 3; i++) {
-  //   for (int j = 0; j < 3; j++) {
-  //     for (int k = 0; k < 3; k++) {
-  //       rigidBodyPosition[index][0] = (i - 1) * 3;
-  //       rigidBodyPosition[index][1] = (j - 1) * 3;
-  //       rigidBodyPosition[index][2] = (k - 1) * 3;
-  //       rigidBodySize[index] = 1.0;
-  //       index++;
-  //     }
-  //   }
-  // }
+  int index = 0;
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 2; j++) {
+      for (int k = 0; k < 2; k++) {
+        rigidBodyPosition[index][0] = i * 3 - 6;
+        rigidBodyPosition[index][1] = j * 3 - 6;
+        rigidBodyPosition[index][2] = k * 3 - 6;
+        rigidBodySize[index] = 1.0;
+        index++;
+      }
+    }
+  }
 
   // rigidBodyCoord[0][0] = 0;
   // rigidBodyCoord[0][1] = 0;
@@ -56,7 +56,7 @@ int GMLS_Solver::IsInRigidBody(vec3 &pos) {
     if (dis.mag() < rigidBodySize[i] - 0.5 * __particleSize0[0]) {
       return -1;
     } else if ((dis.mag() + 1e-15) <
-               (rigidBodySize[i] + 0.25 * __particleSize0[0])) {
+               (rigidBodySize[i] + 0.5 * __particleSize0[0])) {
       return i;
     }
   }

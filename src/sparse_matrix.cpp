@@ -114,7 +114,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
 
 void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
            PetscSparseMatrix &C, std::vector<double> &f, std::vector<double> &g,
-           std::vector<double> &x, std::vector<double> &y) {
+           std::vector<double> &x, std::vector<double> &y, int numRigid,
+           int rigidBodyDof) {
   if (!A.__isAssembled || !Bt.__isAssembled || !B.__isAssembled ||
       !C.__isAssembled)
     return;
@@ -184,7 +185,74 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   PCFieldSplitGetSubKSP(_pc, &n, &_subKsp);
   KSPSetOperators(_subKsp[1], _ASub[4], _ASub[4]);
   KSPSetFromOptions(_subKsp[0]);
+  KSPSetOperators(_subKsp[0], _ASub[0], _ASub[0]);
+
+  int MPIsize, myId;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myId);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
+
+  vector<PetscInt> idx1, idx2;
+  PetscInt localN1, localN2;
+  MatGetOwnershipRange(_ASub[0], &localN1, &localN2);
+  if (myId != MPIsize - 1) {
+    idx1.resize(localN2 - localN1);
+    idx2.resize(0);
+    for (int i = 0; i < localN2 - localN1; i++) {
+      idx1[i] = localN1 + i;
+    }
+  } else {
+    idx1.resize(localN2 - localN1 - rigidBodyDof * numRigid);
+    idx2.resize(rigidBodyDof * numRigid);
+
+    for (int i = 0; i < localN2 - localN1 - rigidBodyDof * numRigid; i++) {
+      idx1[i] = localN1 + i;
+    }
+    for (int i = 0; i < rigidBodyDof * numRigid; i++) {
+      idx2[i] = localN2 - rigidBodyDof * numRigid + i;
+    }
+  }
+
+  IS isg1, isg2;
+  ISCreateGeneral(MPI_COMM_WORLD, idx1.size(), idx1.data(), PETSC_COPY_VALUES,
+                  &isg1);
+  ISCreateGeneral(MPI_COMM_WORLD, idx2.size(), idx2.data(), PETSC_COPY_VALUES,
+                  &isg2);
+
+  Mat sub_A, sub_Bt, sub_B, sub_S;
+
+  MatCreateSubMatrix(_ASub[0], isg1, isg1, MAT_INITIAL_MATRIX, &sub_A);
+  MatCreateSubMatrix(_ASub[0], isg1, isg2, MAT_INITIAL_MATRIX, &sub_Bt);
+  MatCreateSubMatrix(_ASub[0], isg2, isg1, MAT_INITIAL_MATRIX, &sub_B);
+
+  MatCreateVecs(sub_A, &_diag, NULL);
+
+  MatGetDiagonal(sub_A, _diag);
+  VecReciprocal(_diag);
+  MatDiagonalScale(sub_Bt, _diag, NULL);
+
+  MatMatMult(sub_B, sub_Bt, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &sub_S);
+
+  MatScale(sub_S, -1.0);
+
+  PC subpc;
+  KSPGetPC(_subKsp[0], &subpc);
+
+  PCFieldSplitSetIS(subpc, "0", isg1);
+  PCFieldSplitSetIS(subpc, "1", isg2);
+
+  PCFieldSplitSetSchurPre(subpc, PC_FIELDSPLIT_SCHUR_PRE_USER, sub_S);
+
+  // setup sub solver
+  KSP *_subsubKsp;
+  PCSetFromOptions(subpc);
+  PCSetUp(subpc);
+  PCFieldSplitGetSubKSP(subpc, &n, &_subsubKsp);
+  KSPSetOperators(_subsubKsp[1], sub_S, sub_S);
+  KSPSetFromOptions(_subsubKsp[0]);
+  PetscFree(_subsubKsp);
   PetscFree(_subKsp);
+
+  MPI_Barrier(MPI_COMM_WORLD);
 
   VecDuplicate(_bp, &_xp);
 
@@ -225,4 +293,14 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   }
 
   MatDestroy(&_A);
+
+  MatDestroy(&sub_A);
+  MatDestroy(&sub_Bt);
+  MatDestroy(&sub_B);
+  MatDestroy(&sub_S);
+
+  ISDestroy(&isg1);
+  ISDestroy(&isg2);
+
+  VecDestroy(&_diag);
 }
