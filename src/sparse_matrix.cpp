@@ -330,7 +330,7 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   MatCreateVecs(_ASub[0], &check, NULL);
   MatMult(_ASub[0], _xpSub[0], check);
   if (myId == MPIsize - 1) {
-    PetscInt y[100];
+    PetscScalar y[100];
     VecGetValues(check, idx2.size(), idx2.data(), y);
     for (int i = 0; i < 12; i++) {
       cout << y[i] << endl;
