@@ -14,7 +14,7 @@ void GMLS_Solver::InitRigidBody() {
       __rigidBody.vector.Register("angular velocity");
   vector<double> &rigidBodySize = __rigidBody.scalar.Register("size");
   // initialize data storage
-  int Nr = 2;
+  int Nr = 8;
 
   rigidBodyPosition.resize(Nr);
   rigidBodyOrientation.resize(Nr);
