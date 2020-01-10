@@ -176,14 +176,14 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   PCFieldSplitSetIS(_pc, "0", _isg[0]);
   PCFieldSplitSetIS(_pc, "1", _isg[1]);
 
-  // PCFieldSplitSetSchurPre(_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, _ASub[4]);
+  PCFieldSplitSetSchurPre(_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, _ASub[4]);
 
   // setup sub solver
   KSP *_subKsp;
   PetscInt n = 1;
   PCSetUp(_pc);
   PCFieldSplitGetSubKSP(_pc, &n, &_subKsp);
-  // KSPSetOperators(_subKsp[1], _ASub[4], _ASub[4]);
+  KSPSetOperators(_subKsp[1], _ASub[4], _ASub[4]);
   KSPSetFromOptions(_subKsp[0]);
   KSPSetOperators(_subKsp[0], _ASub[0], _ASub[0]);
 
