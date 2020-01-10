@@ -665,12 +665,16 @@ void GMLS_Solver::StokesEquation() {
       for (int j = 0; j < translationDof; j++) {
         rigidBodyVelocity[i][j] =
             xVelocity[localRigidBodyOffset + i * rigidBodyDof + j];
+        cout << rigidBodyVelocity[i][j] << '\t';
       }
+      cout << endl;
       for (int j = 0; j < rotationDof; j++) {
         rigidBodyAngularVelocity[i][j] =
             xVelocity[localRigidBodyOffset + i * rigidBodyDof + translationDof +
                       j];
+        cout << rigidBodyAngularVelocity[i][j] << '\t';
       }
+      cout << endl;
     }
   }
 }
