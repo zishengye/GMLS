@@ -718,6 +718,38 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
       }
     }
   }
+
+  if (__dim == 3) {
+    for (auto tag : splitTag) {
+      vec3 origin = coord[tag];
+      const double xDelta = particleSize[tag][0] * 0.25;
+      const double yDelta = particleSize[tag][1] * 0.25;
+      const double zDelta = particleSize[tag][2] * 0.25;
+      bool insert = false;
+      for (int i = -1; i < 2; i += 2) {
+        for (int j = -1; j < 2; j += 2) {
+          for (int k = -1; k < 2; k += 2) {
+            vec3 newPos = origin + vec3(i * xDelta, j * yDelta, k * zDelta);
+            if (!insert) {
+              if (IsInRigidBody(newPos) == -2) {
+                coord[tag] = newPos;
+                particleSize[tag][0] /= 2.0;
+                particleSize[tag][1] /= 2.0;
+                particleSize[tag][2] /= 2.0;
+
+                insert = true;
+              }
+            } else {
+              double vol = particleSize[tag][0] * particleSize[tag][1] *
+                           particleSize[tag][2];
+              InsertParticle(newPos, particleType[tag], particleSize[tag],
+                             normal[tag], localIndex, vol);
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
