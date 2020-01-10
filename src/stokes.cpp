@@ -634,7 +634,7 @@ void GMLS_Solver::StokesEquation() {
       // rhsVelocity[__dim * i + 2] = sin(x * M_PI + M_PI / 2.0) *
       //                              sin(y * M_PI + M_PI / 2.0) *
       //                              cos(z * M_PI + M_PI / 2.0);
-      rhsPressure[fieldDof * i + velocityDof] = 0.0;
+      rhsVelocity[fieldDof * i + velocityDof] = 0.0;
       // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       // const double bi =
       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
@@ -648,7 +648,7 @@ void GMLS_Solver::StokesEquation() {
       for (int axes = 0; axes < __dim; axes++) {
         rhsVelocity[fieldDof * i + axes] = 0.0;
       }
-      rhsPressure[fieldDof * i + velocityDof] = 0.0;
+      rhsVelocity[fieldDof * i + velocityDof] = 0.0;
       // rhsVelocity[__dim * i] = 2 * coord[i][0];
       // rhsVelocity[__dim * i + 1] = -2 * coord[i][1];
     }
