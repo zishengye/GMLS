@@ -43,14 +43,19 @@ void GMLS_Solver::StokesEquation() {
   static vector<int> &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
 
-  GMLS pressureBasis(ScalarTaylorPolynomial,
-                     StaggeredEdgeAnalyticGradientIntegralSample,
-                     __polynomialOrder, __dim, "SVD", "STANDARD");
-  GMLS pressureNeumannBoundaryBasis(
+  GMLS *all_pressure = new GMLS(ScalarTaylorPolynomial,
+                                StaggeredEdgeAnalyticGradientIntegralSample,
+                                __polynomialOrder, __dim, "SVD", "STANDARD");
+  GMLS *neuman_pressure = new GMLS(
       ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
       __polynomialOrder, __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
-  GMLS velocityBasis(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                     __polynomialOrder, __dim, "SVD", "STANDARD");
+  GMLS *all_velocity =
+      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
+               __polynomialOrder, __dim, "SVD", "STANDARD");
+
+  GMLS &pressureBasis = *all_pressure;
+  GMLS &pressureNeumannBoundaryBasis = *neuman_pressure;
+  GMLS &velocityBasis = *all_velocity;
 
   static vector<vec3> &rigidBodyPosition =
       __rigidBody.vector.GetHandle("position");
@@ -557,6 +562,10 @@ void GMLS_Solver::StokesEquation() {
   DXY.FinalAssemble();
   GXY.FinalAssemble();
   PI.FinalAssemble();
+
+  delete all_pressure;
+  delete all_velocity;
+  delete neuman_pressure;
 
   PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
 
