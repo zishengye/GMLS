@@ -28,12 +28,12 @@ void GMLS_Solver::InitRigidBody() {
   // rigidBodySize[0] = 0.1;
 
   rigidBodyPosition[0][0] = -1.0;
-  rigidBodyPosition[0][1] = 0.0;
+  rigidBodyPosition[0][1] = 1.0;
   rigidBodyPosition[0][2] = 1.0;
   rigidBodySize[0] = 1.0;
 
   rigidBodyPosition[1][0] = 0.0;
-  rigidBodyPosition[1][1] = 0.0;
+  rigidBodyPosition[1][1] = -1.0;
   rigidBodyPosition[1][2] = -1.5;
   rigidBodySize[1] = 1.0;
 
