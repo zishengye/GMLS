@@ -69,7 +69,7 @@ void GMLS_Solver::StokesEquation() {
   int &localParticleNum = particleNum[0];
   int &globalParticleNum = particleNum[1];
 
-  const int number_of_batches = 4;
+  const int number_of_batches = 1;
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
@@ -130,7 +130,7 @@ void GMLS_Solver::StokesEquation() {
 
   const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 2.7;
+  double epsilonMultiplier = 2.5;
   int estimatedUpperBoundNumberNeighbors =
       8 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
               minNeighbors, __dim, epsilonMultiplier);
