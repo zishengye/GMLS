@@ -50,7 +50,7 @@ void GMLS_Solver::StokesEquation() {
       ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
       __polynomialOrder, __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
   GMLS velocityBasis(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                     __polynomialOrder + 1, __dim, "SVD", "STANDARD");
+                     __polynomialOrder, __dim, "SVD", "STANDARD");
 
   static vector<vec3> &rigidBodyPosition =
       __rigidBody.vector.GetHandle("position");
@@ -127,7 +127,7 @@ void GMLS_Solver::StokesEquation() {
 
   double epsilonMultiplier = 2.2;
   int estimatedUpperBoundNumberNeighbors =
-      8 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
+      pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
               minNeighbors, __dim, epsilonMultiplier);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
@@ -537,7 +537,7 @@ void GMLS_Solver::StokesEquation() {
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
-    PI.increment(lagrangeMultiplierOffset, globalParticleNum, 0.0);
+    PI.increment(lagrangeMultiplierOffset, globalParticleNum, 50000.0);
 
     for (int i = 0; i < numRigidBody; i++) {
       for (int j = 0; j < translationDof; j++) {
