@@ -664,7 +664,7 @@ void GMLS_Solver::StokesEquation() {
   velocity.resize(localParticleNum);
 
   for (int i = 0; i < localParticleNum; i++) {
-    pressure[i] = rhsVelocity[fieldDof * i + velocityDof];
+    pressure[i] = xVelocity[fieldDof * i + velocityDof];
     for (int axes1 = 0; axes1 < __dim; axes1++)
       velocity[i][axes1] = xVelocity[fieldDof * i + axes1];
   }
