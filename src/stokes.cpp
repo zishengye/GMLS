@@ -673,40 +673,4 @@ void GMLS_Solver::StokesEquation() {
       }
     }
   }
-
-  vector<double> communicatedVelocity(numRigidBody * translationDof);
-  vector<double> communicatedAngularVelocity(numRigidBody * rotationDof);
-
-  if (__myID == __MPISize - 1) {
-    for (int i = 0; i < numRigidBody; ++i) {
-      for (int j = 0; j < translationDof; ++j) {
-        communicatedVelocity[translationDof * i + j] = rigidBodyVelocity[i][j];
-      }
-      for (int j = 0; j < rotationDof; ++j) {
-        communicatedAngularVelocity[rotationDof * i + j] =
-            rigidBodyAngularVelocity[i][j];
-      }
-    }
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Bcast(communicatedVelocity.data(), translationDof * numRigidBody,
-            MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
-  MPI_Bcast(communicatedAngularVelocity.data(), rotationDof * numRigidBody,
-            MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  for (int i = 0; i < numRigidBody; i++) {
-    for (int j = 0; j < translationDof; j++) {
-      rigidBodyVelocity[i][j] = communicatedVelocity[translationDof * i + j];
-      rigidBodyPosition[i][j] +=
-          communicatedVelocity[translationDof * i + j] * __dt;
-    }
-    for (int j = 0; j < rotationDof; ++j) {
-      rigidBodyAngularVelocity[i][j] =
-          communicatedAngularVelocity[rotationDof * i + j];
-      rigidBodyOrientation[i][j] +=
-          communicatedAngularVelocity[rotationDof * i + j] * __dt;
-    }
-  }
 }
