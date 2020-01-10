@@ -326,6 +326,17 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   VecGetSubVector(_xp, _isg[0], &_xpSub[0]);
   VecGetSubVector(_xp, _isg[1], &_xpSub[1]);
 
+  Vec check;
+  MatCreateVecs(_ASub[0], &check, NULL);
+  MatMult(_ASub[0], _xpSub[0], check);
+  if (myId == MPIsize - 1) {
+    PetscInt y[100];
+    VecGetValues(check, idx2.size(), idx2.data(), y);
+    for (int i = 0; i < 12; i++) {
+      cout << y[i] << endl;
+    }
+  }
+
   double *p;
   VecGetArray(_xpSub[0], &p);
   for (size_t i = 0; i < f.size(); i++) {

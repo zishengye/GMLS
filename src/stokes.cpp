@@ -387,11 +387,11 @@ void GMLS_Solver::StokesEquation() {
           LUV.increment(iVelocityLocal,
                         currentRigidBodyGlobalOffset + translationDof +
                             (axes1 + 2) % rotationDof,
-                        -rci[(axes1 + 1) % translationDof]);
+                        rci[(axes1 + 1) % translationDof]);
           LUV.increment(iVelocityLocal,
                         currentRigidBodyGlobalOffset + translationDof +
                             (axes1 + 1) % rotationDof,
-                        rci[(axes1 + 2) % translationDof]);
+                        -rci[(axes1 + 2) % translationDof]);
         }
 
         const int iPressureGlobal = currentParticleGlobalIndex;
@@ -402,15 +402,6 @@ void GMLS_Solver::StokesEquation() {
         for (int axes1 = 0; axes1 < translationDof; axes1++) {
           GXY.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
                                   iPressureGlobal, -dA[axes1]);
-        }
-        for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-          GXY.outProcessIncrement(
-              currentRigidBodyLocalOffset + translationDof + axes1,
-              iPressureGlobal,
-              rci[(axes1 + 2) % translationDof] *
-                      dA[(axes1 + 1) % translationDof] -
-                  rci[(axes1 + 1) % translationDof] *
-                      dA[(axes1 + 2) % translationDof]);
         }
 
         for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
