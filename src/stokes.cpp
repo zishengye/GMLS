@@ -50,7 +50,7 @@ void GMLS_Solver::StokesEquation() {
       ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
       __polynomialOrder, __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
   GMLS velocityBasis(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                     __polynomialOrder, __dim, "SVD", "STANDARD");
+                     __polynomialOrder + 1, __dim, "SVD", "STANDARD");
 
   static vector<vec3> &rigidBodyPosition =
       __rigidBody.vector.GetHandle("position");
