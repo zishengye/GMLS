@@ -392,6 +392,7 @@ void GMLS_Solver::StokesEquation() {
                         currentRigidBodyGlobalOffset + translationDof +
                             (axes1 + 1) % rotationDof,
                         -rci[(axes1 + 2) % translationDof]);
+          cout << rci[(axes1 + 1) % translationDof] << endl;
         }
 
         const int iPressureGlobal = currentParticleGlobalIndex;
