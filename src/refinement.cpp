@@ -129,9 +129,6 @@ bool GMLS_Solver::NeedRefinement() {
   directVelocityGradient.resize(localParticleNum);
   recoveredVelocityGradient.resize(localParticleNum);
 
-  static vector<int> &backgroundSourceIndex =
-      __background.index.GetHandle("source index");
-
   const int gradientComponentNum = pow(__dim, 2);
   for (int i = 0; i < localParticleNum; i++) {
     directVelocityGradient[i].resize(gradientComponentNum);
