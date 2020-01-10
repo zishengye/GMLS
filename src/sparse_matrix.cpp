@@ -183,7 +183,7 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   PetscInt n = 1;
   PCSetUp(_pc);
   PCFieldSplitGetSubKSP(_pc, &n, &_subKsp);
-  KSPSetOperators(_subKsp[1], _ASub[4], _ASub[3]);
+  KSPSetOperators(_subKsp[1], _ASub[4], _ASub[4]);
   KSPSetFromOptions(_subKsp[0]);
   KSPSetOperators(_subKsp[0], _ASub[0], _ASub[0]);
 
