@@ -69,7 +69,7 @@ void GMLS_Solver::StokesEquation() {
   int &localParticleNum = particleNum[0];
   int &globalParticleNum = particleNum[1];
 
-  const int number_of_batches = 1;
+  const int number_of_batches = 4;
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
