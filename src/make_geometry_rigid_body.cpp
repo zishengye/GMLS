@@ -56,7 +56,7 @@ int GMLS_Solver::IsInRigidBody(vec3 &pos) {
     if (dis.mag() < rigidBodySize[i] - 0.5 * __particleSize0[0]) {
       return -1;
     } else if ((dis.mag() + 1e-15) <
-               (rigidBodySize[i] + 0.75 * __particleSize0[0])) {
+               (rigidBodySize[i] + 0.5 * __particleSize0[0])) {
       return i;
     }
   }
