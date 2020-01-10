@@ -572,10 +572,18 @@ void GMLS_Solver::StokesEquation() {
   xPressure.resize(localPressureDof);
   xVelocity.resize(localVelocityDof);
 
+  for (int i = 0; i < localVelocityDof; i++) {
+    xVelocity[i] = 0.0;
+    rhsVelocity[i] = 0.0;
+  }
+
+  for (int i = 0; i < localPressureDof; i++) {
+    xPressure[i] = 0.0;
+    rhsPressure[i] = 0.0;
+  }
+
   // boundary condition
   for (int i = 0; i < localParticleNum; i++) {
-    double x = coord[i][0];
-    double y = coord[i][1];
     if (particleType[i] != 0) {
       for (int axes = 0; axes < __dim; axes++) {
         // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
@@ -600,6 +608,7 @@ void GMLS_Solver::StokesEquation() {
       rhsVelocity[__dim * i + 2] = sin(x * M_PI + M_PI / 2.0) *
                                    sin(y * M_PI + M_PI / 2.0) *
                                    cos(z * M_PI + M_PI / 2.0);
+      rhsPressure[i] = 0.0;
       // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       // const double bi =
       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
@@ -610,6 +619,10 @@ void GMLS_Solver::StokesEquation() {
       // rhsVelocity[__dim * i + 1] = -pow(coord[i][0], 2) + pow(coord[i][1],
       // 2);
     } else {
+      for (int axes = 0; axes < __dim; axes++) {
+        rhsVelocity[__dim * i + axes] = 0.0;
+      }
+      rhsPressure[i] = 0.0;
       // rhsVelocity[__dim * i] = 2 * coord[i][0];
       // rhsVelocity[__dim * i + 1] = -2 * coord[i][1];
     }
