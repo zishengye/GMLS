@@ -246,6 +246,8 @@ bool GMLS_Solver::NeedRefinement() {
     BuildNeighborList();
   }
 
+  __adaptive_step++;
+
   if (__adaptive_step > 1) return false;
 
   return true;
