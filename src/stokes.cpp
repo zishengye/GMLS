@@ -645,8 +645,8 @@ void GMLS_Solver::StokesEquation() {
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure,
-        numRigidBody, rigidBodyDof);
+  // Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure,
+  //       numRigidBody, rigidBodyDof);
   MPI_Barrier(MPI_COMM_WORLD);
   // copy data
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
