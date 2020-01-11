@@ -158,7 +158,6 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
                         rigidBodyCoord[attachedRigidBodyIndex[tag]];
 
           if (!insert) {
-            if (IsInRigidBody(newPos) == -2) {
               coord[tag] = newPos;
               particleSize[tag][0] /= 2.0;
               particleSize[tag][1] /= 2.0;
@@ -167,7 +166,6 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
                   vec3(theta + i * thetaDelta, phi + j * phiDelta, 0.0);
 
               insert = true;
-            }
           } else {
             double vol = particleSize[tag][0] * particleSize[tag][1];
             InsertParticle(
