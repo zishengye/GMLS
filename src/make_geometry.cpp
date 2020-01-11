@@ -698,6 +698,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   SplitFieldBoundaryParticle(fieldBoundarySplitTag);
   SplitRigidBodySurfaceParticle(fieldRigidBodySurfaceSplitTag);
 
+  MPI_Barrier(MPI_COMM_WORLD);
   ParticleIndex();
 }
 
@@ -797,19 +798,18 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
                        (*itParticleSize)[2];
           InsertParticle(newPos, *itParticleType, newParticleSize, *itNormal,
                          localIndex, vol);
-
-          itCoord++;
-          itNormal++;
-          itParticleSize++;
-          itParticleType++;
-
-          _gapCoord.pop_front();
-          _gapNormal.pop_front();
-          _gapParticleSize.pop_front();
-          _gapParticleType.pop_front();
         }
       }
     }
+    itCoord++;
+    itNormal++;
+    itParticleSize++;
+    itParticleType++;
+
+    _gapCoord.pop_front();
+    _gapNormal.pop_front();
+    _gapParticleSize.pop_front();
+    _gapParticleType.pop_front();
   }
 }
 
