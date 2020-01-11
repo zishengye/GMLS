@@ -50,10 +50,9 @@ int GMLS_Solver::IsInRigidBody(vec3 &pos, double h) {
   static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
   for (size_t i = 0; i < rigidBodyCoord.size(); i++) {
     vec3 dis = pos - rigidBodyCoord[i];
-    if (dis.mag() < rigidBodySize[i] - 0.5 * h) {
+    if (dis.mag() < rigidBodySize[i] - 0.5 * __particleSize0[0]) {
       return -1;
-    } else if ((dis.mag() + 1e-15) <
-               (rigidBodySize[i] + 0.5 * h)) {
+    } else if ((dis.mag() + 1e-15) < (rigidBodySize[i] + 0.75 * h)) {
       return i;
     }
   }
@@ -158,14 +157,13 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
                         rigidBodyCoord[attachedRigidBodyIndex[tag]];
 
           if (!insert) {
-              coord[tag] = newPos;
-              particleSize[tag][0] /= 2.0;
-              particleSize[tag][1] /= 2.0;
-              normal[tag] = newNormal;
-              pCoord[tag] =
-                  vec3(theta + i * thetaDelta, phi + j * phiDelta, 0.0);
+            coord[tag] = newPos;
+            particleSize[tag][0] /= 2.0;
+            particleSize[tag][1] /= 2.0;
+            normal[tag] = newNormal;
+            pCoord[tag] = vec3(theta + i * thetaDelta, phi + j * phiDelta, 0.0);
 
-              insert = true;
+            insert = true;
           } else {
             double vol = particleSize[tag][0] * particleSize[tag][1];
             InsertParticle(
