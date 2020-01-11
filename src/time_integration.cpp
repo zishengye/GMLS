@@ -75,8 +75,8 @@ void GMLS_Solver::ForwardEulerIntegration() {
     // }
 
     do {
-      (this->*__equationSolver)();
       WriteDataAdaptiveStep();
+      (this->*__equationSolver)();
     } while (NeedRefinement());
 
     PetscPrintf(PETSC_COMM_WORLD, "\n=================================\n");

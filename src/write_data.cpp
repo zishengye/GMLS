@@ -346,44 +346,44 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
     file.close();
   });
 
-  MasterOperation(0, [this]() {
-    ofstream file;
-    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-              ios::app);
-    file << "SCALARS p float 1" << endl;
-    file << "LOOKUP_TABLE default " << endl;
-    file.close();
-  });
+  // MasterOperation(0, [this]() {
+  //   ofstream file;
+  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+  //             ios::app);
+  //   file << "SCALARS p float 1" << endl;
+  //   file << "LOOKUP_TABLE default " << endl;
+  //   file.close();
+  // });
 
-  SerialOperation([pressure, this]() {
-    ofstream file;
-    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-              ios::app);
-    for (size_t i = 0; i < pressure.size(); i++) {
-      file << pressure[i] << endl;
-    }
-    file.close();
-  });
+  // SerialOperation([pressure, this]() {
+  //   ofstream file;
+  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+  //             ios::app);
+  //   for (size_t i = 0; i < pressure.size(); i++) {
+  //     file << pressure[i] << endl;
+  //   }
+  //   file.close();
+  // });
 
-  MasterOperation(0, [this]() {
-    ofstream file;
-    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-              ios::app);
-    file << "SCALARS u float " + to_string(__dim) << endl;
-    file << "LOOKUP_TABLE default" << endl;
-    file.close();
-  });
+  // MasterOperation(0, [this]() {
+  //   ofstream file;
+  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+  //             ios::app);
+  //   file << "SCALARS u float " + to_string(__dim) << endl;
+  //   file << "LOOKUP_TABLE default" << endl;
+  //   file.close();
+  // });
 
-  SerialOperation([velocity, this]() {
-    ofstream file;
-    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-              ios::app);
-    for (size_t i = 0; i < velocity.size(); i++) {
-      for (int axes = 0; axes < __dim; axes++) {
-        file << velocity[i][axes] << ' ';
-      }
-      file << endl;
-    }
-    file.close();
-  });
+  // SerialOperation([velocity, this]() {
+  //   ofstream file;
+  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+  //             ios::app);
+  //   for (size_t i = 0; i < velocity.size(); i++) {
+  //     for (int axes = 0; axes < __dim; axes++) {
+  //       file << velocity[i][axes] << ' ';
+  //     }
+  //     file << endl;
+  //   }
+  //   file.close();
+  // });
 }
