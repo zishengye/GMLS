@@ -778,13 +778,13 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
   static auto &_gapParticleSize = __gap.vector.GetHandle("size");
   static auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
-  auto end_of_gap = _gapCoord.end();
+  auto size = _gapCoord.size();
   auto itCoord = _gapCoord.begin();
   auto itNormal = _gapNormal.begin();
   auto itParticleSize = _gapParticleSize.begin();
   auto itParticleType = _gapParticleType.begin();
 
-  for (; itCoord != end_of_gap;) {
+  for (auto i = 0; i < size; i++) {
     vec3 origin = *itCoord;
     const double xDelta = (*itParticleSize)[0] * 0.25;
     const double yDelta = (*itParticleSize)[1] * 0.25;
