@@ -70,6 +70,8 @@ class GMLS_Solver {
   GeneralInfo __field;
   GeneralInfo __eq;
 
+  QueueInfo __gap;
+
   // rigid body info
   GeneralInfo __rigidBody;
 
@@ -109,11 +111,13 @@ class GMLS_Solver {
 
   void InsertParticle(vec3 &X, int particleType, vec3 &particleSize,
                       vec3 &normal, int &globalIndex, double vol,
-                      bool rigidBodyParticle = false,
-                      size_t rigidBodyIndex = -1) {
+                      bool rigidBodyParticle = false, int rigidBodyIndex = -1,
+                      vec3 pCoord = vec3(0.0, 0.0, 0.0)) {
     static std::vector<vec3> &_coord = __field.vector.GetHandle("coord");
     static std::vector<vec3> &_normal = __field.vector.GetHandle("normal");
     static std::vector<vec3> &_particleSize = __field.vector.GetHandle("size");
+    static std::vector<vec3> &_pCoord =
+        __field.vector.GetHandle("parameter coordinate");
     static std::vector<int> &_globalIndex =
         __field.index.GetHandle("global index");
     static std::vector<int> &_particleType =
@@ -121,13 +125,26 @@ class GMLS_Solver {
     static std::vector<int> &_attachedRigidBodyIndex =
         __field.index.GetHandle("attached rigid body index");
 
-    if (rigidBodyParticle || IsInRigidBody(X) == -2) {
+    static auto &_gapCoord = __gap.vector.GetHandle("coord");
+    static auto &_gapNormal = __gap.vector.GetHandle("normal");
+    static auto &_gapParticleSize = __gap.vector.GetHandle("size");
+    static auto &_gapParticleType = __gap.index.GetHandle("particle type");
+
+    int idx = IsInRigidBody(X);
+
+    if (rigidBodyParticle || idx == -2) {
       _coord.push_back(X);
       _particleType.push_back(particleType);
       _particleSize.push_back(particleSize);
       _normal.push_back(normal);
       _globalIndex.push_back(globalIndex++);
       _attachedRigidBodyIndex.push_back(rigidBodyIndex);
+      _pCoord.push_back(pCoord);
+    } else if (idx > 0) {
+      _gapCoord.push(X);
+      _gapNormal.push(normal);
+      _gapParticleSize.push(particleSize);
+      _gapParticleType.push(particleType);
     }
   }
 
@@ -214,6 +231,7 @@ class GMLS_Solver {
 
   void SplitFieldParticle(std::vector<int> &splitTag);
   void SplitFieldBoundaryParticle(std::vector<int> &splitTag);
+  void SplitRigidBodySurfaceParticle(std::vector<int> &splitTag);
 
   int __adaptive_step;
 

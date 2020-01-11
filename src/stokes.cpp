@@ -394,7 +394,9 @@ void GMLS_Solver::StokesEquation() {
 
         const int iPressureGlobal = currentParticleGlobalIndex;
 
-        vec3 dA = normal[i] * pow(particleSize[i][0], __dim - 1);
+        vec3 dA = (__dim == 3)
+                      ? (normal[i] * particleSize[i][0] * particleSize[i][1])
+                      : (normal[i] * particleSize[i][0]);
 
         // apply pressure
         for (int axes1 = 0; axes1 < translationDof; axes1++) {

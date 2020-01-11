@@ -151,10 +151,16 @@ void GMLS_Solver::InitParticle() {
   __field.vector.Register("coord");
   __field.vector.Register("normal");
   __field.vector.Register("size");
+  __field.vector.Register("parameter coordinate");
   __field.index.Register("particle type");
   __field.index.Register("global index");
   __field.index.Register("attached rigid body index");
   __field.index.Register("particle number");
+
+  __gap.vector.Register("coord");
+  __gap.vector.Register("normal");
+  __gap.vector.Register("size");
+  __gap.index.Register("particle type");
 }
 
 void GMLS_Solver::ClearParticle() {
@@ -172,6 +178,11 @@ void GMLS_Solver::ClearParticle() {
       __field.index.GetHandle("attached rigid body index");
   static auto &particleNum = __field.index.GetHandle("particle number");
 
+  static auto &gapCoord = __gap.vector.GetHandle("coord");
+  static auto &gapNormal = __gap.vector.GetHandle("normal");
+  static auto &gapParticleSize = __gap.vector.GetHandle("size");
+  static auto &gapParticleType = __gap.index.GetHandle("particle type");
+
   backgroundCoord.clear();
   sourceCoord.clear();
   backgroundCoord.clear();
@@ -184,6 +195,11 @@ void GMLS_Solver::ClearParticle() {
   globalIndex.clear();
   attachedRigidBodyIndex.clear();
   particleNum.clear();
+
+  gapCoord.empty();
+  gapNormal.empty();
+  gapParticleSize.empty();
+  gapParticleType.empty();
 }
 
 void GMLS_Solver::InitUniformParticleField() {
@@ -666,17 +682,21 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
 
   vector<int> fieldSplitTag;
   vector<int> fieldBoundarySplitTag;
+  vector<int> fieldRigidBodySurfaceSplitTag;
 
   for (auto tag : splitTag) {
     if (particleType[tag] == 0) {
       fieldSplitTag.push_back(tag);
-    } else {
+    } else if (particleType[tag] < 4) {
       fieldBoundarySplitTag.push_back(tag);
+    } else {
+      fieldRigidBodySurfaceSplitTag.push_back(tag);
     }
   }
 
   SplitFieldParticle(fieldSplitTag);
   SplitFieldBoundaryParticle(fieldBoundarySplitTag);
+  SplitRigidBodySurfaceParticle(fieldRigidBodySurfaceSplitTag);
 
   ParticleIndex();
 }
@@ -792,5 +812,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
         }
       }
     }
+  }
+  if (__dim == 3) {
   }
 }
