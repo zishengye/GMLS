@@ -346,6 +346,25 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
     file.close();
   });
 
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "SCALARS d float 1" << endl;
+    file << "LOOKUP_TABLE default " << endl;
+    file.close();
+  });
+
+  SerialOperation([particleSize, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < particleSize.size(); i++) {
+      file << particleSize[i][0] << endl;
+    }
+    file.close();
+  });
+
   // MasterOperation(0, [this]() {
   //   ofstream file;
   //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
