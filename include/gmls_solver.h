@@ -130,7 +130,7 @@ class GMLS_Solver {
     static auto &_gapParticleSize = __gap.vector.GetHandle("size");
     static auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
-    int idx = IsInRigidBody(X);
+    int idx = IsInRigidBody(X, particleSize[0]);
 
     if (rigidBodyParticle || idx == -2) {
       _coord.push_back(X);
@@ -141,10 +141,10 @@ class GMLS_Solver {
       _attachedRigidBodyIndex.push_back(rigidBodyIndex);
       _pCoord.push_back(pCoord);
     } else if (idx > 0) {
-      _gapCoord.push(X);
-      _gapNormal.push(normal);
-      _gapParticleSize.push(particleSize);
-      _gapParticleType.push(particleType);
+      _gapCoord.push_back(X);
+      _gapNormal.push_back(normal);
+      _gapParticleSize.push_back(particleSize);
+      _gapParticleType.push_back(particleType);
     }
   }
 
@@ -236,7 +236,7 @@ class GMLS_Solver {
   int __adaptive_step;
 
   // rigid body supporting functions
-  int IsInRigidBody(vec3 &pos);
+  int IsInRigidBody(vec3 &pos, double h);
 
   void InitRigidBodySurfaceParticle();
 

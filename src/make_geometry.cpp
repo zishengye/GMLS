@@ -196,10 +196,10 @@ void GMLS_Solver::ClearParticle() {
   attachedRigidBodyIndex.clear();
   particleNum.clear();
 
-  gapCoord.empty();
-  gapNormal.empty();
-  gapParticleSize.empty();
-  gapParticleType.empty();
+  gapCoord.clear();
+  gapNormal.clear();
+  gapParticleSize.clear();
+  gapParticleType.clear();
 }
 
 void GMLS_Solver::InitUniformParticleField() {
@@ -722,7 +722,7 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
         for (int j = -1; j < 2; j += 2) {
           vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
           if (!insert) {
-            if (IsInRigidBody(newPos) == -2) {
+            if (IsInRigidBody(newPos, xDelta) == -2) {
               coord[tag] = newPos;
               particleSize[tag][0] /= 2.0;
               particleSize[tag][1] /= 2.0;
@@ -751,7 +751,7 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
           for (int k = -1; k < 2; k += 2) {
             vec3 newPos = origin + vec3(i * xDelta, j * yDelta, k * zDelta);
             if (!insert) {
-              if (IsInRigidBody(newPos) == -2) {
+              if (IsInRigidBody(newPos, xDelta) == -2) {
                 coord[tag] = newPos;
                 particleSize[tag][0] /= 2.0;
                 particleSize[tag][1] /= 2.0;
@@ -766,6 +766,47 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
                              normal[tag], localIndex, vol);
             }
           }
+        }
+      }
+    }
+  }
+
+  // gap particles
+  static auto &_gapCoord = __gap.vector.GetHandle("coord");
+  static auto &_gapNormal = __gap.vector.GetHandle("normal");
+  static auto &_gapParticleSize = __gap.vector.GetHandle("size");
+  static auto &_gapParticleType = __gap.index.GetHandle("particle type");
+
+  auto end_of_gap = _gapCoord.end();
+  auto itCoord = _gapCoord.begin();
+  auto itNormal = _gapNormal.begin();
+  auto itParticleSize = _gapParticleSize.begin();
+  auto itParticleType = _gapParticleType.begin();
+
+  for (; itCoord != end_of_gap;) {
+    vec3 origin = *itCoord;
+    const double xDelta = (*itParticleSize)[0] * 0.25;
+    const double yDelta = (*itParticleSize)[1] * 0.25;
+    const double zDelta = (*itParticleSize)[2] * 0.25;
+    for (int i = -1; i < 2; i += 2) {
+      for (int j = -1; j < 2; j += 2) {
+        for (int k = -1; k < 2; k += 2) {
+          vec3 newParticleSize = (*itParticleSize) * 0.5;
+          vec3 newPos = origin + vec3(i * xDelta, j * yDelta, k * zDelta);
+          double vol = (*itParticleSize)[0] * (*itParticleSize)[1] *
+                       (*itParticleSize)[2];
+          InsertParticle(newPos, *itParticleType, newParticleSize, *itNormal,
+                         localIndex, vol);
+
+          itCoord++;
+          itNormal++;
+          itParticleSize++;
+          itParticleType++;
+
+          _gapCoord.pop_front();
+          _gapNormal.pop_front();
+          _gapParticleSize.pop_front();
+          _gapParticleType.pop_front();
         }
       }
     }
@@ -797,7 +838,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
         for (int i = -1; i < 2; i += 2) {
           vec3 newPos = origin + vec3(i * xDelta, i * yDelta, 0.0);
           if (!insert) {
-            if (IsInRigidBody(newPos) == -2) {
+            if (IsInRigidBody(newPos, xDelta) == -2) {
               coord[tag] = newPos;
               particleSize[tag][0] /= 2.0;
               particleSize[tag][1] /= 2.0;

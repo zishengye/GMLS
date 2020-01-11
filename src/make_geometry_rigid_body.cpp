@@ -44,16 +44,16 @@ void GMLS_Solver::InitRigidBody() {
   // rigidBodySize[0] = 1.0;
 }
 
-int GMLS_Solver::IsInRigidBody(vec3 &pos) {
+int GMLS_Solver::IsInRigidBody(vec3 &pos, double h) {
   static vector<vec3> &rigidBodyCoord =
       __rigidBody.vector.GetHandle("position");
   static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
   for (size_t i = 0; i < rigidBodyCoord.size(); i++) {
     vec3 dis = pos - rigidBodyCoord[i];
-    if (dis.mag() < rigidBodySize[i] - 0.5 * __particleSize0[0]) {
+    if (dis.mag() < rigidBodySize[i] - 0.5 * h) {
       return -1;
     } else if ((dis.mag() + 1e-15) <
-               (rigidBodySize[i] + 0.5 * __particleSize0[0])) {
+               (rigidBodySize[i] + 0.5 * h)) {
       return i;
     }
   }

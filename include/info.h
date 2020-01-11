@@ -2,8 +2,8 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <list>
 #include <map>
-#include <queue>
 #include <string>
 #include <vector>
 
@@ -43,7 +43,7 @@ struct GeneralInfo {
 };
 
 struct QueueInfo {
-  infoEntity<std::queue<vec3>> vector;
-  infoEntity<std::queue<double>> scalar;
-  infoEntity<std::queue<int>> index;
+  infoEntity<std::list<vec3>> vector;
+  infoEntity<std::list<double>> scalar;
+  infoEntity<std::list<int>> index;
 };
