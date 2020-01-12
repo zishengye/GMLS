@@ -519,7 +519,7 @@ void GMLS_Solver::StokesEquation() {
       }
 
       // Lagrangian multiplier
-      A.increment(iPressureLocal, globalParticleNum, 1.0);
+      A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
       A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal,
                             1.0);
     }
