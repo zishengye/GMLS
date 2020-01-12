@@ -160,7 +160,7 @@ void PetscSparseMatrix::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
     for (int i = 0; i < numRigidBody; i++) {
       for (int j = 0; j < 6; j++) {
-        idx_rigid[6 * i + j] = localN1 + 4 * localParticleNum + 1;
+        idx_rigid[6 * i + j] = localN1 + 4 * localParticleNum + 1 + i * 6 + j;
       }
     }
   }
