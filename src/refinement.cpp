@@ -57,7 +57,7 @@ bool GMLS_Solver::NeedRefinement() {
 
     const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-    double epsilonMultiplier = 2.2;
+    double epsilonMultiplier = 1.5;
     int estimatedUpperBoundNumberNeighbors =
         8 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
                 minNeighbors, __dim, epsilonMultiplier);

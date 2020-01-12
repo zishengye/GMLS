@@ -37,6 +37,36 @@ void GMLS_Solver::InitRigidBody() {
   rigidBodyPosition[1][2] = -1.5;
   rigidBodySize[1] = 1.0;
 
+  // rigidBodyPosition[2][0] = -1.0;
+  // rigidBodyPosition[2][1] = 1.0;
+  // rigidBodyPosition[2][2] = 1.0;
+  // rigidBodySize[2] = 1.0;
+
+  // rigidBodyPosition[3][0] = 0.0;
+  // rigidBodyPosition[3][1] = -1.0;
+  // rigidBodyPosition[3][2] = -1.5;
+  // rigidBodySize[3] = 1.0;
+
+  // rigidBodyPosition[4][0] = -1.0;
+  // rigidBodyPosition[4][1] = 1.0;
+  // rigidBodyPosition[4][2] = 1.0;
+  // rigidBodySize[4] = 1.0;
+
+  // rigidBodyPosition[5][0] = 0.0;
+  // rigidBodyPosition[5][1] = -1.0;
+  // rigidBodyPosition[5][2] = -1.5;
+  // rigidBodySize[5] = 1.0;
+
+  // rigidBodyPosition[6][0] = -1.0;
+  // rigidBodyPosition[6][1] = 1.0;
+  // rigidBodyPosition[6][2] = 1.0;
+  // rigidBodySize[6] = 1.0;
+
+  // rigidBodyPosition[7][0] = 0.0;
+  // rigidBodyPosition[7][1] = -1.0;
+  // rigidBodyPosition[7][2] = -1.5;
+  // rigidBodySize[7] = 1.0;
+
   // rigidBodyCoord[0][0] = 0;
   // rigidBodyCoord[0][1] = 0;
   // rigidBodyCoord[0][2] = 0;
