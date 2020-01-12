@@ -74,6 +74,8 @@ class PetscSparseMatrix {
 
   // (*this) * x = rhs
   void Solve(std::vector<double> &rhs, std::vector<double> &x);
+  void Solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
+             int numRigidBody);
 
   // [A Bt; B C] * [x; y] = [f; g]
   friend void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt,

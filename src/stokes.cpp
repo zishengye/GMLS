@@ -316,21 +316,27 @@ void GMLS_Solver::StokesEquation() {
     localPressureDof++;
   }
 
-  int localRigidBodyOffset = particleNum[__MPISize + 1] * __dim;
-  int globalRigidBodyOffset = globalParticleNum * __dim;
-  int lagrangeMultiplierOffset = particleNum[__MPISize + 1];
+  int fieldDof = __dim + 1;
+  int velocityDof = __dim;
 
-  PetscSparseMatrix LUV(localVelocityDof, localVelocityDof, globalVelocityDof);
-  PetscSparseMatrix GXY(localVelocityDof, localPressureDof, globalPressureDof);
-  PetscSparseMatrix DXY(localPressureDof, localVelocityDof, globalVelocityDof);
-  PetscSparseMatrix PI(localPressureDof, localPressureDof, globalPressureDof);
+  int localRigidBodyOffset = particleNum[__MPISize + 1] * fieldDof + 1;
+  int globalRigidBodyOffset = globalParticleNum * fieldDof + 1;
+  int localLagrangeMultiplierOffset = particleNum[__MPISize + 1] * fieldDof;
+  int globalLagrangeMultiplierOffset = globalParticleNum * fieldDof;
+
+  int localDof = localVelocityDof + localPressureDof;
+  int globalDof = globalVelocityDof + globalPressureDof;
+
+  PetscSparseMatrix A(localDof, localDof, globalDof);
 
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
 
-    const int iPressureLocal = currentParticleLocalIndex;
-    const int iPressureGlobal = currentParticleGlobalIndex;
+    const int iPressureLocal =
+        currentParticleLocalIndex * fieldDof + velocityDof;
+    const int iPressureGlobal =
+        currentParticleGlobalIndex * fieldDof + velocityDof;
     // velocity block
     if (particleType[i] == 0) {
       for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
@@ -340,25 +346,28 @@ void GMLS_Solver::StokesEquation() {
 
         // curl curl u
         for (int axes1 = 0; axes1 < __dim; axes1++) {
-          const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
+          const int iVelocityLocal =
+              fieldDof * currentParticleLocalIndex + axes1;
           for (int axes2 = 0; axes2 < __dim; axes2++) {
-            const int jVelocityGlobal = __dim * neighborParticleIndex + axes2;
+            const int jVelocityGlobal =
+                fieldDof * neighborParticleIndex + axes2;
 
             const double Lij =
                 __eta * velocityAlphas(
                             i, velocityCurlCurlIndex[axes1 * __dim + axes2], j);
 
-            LUV.increment(iVelocityLocal, jVelocityGlobal, Lij);
+            A.increment(iVelocityLocal, jVelocityGlobal, Lij);
           }
         }
       }
     } else {
       // wall boundary (including particles on rigid body)
       for (int axes1 = 0; axes1 < __dim; axes1++) {
-        const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
-        const int iVelocityGlobal = __dim * currentParticleGlobalIndex + axes1;
+        const int iVelocityLocal = fieldDof * currentParticleLocalIndex + axes1;
+        const int iVelocityGlobal =
+            fieldDof * currentParticleGlobalIndex + axes1;
 
-        LUV.increment(iVelocityLocal, iVelocityGlobal, 1.0);
+        A.increment(iVelocityLocal, iVelocityGlobal, 1.0);
       }
 
       // particles on rigid body
@@ -373,26 +382,26 @@ void GMLS_Solver::StokesEquation() {
         // non-slip condition
         // translation
         for (int axes1 = 0; axes1 < translationDof; axes1++) {
-          const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
-          LUV.increment(iVelocityLocal, currentRigidBodyGlobalOffset + axes1,
-                        -1.0);
+          const int iVelocityLocal =
+              fieldDof * currentParticleLocalIndex + axes1;
+          A.increment(iVelocityLocal, currentRigidBodyGlobalOffset + axes1,
+                      -1.0);
         }
 
         // rotation
         for (int axes1 = 0; axes1 < translationDof; axes1++) {
-          const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
+          const int iVelocityLocal =
+              fieldDof * currentParticleLocalIndex + axes1;
 
-          LUV.increment(iVelocityLocal,
-                        currentRigidBodyGlobalOffset + translationDof +
-                            (axes1 + 2) % rotationDof,
-                        rci[(axes1 + 1) % translationDof]);
-          LUV.increment(iVelocityLocal,
-                        currentRigidBodyGlobalOffset + translationDof +
-                            (axes1 + 1) % rotationDof,
-                        -rci[(axes1 + 2) % translationDof]);
+          A.increment(iVelocityLocal,
+                      currentRigidBodyGlobalOffset + translationDof +
+                          (axes1 + 2) % rotationDof,
+                      rci[(axes1 + 1) % translationDof]);
+          A.increment(iVelocityLocal,
+                      currentRigidBodyGlobalOffset + translationDof +
+                          (axes1 + 1) % rotationDof,
+                      -rci[(axes1 + 2) % translationDof]);
         }
-
-        const int iPressureGlobal = currentParticleGlobalIndex;
 
         vec3 dA = (__dim == 3)
                       ? (normal[i] * particleSize[i][0] * particleSize[i][1])
@@ -400,8 +409,8 @@ void GMLS_Solver::StokesEquation() {
 
         // apply pressure
         for (int axes1 = 0; axes1 < translationDof; axes1++) {
-          GXY.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                  iPressureGlobal, -dA[axes1]);
+          A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                iPressureGlobal, -dA[axes1]);
         }
 
         for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
@@ -409,7 +418,8 @@ void GMLS_Solver::StokesEquation() {
               backgroundSourceIndex[neighborLists(i, j + 1)];
 
           for (int axes3 = 0; axes3 < __dim; axes3++) {
-            const int jVelocityGlobal = __dim * neighborParticleIndex + axes3;
+            const int jVelocityGlobal =
+                fieldDof * neighborParticleIndex + axes3;
 
             double *f = new double[__dim];
             for (int axes1 = 0; axes1 < __dim; axes1++) {
@@ -436,13 +446,13 @@ void GMLS_Solver::StokesEquation() {
 
             // force balance
             for (int axes1 = 0; axes1 < translationDof; axes1++) {
-              LUV.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                      jVelocityGlobal, f[axes1]);
+              A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                    jVelocityGlobal, f[axes1]);
             }
 
             // torque balance
             for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-              LUV.outProcessIncrement(
+              A.outProcessIncrement(
                   currentRigidBodyLocalOffset + translationDof + axes1,
                   jVelocityGlobal,
                   rci[(axes1 + 1) % translationDof] *
@@ -468,14 +478,15 @@ void GMLS_Solver::StokesEquation() {
 
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           for (int axes2 = 0; axes2 < __dim; axes2++) {
-            const int jVelocityGlobal = __dim * neighborParticleIndex + axes2;
+            const int jVelocityGlobal =
+                fieldDof * neighborParticleIndex + axes2;
 
             const double Lij =
                 __eta * velocityAlphas(
                             i, velocityCurlCurlIndex[axes1 * __dim + axes2], j);
 
-            DXY.increment(iPressureLocal, jVelocityGlobal,
-                          -bi * normal[i][axes1] * Lij);
+            A.increment(iPressureLocal, jVelocityGlobal,
+                        -bi * normal[i][axes1] * Lij);
           }
         }
       }
@@ -487,29 +498,32 @@ void GMLS_Solver::StokesEquation() {
         const int neighborParticleIndex =
             backgroundSourceIndex[neighborLists(i, j + 1)];
 
-        const int jPressureGlobal = neighborParticleIndex;
+        const int jPressureGlobal =
+            fieldDof * neighborParticleIndex + velocityDof;
 
         const double Aij = pressureAlphas(i, pressureLaplacianIndex, j);
 
         // laplacian p
-        PI.increment(iPressureLocal, jPressureGlobal, -Aij);
-        PI.increment(iPressureLocal, iPressureGlobal, Aij);
+        A.increment(iPressureLocal, jPressureGlobal, -Aij);
+        A.increment(iPressureLocal, iPressureGlobal, Aij);
 
         for (int axes1 = 0; axes1 < __dim; axes1++) {
-          const int iVelocityLocal = __dim * currentParticleLocalIndex + axes1;
+          const int iVelocityLocal =
+              fieldDof * currentParticleLocalIndex + axes1;
 
           const double Dijx =
               pressureAlphas(i, pressureGradientIndex[axes1], j);
 
           // grad p
-          GXY.increment(iVelocityLocal, jPressureGlobal, -Dijx);
-          GXY.increment(iVelocityLocal, iPressureGlobal, Dijx);
+          A.increment(iVelocityLocal, jPressureGlobal, -Dijx);
+          A.increment(iVelocityLocal, iPressureGlobal, Dijx);
         }
       }
 
       // Lagrangian multiplier
-      PI.increment(iPressureLocal, globalParticleNum, 1.0);
-      PI.outProcessIncrement(lagrangeMultiplierOffset, iPressureGlobal, 1.0);
+      A.increment(iPressureLocal, globalParticleNum, 1.0);
+      A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal,
+                            1.0);
     }
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
@@ -524,8 +538,8 @@ void GMLS_Solver::StokesEquation() {
             neumannBoudnaryIndex, pressureNeumannBoundaryLaplacianIndex, j);
 
         // laplacian p
-        PI.increment(iPressureLocal, jPressureGlobal, -Aij);
-        PI.increment(iPressureLocal, iPressureGlobal, Aij);
+        A.increment(iPressureLocal, jPressureGlobal, -Aij);
+        A.increment(iPressureLocal, iPressureGlobal, Aij);
       }
     }
     // end of pressure block
@@ -533,7 +547,8 @@ void GMLS_Solver::StokesEquation() {
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
-    PI.increment(lagrangeMultiplierOffset, globalParticleNum, 0.0);
+    A.increment(localLagrangeMultiplierOffset, globalLagrangeMultiplierOffset,
+                0.0);
 
     // for (int i = 0; i < numRigidBody; i++) {
     //   for (int j = 0; j < translationDof; j++) {
@@ -549,10 +564,7 @@ void GMLS_Solver::StokesEquation() {
     // }
   }
 
-  LUV.FinalAssemble();
-  DXY.FinalAssemble();
-  GXY.FinalAssemble();
-  PI.FinalAssemble();
+  A.FinalAssemble();
 
   delete all_pressure;
   delete all_velocity;
@@ -560,27 +572,18 @@ void GMLS_Solver::StokesEquation() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
 
-  vector<double> &rhsPressure = __field.scalar.GetHandle("rhs pressure");
-  vector<double> &rhsVelocity = __field.scalar.GetHandle("rhs velocity");
-  vector<double> &xPressure = __field.scalar.GetHandle("x pressure");
-  vector<double> &xVelocity = __field.scalar.GetHandle("x velocity");
+  vector<double> &rhs = __field.scalar.GetHandle("rhs");
+  vector<double> &res = __field.scalar.GetHandle("res");
 
-  rhsPressure.clear();
-  rhsVelocity.clear();
+  rhs.clear();
+  res.clear();
 
-  rhsPressure.resize(localPressureDof);
-  rhsVelocity.resize(localVelocityDof);
-  xPressure.resize(localPressureDof);
-  xVelocity.resize(localVelocityDof);
+  rhs.resize(localDof);
+  res.resize(localDof);
 
-  for (int i = 0; i < localVelocityDof; i++) {
-    xVelocity[i] = 0.0;
-    rhsVelocity[i] = 0.0;
-  }
-
-  for (int i = 0; i < localPressureDof; i++) {
-    xPressure[i] = 0.0;
-    rhsPressure[i] = 0.0;
+  for (int i = 0; i < localDof; i++) {
+    rhs[i] = 0.0;
+    res[i] = 0.0;
   }
 
   // boundary condition
@@ -591,7 +594,7 @@ void GMLS_Solver::StokesEquation() {
         // rhsVelocity[__dim * i + axes] =
         //     1.5 * (1.0 - coord[i][1] * coord[i][1] / Hsqr) * double(axes ==
         //     0);
-        rhsVelocity[__dim * i + axes] = coord[i][1] * double(axes == 0);
+        rhs[fieldDof * i + axes] = coord[i][1] * double(axes == 0);
         // rhsVelocity[__dim * i + axes] =
         //     1.0 * double(axes == 0) *
         //     double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
@@ -615,7 +618,7 @@ void GMLS_Solver::StokesEquation() {
       // rhsVelocity[__dim * i + 2] = sin(x * M_PI + M_PI / 2.0) *
       //                              sin(y * M_PI + M_PI / 2.0) *
       //                              cos(z * M_PI + M_PI / 2.0);
-      rhsPressure[i] = 0.0;
+      rhs[i * fieldDof + velocityDof] = 0.0;
       // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       // const double bi =
       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
@@ -627,17 +630,16 @@ void GMLS_Solver::StokesEquation() {
       // 2);
     } else {
       for (int axes = 0; axes < __dim; axes++) {
-        rhsVelocity[__dim * i + axes] = 0.0;
+        rhs[fieldDof * i + axes] = 0.0;
       }
-      rhsPressure[i] = 0.0;
+      rhs[fieldDof * i] = 0.0;
       // rhsVelocity[__dim * i] = 2 * coord[i][0];
       // rhsVelocity[__dim * i + 1] = -2 * coord[i][1];
     }
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  Solve(LUV, GXY, DXY, PI, rhsVelocity, rhsPressure, xVelocity, xPressure,
-        numRigidBody, rigidBodyDof);
+  A.Solve(rhs, res, __dim, numRigidBody);
   MPI_Barrier(MPI_COMM_WORLD);
   // copy data
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
@@ -646,23 +648,22 @@ void GMLS_Solver::StokesEquation() {
   velocity.resize(localParticleNum);
 
   for (int i = 0; i < localParticleNum; i++) {
-    pressure[i] = xPressure[i];
+    pressure[i] = res[fieldDof * i + velocityDof];
     for (int axes1 = 0; axes1 < __dim; axes1++)
-      velocity[i][axes1] = xVelocity[__dim * i + axes1];
+      velocity[i][axes1] = res[fieldDof * i + axes1];
   }
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
       for (int j = 0; j < translationDof; j++) {
         rigidBodyVelocity[i][j] =
-            xVelocity[localRigidBodyOffset + i * rigidBodyDof + j];
+            res[localRigidBodyOffset + i * rigidBodyDof + j];
         cout << rigidBodyVelocity[i][j] << '\t';
       }
       cout << endl;
       for (int j = 0; j < rotationDof; j++) {
         rigidBodyAngularVelocity[i][j] =
-            xVelocity[localRigidBodyOffset + i * rigidBodyDof + translationDof +
-                      j];
+            res[localRigidBodyOffset + i * rigidBodyDof + translationDof + j];
         cout << rigidBodyAngularVelocity[i][j] << '\t';
       }
       cout << endl;
