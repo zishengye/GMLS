@@ -530,7 +530,8 @@ void GMLS_Solver::StokesEquation() {
         const int neighborParticleIndex =
             backgroundSourceIndex[neighborLists(i, j + 1)];
 
-        const int jPressureGlobal = neighborParticleIndex;
+        const int jPressureGlobal =
+            fieldDof * neighborParticleIndex + velocityDof;
 
         const double Aij = pressureNeumannBoundaryAlphas(
             neumannBoudnaryIndex, pressureNeumannBoundaryLaplacianIndex, j);
@@ -630,7 +631,7 @@ void GMLS_Solver::StokesEquation() {
       for (int axes = 0; axes < __dim; axes++) {
         rhs[fieldDof * i + axes] = 0.0;
       }
-      rhs[fieldDof * i] = 0.0;
+      rhs[fieldDof * i + velocityDof] = 0.0;
       // rhsVelocity[__dim * i] = 2 * coord[i][0];
       // rhsVelocity[__dim * i + 1] = -2 * coord[i][1];
     }
