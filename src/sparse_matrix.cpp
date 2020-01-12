@@ -140,7 +140,7 @@ void PetscSparseMatrix::Solve(std::vector<double> &rhs, std::vector<double> &x,
     }
   } else {
     int localParticleNum =
-        (localN2 - localN1) / (dimension + 1) - 1 - numRigidBody * 6;
+        (localN2 - localN1 - 1 - numRigidBody * 6) / (dimension + 1);
     idx_field.resize(4 * localParticleNum + 1);
     idx_velocity.resize(3 * localParticleNum);
     idx_pressure.resize(localParticleNum + 1);
