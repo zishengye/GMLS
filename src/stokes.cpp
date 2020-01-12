@@ -8,10 +8,8 @@ void GMLS_Solver::StokesEquationInitialization() {
   __field.vector.Register("fluid velocity");
   __field.scalar.Register("fluid pressure");
 
-  __field.scalar.Register("rhs velocity");
-  __field.scalar.Register("rhs pressure");
-  __field.scalar.Register("x velocity");
-  __field.scalar.Register("x pressure");
+  __field.scalar.Register("rhs");
+  __field.scalar.Register("x");
 
   __gmls.Register("pressure basis",
                   new GMLS(ScalarTaylorPolynomial,
