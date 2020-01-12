@@ -226,7 +226,7 @@ bool GMLS_Solver::NeedRefinement() {
     delete all_velocity;
 
     // mark stage
-    double alpha = pow(0.9, __adaptive_step);
+    double alpha = pow(0.5, __adaptive_step);
     vector<int> splitTag;
     for (int i = 0; i < localParticleNum; i++) {
       if (error[i] > alpha * globalError) {
