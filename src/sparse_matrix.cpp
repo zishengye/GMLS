@@ -112,8 +112,132 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
   }
 }
 
+void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
+                              int dimension) {
+  int fieldDof = dimension + 1;
+  int velocityDof = dimension;
+  int pressureDof = 1;
+
+  vector<int> idx_velocity, idx_pressure;
+
+  int MPIsize, myId;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myId);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
+
+  PetscInt localN1, localN2;
+  MatGetOwnershipRange(__mat, &localN1, &localN2);
+
+  if (myId != MPIsize - 1) {
+    int localParticleNum = (localN2 - localN1) / fieldDof;
+    idx_velocity.resize(velocityDof * localParticleNum);
+    idx_pressure.resize(localParticleNum);
+
+    for (int i = 0; i < localParticleNum; i++) {
+      for (int j = 0; j < dimension; j++) {
+        idx_velocity[velocityDof * i + j] = localN1 + fieldDof * i + j;
+      }
+      idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
+    }
+  } else {
+    int localParticleNum = (localN2 - localN1 - 1) / fieldDof;
+    idx_velocity.resize(velocityDof * localParticleNum);
+    idx_pressure.resize(localParticleNum + 1);
+
+    for (int i = 0; i < localParticleNum; i++) {
+      for (int j = 0; j < dimension; j++) {
+        idx_velocity[velocityDof * i + j] = localN1 + fieldDof * i + j;
+      }
+      idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
+    }
+    idx_pressure[localParticleNum] = localN1 + fieldDof * localParticleNum;
+  }
+
+  IS isg_velocity, isg_pressure;
+
+  ISCreateGeneral(MPI_COMM_WORLD, idx_velocity.size(), idx_velocity.data(),
+                  PETSC_COPY_VALUES, &isg_velocity);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_pressure.size(), idx_pressure.data(),
+                  PETSC_COPY_VALUES, &isg_pressure);
+
+  Mat uu, up, pu, pp, up_s;
+
+  MatCreateSubMatrix(__mat, isg_velocity, isg_velocity, MAT_INITIAL_MATRIX,
+                     &uu);
+  MatCreateSubMatrix(__mat, isg_pressure, isg_velocity, MAT_INITIAL_MATRIX,
+                     &pu);
+  MatCreateSubMatrix(__mat, isg_velocity, isg_pressure, MAT_INITIAL_MATRIX,
+                     &up);
+  MatCreateSubMatrix(__mat, isg_pressure, isg_pressure, MAT_INITIAL_MATRIX,
+                     &pp);
+
+  Vec diag;
+
+  MatCreateVecs(uu, &diag, NULL);
+  MatGetDiagonal(uu, diag);
+  VecReciprocal(diag);
+  MatDiagonalScale(up, diag, NULL);
+  MatMatMult(pu, up, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &up_s);
+  MatScale(up_s, -1.0);
+  MatAXPY(up_s, 1.0, pp, DIFFERENT_NONZERO_PATTERN);
+
+  Vec _rhs, _x;
+  VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
+                        rhs.data(), &_rhs);
+  VecDuplicate(_rhs, &_x);
+
+  KSP _ksp;
+  KSPCreate(PETSC_COMM_WORLD, &_ksp);
+  KSPSetOperators(_ksp, __mat, __mat);
+  KSPSetFromOptions(_ksp);
+
+  PC _pc;
+
+  KSPGetPC(_ksp, &_pc);
+  PCFieldSplitSetIS(_pc, "0", isg_velocity);
+  PCFieldSplitSetIS(_pc, "1", isg_pressure);
+
+  PCFieldSplitSetSchurPre(_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, up_s);
+
+  KSP *_subKsp;
+  PetscInt n = 1;
+  PCSetUp(_pc);
+  PCFieldSplitGetSubKSP(_pc, &n, &_subKsp);
+  KSPSetOperators(_subKsp[1], up_s, up_s);
+  KSPSetFromOptions(_subKsp[0]);
+  KSPSetOperators(_subKsp[0], uu, uu);
+
+  PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
+  KSPSolve(_ksp, _rhs, _x);
+  PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
+
+  KSPDestroy(&_ksp);
+
+  PetscScalar *a;
+  VecGetArray(_x, &a);
+  for (size_t i = 0; i < rhs.size(); i++) {
+    x[i] = a[i];
+  }
+
+  VecDestroy(&_rhs);
+  VecDestroy(&_x);
+
+  MatDestroy(&uu);
+  MatDestroy(&up);
+  MatDestroy(&pu);
+  MatDestroy(&pp);
+  MatDestroy(&up_s);
+
+  ISDestroy(&isg_velocity);
+  ISDestroy(&isg_pressure);
+}
+
 void PetscSparseMatrix::Solve(std::vector<double> &rhs, std::vector<double> &x,
                               int dimension, int numRigidBody) {
+  int fieldDof = dimension + 1;
+  int velocityDof = dimension;
+  int pressureDof = 1;
+  int rigidBodyDof = (dimension == 3) ? 6 : 3;
+
   vector<int> idx_field, idx_rigid;
   vector<int> idx_velocity, idx_pressure;
 
@@ -125,42 +249,46 @@ void PetscSparseMatrix::Solve(std::vector<double> &rhs, std::vector<double> &x,
   MatGetOwnershipRange(__mat, &localN1, &localN2);
 
   if (myId != MPIsize - 1) {
-    int localParticleNum = (localN2 - localN1) / (dimension + 1);
-    idx_field.resize(4 * localParticleNum);
-    idx_velocity.resize(3 * localParticleNum);
+    int localParticleNum = (localN2 - localN1) / fieldDof;
+    idx_field.resize(fieldDof * localParticleNum);
+    idx_velocity.resize(velocityDof * localParticleNum);
     idx_pressure.resize(localParticleNum);
 
     for (int i = 0; i < localParticleNum; i++) {
       for (int j = 0; j < dimension; j++) {
-        idx_field[4 * i + j] = localN1 + 4 * i + j;
-        idx_velocity[3 * i + j] = localN1 + 4 * i + j;
+        idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
+        idx_velocity[velocityDof * i + j] = localN1 + fieldDof * i + j;
       }
-      idx_field[4 * i + 3] = localN1 + 4 * i + 3;
-      idx_pressure[i] = localN1 + 4 * i + 3;
+      idx_field[fieldDof * i + velocityDof] =
+          localN1 + fieldDof * i + velocityDof;
+      idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
     }
   } else {
     int localParticleNum =
-        (localN2 - localN1 - 1 - numRigidBody * 6) / (dimension + 1);
-    idx_field.resize(4 * localParticleNum + 1);
-    idx_velocity.resize(3 * localParticleNum);
+        (localN2 - localN1 - 1 - numRigidBody * rigidBodyDof) / fieldDof;
+    idx_field.resize(fieldDof * localParticleNum + 1);
+    idx_velocity.resize(velocityDof * localParticleNum);
     idx_pressure.resize(localParticleNum + 1);
-    idx_rigid.resize(6 * numRigidBody);
+    idx_rigid.resize(rigidBodyDof * numRigidBody);
 
     for (int i = 0; i < localParticleNum; i++) {
       for (int j = 0; j < dimension; j++) {
-        idx_field[4 * i + j] = localN1 + 4 * i + j;
-        idx_velocity[3 * i + j] = localN1 + 4 * i + j;
+        idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
+        idx_velocity[velocityDof * i + j] = localN1 + fieldDof * i + j;
       }
-      idx_field[4 * i + 3] = localN1 + 4 * i + 3;
-      idx_pressure[i] = localN1 + 4 * i + 3;
+      idx_field[fieldDof * i + velocityDof] =
+          localN1 + fieldDof * i + velocityDof;
+      idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
     }
 
-    idx_field[4 * localParticleNum] = localN1 + 4 * localParticleNum;
-    idx_pressure[localParticleNum] = localN1 + 4 * localParticleNum;
+    idx_field[fieldDof * localParticleNum] =
+        localN1 + fieldDof * localParticleNum;
+    idx_pressure[localParticleNum] = localN1 + fieldDof * localParticleNum;
 
     for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < 6; j++) {
-        idx_rigid[6 * i + j] = localN1 + 4 * localParticleNum + 1 + i * 6 + j;
+      for (int j = 0; j < rigidBodyDof; j++) {
+        idx_rigid[rigidBodyDof * i + j] =
+            localN1 + fieldDof * localParticleNum + 1 + i * rigidBodyDof + j;
       }
     }
   }

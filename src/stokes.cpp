@@ -126,9 +126,11 @@ void GMLS_Solver::StokesEquation() {
   // neighbor search
   auto pointCloudSearch(CreatePointCloudSearch(sourceCoords, __dim));
 
-  const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
+  auto minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 1.5;
+  double epsilonMultiplier = 2.2;
+  double neumannBoundaryEpsilonMultiplier = 2.7;
+
   int estimatedUpperBoundNumberNeighbors =
       8 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
               minNeighbors, __dim, epsilonMultiplier);
@@ -155,6 +157,16 @@ void GMLS_Solver::StokesEquation() {
                                    neumannBoundaryNumTargetCoords);
   Kokkos::View<double *>::HostMirror neumannBoundaryEpsilon =
       Kokkos::create_mirror_view(neumannBoundaryEpsilonDevice);
+
+  auto maxNumNeighbors = pointCloudSearch.generateNeighborListsFromKNNSearch(
+      true, targetCoords, neighborLists, epsilon, minNeighbors,
+      epsilonMultiplier);
+
+  auto maxNumNeumannBoundaryNeighbors =
+      pointCloudSearch.generateNeighborListsFromKNNSearch(
+          true, neumannBoundaryTargetCoords, neumannBoundaryNeighborLists,
+          neumannBoundaryEpsilon, minNeighbors,
+          neumannBoundaryEpsilonMultiplier);
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
       false, targetCoords, neighborLists, epsilon, minNeighbors,
@@ -505,6 +517,11 @@ void GMLS_Solver::StokesEquation() {
         A.increment(iPressureLocal, jPressureGlobal, -Aij);
         A.increment(iPressureLocal, iPressureGlobal, Aij);
 
+        // Lagrangian multiplier
+        A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
+        A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal,
+                              1.0);
+
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           const int iVelocityLocal =
               fieldDof * currentParticleLocalIndex + axes1;
@@ -517,11 +534,6 @@ void GMLS_Solver::StokesEquation() {
           A.increment(iVelocityLocal, iPressureGlobal, Dijx);
         }
       }
-
-      // Lagrangian multiplier
-      A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
-      A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal,
-                            1.0);
     }
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
@@ -590,13 +602,13 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0 && particleType[i] < 4) {
       for (int axes = 0; axes < __dim; axes++) {
         // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
-        // rhsVelocity[__dim * i + axes] =
+        // rhs[fieldDof * i + axes] =
         //     1.5 * (1.0 - coord[i][1] * coord[i][1] / Hsqr) * double(axes ==
         //     0);
-        rhs[fieldDof * i + axes] = coord[i][1] * double(axes == 0);
-        // rhsVelocity[__dim * i + axes] =
-        //     1.0 * double(axes == 0) *
-        //     double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
+        // rhs[fieldDof * i + axes] = coord[i][1] * double(axes == 0);
+        rhs[fieldDof * i + axes] =
+            1.0 * double(axes == 0) *
+            double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
         // rhsVelocity[__dim * i + axes] = 0.0;
       }
       // double x = coord[i][0] / __boundingBoxSize[0];
@@ -638,7 +650,11 @@ void GMLS_Solver::StokesEquation() {
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  A.Solve(rhs, res, __dim, numRigidBody);
+  if (numRigidBody == 0) {
+    A.Solve(rhs, res, __dim);
+  } else {
+    A.Solve(rhs, res, __dim, numRigidBody);
+  }
   MPI_Barrier(MPI_COMM_WORLD);
   // copy data
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");

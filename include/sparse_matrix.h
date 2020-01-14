@@ -73,9 +73,13 @@ class PetscSparseMatrix {
   int FinalAssemble();
 
   // (*this) * x = rhs
-  void Solve(std::vector<double> &rhs, std::vector<double> &x);
+  void Solve(std::vector<double> &rhs,
+             std::vector<double> &x);  // simple solver
+  void Solve(std::vector<double> &rhs, std::vector<double> &x,
+             int dimension);  // two field solver
   void Solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
              int numRigidBody);
+  // two field solver with rigid body inclusion
 
   // [A Bt; B C] * [x; y] = [f; g]
   friend void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt,

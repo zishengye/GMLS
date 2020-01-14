@@ -2,7 +2,7 @@
 -Dim 2 -Mx 100 -My 100
 
 # problem parameter setup
--ft 10.0 -dt 0.01 -eta 1.0
+-ft 0.001 -dt 0.01 -eta 1.0
 
 # problem type
 -EquationType Stokes
@@ -10,20 +10,18 @@
 # linear solver setup
 -ksp_type fgmres -ksp_monitor_true_residual 
 -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
--fieldsplit_0_pc_type fieldsplit -fieldsplit_ksp_type fgmres
+-fieldsplit_0_pc_type fieldsplit -fieldsplit_0_ksp_type fgmres
 -fieldsplit_0_pc_fieldsplit_type schur -fieldsplit_0_pc_fieldsplit_schur_fact_type lower
 -fieldsplit_0_fieldsplit_0_pc_type hypre
 -fieldsplit_0_fieldsplit_1_pc_type lu
 -fieldsplit_0_fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_fieldsplit_0_pc_hypre_boomeramg_coarsen_type CLJP
--fieldsplit_0_fieldsplit_0_ksp_type preonly -fieldsplit_0_fieldsplit_0_ksp_max_it 1
--fieldsplit_0_fieldsplit_1_ksp_type preonly -fieldsplit_0_fieldsplit_1_ksp_max_it 1
+-fieldsplit_0_fieldsplit_1_pc_hypre_type boomeramg -fieldsplit_0_fieldsplit_1_pc_hypre_boomeramg_interp_type direct -fieldsplit_0_fieldsplit_1_pc_hypre_boomeramg_coarsen_type CLJP
+-fieldsplit_0_fieldsplit_0_ksp_type fgmres -fieldsplit_0_fieldsplit_0_ksp_rtol 1e-3
+-fieldsplit_0_fieldsplit_1_ksp_type fgmres -fieldsplit_0_fieldsplit_1_ksp_rtol 1e-3
+-fieldsplit_0_ksp_monitor
 -fieldsplit_0_ksp_rtol 1e-3
--fieldsplit_1_ksp_type fgmres
+-fieldsplit_1_ksp_type preonly
 -fieldsplit_1_ksp_rtol 1e-3
 -fieldsplit_1_pc_type lu
--fieldsplit_1_fieldsplit_0_pc_type lu
--fieldsplit_1_fieldsplit_1_pc_type lu
--fieldsplit_1_fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_1_fieldsplit_0_pc_hypre_boomeramg_interp_type classical -fieldsplit_1_fieldsplit_0_pc_hypre_boomeramg_coarsen_type CLJP
--fieldsplit_1_fieldsplit_0_ksp_monitor
 -fieldsplit_1_ksp_converged_reason
 -ksp_converged_reason

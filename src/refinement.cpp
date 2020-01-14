@@ -4,7 +4,7 @@ using namespace std;
 using namespace Compadre;
 
 bool GMLS_Solver::NeedRefinement() {
-  if (__adaptive_step < 1) {
+  if (__adaptive_step < 0) {
     // prepare stage;
     static vector<int> &particleNum =
         __field.index.GetHandle("particle number");
@@ -248,7 +248,7 @@ bool GMLS_Solver::NeedRefinement() {
 
   __adaptive_step++;
 
-  if (__adaptive_step > 1) return false;
+  if (__adaptive_step > 0) return false;
 
   return true;
 }
