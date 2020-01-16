@@ -1,5 +1,5 @@
 # problem domain setup
--Dim 3 -Mx 40 -My 40 -Mz 40
+-Dim 3 -Mx 20 -My 20 -Mz 20
 
 # problem parameter setup
 -ft 0.001 -dt 0.01 -eta 1.0
@@ -11,10 +11,11 @@
 -ksp_type fgmres -ksp_monitor_true_residual 
 -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
 -fieldsplit_0_pc_type hypre
--fieldsplit_0_fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_fieldsplit_0_pc_hypre_boomeramg_coarsen_type CLJP
+-fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_pc_hypre_boomeramg_coarsen_type CLJP -fieldsplit_0_pc_boomeramg_strong_threshold 0.5
 -fieldsplit_0_ksp_rtol 1e-3
 -fieldsplit_1_pc_type hypre
 -fieldsplit_1_pc_hypre_type boomeramg -fieldsplit_1_pc_hypre_boomeramg_interp_type direct
+-fieldsplit_1_pc_hypre_boomeramg_strong_threshold 0.5
 -fieldsplit_1_pc_hypre_boomeramg_smooth_type euclid -fieldsplit_1_pc_hypre_boomeramg_smooth_num_levels 1 -fieldsplit_1_pc_hypre_boomeramg_eu_level 1 -fieldsplit_1_pc_hypre_boomeramg_eu_bj 1
 -fieldsplit_1_ksp_type fgmres
 -fieldsplit_1_ksp_rtol 1e-3
