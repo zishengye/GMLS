@@ -12,19 +12,19 @@ void GMLS_Solver::StokesEquationInitialization() {
   __field.scalar.Register("res");
 
   __gmls.Register("pressure basis",
-                  new GMLS(ScalarTaylorPolynomial,
+                  new GMLS(VectorTaylorPolynomial,
                            StaggeredEdgeAnalyticGradientIntegralSample,
                            __polynomialOrder, __dim, "SVD", "STANDARD"));
   __gmls.Register(
       "pressure basis neumann boundary",
-      new GMLS(ScalarTaylorPolynomial,
+      new GMLS(VectorTaylorPolynomial,
                StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
                __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
 
   __gmls.Register(
       "velocity basis",
       new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-               __polynomialOrder, __dim, "SVD", "STANDARD"));
+               __polynomialOrder, __dim, "LU", "STANDARD"));
 }
 
 void GMLS_Solver::StokesEquation() {
@@ -128,12 +128,12 @@ void GMLS_Solver::StokesEquation() {
 
   auto minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 2.2;
-  double neumannBoundaryEpsilonMultiplier = 2.7;
+  double epsilonMultiplier = 1.8;
+  double neumannBoundaryEpsilonMultiplier = 1.7;
 
   int estimatedUpperBoundNumberNeighbors =
-      8 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
-              minNeighbors, __dim, epsilonMultiplier);
+      10 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
+               minNeighbors, __dim, epsilonMultiplier);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
       "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
@@ -158,23 +158,26 @@ void GMLS_Solver::StokesEquation() {
   Kokkos::View<double *>::HostMirror neumannBoundaryEpsilon =
       Kokkos::create_mirror_view(neumannBoundaryEpsilonDevice);
 
-  auto maxNumNeighbors = pointCloudSearch.generateNeighborListsFromKNNSearch(
-      true, targetCoords, neighborLists, epsilon, minNeighbors,
-      epsilonMultiplier);
+  for (int i = 0; i < numTargetCoords; i++) {
+    epsilon(i) = __particleSize0[0] * 4.5;
+  }
+  for (int i = 0; i < neumannBoundaryNumTargetCoords; i++) {
+    neumannBoundaryEpsilon(i) = __particleSize0[0] * 4.5;
+  }
 
-  auto maxNumNeumannBoundaryNeighbors =
-      pointCloudSearch.generateNeighborListsFromKNNSearch(
-          true, neumannBoundaryTargetCoords, neumannBoundaryNeighborLists,
-          neumannBoundaryEpsilon, minNeighbors,
-          neumannBoundaryEpsilonMultiplier);
+  pointCloudSearch.generateNeighborListsFromRadiusSearch(
+      false, targetCoords, neighborLists, epsilon);
 
-  pointCloudSearch.generateNeighborListsFromKNNSearch(
-      false, targetCoords, neighborLists, epsilon, minNeighbors,
-      epsilonMultiplier);
-
-  pointCloudSearch.generateNeighborListsFromKNNSearch(
+  pointCloudSearch.generateNeighborListsFromRadiusSearch(
       false, neumannBoundaryTargetCoords, neumannBoundaryNeighborLists,
-      neumannBoundaryEpsilon, minNeighbors, epsilonMultiplier);
+      neumannBoundaryEpsilon);
+
+  for (int i = 0; i < numTargetCoords; i++) {
+    epsilon(i) = __particleSize0[0] * 1.5;
+  }
+  for (int i = 0; i < neumannBoundaryNumTargetCoords; i++) {
+    neumannBoundaryEpsilon(i) = __particleSize0[0] * 1.5;
+  }
 
   Kokkos::deep_copy(neighborListsDevice, neighborLists);
   Kokkos::deep_copy(epsilonDevice, epsilon);
@@ -219,18 +222,20 @@ void GMLS_Solver::StokesEquation() {
                                targetCoordsDevice, epsilonDevice);
 
   vector<TargetOperation> pressureOperation(2);
-  pressureOperation[0] = LaplacianOfScalarPointEvaluation;
+  pressureOperation[0] = DivergenceOfVectorPointEvaluation;
   pressureOperation[1] = GradientOfScalarPointEvaluation;
 
   pressureBasis.clearTargets();
   pressureBasis.addTargets(pressureOperation);
 
   pressureBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureBasis.setWeightingPower(2);
+  pressureBasis.setWeightingPower(4);
 
   pressureBasis.generateAlphas(number_of_batches);
 
   auto pressureAlphas = pressureBasis.getAlphas();
+
+  auto pressurePreStencilWeights = pressureBasis.getPrestencilWeights();
 
   const int pressureLaplacianIndex =
       pressureBasis.getAlphaColumnOffset(pressureOperation[0], 0, 0, 0, 0);
@@ -249,17 +254,20 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.setTangentBundle(tangentBundlesDevice);
 
   vector<TargetOperation> pressureNeumannBoundaryOperations(1);
-  pressureNeumannBoundaryOperations[0] = LaplacianOfScalarPointEvaluation;
+  pressureNeumannBoundaryOperations[0] = DivergenceOfVectorPointEvaluation;
 
   pressureNeumannBoundaryBasis.clearTargets();
   pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
 
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureNeumannBoundaryBasis.setWeightingPower(2);
+  pressureNeumannBoundaryBasis.setWeightingPower(4);
 
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
   auto pressureNeumannBoundaryAlphas = pressureNeumannBoundaryBasis.getAlphas();
+
+  auto pressureNeumannBoundaryPreStencilWeights =
+      pressureNeumannBoundaryBasis.getPrestencilWeights();
 
   const int pressureNeumannBoundaryLaplacianIndex =
       pressureNeumannBoundaryBasis.getAlphaColumnOffset(
@@ -280,7 +288,7 @@ void GMLS_Solver::StokesEquation() {
   velocityBasis.addTargets(velocityOperation);
 
   velocityBasis.setWeightingType(WeightingFunctionType::Power);
-  velocityBasis.setWeightingPower(2);
+  velocityBasis.setWeightingPower(4);
 
   velocityBasis.generateAlphas(number_of_batches);
 
@@ -480,11 +488,14 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-          LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+          DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
           neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-      for (int j = 0; j < neighborLists(i, 0); j++) {
+
+      for (int j = 0; j < neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0);
+           j++) {
         const int neighborParticleIndex =
-            backgroundSourceIndex[neighborLists(i, j + 1)];
+            backgroundSourceIndex[neumannBoundaryNeighborLists(
+                neumannBoudnaryIndex, j + 1)];
 
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           for (int axes2 = 0; axes2 < __dim; axes2++) {
@@ -517,11 +528,6 @@ void GMLS_Solver::StokesEquation() {
         A.increment(iPressureLocal, jPressureGlobal, -Aij);
         A.increment(iPressureLocal, iPressureGlobal, Aij);
 
-        // Lagrangian multiplier
-        A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
-        A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal,
-                              1.0);
-
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           const int iVelocityLocal =
               fieldDof * currentParticleLocalIndex + axes1;
@@ -538,9 +544,11 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
 
-      for (int j = 0; j < neighborLists(i, 0); j++) {
+      for (int j = 0; j < neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0);
+           j++) {
         const int neighborParticleIndex =
-            backgroundSourceIndex[neighborLists(i, j + 1)];
+            backgroundSourceIndex[neumannBoundaryNeighborLists(
+                neumannBoudnaryIndex, j + 1)];
 
         const int jPressureGlobal =
             fieldDof * neighborParticleIndex + velocityDof;
@@ -553,8 +561,12 @@ void GMLS_Solver::StokesEquation() {
         A.increment(iPressureLocal, iPressureGlobal, Aij);
       }
     }
+
+    // Lagrangian multiplier
+    A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
+    A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal, 1.0);
     // end of pressure block
-  }  // end of fluid particle loop
+  }  // end of fluid particle loop1
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
@@ -576,10 +588,6 @@ void GMLS_Solver::StokesEquation() {
   }
 
   A.FinalAssemble();
-
-  delete all_pressure;
-  delete all_velocity;
-  delete neuman_pressure;
 
   PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
 
@@ -629,12 +637,19 @@ void GMLS_Solver::StokesEquation() {
       // rhsVelocity[__dim * i + 2] = sin(x * M_PI + M_PI / 2.0) *
       //                              sin(y * M_PI + M_PI / 2.0) *
       //                              cos(z * M_PI + M_PI / 2.0);
-      rhs[i * fieldDof + velocityDof] = 0.0;
+
       // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       // const double bi =
       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-      //     LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+      //     DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
       //     neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+      // rhs[i * fieldDof + velocityDof] =
+      //     -2 * M_PI * bi *
+      //     (normal[i][0] * sin(2 * M_PI * coord[i][0]) *
+      //          cos(2 * M_PI * coord[i][1]) +
+      //      normal[i][1] * cos(2 * M_PI * coord[i][0]) *
+      //          sin(2 * M_PI * coord[i][1]));
+
       // rhsPressure[i] = (normal[i][0] + normal[i][1]) * bi;
       // rhsVelocity[__dim * i] = pow(coord[i][0], 2) - pow(coord[i][1], 2);
       // rhsVelocity[__dim * i + 1] = -pow(coord[i][0], 2) + pow(coord[i][1],
@@ -643,11 +658,17 @@ void GMLS_Solver::StokesEquation() {
       for (int axes = 0; axes < __dim; axes++) {
         rhs[fieldDof * i + axes] = 0.0;
       }
-      rhs[fieldDof * i + velocityDof] = 0.0;
+      // rhs[fieldDof * i + velocityDof] = -8.0 * pow(M_PI, 2) *
+      //                                   cos(2 * M_PI * coord[i][0]) *
+      //                                   cos(2 * M_PI * coord[i][1]);
       // rhsVelocity[__dim * i] = 2 * coord[i][0];
       // rhsVelocity[__dim * i + 1] = -2 * coord[i][1];
     }
   }
+
+  delete all_pressure;
+  delete all_velocity;
+  delete neuman_pressure;
 
   MPI_Barrier(MPI_COMM_WORLD);
   if (numRigidBody == 0) {
