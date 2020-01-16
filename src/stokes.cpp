@@ -159,10 +159,10 @@ void GMLS_Solver::StokesEquation() {
       Kokkos::create_mirror_view(neumannBoundaryEpsilonDevice);
 
   for (int i = 0; i < numTargetCoords; i++) {
-    epsilon(i) = __particleSize0[0] * 4.5;
+    epsilon(i) = __particleSize0[0] * 2.5;
   }
   for (int i = 0; i < neumannBoundaryNumTargetCoords; i++) {
-    neumannBoundaryEpsilon(i) = __particleSize0[0] * 4.5;
+    neumannBoundaryEpsilon(i) = __particleSize0[0] * 2.5;
   }
 
   pointCloudSearch.generateNeighborListsFromRadiusSearch(
@@ -173,10 +173,10 @@ void GMLS_Solver::StokesEquation() {
       neumannBoundaryEpsilon);
 
   for (int i = 0; i < numTargetCoords; i++) {
-    epsilon(i) = __particleSize0[0] * 1.5;
+    epsilon(i) = __particleSize0[0] * 2.5;
   }
   for (int i = 0; i < neumannBoundaryNumTargetCoords; i++) {
-    neumannBoundaryEpsilon(i) = __particleSize0[0] * 1.5;
+    neumannBoundaryEpsilon(i) = __particleSize0[0] * 2.5;
   }
 
   Kokkos::deep_copy(neighborListsDevice, neighborLists);
