@@ -128,12 +128,9 @@ void GMLS_Solver::StokesEquation() {
 
   auto minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 1.8;
-  double neumannBoundaryEpsilonMultiplier = 1.7;
+  double epsilonMultiplier = 2.5;
 
-  int estimatedUpperBoundNumberNeighbors =
-      10 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
-               minNeighbors, __dim, epsilonMultiplier);
+  int estimatedUpperBoundNumberNeighbors = pow(2 * epsilonMultiplier, __dim);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
       "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
@@ -159,10 +156,10 @@ void GMLS_Solver::StokesEquation() {
       Kokkos::create_mirror_view(neumannBoundaryEpsilonDevice);
 
   for (int i = 0; i < numTargetCoords; i++) {
-    epsilon(i) = __particleSize0[0] * 2.5;
+    epsilon(i) = __particleSize0[0] * epsilonMultiplier;
   }
   for (int i = 0; i < neumannBoundaryNumTargetCoords; i++) {
-    neumannBoundaryEpsilon(i) = __particleSize0[0] * 2.5;
+    neumannBoundaryEpsilon(i) = __particleSize0[0] * epsilonMultiplier;
   }
 
   pointCloudSearch.generateNeighborListsFromRadiusSearch(
@@ -171,13 +168,6 @@ void GMLS_Solver::StokesEquation() {
   pointCloudSearch.generateNeighborListsFromRadiusSearch(
       false, neumannBoundaryTargetCoords, neumannBoundaryNeighborLists,
       neumannBoundaryEpsilon);
-
-  for (int i = 0; i < numTargetCoords; i++) {
-    epsilon(i) = __particleSize0[0] * 2.5;
-  }
-  for (int i = 0; i < neumannBoundaryNumTargetCoords; i++) {
-    neumannBoundaryEpsilon(i) = __particleSize0[0] * 2.5;
-  }
 
   Kokkos::deep_copy(neighborListsDevice, neighborLists);
   Kokkos::deep_copy(epsilonDevice, epsilon);
@@ -222,7 +212,7 @@ void GMLS_Solver::StokesEquation() {
                                targetCoordsDevice, epsilonDevice);
 
   vector<TargetOperation> pressureOperation(2);
-  pressureOperation[0] = DivergenceOfVectorPointEvaluation;
+  pressureOperation[0] = LaplacianOfScalarPointEvaluation;
   pressureOperation[1] = GradientOfScalarPointEvaluation;
 
   pressureBasis.clearTargets();
@@ -254,7 +244,7 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.setTangentBundle(tangentBundlesDevice);
 
   vector<TargetOperation> pressureNeumannBoundaryOperations(1);
-  pressureNeumannBoundaryOperations[0] = DivergenceOfVectorPointEvaluation;
+  pressureNeumannBoundaryOperations[0] = LaplacianOfScalarPointEvaluation;
 
   pressureNeumannBoundaryBasis.clearTargets();
   pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
@@ -488,7 +478,7 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-          DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
+          LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
           neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
 
       for (int j = 0; j < neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0);
@@ -605,9 +595,9 @@ void GMLS_Solver::StokesEquation() {
     res[i] = 0.0;
   }
 
-  // boundary condition
   for (int i = 0; i < localParticleNum; i++) {
     if (particleType[i] != 0 && particleType[i] < 4) {
+      // fluid domain boundary
       for (int axes = 0; axes < __dim; axes++) {
         // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
         // rhs[fieldDof * i + axes] =
@@ -628,36 +618,48 @@ void GMLS_Solver::StokesEquation() {
       // double x = coord[i][0] / __boundingBoxSize[0];
       // double y = coord[i][1] / __boundingBoxSize[1];
       // double z = coord[i][2] / __boundingBoxSize[2];
-      // rhsVelocity[__dim * i] = cos(x * M_PI + M_PI / 2.0) *
-      //                          sin(y * M_PI + M_PI / 2.0) *
-      //                          sin(z * M_PI + M_PI / 2.0);
-      // rhsVelocity[__dim * i + 1] = -2 * sin(x * M_PI + M_PI / 2.0) *
-      //                              cos(y * M_PI + M_PI / 2.0) *
-      //                              sin(z * M_PI + M_PI / 2.0);
-      // rhsVelocity[__dim * i + 2] = sin(x * M_PI + M_PI / 2.0) *
-      //                              sin(y * M_PI + M_PI / 2.0) *
-      //                              cos(z * M_PI + M_PI / 2.0);
+      // double coordX = coord[i][0];
+      // double coordY = coord[i][1];
+      // rhs[fieldDof * i] = cos(2.0 * M_PI * coordX) * cos(2.0 * M_PI *
+      // coordY); rhs[fieldDof * i + 1] =
+      //     sin(2.0 * M_PI * coordX) * sin(2.0 * M_PI * coordY);
 
       // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       // const double bi =
       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-      //     DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
+      //     LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
       //     neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
       // rhs[i * fieldDof + velocityDof] =
-      //     -2 * M_PI * bi *
-      //     (normal[i][0] * sin(2 * M_PI * coord[i][0]) *
-      //          cos(2 * M_PI * coord[i][1]) +
-      //      normal[i][1] * cos(2 * M_PI * coord[i][0]) *
-      //          sin(2 * M_PI * coord[i][1]));
+      //     bi * (normal[i][0] * (8.0 * pow(M_PI, 2) * cos(2.0 * M_PI * coordX)
+      //     *
+      //                               cos(2.0 * M_PI * coordY) -
+      //                           2.0 * M_PI * sin(2.0 * M_PI * coordX) *
+      //                               cos(2.0 * M_PI * coordY)) +
+      //           normal[i][1] * (8.0 * pow(M_PI, 2) * sin(2.0 * M_PI * coordX)
+      //           *
+      //                               sin(2.0 * M_PI * coordY) -
+      //                           2.0 * M_PI * cos(2.0 * M_PI * coordX) *
+      //                               sin(2.0 * M_PI * coordY)));
 
       // rhsPressure[i] = (normal[i][0] + normal[i][1]) * bi;
       // rhsVelocity[__dim * i] = pow(coord[i][0], 2) - pow(coord[i][1], 2);
       // rhsVelocity[__dim * i + 1] = -pow(coord[i][0], 2) + pow(coord[i][1],
       // 2);
     } else {
-      for (int axes = 0; axes < __dim; axes++) {
-        rhs[fieldDof * i + axes] = 0.0;
-      }
+      // fluid interior
+      // double coordX = coord[i][0];
+      // double coordY = coord[i][1];
+      // rhs[fieldDof * i] =
+      //     8.0 * pow(M_PI, 2) * cos(2.0 * M_PI * coordX) *
+      //         cos(2.0 * M_PI * coordY) -
+      //     2.0 * M_PI * sin(2.0 * M_PI * coordX) * cos(2.0 * M_PI * coordY);
+      // rhs[fieldDof * i + 1] =
+      //     8.0 * pow(M_PI, 2) * sin(2.0 * M_PI * coordX) *
+      //         sin(2.0 * M_PI * coordY) -
+      //     2.0 * M_PI * cos(2.0 * M_PI * coordX) * sin(2.0 * M_PI * coordY);
+      // for (int axes = 0; axes < __dim; axes++) {
+      //   rhs[fieldDof * i + axes] = 0.0;
+      // }
       // rhs[fieldDof * i + velocityDof] = -8.0 * pow(M_PI, 2) *
       //                                   cos(2 * M_PI * coord[i][0]) *
       //                                   cos(2 * M_PI * coord[i][1]);
@@ -670,13 +672,83 @@ void GMLS_Solver::StokesEquation() {
   delete all_velocity;
   delete neuman_pressure;
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  if (numRigidBody == 0) {
-    A.Solve(rhs, res, __dim);
-  } else {
-    A.Solve(rhs, res, __dim, numRigidBody);
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // if (numRigidBody == 0) {
+  //   A.Solve(rhs, res, __dim);
+  // } else {
+  //   A.Solve(rhs, res, __dim, numRigidBody);
+  // }
+  // MPI_Barrier(MPI_COMM_WORLD);
+
+  // double residual = 0.0;
+  // for (int i = 0; i < localParticleNum; i++) {
+  //   double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
+  //   double coordX = coord[i][0];
+  //   double coordY = coord[i][1];
+  //   double actual_u = 1.5 * (1.0 - coord[i][1] * coord[i][1] / Hsqr);
+  //   double actual_v = 0.0;
+  //   double actual_p = -3.0 * coordX / __boundingBox[1][0];
+  //   double gmls_u = res[fieldDof * i];
+  //   double gmls_v = res[fieldDof * i + 1];
+  //   double gmls_p = res[fieldDof * i + velocityDof];
+  //   residual += pow(actual_u - gmls_u, 2) + pow(actual_v - gmls_v, 2) +
+  //               pow(actual_p - gmls_p, 2.0);
+  // }
+  // MPI_Allreduce(MPI_IN_PLACE, &residual, 1, MPI_DOUBLE, MPI_SUM,
+  //               MPI_COMM_WORLD);
+  // PetscPrintf(PETSC_COMM_WORLD, "norm-2 residual: %f\n",
+  //             sqrt(residual) / globalParticleNum);
+
+  // operator checking
+  double residual_gradient = 0.0;
+  double residual_laplacian = 0.0;
+  for (int i = 0; i < localParticleNum; i++) {
+    double gmls_gradient[2] = {0.0, 0.0};
+    double gmls_laplacian = 0.0;
+    double local_x = coord[i][0];
+    double local_y = coord[i][1];
+    double local_pressure = cos(2 * M_PI * local_x) * cos(2 * M_PI * local_y);
+    for (int j = 0; j < neighborLists(i, 0); j++) {
+      const int neighborParticleIndex =
+          backgroundSourceIndex[neighborLists(i, j + 1)];
+
+      double neighbor_x = backgroundSourceCoord[neighborLists(i, j + 1)][0];
+      double neighbor_y = backgroundSourceCoord[neighborLists(i, j + 1)][1];
+      double neighbor_pressure =
+          cos(2 * M_PI * neighbor_x) * cos(2 * M_PI * neighbor_y);
+
+      const double Aij = pressureAlphas(i, pressureLaplacianIndex, j);
+      gmls_laplacian -= Aij * neighbor_pressure;
+      gmls_laplacian += Aij * local_pressure;
+
+      for (int axes1 = 0; axes1 < __dim; axes1++) {
+        const double Dijx = pressureAlphas(i, pressureGradientIndex[axes1], j);
+
+        gmls_gradient[axes1] -= Dijx * neighbor_pressure;
+        gmls_gradient[axes1] += Dijx * local_pressure;
+      }
+    }
+
+    double actual_gradient[2] = {
+        -2 * M_PI * sin(2 * M_PI * local_x) * cos(2 * M_PI * local_y),
+        -2 * M_PI * cos(2 * M_PI * local_x) * sin(2 * M_PI * local_y)};
+    double actual_laplacian =
+        -8 * pow(M_PI, 2.0) * cos(2 * M_PI * local_x) * cos(2 * M_PI * local_y);
+
+    residual_gradient += sqrt(pow(actual_gradient[0] - gmls_gradient[0], 2) +
+                              pow(actual_gradient[1] - gmls_gradient[1], 2));
+    residual_laplacian += pow(actual_laplacian - gmls_laplacian, 2.0);
   }
   MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &residual_gradient, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &residual_laplacian, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "norm-2 residual: %f\n",
+              residual_gradient / globalParticleNum);
+  PetscPrintf(PETSC_COMM_WORLD, "norm-2 residual: %f\n",
+              sqrt(residual_laplacian) / globalParticleNum);
+
   // copy data
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
   static vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
