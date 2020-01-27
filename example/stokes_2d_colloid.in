@@ -1,5 +1,5 @@
 # problem domain setup
--Dim 2 -Mx 300 -My 300
+-Dim 2 -Mx 100 -My 100
 
 # problem parameter setup
 -ft 0.001 -dt 0.01 -eta 1.0
@@ -11,7 +11,7 @@
 -ksp_type fgmres -ksp_monitor_true_residual 
 -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
 -fieldsplit_0_pc_type hypre -fieldsplit_0_ksp_type fgmres
--fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_pc_hypre_boomeramg_smooth_type euclid -fieldsplit_0_pc_hypre_boomeramg_smooth_num_level 1 -fieldsplit_0_pc_hypre_boomeramg_eu_level 1 -fieldsplit_0_pc_hypre_boomeramg_eu_bj 1
+-fieldsplit_0_pc_hypre_type boomeramg
 -fieldsplit_0_ksp_rtol 1e-3
 -fieldsplit_0_ksp_monitor
 -fieldsplit_1_ksp_type preonly
