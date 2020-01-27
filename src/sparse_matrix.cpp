@@ -192,19 +192,19 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   PC _pc;
 
-  // KSPGetPC(_ksp, &_pc);
-  // PCFieldSplitSetIS(_pc, "0", isg_velocity);
-  // PCFieldSplitSetIS(_pc, "1", isg_pressure);
+  KSPGetPC(_ksp, &_pc);
+  PCFieldSplitSetIS(_pc, "0", isg_velocity);
+  PCFieldSplitSetIS(_pc, "1", isg_pressure);
 
-  // PCFieldSplitSetSchurPre(_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, up_s);
+  PCFieldSplitSetSchurPre(_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, up_s);
 
-  // KSP *_subKsp;
-  // PetscInt n = 1;
-  // PCSetUp(_pc);
-  // PCFieldSplitGetSubKSP(_pc, &n, &_subKsp);
-  // KSPSetOperators(_subKsp[1], up_s, up_s);
-  // KSPSetFromOptions(_subKsp[0]);
-  // KSPSetOperators(_subKsp[0], uu, uu);
+  KSP *_subKsp;
+  PetscInt n = 1;
+  PCSetUp(_pc);
+  PCFieldSplitGetSubKSP(_pc, &n, &_subKsp);
+  KSPSetOperators(_subKsp[1], up_s, up_s);
+  KSPSetFromOptions(_subKsp[0]);
+  KSPSetOperators(_subKsp[0], uu, uu);
 
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   KSPSolve(_ksp, _rhs, _x);
@@ -365,22 +365,22 @@ void PetscSparseMatrix::Solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetFromOptions(_subKsp[0]);
   KSPSetOperators(_subKsp[0], ff, ff);
 
-  // PC subpc;
-  // KSPGetPC(_subKsp[0], &subpc);
+  PC subpc;
+  KSPGetPC(_subKsp[0], &subpc);
 
-  // PCFieldSplitSetIS(subpc, "0", isg_velocity);
-  // PCFieldSplitSetIS(subpc, "1", isg_pressure);
+  PCFieldSplitSetIS(subpc, "0", isg_velocity);
+  PCFieldSplitSetIS(subpc, "1", isg_pressure);
 
-  // PCFieldSplitSetSchurPre(subpc, PC_FIELDSPLIT_SCHUR_PRE_USER, up_s);
+  PCFieldSplitSetSchurPre(subpc, PC_FIELDSPLIT_SCHUR_PRE_USER, up_s);
 
   // setup sub solver
-  // KSP *_subsubKsp;
-  // PCSetFromOptions(subpc);
-  // PCSetUp(subpc);
-  // PCFieldSplitGetSubKSP(subpc, &n, &_subsubKsp);
-  // KSPSetOperators(_subsubKsp[1], up_s, up_s);
-  // KSPSetFromOptions(_subsubKsp[0]);
-  // PetscFree(_subsubKsp);
+  KSP *_subsubKsp;
+  PCSetFromOptions(subpc);
+  PCSetUp(subpc);
+  PCFieldSplitGetSubKSP(subpc, &n, &_subsubKsp);
+  KSPSetOperators(_subsubKsp[1], up_s, up_s);
+  KSPSetFromOptions(_subsubKsp[0]);
+  PetscFree(_subsubKsp);
 
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");

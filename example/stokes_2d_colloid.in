@@ -10,10 +10,16 @@
 # linear solver setup
 -ksp_type fgmres -ksp_monitor_true_residual 
 -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
--fieldsplit_0_pc_type hypre -fieldsplit_0_ksp_type fgmres
--fieldsplit_0_pc_hypre_type boomeramg
--fieldsplit_0_ksp_rtol 1e-3
+-fieldsplit_0_pc_type fieldsplit -fieldsplit_0_ksp_type fgmres
+-fieldsplit_0_pc_fieldsplit_type schur -fieldsplit_0_pc_fieldsplit_schur_fact_type lower
+-fieldsplit_0_fieldsplit_0_pc_type hypre
+-fieldsplit_0_fieldsplit_1_pc_type hypre
+-fieldsplit_0_fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_fieldsplit_0_pc_hypre_boomeramg_coarsen_type CLJP
+-fieldsplit_0_fieldsplit_1_pc_hypre_type boomeramg -fieldsplit_0_fieldsplit_1_pc_hypre_boomeramg_interp_type standard-wts -fieldsplit_0_fieldsplit_1_pc_hypre_boomeramg_coarsen_type Ruge-Stueben
+-fieldsplit_0_fieldsplit_0_ksp_type fgmres -fieldsplit_0_fieldsplit_0_ksp_rtol 1e-3
+-fieldsplit_0_fieldsplit_1_ksp_type fgmres -fieldsplit_0_fieldsplit_1_ksp_rtol 1e-3
 -fieldsplit_0_ksp_monitor
+-fieldsplit_0_ksp_rtol 1e-1
 -fieldsplit_1_ksp_type preonly
 -fieldsplit_1_ksp_rtol 1e-3
 -fieldsplit_1_pc_type lu

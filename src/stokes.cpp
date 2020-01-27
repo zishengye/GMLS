@@ -559,7 +559,7 @@ void GMLS_Solver::StokesEquation() {
     // Lagrangian multiplier for pressure
     // add a penalty factor
     A.increment(localLagrangeMultiplierOffset, globalLagrangeMultiplierOffset,
-                0.0);
+                globalParticleNum);
   }
 
   A.FinalAssemble();
