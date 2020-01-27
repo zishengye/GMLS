@@ -14,7 +14,7 @@ void GMLS_Solver::InitRigidBody() {
       __rigidBody.vector.Register("angular velocity");
   vector<double> &rigidBodySize = __rigidBody.scalar.Register("size");
   // initialize data storage
-  int Nr = 0;
+  int Nr = 2;
 
   rigidBodyPosition.resize(Nr);
   rigidBodyOrientation.resize(Nr);
@@ -22,10 +22,15 @@ void GMLS_Solver::InitRigidBody() {
   rigidBodyAngularVelocity.resize(Nr);
   rigidBodySize.resize(Nr);
 
-  // rigidBodyPosition[0][0] = 0.0;
-  // rigidBodyPosition[0][1] = 0.5;
-  // rigidBodyPosition[0][2] = 0.0;
-  // rigidBodySize[0] = 0.1;
+  rigidBodyPosition[0][0] = 0.15;
+  rigidBodyPosition[0][1] = -0.15;
+  rigidBodyPosition[0][2] = 0.0;
+  rigidBodySize[0] = 0.1;
+
+  rigidBodyPosition[1][0] = -0.15;
+  rigidBodyPosition[1][1] = 0.15;
+  rigidBodyPosition[1][2] = 0.0;
+  rigidBodySize[1] = 0.1;
 
   // rigidBodyPosition[0][0] = -1.0;
   // rigidBodyPosition[0][1] = 1.0;
@@ -82,7 +87,7 @@ int GMLS_Solver::IsInRigidBody(vec3 &pos, double h) {
     vec3 dis = pos - rigidBodyCoord[i];
     if (dis.mag() < rigidBodySize[i] - 0.5 * __particleSize0[0]) {
       return -1;
-    } else if ((dis.mag() + 1e-15) < (rigidBodySize[i] + 0.25 * h)) {
+    } else if ((dis.mag() + 1e-15) < (rigidBodySize[i] + 0.5 * h)) {
       return i;
     }
   }
@@ -98,7 +103,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
 
   int localIndex = fluidCoord.size();
   if (__dim == 3) {
-    double h = __particleSize0[0] / 2.0;
+    double h = __particleSize0[0];
     double vol = pow(h, 3);
     double a = pow(h, 2);
 
@@ -130,7 +135,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
   }
 
   if (__dim == 2) {
-    double h = __particleSize0[0] / 2.0;
+    double h = __particleSize0[0];
     double vol = pow(h, 2);
 
     vec3 particleSize = vec3(h, h, 0);
