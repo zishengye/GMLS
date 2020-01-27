@@ -75,6 +75,9 @@ class GMLS_Solver {
   // rigid body info
   GeneralInfo __rigidBody;
 
+  std::string __rigidBodyInputFileName;
+  bool __rigidBodyInclusion;
+
   // gmls info
   gmlsInfo __gmls;
 

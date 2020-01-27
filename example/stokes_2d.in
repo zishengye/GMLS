@@ -9,14 +9,7 @@
 
 # linear solver setup
 -ksp_type fgmres -ksp_monitor_true_residual 
--pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
--fieldsplit_0_pc_type lu
--fieldsplit_0_fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_fieldsplit_0_pc_hypre_boomeramg_coarsen_type CLJP
--fieldsplit_0_ksp_rtol 1e-3
--fieldsplit_1_pc_type lu
--fieldsplit_1_pc_hypre_type boomeramg -fieldsplit_1_pc_hypre_boomeramg_interp_type direct
--fieldsplit_1_pc_hypre_boomeramg_smooth_type euclid -fieldsplit_1_pc_hypre_boomeramg_smooth_num_levels 1 -fieldsplit_1_pc_hypre_boomeramg_eu_level 1 -fieldsplit_1_pc_hypre_boomeramg_eu_bj 1
--fieldsplit_1_ksp_type fgmres
--fieldsplit_1_ksp_rtol 1e-3
+-pc_type hypre -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
+-pc_hypre_type boomeramg -pc_hypre_boomeramg_smooth_type euclid -pc_hypre_boomeramg_smooth_num_level 1 -pc_hypre_boomeramg_eu_level 1 -pc_hypre_boomeramg_eu_bj 1
 -ksp_rtol 1e-5
 -ksp_converged_reason

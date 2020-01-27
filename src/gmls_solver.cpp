@@ -76,6 +76,12 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     }
   }
 
+  // [optional command]
+  if (SearchCommand<string>(argc, argv, "-rigid_body_input",
+                            __rigidBodyInputFileName) == 0) {
+    __rigidBodyInclusion = true;
+  }
+
   // [parameter must appear in command]
 
   // discretization parameter

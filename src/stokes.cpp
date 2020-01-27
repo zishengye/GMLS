@@ -557,8 +557,9 @@ void GMLS_Solver::StokesEquation() {
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
+    // add a penalty factor
     A.increment(localLagrangeMultiplierOffset, globalLagrangeMultiplierOffset,
-                globalParticleNum);
+                0.0);
   }
 
   A.FinalAssemble();
@@ -682,7 +683,6 @@ void GMLS_Solver::StokesEquation() {
         rigidBodyVelocity[i][j] =
             res[localRigidBodyOffset + i * rigidBodyDof + j];
       }
-      cout << endl;
       for (int j = 0; j < rotationDof; j++) {
         rigidBodyAngularVelocity[i][j] =
             res[localRigidBodyOffset + i * rigidBodyDof + translationDof + j];

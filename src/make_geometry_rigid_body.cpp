@@ -1,7 +1,9 @@
 #include "gmls_solver.h"
 
 #include <cmath>
+#include <fstream>
 #include <iostream>
+#include <string>
 
 using namespace std;
 
@@ -13,70 +15,35 @@ void GMLS_Solver::InitRigidBody() {
   vector<vec3> &rigidBodyAngularVelocity =
       __rigidBody.vector.Register("angular velocity");
   vector<double> &rigidBodySize = __rigidBody.scalar.Register("size");
-  // initialize data storage
-  int Nr = 2;
 
-  rigidBodyPosition.resize(Nr);
-  rigidBodyOrientation.resize(Nr);
-  rigidBodyVelocity.resize(Nr);
-  rigidBodyAngularVelocity.resize(Nr);
-  rigidBodySize.resize(Nr);
+  if (__rigidBodyInclusion) {
+    ifstream input(__rigidBodyInputFileName, ios::in);
+    if (!input.is_open()) {
+      PetscPrintf(PETSC_COMM_WORLD, "rigid body input file not exist\n");
+      return;
+    }
 
-  rigidBodyPosition[0][0] = 0.15;
-  rigidBodyPosition[0][1] = -0.15;
-  rigidBodyPosition[0][2] = 0.0;
-  rigidBodySize[0] = 0.1;
+    while (!input.eof()) {
+      vec3 xyz;
+      double size;
+      int type;
+      for (int i = 0; i < __dim; i++) {
+        input >> xyz[i];
+      }
+      rigidBodyPosition.push_back(xyz);
+      input >> size;
+      input >> type;
+      rigidBodySize.push_back(size);
 
-  rigidBodyPosition[1][0] = -0.15;
-  rigidBodyPosition[1][1] = 0.15;
-  rigidBodyPosition[1][2] = 0.0;
-  rigidBodySize[1] = 0.1;
+      rigidBodyOrientation.push_back(vec3(0.0, 0.0, 0.0));
+      rigidBodyVelocity.push_back(vec3(0.0, 0.0, 0.0));
+      rigidBodyAngularVelocity.push_back(vec3(0.0, 0.0, 0.0));
+    }
 
-  // rigidBodyPosition[0][0] = -1.0;
-  // rigidBodyPosition[0][1] = 1.0;
-  // rigidBodyPosition[0][2] = 1.0;
-  // rigidBodySize[0] = 1.0;
-
-  // rigidBodyPosition[1][0] = 0.0;
-  // rigidBodyPosition[1][1] = -1.0;
-  // rigidBodyPosition[1][2] = -1.5;
-  // rigidBodySize[1] = 1.0;
-
-  // rigidBodyPosition[2][0] = -3.0;
-  // rigidBodyPosition[2][1] = -2.0;
-  // rigidBodyPosition[2][2] = 2.7;
-  // rigidBodySize[2] = 1.0;
-
-  // rigidBodyPosition[3][0] = 2.3;
-  // rigidBodyPosition[3][1] = -0.5;
-  // rigidBodyPosition[3][2] = 1.7;
-  // rigidBodySize[3] = 1.0;
-
-  // rigidBodyPosition[4][0] = -1.0;
-  // rigidBodyPosition[4][1] = 1.0;
-  // rigidBodyPosition[4][2] = 1.0;
-  // rigidBodySize[4] = 1.0;
-
-  // rigidBodyPosition[5][0] = 0.0;
-  // rigidBodyPosition[5][1] = -1.0;
-  // rigidBodyPosition[5][2] = -1.5;
-  // rigidBodySize[5] = 1.0;
-
-  // rigidBodyPosition[6][0] = -1.0;
-  // rigidBodyPosition[6][1] = 1.0;
-  // rigidBodyPosition[6][2] = 1.0;
-  // rigidBodySize[6] = 1.0;
-
-  // rigidBodyPosition[7][0] = 0.0;
-  // rigidBodyPosition[7][1] = -1.0;
-  // rigidBodyPosition[7][2] = -1.5;
-  // rigidBodySize[7] = 1.0;
-
-  // rigidBodyCoord[0][0] = 0;
-  // rigidBodyCoord[0][1] = 0;
-  // rigidBodyCoord[0][2] = 0;
-
-  // rigidBodySize[0] = 1.0;
+    MPI_Barrier(MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "==> Number of rigid body: %d\n",
+                rigidBodyPosition.size());
+  }
 }
 
 int GMLS_Solver::IsInRigidBody(vec3 &pos, double h) {

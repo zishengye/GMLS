@@ -95,6 +95,7 @@ void GMLS_Solver::BuildNeighborList() {
   static vector<int> &globalIndex = __field.index.GetHandle("global index");
   static vector<int> &particleNum = __field.index.GetHandle("particle number");
 
+  MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nBuilding neighbor list...\n");
   // set up neighbor list for communication
   backgroundSourceCoord.clear();
