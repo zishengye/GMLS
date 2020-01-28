@@ -82,9 +82,6 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecAXPY(t2, -1.0, x2);
   VecDuplicate(x2, &z2);
   KSPSolve(shell->nearField, t2, z2);
-  KSPConvergedReason reason;
-  KSPGetConvergedReason(shell->nearField, &reason);
-  PetscPrintf(PETSC_COMM_WORLD, "convergence reason: %d\n", reason);
   VecAXPY(y2, -1.0, z2);
   VecRestoreSubVector(y, shell->isg1, &y2);
 

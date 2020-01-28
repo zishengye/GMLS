@@ -570,6 +570,9 @@ void GMLS_Solver::StokesEquation() {
                              A.__j.begin() + A.__i[localRigidBodyOffset],
                              A.__j.end());
 
+    for (int i = 0; i < rigidBodyDof * numRigidBody; i++) {
+      neighborInclusion.push_back(globalRigidBodyOffset + i);
+    }
     sort(neighborInclusion.begin(), neighborInclusion.end());
 
     auto it = unique(neighborInclusion.begin(), neighborInclusion.end());
