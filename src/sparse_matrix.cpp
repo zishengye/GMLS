@@ -666,3 +666,232 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
 
   VecDestroy(&_diag);
 }
+
+struct HypreLUShellPC {
+  KSP field;
+  KSP rigid;
+  KSP nearField;
+
+  IS isg0, isg1, isgr;
+
+  Mat *A, *rf;
+};
+
+PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell) {
+  HypreLUShellPC *newctx;
+
+  PetscNew(&newctx);
+  *shell = newctx;
+
+  return 0;
+}
+
+PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
+                                   Mat *rfmat, Mat *rsmat, IS *isg0, IS *isg1,
+                                   IS *isgr, IS *isg00, IS *isg01, Mat *asmat,
+                                   Vec x) {
+  HypreLUShellPC *shell;
+  PCShellGetContext(pc, (void **)&shell);
+
+  shell->A = a;
+  shell->rf = rfmat;
+
+  KSPCreate(PETSC_COMM_WORLD, &shell->field);
+  KSPCreate(PETSC_COMM_WORLD, &shell->nearField);
+  // KSPCreate(PETSC_COMM_WORLD, &shell->rigid);
+  KSPSetOperators(shell->field, *amat, *amat);
+  KSPSetOperators(shell->nearField, *cmat, *cmat);
+  // KSPSetOperators(shell->rigid, *rsmat, *rsmat);
+  ISDuplicate(*isg0, &shell->isg0);
+  ISDuplicate(*isg1, &shell->isg1);
+  ISDuplicate(*isgr, &shell->isgr);
+  KSPSetType(shell->field, KSPFGMRES);
+  KSPSetType(shell->nearField, KSPPREONLY);
+  // KSPSetType(shell->rigid, KSPPREONLY);
+  KSPSetTolerances(shell->field, 1e-1, 1e-50, 1e5, 5000);
+  KSPSetTolerances(shell->nearField, 1e-6, 1e-50, 1e5, 1);
+  // KSPSetTolerances(shell->rigid, 1e-6, 1e-50, 1e5, 1);
+
+  PC pcField;
+  PC pcRigid;
+  PC pcNearField;
+
+  KSPGetPC(shell->field, &pcField);
+  PCSetType(pcField, PCFIELDSPLIT);
+  PCFieldSplitSetIS(pcField, "0", *isg00);
+  PCFieldSplitSetIS(pcField, "1", *isg01);
+  PCFieldSplitSetSchurPre(pcField, PC_FIELDSPLIT_SCHUR_PRE_USER, *asmat);
+  PCSetFromOptions(pcField);
+  PCSetUp(pcField);
+
+  // KSPGetPC(shell->rigid, &pcRigid);
+  // PCSetType(pcRigid, PCLU);
+  // PCSetUp(pcRigid);
+
+  KSPGetPC(shell->nearField, &pcNearField);
+  PCSetType(pcNearField, PCLU);
+  PCSetUp(pcNearField);
+
+  KSPSetUp(shell->field);
+  KSPSetUp(shell->nearField);
+  // KSPSetUp(shell->rigid);
+
+  return 0;
+}
+
+PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
+  Vec x1, x2, y1, y2, z1, z2, t, t1, t2;
+
+  HypreLUShellPC *shell;
+  PCShellGetContext(pc, (void **)&shell);
+
+  // additive
+  // VecSet(y, 0.0);
+
+  // VecGetSubVector(x, shell->isg0, &x1);
+  // VecGetSubVector(y, shell->isg0, &y1);
+  // KSPSolve(shell->field, x1, y1);
+  // VecRestoreSubVector(y, shell->isg0, &y1);
+
+  // VecGetSubVector(x, shell->isg1, &x2);
+  // VecGetSubVector(y, shell->isg1, &y2);
+  // VecDuplicate(x2, &z2);
+  // KSPSolve(shell->rigid, x2, z2);
+  // VecAXPY(y2, 1.0, z2);
+  // VecRestoreSubVector(y, shell->isg1, &y2);
+
+  // multiplicative 1 - first field, then rigid
+  VecSet(y, 0.0);
+
+  VecGetSubVector(x, shell->isg0, &x1);
+  VecGetSubVector(y, shell->isg0, &y1);
+  KSPSolve(shell->field, x1, y1);
+  VecRestoreSubVector(y, shell->isg0, &y1);
+
+  VecDuplicate(x, &t);
+  MatMult(*shell->A, y, t);
+  VecGetSubVector(x, shell->isg1, &x2);
+  VecGetSubVector(y, shell->isg1, &y2);
+  VecGetSubVector(t, shell->isg1, &t2);
+  VecAXPY(t2, -1.0, x2);
+  VecDuplicate(x2, &z2);
+  KSPSolve(shell->nearField, t2, z2);
+  VecAXPY(y2, -1.0, z2);
+  VecRestoreSubVector(y, shell->isg1, &y2);
+
+  // multiplicative 2 - first rigid, then field
+  // VecSet(y, 0.0);
+
+  // VecGetSubVector(x, shell->isg1, &x2);
+  // VecGetSubVector(y, shell->iisgr
+  // VecDuplicate(x1, &z1);
+  // KSPSolve(shell->field, t1, z1);
+  // VecAXPY(y1, -1.0, z1);
+  // VecRestoreSubVector(y, shell->isg0, &y1);
+
+  // // composite schwarz + schur
+  // VecSet(y, 0.0);
+
+  // VecGetSubVector(x, shell->isg0, &x1);
+  // VecGetSubVector(y, shell->isg0, &y1);
+  // KSPSolve(shell->field, x1, y1);
+  // VecDuplicate(y1, &z1);
+  // VecCopy(y1, z1);
+  // VecRestoreSubVector(y, shell->isg0, &y1);
+
+  // VecDuplicate(x, &t);
+  // MatMult(*shell->A, y, t);
+  // VecGetSubVector(x, shell->isg1, &x2);
+  // VecGetSubVector(y, shell->isg1, &y2);
+  // VecGetSubVector(t, shell->isg1, &t2);
+  // VecAXPY(t2, -1.0, x2);
+  // VecDuplicate(x2, &z2);
+  // KSPSolve(shell->nearField, t2, z2);
+  // VecAXPY(y2, -1.0, z2);
+  // VecRestoreSubVector(y, shell->isg1, &y2);
+
+  // // additive combination
+  // // Vec xr, zr, yr, tr;
+  // // VecGetSubVector(y, shell->isg0, &y1);
+  // // VecAXPY(y1, 1.0, z1);
+  // // VecRestoreSubVector(y, shell->isg0, &y1);
+
+  // // VecGetSubVector(x, shell->isgr, &xr);
+  // // VecGetSubVector(y, shell->isgr, &yr);
+  // // VecDuplicate(xr, &zr);
+  // // VecDuplicate(xr, &tr);
+  // // MatMult(*shell->rf, z1, zr);
+  // // VecScale(zr, -1.0);
+  // // VecAXPY(zr, 1.0, xr);
+  // // KSPSolve(shell->rigid, zr, tr);
+  // // VecAXPY(yr, 1.0, tr);
+  // // VecRestoreSubVector(y, shell->isgr, &yr);
+
+  // // multiplicative combination
+  // Vec xr, zr, yr, tr;
+  // MatMult(*shell->A, y, t);
+  // VecAXPY(t, -1.0, x);
+  // VecGetSubVector(t, shell->isg0, &t1);
+  // VecDuplicate(t1, &z1);
+  // KSPSolve(shell->field, t1, z1);
+  // VecGetSubVector(y, shell->isg0, &y1);
+  // VecAXPY(y1, -1.0, z1);
+  // VecRestoreSubVector(y, shell->isg0, &y1);
+
+  // VecGetSubVector(t, shell->isgr, &tr);
+  // VecDuplicate(tr, &zr);
+  // MatMult(*shell->rf, z1, zr);
+  // VecScale(zr, -1.0);
+  // VecAXPY(zr, 1.0, tr);
+  // KSPSolve(shell->rigid, zr, tr);
+  // VecGetSubVector(y, shell->isgr, &yr);
+  // VecAXPY(yr, -1.0, tr);
+  // VecRestoreSubVector(y, shell->isgr, &yr);
+
+  // // composite schur + schwarz
+  // Vec xr, zr, yr, tr;
+  // VecGetSubVector(x, shell->isg0, &x1);
+  // VecGetSubVector(y, shell->isg0, &y1);
+  // KSPSolve(shell->field, x1, y1);
+  // VecRestoreSubVector(y, shell->isg0, &y1);
+
+  // VecGetSubVector(y, shell->isg0, &y1);
+  // VecGetSubVector(x, shell->isgr, &xr);
+  // VecGetSubVector(y, shell->isgr, &yr);
+  // VecDuplicate(xr, &zr);
+  // MatMult(*shell->rf, y1, zr);
+  // VecScale(zr, -1.0);
+  // VecAXPY(zr, 1.0, xr);
+  // KSPSolve(shell->rigid, zr, yr);
+  // VecRestoreSubVector(y, shell->isgr, &yr);
+
+  // VecDuplicate(x, &t);
+  // MatMult(*shell->A, y, t);
+  // VecGetSubVector(x, shell->isg1, &x2);
+  // VecGetSubVector(y, shell->isg1, &y2);
+  // VecGetSubVector(t, shell->isg1, &t2);
+  // VecAXPY(t2, -1.0, x2);
+  // VecDuplicate(x2, &z2);
+  // KSPSolve(shell->nearField, t2, z2);
+  // VecAXPY(y2, -1.0, z2);
+  // VecRestoreSubVector(y, shell->isg1, &y2);
+
+  return 0;
+}
+
+PetscErrorCode HypreLUShellPCDestroy(PC pc) {
+  HypreLUShellPC *shell;
+  PCShellGetContext(pc, (void **)&shell);
+
+  KSPDestroy(&shell->field);
+  KSPDestroy(&shell->nearField);
+  KSPDestroy(&shell->rigid);
+
+  ISDestroy(&shell->isg0);
+  ISDestroy(&shell->isg1);
+  ISDestroy(&shell->isgr);
+
+  PetscFree(shell);
+
+  return 0;
+}

@@ -28,10 +28,6 @@ class PetscSparseMatrix {
 
   Mat __mat;
 
-  std::vector<PetscInt> __i;
-  std::vector<PetscInt> __j;
-  std::vector<PetscReal> __val;
-
   std::vector<PetscInt> __unsorted_i;
   std::vector<PetscInt> __unsorted_j;
   std::vector<PetscReal> __unsorted_val;
@@ -39,6 +35,10 @@ class PetscSparseMatrix {
   inline void sortbyj();
 
  public:
+  std::vector<PetscInt> __i;
+  std::vector<PetscInt> __j;
+  std::vector<PetscReal> __val;
+
   PetscSparseMatrix() : __isAssembled(false), __row(0), __col(0), __Col(0) {}
 
   // only for square matrix

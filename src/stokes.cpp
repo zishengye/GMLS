@@ -563,6 +563,27 @@ void GMLS_Solver::StokesEquation() {
 
   A.FinalAssemble();
 
+  vector<int> neighborInclusion;
+  int neighborInclusionSize;
+  if (__myID == __MPISize - 1) {
+    neighborInclusion.insert(neighborInclusion.end(),
+                             A.__j.begin() + A.__i[localRigidBodyOffset],
+                             A.__j.end());
+
+    sort(neighborInclusion.begin(), neighborInclusion.end());
+
+    auto it = unique(neighborInclusion.begin(), neighborInclusion.end());
+    neighborInclusion.resize(distance(neighborInclusion.begin(), it));
+
+    neighborInclusionSize = neighborInclusion.size();
+  }
+  MPI_Bcast(&neighborInclusionSize, 1, MPI_INT, __MPISize - 1, MPI_COMM_WORLD);
+  if (__myID != __MPISize - 1) {
+    neighborInclusion.resize(neighborInclusionSize);
+  }
+  MPI_Bcast(neighborInclusion.data(), neighborInclusionSize, MPI_INT,
+            __MPISize - 1, MPI_COMM_WORLD);
+
   PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
 
   vector<double> &rhs = __field.scalar.GetHandle("rhs");
