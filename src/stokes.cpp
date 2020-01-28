@@ -219,7 +219,7 @@ void GMLS_Solver::StokesEquation() {
   pressureBasis.addTargets(pressureOperation);
 
   pressureBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureBasis.setWeightingPower(8);
+  pressureBasis.setWeightingPower(16);
 
   pressureBasis.generateAlphas(number_of_batches);
 
@@ -250,7 +250,7 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
 
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureNeumannBoundaryBasis.setWeightingPower(8);
+  pressureNeumannBoundaryBasis.setWeightingPower(16);
 
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
@@ -278,7 +278,7 @@ void GMLS_Solver::StokesEquation() {
   velocityBasis.addTargets(velocityOperation);
 
   velocityBasis.setWeightingType(WeightingFunctionType::Power);
-  velocityBasis.setWeightingPower(8);
+  velocityBasis.setWeightingPower(16);
 
   velocityBasis.generateAlphas(number_of_batches);
 

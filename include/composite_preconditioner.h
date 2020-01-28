@@ -62,6 +62,7 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   PCSetType(pcNearField, PCLU);
   PCSetUp(pcNearField);
 
+  KSPSetFromOptions(shell->field);
   KSPSetUp(shell->field);
   KSPSetUp(shell->nearField);
 
