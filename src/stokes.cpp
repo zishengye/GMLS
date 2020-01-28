@@ -130,8 +130,7 @@ void GMLS_Solver::StokesEquation() {
 
   double epsilonMultiplier = 2.5;
 
-  int estimatedUpperBoundNumberNeighbors =
-      10 * pow(2 * epsilonMultiplier, __dim);
+  int estimatedUpperBoundNumberNeighbors = pow(2 * epsilonMultiplier, __dim);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
       "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
@@ -657,13 +656,19 @@ void GMLS_Solver::StokesEquation() {
   delete all_velocity;
   delete neuman_pressure;
 
+  double tStart, tEnd;
+
   MPI_Barrier(MPI_COMM_WORLD);
+  tStart = MPI_Wtime();
   if (numRigidBody == 0) {
     A.Solve(rhs, res, __dim);
   } else {
     A.Solve(rhs, res, __dim, numRigidBody);
   }
   MPI_Barrier(MPI_COMM_WORLD);
+  tEnd = MPI_Wtime();
+  PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
+              tEnd - tStart);
 
   // copy data
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
