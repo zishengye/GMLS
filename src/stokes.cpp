@@ -67,8 +67,11 @@ void GMLS_Solver::StokesEquation() {
   int &localParticleNum = particleNum[0];
   int &globalParticleNum = particleNum[1];
 
+  double tStart, tEnd;
+
   const int number_of_batches = 1;
   MPI_Barrier(MPI_COMM_WORLD);
+  tStart = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
   // create source coords (full particle set)
@@ -303,6 +306,10 @@ void GMLS_Solver::StokesEquation() {
   }
 
   auto velocityNeighborListsLengths = velocityBasis.getNeighborListsLengths();
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  tEnd = MPI_Wtime();
+  PetscPrintf(PETSC_COMM_WORLD, "GMLS solving duration: %fs\n", tEnd - tStart);
 
   // matrix assembly
   MPI_Barrier(MPI_COMM_WORLD);
@@ -679,8 +686,6 @@ void GMLS_Solver::StokesEquation() {
   delete all_pressure;
   delete all_velocity;
   delete neuman_pressure;
-
-  double tStart, tEnd;
 
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
