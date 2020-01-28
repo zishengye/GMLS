@@ -69,7 +69,7 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
 }
 
 PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
-  Vec x1, x2, y1, y2, z1, z2, t, t1, t2;
+  Vec x1, x2, y1, y2, z2, t, t2;
 
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
@@ -80,6 +80,7 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecGetSubVector(x, shell->isg0, &x1);
   VecGetSubVector(y, shell->isg0, &y1);
   KSPSolve(shell->field, x1, y1);
+  VecRestoreSubVector(x, shell->isg0, &x1);
   VecRestoreSubVector(y, shell->isg0, &y1);
 
   VecDuplicate(x, &t);
@@ -91,7 +92,12 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecDuplicate(x2, &z2);
   KSPSolve(shell->nearField, t2, z2);
   VecAXPY(y2, -1.0, z2);
+  VecRestoreSubVector(x, shell->isg1, &x2);
+  VecRestoreSubVector(t, shell->isg1, &t2);
   VecRestoreSubVector(y, shell->isg1, &y2);
+
+  VecDestroy(&t);
+  VecDestroy(&z2);
 
   // multiplicative 2 - first rigid, then field
   // VecSet(y, 0.0);

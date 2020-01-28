@@ -815,6 +815,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   for (size_t i = 0; i < rhs.size(); i++) {
     x[i] = a[i];
   }
+  VecRestoreArray(_x, &a);
 
   VecDestroy(&_rhs);
   VecDestroy(&_x);

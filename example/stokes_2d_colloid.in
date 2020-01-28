@@ -8,12 +8,13 @@
 -EquationType Stokes
 
 # linear solver setup
+-log_view
 -ksp_type fgmres -ksp_monitor_true_residual 
 
 -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
 -fieldsplit_0_pc_type hypre
 -fieldsplit_1_pc_type hypre
--fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_pc_hypre_boomeramg_coarsen_type CLJP
+-fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_pc_hypre_boomeramg_interp_type direct -fieldsplit_0_pc_hypre_boomeramg_coarsen_type Ruge-Stueben
 -fieldsplit_1_pc_hypre_type boomeramg -fieldsplit_1_pc_hypre_boomeramg_interp_type direct -fieldsplit_1_pc_hypre_boomeramg_coarsen_type Ruge-Stueben
 -fieldsplit_0_ksp_type preonly -fieldsplit_0_ksp_max_it 1
 -fieldsplit_1_ksp_type preonly -fieldsplit_1_ksp_max_it 1
