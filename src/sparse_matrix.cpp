@@ -1,4 +1,5 @@
 #include "sparse_matrix.h"
+#include "composite_preconditioner.h"
 
 #include <fstream>
 #include <string>
@@ -231,7 +232,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   ISDestroy(&isg_pressure);
 }
 
-void PetscSparseMatrix::Solve(std::vector<double> &rhs, std::vector<double> &x,
+void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
                               int dimension, int numRigidBody) {
   int fieldDof = dimension + 1;
   int velocityDof = dimension;
@@ -416,8 +417,8 @@ void PetscSparseMatrix::Solve(std::vector<double> &rhs, std::vector<double> &x,
 }
 
 void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
-           PetscSparseMatrix &C, std::vector<double> &f, std::vector<double> &g,
-           std::vector<double> &x, std::vector<double> &y, int numRigid,
+           PetscSparseMatrix &C, vector<double> &f, vector<double> &g,
+           vector<double> &x, vector<double> &y, int numRigid,
            int rigidBodyDof) {
   if (!A.__isAssembled || !Bt.__isAssembled || !B.__isAssembled ||
       !C.__isAssembled)
@@ -667,231 +668,169 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   VecDestroy(&_diag);
 }
 
-struct HypreLUShellPC {
-  KSP field;
-  KSP rigid;
-  KSP nearField;
+void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
+                              vector<int> &neighborInclusion, int dimension,
+                              int numRigidBody) {
+  int fieldDof = dimension + 1;
+  int velocityDof = dimension;
+  int pressureDof = 1;
+  int rigidBodyDof = (dimension == 3) ? 6 : 3;
 
-  IS isg0, isg1, isgr;
+  vector<int> idx_field, idx_rigid;
+  vector<int> idx_velocity, idx_pressure;
 
-  Mat *A, *rf;
-};
+  int MPIsize, myId;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myId);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
-PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell) {
-  HypreLUShellPC *newctx;
+  PetscInt localN1, localN2;
+  MatGetOwnershipRange(__mat, &localN1, &localN2);
 
-  PetscNew(&newctx);
-  *shell = newctx;
+  if (myId != MPIsize - 1) {
+    int localParticleNum = (localN2 - localN1) / fieldDof;
+    idx_field.resize(fieldDof * localParticleNum);
+    idx_velocity.resize(velocityDof * localParticleNum);
+    idx_pressure.resize(localParticleNum);
 
-  return 0;
-}
+    for (int i = 0; i < localParticleNum; i++) {
+      for (int j = 0; j < dimension; j++) {
+        idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
+        idx_velocity[velocityDof * i + j] = localN1 + fieldDof * i + j;
+      }
+      idx_field[fieldDof * i + velocityDof] =
+          localN1 + fieldDof * i + velocityDof;
+      idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
+    }
+  } else {
+    int localParticleNum =
+        (localN2 - localN1 - 1 - numRigidBody * rigidBodyDof) / fieldDof;
+    idx_field.resize(fieldDof * localParticleNum + 1);
+    idx_velocity.resize(velocityDof * localParticleNum);
+    idx_pressure.resize(localParticleNum + 1);
+    idx_rigid.resize(rigidBodyDof * numRigidBody);
 
-PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
-                                   Mat *rfmat, Mat *rsmat, IS *isg0, IS *isg1,
-                                   IS *isgr, IS *isg00, IS *isg01, Mat *asmat,
-                                   Vec x) {
+    for (int i = 0; i < localParticleNum; i++) {
+      for (int j = 0; j < dimension; j++) {
+        idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
+        idx_velocity[velocityDof * i + j] = localN1 + fieldDof * i + j;
+      }
+      idx_field[fieldDof * i + velocityDof] =
+          localN1 + fieldDof * i + velocityDof;
+      idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
+    }
+
+    idx_field[fieldDof * localParticleNum] =
+        localN1 + fieldDof * localParticleNum;
+    idx_pressure[localParticleNum] = localN1 + fieldDof * localParticleNum;
+
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < rigidBodyDof; j++) {
+        idx_rigid[rigidBodyDof * i + j] =
+            localN1 + fieldDof * localParticleNum + 1 + i * rigidBodyDof + j;
+      }
+    }
+  }
+
+  vector<PetscInt> neighbor_idx;
+  for (int i = 0; i < neighborInclusion.size(); i++) {
+    if (neighborInclusion[i] >= localN1 && neighborInclusion[i] < localN2) {
+      neighbor_idx.push_back(neighborInclusion[i]);
+    }
+  }
+
+  IS isg_field, isg_neighbor;
+  IS isg_velocity, isg_pressure;
+
+  ISCreateGeneral(MPI_COMM_WORLD, idx_velocity.size(), idx_velocity.data(),
+                  PETSC_COPY_VALUES, &isg_velocity);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_pressure.size(), idx_pressure.data(),
+                  PETSC_COPY_VALUES, &isg_pressure);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
+                  PETSC_COPY_VALUES, &isg_field);
+  ISCreateGeneral(MPI_COMM_WORLD, neighbor_idx.size(), neighbor_idx.data(),
+                  PETSC_COPY_VALUES, &isg_neighbor);
+
+  Mat ff, nn;
+
+  Mat uu, up, pu, pp, up_s;
+
+  MatCreateSubMatrix(__mat, isg_field, isg_field, MAT_INITIAL_MATRIX, &ff);
+  MatCreateSubMatrix(__mat, isg_neighbor, isg_neighbor, MAT_INITIAL_MATRIX,
+                     &nn);
+
+  MatCreateSubMatrix(__mat, isg_velocity, isg_velocity, MAT_INITIAL_MATRIX,
+                     &uu);
+  MatCreateSubMatrix(__mat, isg_pressure, isg_velocity, MAT_INITIAL_MATRIX,
+                     &pu);
+  MatCreateSubMatrix(__mat, isg_velocity, isg_pressure, MAT_INITIAL_MATRIX,
+                     &up);
+  MatCreateSubMatrix(__mat, isg_pressure, isg_pressure, MAT_INITIAL_MATRIX,
+                     &pp);
+
+  Vec diag;
+
+  MatCreateVecs(uu, &diag, NULL);
+  MatGetDiagonal(uu, diag);
+  VecReciprocal(diag);
+  MatDiagonalScale(up, diag, NULL);
+  MatMatMult(pu, up, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &up_s);
+  MatScale(up_s, -1.0);
+  MatAXPY(up_s, 1.0, pp, DIFFERENT_NONZERO_PATTERN);
+
+  Vec _rhs, _x;
+  VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
+                        rhs.data(), &_rhs);
+  VecDuplicate(_rhs, &_x);
+
+  KSP _ksp;
+  KSPCreate(PETSC_COMM_WORLD, &_ksp);
+  KSPSetOperators(_ksp, __mat, __mat);
+  KSPSetFromOptions(_ksp);
+
+  PC _pc;
+
+  KSPGetPC(_ksp, &_pc);
+  PCSetType(_pc, PCSHELL);
+
   HypreLUShellPC *shell;
-  PCShellGetContext(pc, (void **)&shell);
 
-  shell->A = a;
-  shell->rf = rfmat;
+  HypreLUShellPCCreate(&shell);
 
-  KSPCreate(PETSC_COMM_WORLD, &shell->field);
-  KSPCreate(PETSC_COMM_WORLD, &shell->nearField);
-  // KSPCreate(PETSC_COMM_WORLD, &shell->rigid);
-  KSPSetOperators(shell->field, *amat, *amat);
-  KSPSetOperators(shell->nearField, *cmat, *cmat);
-  // KSPSetOperators(shell->rigid, *rsmat, *rsmat);
-  ISDuplicate(*isg0, &shell->isg0);
-  ISDuplicate(*isg1, &shell->isg1);
-  ISDuplicate(*isgr, &shell->isgr);
-  KSPSetType(shell->field, KSPFGMRES);
-  KSPSetType(shell->nearField, KSPPREONLY);
-  // KSPSetType(shell->rigid, KSPPREONLY);
-  KSPSetTolerances(shell->field, 1e-1, 1e-50, 1e5, 5000);
-  KSPSetTolerances(shell->nearField, 1e-6, 1e-50, 1e5, 1);
-  // KSPSetTolerances(shell->rigid, 1e-6, 1e-50, 1e5, 1);
+  PCShellSetApply(_pc, HypreLUShellPCApply);
+  PCShellSetContext(_pc, shell);
+  PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-  PC pcField;
-  PC pcRigid;
-  PC pcNearField;
+  HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor,
+                      &isg_velocity, &isg_pressure, &up_s, _rhs);
 
-  KSPGetPC(shell->field, &pcField);
-  PCSetType(pcField, PCFIELDSPLIT);
-  PCFieldSplitSetIS(pcField, "0", *isg00);
-  PCFieldSplitSetIS(pcField, "1", *isg01);
-  PCFieldSplitSetSchurPre(pcField, PC_FIELDSPLIT_SCHUR_PRE_USER, *asmat);
-  PCSetFromOptions(pcField);
-  PCSetUp(pcField);
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
+  KSPSolve(_ksp, _rhs, _x);
+  PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
-  // KSPGetPC(shell->rigid, &pcRigid);
-  // PCSetType(pcRigid, PCLU);
-  // PCSetUp(pcRigid);
+  KSPDestroy(&_ksp);
 
-  KSPGetPC(shell->nearField, &pcNearField);
-  PCSetType(pcNearField, PCLU);
-  PCSetUp(pcNearField);
+  PetscScalar *a;
+  VecGetArray(_x, &a);
+  for (size_t i = 0; i < rhs.size(); i++) {
+    x[i] = a[i];
+  }
 
-  KSPSetUp(shell->field);
-  KSPSetUp(shell->nearField);
-  // KSPSetUp(shell->rigid);
+  VecDestroy(&_rhs);
+  VecDestroy(&_x);
+  VecDestroy(&diag);
 
-  return 0;
-}
+  MatDestroy(&ff);
+  MatDestroy(&nn);
 
-PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
-  Vec x1, x2, y1, y2, z1, z2, t, t1, t2;
+  MatDestroy(&uu);
+  MatDestroy(&up);
+  MatDestroy(&pu);
+  MatDestroy(&pp);
+  MatDestroy(&up_s);
 
-  HypreLUShellPC *shell;
-  PCShellGetContext(pc, (void **)&shell);
-
-  // additive
-  // VecSet(y, 0.0);
-
-  // VecGetSubVector(x, shell->isg0, &x1);
-  // VecGetSubVector(y, shell->isg0, &y1);
-  // KSPSolve(shell->field, x1, y1);
-  // VecRestoreSubVector(y, shell->isg0, &y1);
-
-  // VecGetSubVector(x, shell->isg1, &x2);
-  // VecGetSubVector(y, shell->isg1, &y2);
-  // VecDuplicate(x2, &z2);
-  // KSPSolve(shell->rigid, x2, z2);
-  // VecAXPY(y2, 1.0, z2);
-  // VecRestoreSubVector(y, shell->isg1, &y2);
-
-  // multiplicative 1 - first field, then rigid
-  VecSet(y, 0.0);
-
-  VecGetSubVector(x, shell->isg0, &x1);
-  VecGetSubVector(y, shell->isg0, &y1);
-  KSPSolve(shell->field, x1, y1);
-  VecRestoreSubVector(y, shell->isg0, &y1);
-
-  VecDuplicate(x, &t);
-  MatMult(*shell->A, y, t);
-  VecGetSubVector(x, shell->isg1, &x2);
-  VecGetSubVector(y, shell->isg1, &y2);
-  VecGetSubVector(t, shell->isg1, &t2);
-  VecAXPY(t2, -1.0, x2);
-  VecDuplicate(x2, &z2);
-  KSPSolve(shell->nearField, t2, z2);
-  VecAXPY(y2, -1.0, z2);
-  VecRestoreSubVector(y, shell->isg1, &y2);
-
-  // multiplicative 2 - first rigid, then field
-  // VecSet(y, 0.0);
-
-  // VecGetSubVector(x, shell->isg1, &x2);
-  // VecGetSubVector(y, shell->iisgr
-  // VecDuplicate(x1, &z1);
-  // KSPSolve(shell->field, t1, z1);
-  // VecAXPY(y1, -1.0, z1);
-  // VecRestoreSubVector(y, shell->isg0, &y1);
-
-  // // composite schwarz + schur
-  // VecSet(y, 0.0);
-
-  // VecGetSubVector(x, shell->isg0, &x1);
-  // VecGetSubVector(y, shell->isg0, &y1);
-  // KSPSolve(shell->field, x1, y1);
-  // VecDuplicate(y1, &z1);
-  // VecCopy(y1, z1);
-  // VecRestoreSubVector(y, shell->isg0, &y1);
-
-  // VecDuplicate(x, &t);
-  // MatMult(*shell->A, y, t);
-  // VecGetSubVector(x, shell->isg1, &x2);
-  // VecGetSubVector(y, shell->isg1, &y2);
-  // VecGetSubVector(t, shell->isg1, &t2);
-  // VecAXPY(t2, -1.0, x2);
-  // VecDuplicate(x2, &z2);
-  // KSPSolve(shell->nearField, t2, z2);
-  // VecAXPY(y2, -1.0, z2);
-  // VecRestoreSubVector(y, shell->isg1, &y2);
-
-  // // additive combination
-  // // Vec xr, zr, yr, tr;
-  // // VecGetSubVector(y, shell->isg0, &y1);
-  // // VecAXPY(y1, 1.0, z1);
-  // // VecRestoreSubVector(y, shell->isg0, &y1);
-
-  // // VecGetSubVector(x, shell->isgr, &xr);
-  // // VecGetSubVector(y, shell->isgr, &yr);
-  // // VecDuplicate(xr, &zr);
-  // // VecDuplicate(xr, &tr);
-  // // MatMult(*shell->rf, z1, zr);
-  // // VecScale(zr, -1.0);
-  // // VecAXPY(zr, 1.0, xr);
-  // // KSPSolve(shell->rigid, zr, tr);
-  // // VecAXPY(yr, 1.0, tr);
-  // // VecRestoreSubVector(y, shell->isgr, &yr);
-
-  // // multiplicative combination
-  // Vec xr, zr, yr, tr;
-  // MatMult(*shell->A, y, t);
-  // VecAXPY(t, -1.0, x);
-  // VecGetSubVector(t, shell->isg0, &t1);
-  // VecDuplicate(t1, &z1);
-  // KSPSolve(shell->field, t1, z1);
-  // VecGetSubVector(y, shell->isg0, &y1);
-  // VecAXPY(y1, -1.0, z1);
-  // VecRestoreSubVector(y, shell->isg0, &y1);
-
-  // VecGetSubVector(t, shell->isgr, &tr);
-  // VecDuplicate(tr, &zr);
-  // MatMult(*shell->rf, z1, zr);
-  // VecScale(zr, -1.0);
-  // VecAXPY(zr, 1.0, tr);
-  // KSPSolve(shell->rigid, zr, tr);
-  // VecGetSubVector(y, shell->isgr, &yr);
-  // VecAXPY(yr, -1.0, tr);
-  // VecRestoreSubVector(y, shell->isgr, &yr);
-
-  // // composite schur + schwarz
-  // Vec xr, zr, yr, tr;
-  // VecGetSubVector(x, shell->isg0, &x1);
-  // VecGetSubVector(y, shell->isg0, &y1);
-  // KSPSolve(shell->field, x1, y1);
-  // VecRestoreSubVector(y, shell->isg0, &y1);
-
-  // VecGetSubVector(y, shell->isg0, &y1);
-  // VecGetSubVector(x, shell->isgr, &xr);
-  // VecGetSubVector(y, shell->isgr, &yr);
-  // VecDuplicate(xr, &zr);
-  // MatMult(*shell->rf, y1, zr);
-  // VecScale(zr, -1.0);
-  // VecAXPY(zr, 1.0, xr);
-  // KSPSolve(shell->rigid, zr, yr);
-  // VecRestoreSubVector(y, shell->isgr, &yr);
-
-  // VecDuplicate(x, &t);
-  // MatMult(*shell->A, y, t);
-  // VecGetSubVector(x, shell->isg1, &x2);
-  // VecGetSubVector(y, shell->isg1, &y2);
-  // VecGetSubVector(t, shell->isg1, &t2);
-  // VecAXPY(t2, -1.0, x2);
-  // VecDuplicate(x2, &z2);
-  // KSPSolve(shell->nearField, t2, z2);
-  // VecAXPY(y2, -1.0, z2);
-  // VecRestoreSubVector(y, shell->isg1, &y2);
-
-  return 0;
-}
-
-PetscErrorCode HypreLUShellPCDestroy(PC pc) {
-  HypreLUShellPC *shell;
-  PCShellGetContext(pc, (void **)&shell);
-
-  KSPDestroy(&shell->field);
-  KSPDestroy(&shell->nearField);
-  KSPDestroy(&shell->rigid);
-
-  ISDestroy(&shell->isg0);
-  ISDestroy(&shell->isg1);
-  ISDestroy(&shell->isgr);
-
-  PetscFree(shell);
-
-  return 0;
+  ISDestroy(&isg_field);
+  ISDestroy(&isg_velocity);
+  ISDestroy(&isg_pressure);
+  ISDestroy(&isg_neighbor);
 }
