@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9.1)
+cmake_minimum_required(VERSION 3.9.0)
 project (GMLS_SOLVER)
 
 # set(CMAKE_VERBOSE_MAKEFILE on)

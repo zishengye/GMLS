@@ -41,7 +41,7 @@ It is suggested to install a standalone Kokkos kernel. One could directly instal
 Suggested installation commamd:
 
 ```
-./generate_makefile.bash --with-serial --prefix=/opt/kokkos/ --cxxflags= --ldflgs=''
+sudo ../generate_makefile.bash --prefix=/opt/kokkos --with-serial --cxxflags="-fPIC -ldl" --ldflags="-fPIC -ldl"
 ```
 
 [Compadre](https://github.com/SNLComputation/compadre)
