@@ -17,12 +17,12 @@ link_directories("/opt/kokkos/lib/")
 link_directories("/opt/petsc/lib/")
 link_directories("/opt/compadre/lib/")
 
-link_libraries("-lmpi -lmpicxx -lHYPRE -lpetsc -lfblas -lflapack -lstdc++ -lm -lgfortran")
+link_libraries("-lmpi -lmpicxx -lHYPRE -lpetsc -lfblas -lflapack -lstdc++ -lm -lgfortran -ldl -lgomp")
 link_libraries("-lcompadre")
 link_libraries("-lkokkos")
 
 file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
-add_compile_options(-O3 -w -fopenmp)
+add_compile_options(-O3 -w -fopenmp -fPIC)
 
 add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
