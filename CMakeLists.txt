@@ -23,6 +23,6 @@ link_libraries("-lkokkos")
 
 file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
-add_compile_options(-O3 -w)
+add_compile_options(-O3 -w -fopenmp)
 
 add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
