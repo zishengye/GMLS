@@ -34,6 +34,8 @@ Suggested installation command:
 ./configure --with-cc=gcc --with-cxx=g++ --with-fc=gfortran --with-debugging=0 COPTFLAGS='-O3 -march=native -mtune=native' CXXOPTFLAGS='-O3 -march=native -mtune=native' FOPTFLAGS='-O3 -march=native -mtune=native' --download-mpich --download-fblaslapack --download-superlu_dist --download-mumps --download-scalapack --download-hypre --prefix=/opt/petsc/ --with-openmp
 ```
 
+It has been found that, with the prefix flag, mumps may not be compiled correctly. One solution is to remove the prefix flag and do the configure first, and than add the prefix flag, do configure again and all the following make procedure.
+
 [Kokkos](https://github.com/kokkos/kokkos-kernels)
 
 It is suggested to install a standalone Kokkos kernel. One could directly install the kernel from Compadre package listed below. Up to now, in order to cooperate with PETSc, a serial version Kokkos is suggested to be installed.
