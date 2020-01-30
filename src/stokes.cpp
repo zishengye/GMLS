@@ -344,6 +344,8 @@ void GMLS_Solver::StokesEquation() {
 
   PetscSparseMatrix A(localDof, localDof, globalDof);
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  tStart = MPI_Wtime();
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
@@ -569,6 +571,11 @@ void GMLS_Solver::StokesEquation() {
   }
 
   A.FinalAssemble();
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  tEnd = MPI_Wtime();
+  PetscPrintf(PETSC_COMM_WORLD, "Matrix assembly duration: %fs\n",
+              tEnd - tStart);
 
   vector<int> neighborInclusion;
   int neighborInclusionSize;
