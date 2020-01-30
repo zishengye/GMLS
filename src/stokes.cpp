@@ -356,6 +356,8 @@ void GMLS_Solver::StokesEquation() {
         currentParticleGlobalIndex * fieldDof + velocityDof;
     // velocity block
     if (particleType[i] == 0) {
+#pragma omp parallel
+#pragma omp for
       for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
         const int neighborParticleIndex =
             backgroundSourceIndex[neighborLists(i, j + 1)];
@@ -427,6 +429,8 @@ void GMLS_Solver::StokesEquation() {
                                 iPressureGlobal, -dA[axes1]);
         }
 
+#pragma omp parallel
+#pragma omp for
         for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
           const int neighborParticleIndex =
               backgroundSourceIndex[neighborLists(i, j + 1)];
@@ -487,6 +491,8 @@ void GMLS_Solver::StokesEquation() {
           LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
           neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
 
+#pragma omp parallel
+#pragma omp for
       for (int j = 0; j < neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0);
            j++) {
         const int neighborParticleIndex =
@@ -510,6 +516,8 @@ void GMLS_Solver::StokesEquation() {
 
     // pressure block
     if (particleType[i] == 0) {
+#pragma omp parallel
+#pragma omp for
       for (int j = 0; j < neighborLists(i, 0); j++) {
         const int neighborParticleIndex =
             backgroundSourceIndex[neighborLists(i, j + 1)];
@@ -539,6 +547,8 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
 
+#pragma omp parallel
+#pragma omp for
       for (int j = 0; j < neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0);
            j++) {
         const int neighborParticleIndex =
