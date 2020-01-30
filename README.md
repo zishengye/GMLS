@@ -38,12 +38,12 @@ It has been found that, with the prefix flag, mumps may not be compiled correctl
 
 [Kokkos](https://github.com/kokkos/kokkos-kernels)
 
-It is suggested to install a standalone Kokkos kernel. One could directly install the kernel from Compadre package listed below. Up to now, in order to cooperate with PETSc, a serial version Kokkos is suggested to be installed.
+It is suggested to install a standalone Kokkos kernel. One could directly install the kernel from Compadre package listed below. Up to now, in order to cooperate with PETSc, an openmp version Kokkos is suggested to be installed.
 
 Suggested installation commamd:
 
 ```
-sudo ../generate_makefile.bash --prefix=/opt/kokkos --with-serial --cxxflags="-fPIC" --ldflags="-ldl"
+sudo ../generate_makefile.bash --prefix=/opt/kokkos --with-openmp --cxxflags="-fPIC" --ldflags="-ldl"
 ```
 
 [Compadre](https://github.com/SNLComputation/compadre)
@@ -77,10 +77,9 @@ cmake \
     -D CMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
     -D Compadre_USE_PYTHON:BOOL=OFF \
     -D KokkosCore_PREFIX="$MY_KOKKOSCORE_PREFIX" \
-    -D Compadre_USE_OpenMP:BOOL=OFF \
+    -D Compadre_USE_OpenMP:BOOL=ON \
     \
     ..
-
 ```
 
 ## How to executate the program
