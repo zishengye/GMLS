@@ -70,6 +70,7 @@ class PetscSparseMatrix {
   inline void outProcessIncrement(const PetscInt i, const PetscInt j,
                                   double daij);
 
+  int StructureAssemble();
   int FinalAssemble();
 
   // (*this) * x = rhs

@@ -346,6 +346,20 @@ void GMLS_Solver::StokesEquation() {
 
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
+
+  // sort neighbor by index
+  vector<vector<int>> neighobrListsSorted(localParticleNum);
+#pragma omp parallel for
+  for (int i = 0; i < localParticleNum; i++) {
+    neighobrListsSorted[i].resize(neighborLists(i, 0));
+    for (int j = 0; j < neighborLists(i, 0); j++) {
+      neighobrListsSorted[i][j] =
+          backgroundSourceIndex[neighborLists(i, j + 1)];
+    }
+    sort(neighobrListsSorted[i].begin(), neighobrListsSorted[i].end());
+  }
+
+  // insert matrix entity
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
@@ -356,8 +370,6 @@ void GMLS_Solver::StokesEquation() {
         currentParticleGlobalIndex * fieldDof + velocityDof;
     // velocity block
     if (particleType[i] == 0) {
-#pragma omp parallel
-#pragma omp for
       for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
         const int neighborParticleIndex =
             backgroundSourceIndex[neighborLists(i, j + 1)];
@@ -429,8 +441,6 @@ void GMLS_Solver::StokesEquation() {
                                 iPressureGlobal, -dA[axes1]);
         }
 
-#pragma omp parallel
-#pragma omp for
         for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
           const int neighborParticleIndex =
               backgroundSourceIndex[neighborLists(i, j + 1)];
@@ -491,8 +501,6 @@ void GMLS_Solver::StokesEquation() {
           LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
           neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
 
-#pragma omp parallel
-#pragma omp for
       for (int j = 0; j < neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0);
            j++) {
         const int neighborParticleIndex =
@@ -516,8 +524,6 @@ void GMLS_Solver::StokesEquation() {
 
     // pressure block
     if (particleType[i] == 0) {
-#pragma omp parallel
-#pragma omp for
       for (int j = 0; j < neighborLists(i, 0); j++) {
         const int neighborParticleIndex =
             backgroundSourceIndex[neighborLists(i, j + 1)];
@@ -547,8 +553,6 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
 
-#pragma omp parallel
-#pragma omp for
       for (int j = 0; j < neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0);
            j++) {
         const int neighborParticleIndex =
@@ -594,6 +598,14 @@ void GMLS_Solver::StokesEquation() {
                              A.__j.begin() + A.__i[localRigidBodyOffset],
                              A.__j.end());
 
+    // for (int i = 0; i < globalRigidBodyOffset; i++) {
+    //   for (int j = A.__i[i]; j < A.__i[i + 1]; j++) {
+    //     if (A.__j[i] > globalRigidBodyOffset) {
+    //       neighborInclusion.push_back(A.__j[i]);
+    //     }
+    //   }
+    // }
+
     for (int i = 0; i < rigidBodyDof * numRigidBody; i++) {
       neighborInclusion.push_back(globalRigidBodyOffset + i);
     }
@@ -603,6 +615,8 @@ void GMLS_Solver::StokesEquation() {
     neighborInclusion.resize(distance(neighborInclusion.begin(), it));
 
     neighborInclusionSize = neighborInclusion.size();
+
+    cout << neighborInclusionSize << endl;
   }
   MPI_Bcast(&neighborInclusionSize, 1, MPI_INT, __MPISize - 1, MPI_COMM_WORLD);
   if (__myID != __MPISize - 1) {
