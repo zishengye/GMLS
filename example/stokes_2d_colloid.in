@@ -8,7 +8,8 @@
 -EquationType Stokes
 
 # linear solver setup
--ksp_type fgmres -ksp_monitor_true_residual 
+-log_view
+-ksp_type fgmres -ksp_monitor_true_residual -ksp_gmres_restart 100
 
 -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
 -fieldsplit_0_pc_type hypre

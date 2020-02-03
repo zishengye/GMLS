@@ -615,8 +615,6 @@ void GMLS_Solver::StokesEquation() {
     neighborInclusion.resize(distance(neighborInclusion.begin(), it));
 
     neighborInclusionSize = neighborInclusion.size();
-
-    cout << neighborInclusionSize << endl;
   }
   MPI_Bcast(&neighborInclusionSize, 1, MPI_INT, __MPISize - 1, MPI_COMM_WORLD);
   if (__myID != __MPISize - 1) {
@@ -688,9 +686,7 @@ void GMLS_Solver::StokesEquation() {
       //                               sin(2.0 * M_PI * coordY)));
 
       // rhsPressure[i] = (normal[i][0] + normal[i][1]) * bi;
-      // rhsVelocity[__dim * i] = pow(coord[i][0], 2) - pow(coord[i][1], 2);
-      // rhsVelocity[__dim * i + 1] = -pow(coord[i][0], 2) + pow(coord[i][1],
-      // 2);
+      // rhsVelocity[__dim * i] = pow(coord[i][0neighborIn
     } else {
       // fluid interior
       // double coordX = coord[i][0];
