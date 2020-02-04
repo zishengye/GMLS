@@ -808,6 +808,13 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   KSPSolve(_ksp, _rhs, _x);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
+  MatCreateVecs(__mat, &diag, NULL);
+  MatMult(__mat, _x, diag);
+  VecAXPY(diag, -1.0, _rhs);
+  PetscReal norm;
+  VecNorm(diag, NORM_2, &norm);
+  PetscPrintf(PETSC_COMM_WORLD, "norm: %f\n", norm);
+
   KSPDestroy(&_ksp);
 
   PetscScalar *a;

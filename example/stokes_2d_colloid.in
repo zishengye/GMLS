@@ -9,7 +9,7 @@
 
 # linear solver setup
 -log_view
--ksp_type fgmres -ksp_monitor_true_residual -ksp_gmres_restart 100
+-ksp_type fgmres -ksp_monitor_true_residual -ksp_gmres_restart 150
 
 -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
 -fieldsplit_0_pc_type hypre

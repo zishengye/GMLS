@@ -133,7 +133,8 @@ void GMLS_Solver::StokesEquation() {
 
   double epsilonMultiplier = 2.5;
 
-  int estimatedUpperBoundNumberNeighbors = pow(2 * epsilonMultiplier, __dim);
+  int estimatedUpperBoundNumberNeighbors =
+      2 * pow(2 * epsilonMultiplier, __dim);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
       "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
@@ -222,7 +223,7 @@ void GMLS_Solver::StokesEquation() {
   pressureBasis.addTargets(pressureOperation);
 
   pressureBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureBasis.setWeightingPower(16);
+  pressureBasis.setWeightingPower(4);
 
   pressureBasis.generateAlphas(number_of_batches);
 
@@ -253,7 +254,7 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
 
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureNeumannBoundaryBasis.setWeightingPower(16);
+  pressureNeumannBoundaryBasis.setWeightingPower(4);
 
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
@@ -281,7 +282,7 @@ void GMLS_Solver::StokesEquation() {
   velocityBasis.addTargets(velocityOperation);
 
   velocityBasis.setWeightingType(WeightingFunctionType::Power);
-  velocityBasis.setWeightingPower(16);
+  velocityBasis.setWeightingPower(4);
 
   velocityBasis.generateAlphas(number_of_batches);
 
@@ -598,14 +599,6 @@ void GMLS_Solver::StokesEquation() {
                              A.__j.begin() + A.__i[localRigidBodyOffset],
                              A.__j.end());
 
-    // for (int i = 0; i < globalRigidBodyOffset; i++) {
-    //   for (int j = A.__i[i]; j < A.__i[i + 1]; j++) {
-    //     if (A.__j[i] > globalRigidBodyOffset) {
-    //       neighborInclusion.push_back(A.__j[i]);
-    //     }
-    //   }
-    // }
-
     for (int i = 0; i < rigidBodyDof * numRigidBody; i++) {
       neighborInclusion.push_back(globalRigidBodyOffset + i);
     }
@@ -719,6 +712,7 @@ void GMLS_Solver::StokesEquation() {
   if (numRigidBody == 0) {
     A.Solve(rhs, res, __dim);
   } else {
+    // A.Solve(rhs, res, __dim, numRigidBody);
     A.Solve(rhs, res, neighborInclusion, __dim, numRigidBody);
   }
   MPI_Barrier(MPI_COMM_WORLD);
