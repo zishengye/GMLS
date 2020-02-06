@@ -349,18 +349,119 @@ void GMLS_Solver::StokesEquation() {
   tStart = MPI_Wtime();
 
   // sort neighbor by index
-  vector<vector<int>> neighobrListsSorted(localParticleNum);
 #pragma omp parallel for
   for (int i = 0; i < localParticleNum; i++) {
-    neighobrListsSorted[i].resize(neighborLists(i, 0));
-    for (int j = 0; j < neighborLists(i, 0); j++) {
-      neighobrListsSorted[i][j] =
-          backgroundSourceIndex[neighborLists(i, j + 1)];
+    int neighborSize = neighborLists(i, 0);
+
+    if (particleType[i] == 0) {
+      // inner fluid particle
+      for (int axes = 0; axes < velocityDof; axes++)
+        A.setRowSize(i * fieldDof + axes, neighborSize * fieldDof);
+
+      A.setRowSize(i * fieldDof + velocityDof, neighborSize + 1);
+    } else if (particleType[i] < 4) {
+      // wall boundary fluid particle
+      for (int axes = 0; axes < velocityDof; axes++)
+        A.setRowSize(i * fieldDof + axes, neighborSize * fieldDof);
+      A.setRowSize(i * fieldDof + velocityDof, neighborSize * fieldDof);
+    } else {
+      // colloid boundary fluid particle
+      for (int axes = 0; axes < velocityDof; axes++)
+        A.setRowSize(i * fieldDof + axes,
+                     neighborSize * fieldDof + rigidBodyDof);
+      A.setRowSize(i * fieldDof + velocityDof, neighborSize * fieldDof);
     }
-    sort(neighobrListsSorted[i].begin(), neighobrListsSorted[i].end());
+  }
+
+// compute matrix graph
+#pragma omp parallel for
+  for (int i = 0; i < localParticleNum; i++) {
+    vector<int> neighborListsSorted;
+    int neighborSize = neighborLists(i, 0);
+    neighborListsSorted.resize(neighborSize);
+    for (int j = 0; j < neighborLists(i, 0); j++) {
+      neighborListsSorted[j] = neighborLists(i, j + 1);
+    }
+    sort(neighborListsSorted.begin(), neighborListsSorted.end());
+
+    if (particleType[i] == 0) {
+      // inner fluid particle
+      vector<PetscInt> colIndex(neighborSize * fieldDof);
+      for (int j = 0; j < neighborListsSorted.size(); j++) {
+        for (int axes = 0; axes < velocityDof; axes++)
+          colIndex[fieldDof * j + axes] =
+              neighborListsSorted[j] * fieldDof + axes;
+
+        colIndex[fieldDof * j + velocityDof] =
+            neighborListsSorted[j] * fieldDof + velocityDof;
+      }
+
+      // velocity block
+      for (int axes = 0; axes < velocityDof; axes++)
+        A.setColIndex(i * fieldDof + axes, colIndex);
+
+      colIndex.resize(neighborSize + 1);
+      for (int j = 0; j < neighborListsSorted.size(); j++) {
+        colIndex[j] = neighborListsSorted[j] * fieldDof + velocityDof;
+      }
+      colIndex[neighborSize] = globalLagrangeMultiplierOffset;
+
+      // pressure block
+      A.setColIndex(i * fieldDof + velocityDof, colIndex);
+    } else if (particleType[i] < 4) {
+      // wall boundary fluid particle
+      vector<PetscInt> colIndex(neighborSize * fieldDof);
+      for (int j = 0; j < neighborListsSorted.size(); j++) {
+        for (int axes = 0; axes < velocityDof; axes++)
+          colIndex[fieldDof * j + axes] =
+              neighborListsSorted[j] * fieldDof + axes;
+
+        colIndex[fieldDof * j + velocityDof] =
+            neighborListsSorted[j] * fieldDof + velocityDof;
+      }
+
+      // velocity block
+      for (int axes = 0; axes < velocityDof; axes++)
+        A.setColIndex(i * fieldDof + axes, colIndex);
+
+      // pressure block
+      A.setColIndex(i * fieldDof + velocityDof, colIndex);
+    } else {
+      // colloid boundary fluid particle
+      for (int axes = 0; axes < velocityDof; axes++)
+        A.setRowSize(i * fieldDof + axes,
+                     neighborSize * fieldDof + rigidBodyDof);
+      A.setRowSize(i * fieldDof + velocityDof, neighborSize * fieldDof);
+
+      // wall boundary fluid particle
+      vector<PetscInt> colIndex(neighborSize * fieldDof);
+      for (int j = 0; j < neighborListsSorted.size(); j++) {
+        for (int axes = 0; axes < velocityDof; axes++)
+          colIndex[fieldDof * j + axes] =
+              neighborListsSorted[j] * fieldDof + axes;
+
+        colIndex[fieldDof * j + velocityDof] =
+            neighborListsSorted[j] * fieldDof + velocityDof;
+      }
+
+      // pressure block
+      A.setColIndex(i * fieldDof + velocityDof, colIndex);
+
+      colIndex.resize(neighborSize * fieldDof + rigidBodyDof);
+      for (int j = 0; j < rigidBodyDof; j++) {
+        colIndex[neighborSize * fieldDof + j] =
+            globalRigidBodyOffset + attachedRigidBodyIndex[i] * rigidBodyDof +
+            j;
+      }
+
+      // velocity block
+      for (int axes = 0; axes < velocityDof; axes++)
+        A.setColIndex(i * fieldDof + axes, colIndex);
+    }
   }
 
   // insert matrix entity
+  // #pragma omp parallel for
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
@@ -550,6 +651,11 @@ void GMLS_Solver::StokesEquation() {
           A.increment(iVelocityLocal, iPressureGlobal, Dijx);
         }
       }
+
+      // Lagrangian multiplier
+      A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
+      A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal,
+                            1.0);
     }
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
@@ -570,13 +676,8 @@ void GMLS_Solver::StokesEquation() {
         A.increment(iPressureLocal, jPressureGlobal, -Aij);
         A.increment(iPressureLocal, iPressureGlobal, Aij);
       }
-    }
-
-    // Lagrangian multiplier
-    A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
-    A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal, 1.0);
-    // end of pressure block
-  }  // end of fluid particle loop1
+    }  // end of pressure block
+  }    // end of fluid particle loop1
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure

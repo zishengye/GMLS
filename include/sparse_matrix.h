@@ -66,6 +66,8 @@ class PetscSparseMatrix {
     __matrix.resize(m);
   }
 
+  inline void setRowSize(const PetscInt row, const size_t size);
+  inline void setColIndex(const PetscInt row, std::vector<PetscInt> &index);
   inline void increment(const PetscInt i, const PetscInt j, double daij);
   inline void outProcessIncrement(const PetscInt i, const PetscInt j,
                                   double daij);
@@ -92,6 +94,22 @@ class PetscSparseMatrix {
                     std::vector<double> &x, std::vector<double> &y,
                     int numRigidBody, int rigidBodyDof);
 };
+
+void PetscSparseMatrix::setRowSize(const PetscInt row, const size_t size) {
+  __matrix[row].resize(size);
+}
+
+void PetscSparseMatrix::setColIndex(const PetscInt row,
+                                    std::vector<PetscInt> &index) {
+  if (__matrix[row].size() == index.size()) {
+    size_t counter = 0;
+    for (std::list<entry>::iterator it = __matrix[row].begin();
+         it != __matrix[row].end(); it++) {
+      it->first = index[counter++];
+      it->second = 0.0;
+    }
+  }
+}
 
 void PetscSparseMatrix::increment(const PetscInt i, const PetscInt j,
                                   const double daij) {
