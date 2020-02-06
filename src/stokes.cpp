@@ -737,25 +737,35 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0 && particleType[i] < 4) {
       double x = coord[i][0];
       double y = coord[i][1];
-      rhs[fieldDof * i] = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-      rhs[fieldDof * i + 1] = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
+      double z = coord[i][2];
+      rhs[fieldDof * i] =
+          cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
+      rhs[fieldDof * i + 1] =
+          -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+      rhs[fieldDof * i + 2] =
+          sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
 
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
           LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
           neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
       rhs[fieldDof * i + velocityDof] =
-          bi * (-normal[i][0] *
-                    (8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y)) +
-                normal[i][1] *
-                    (8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y)));
+          bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+                                 sin(2 * M_PI * y) * sin(2 * M_PI * z)) +
+                normal[i][1] * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                                cos(2 * M_PI * y) * sin(2 * M_PI * z)) -
+                normal[i][2] * (12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                                sin(2 * M_PI * y) * cos(2 * M_PI * z)));
     } else {
       double x = coord[i][0];
       double y = coord[i][1];
-      rhs[fieldDof * i] =
-          8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y);
-      rhs[fieldDof * i + 1] =
-          -8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y);
+      double z = coord[i][2];
+      rhs[fieldDof * i] = 12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+                          sin(2 * M_PI * y) * sin(2 * M_PI * z);
+      rhs[fieldDof * i + 1] = -24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                              cos(2 * M_PI * y) * sin(2 * M_PI * z);
+      rhs[fieldDof * i + 2] = 12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                              sin(2 * M_PI * y) * cos(2 * M_PI * z);
       rhs[fieldDof * i + velocityDof] = 0.0;
     }
   }
@@ -796,11 +806,17 @@ void GMLS_Solver::StokesEquation() {
   for (int i = 0; i < localParticleNum; i++) {
     double x = coord[i][0];
     double y = coord[i][1];
-    double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-    double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
+    double z = coord[i][2];
+    double actual_velocity_x =
+        cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
+    double actual_velocity_y =
+        -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+    double actual_velocity_z =
+        sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
     double actual_pressure = 0.0;
     residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
-                              pow(actual_velocity_y - velocity[i][1], 2);
+                              pow(actual_velocity_y - velocity[i][1], 2) +
+                              pow(actual_velocity_z - velocity[i][2], 2);
     residual_pressure_norm += pow(actual_pressure - pressure[i], 2);
   }
 

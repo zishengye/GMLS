@@ -19,5 +19,3 @@
 -fieldsplit_1_pc_hypre_boomeramg_smooth_type euclid -fieldsplit_1_pc_hypre_boomeramg_smooth_num_levels 1 -fieldsplit_1_pc_hypre_boomeramg_eu_level 1 -fieldsplit_1_pc_hypre_boomeramg_eu_bj 1
 -fieldsplit_1_ksp_type fgmres
 -fieldsplit_1_ksp_rtol 1e-3
--ksp_rtol 1e-5
--ksp_converged_reason
