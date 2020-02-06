@@ -797,16 +797,16 @@ void GMLS_Solver::StokesEquation() {
     double x = coord[i][0];
     double y = coord[i][1];
     double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-    double actual_velocity_y = sin(2 * M_PI * x) * cos(2 * M_PI * y);
+    double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
     double actual_pressure = 0.0;
     residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
                               pow(actual_velocity_y - velocity[i][1], 2);
     residual_pressure_norm += pow(actual_pressure - pressure[i], 2);
   }
 
-  PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %f\n",
+  PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3ef\n",
               sqrt(residual_velocity_norm) / globalParticleNum);
-  PetscPrintf(PETSC_COMM_WORLD, "pressure residual norm: %f\n",
+  PetscPrintf(PETSC_COMM_WORLD, "pressure residual norm: %.3ef\n",
               sqrt(residual_pressure_norm) / globalParticleNum);
 
   if (__myID == __MPISize - 1) {
