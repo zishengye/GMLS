@@ -735,72 +735,28 @@ void GMLS_Solver::StokesEquation() {
 
   for (int i = 0; i < localParticleNum; i++) {
     if (particleType[i] != 0 && particleType[i] < 4) {
-      // fluid domain boundary
-      for (int axes = 0; axes < __dim; axes++) {
-        // double Hsqr = __boundingBox[1][1] * __boundingBox[1][1];
-        // rhs[fieldDof * i + axes] =
-        //     1.5 * (1.0 - coord[i][1] * coord[i][1] / Hsqr) * double(axes ==
-        //     0);
-        // rhs[fieldDof * i + axes] = coord[i][1] * double(axes == 0);
-        // rhs[fieldDof * i + axes] =
-        //     1.0 * double(axes == 0) *
-        //     double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
-        // rhsVelocity[__dim * i + axes] = 0.0;
-      }
-      double x = coord[i][0] / __boundingBoxSize[0];
-      double y = coord[i][1] / __boundingBoxSize[1];
-      rhs[fieldDof * i] =
-          sin(x * M_PI + M_PI / 2.0) * cos(y * M_PI + M_PI / 2.0);
-      rhs[fieldDof * i + 1] =
-          -cos(x * M_PI + M_PI / 2.0) * sin(y * M_PI + M_PI / 2.0);
-      // double x = coord[i][0] / __boundingBoxSize[0];
-      // double y = coord[i][1] / __boundingBoxSize[1];
-      // double z = coord[i][2] / __boundingBoxSize[2];
-      // double coordX = coord[i][0];
-      // double coordY = coord[i][1];
-      // rhs[fieldDof * i] = cos(2.0 * M_PI * coordX) * cos(2.0 * M_PI *
-      // coordY); rhs[fieldDof * i + 1] =
-      //     sin(2.0 * M_PI * coordX) * sin(2.0 * M_PI * coordY);
+      double x = coord[i][0];
+      double y = coord[i][1];
+      rhs[fieldDof * i] = cos(2 * M_PI * x) * sin(2 * M_PI * y);
+      rhs[fieldDof * i + 1] = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
 
-      // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-      // const double bi =
-      // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-      //     LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-      //     neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-      // rhs[i * fieldDof + velocityDof] =
-      //     bi * (normal[i][0] * (8.0 * pow(M_PI, 2) * cos(2.0 * M_PI * coordX)
-      //     *
-      //                               cos(2.0 * M_PI * coordY) -
-      //                           2.0 * M_PI * sin(2.0 * M_PI * coordX) *
-      //                               cos(2.0 * M_PI * coordY)) +
-      //           normal[i][1] * (8.0 * pow(M_PI, 2) * sin(2.0 * M_PI * coordX)
-      //           *
-      //                               sin(2.0 * M_PI * coordY) -
-      //                           2.0 * M_PI * cos(2.0 * M_PI * coordX) *
-      //                               sin(2.0 * M_PI * coordY)));
-
-      // rhsPressure[i] = (normal[i][0] + normal[i][1]) * bi;
-      // rhsVelocity[__dim * i] = pow(coord[i][0neighborIn
+      const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+      const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+          LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+          neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+      rhs[fieldDof * i + velocityDof] =
+          bi * (-normal[i][0] *
+                    (8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y)) +
+                normal[i][1] *
+                    (8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y)));
     } else {
-      // fluid interior
-      // double coordX = coord[i][0];
-      // double coordY = coord[i][1];
-      // rhs[fieldDof * i] =
-      //     8.0 * pow(M_PI, 2) * cos(2.0 * M_PI * coordX) *
-      //         cos(2.0 * M_PI * coordY) -
-      //     2.0 * M_PI * sin(2.0 * M_PI * coordX) * cos(2.0 * M_PI * coordY);
-      // rhs[fieldDof * i + 1] =
-      //     8.0 * pow(M_PI, 2) * sin(2.0 * M_PI * coordX) *
-      //         sin(2.0 * M_PI * coordY) -
-      //     2.0 * M_PI * cos(2.0 * M_PI * coordX) * sin(2.0 * M_PI * coordY);
-      // for (int axes = 0; axes < __dim; axes++) {
-      //   rhs[fieldDof * i + axes] = 0.0;
-      // }
-      // rhs[fieldDof * i + velocityDof] = -8.0 * pow(M_PI, 2) *
-      //                                   cos(2 * M_PI * coord[i][0]) *
-      //                                   cos(2 * M_PI * coord[i][1]);
-      // rhsVelocity[__dim * i] = 2 * coord[i][0];
-      // rhsVelocity[__dim * i + 1] = -2 * coord[i][1];
+      double x = coord[i][0];
+      double y = coord[i][1];
+      rhs[fieldDof * i] =
+          8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y);
+      rhs[fieldDof * i + 1] =
+          -8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y);
+      rhs[fieldDof * i + velocityDof] = 0.0;
     }
   }
 
@@ -832,6 +788,26 @@ void GMLS_Solver::StokesEquation() {
     for (int axes1 = 0; axes1 < __dim; axes1++)
       velocity[i][axes1] = res[fieldDof * i + axes1];
   }
+
+  // check data
+  double residual_velocity_norm, residual_pressure_norm;
+  residual_velocity_norm = 0.0;
+  residual_pressure_norm = 0.0;
+  for (int i = 0; i < localParticleNum; i++) {
+    double x = coord[i][0];
+    double y = coord[i][1];
+    double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
+    double actual_velocity_y = sin(2 * M_PI * x) * cos(2 * M_PI * y);
+    double actual_pressure = 0.0;
+    residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
+                              pow(actual_velocity_y - velocity[i][1], 2);
+    residual_pressure_norm += pow(actual_pressure - pressure[i], 2);
+  }
+
+  PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %f\n",
+              sqrt(residual_velocity_norm) / globalParticleNum);
+  PetscPrintf(PETSC_COMM_WORLD, "pressure residual norm: %f\n",
+              sqrt(residual_pressure_norm) / globalParticleNum);
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
