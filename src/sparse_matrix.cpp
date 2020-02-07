@@ -46,6 +46,7 @@ int PetscSparseMatrix::FinalAssemble() {
 
   // merge data
   if (myid == MPIsize - 1) {
+    // #pragma omp parallel for
     for (int i = 0; i < iRecv.size(); i++) {
       this->increment(iRecv[i], jRecv[i], valRecv[i]);
     }
@@ -57,24 +58,42 @@ int PetscSparseMatrix::FinalAssemble() {
   __i.resize(__row + 1);
 
   __nnz = 0;
+  // #pragma omp parallel for reduction(+ : __nnz)
   for (int i = 0; i < __row; i++) {
+    __i[i] = 0;
     __nnz += __matrix[i].size();
   }
 
   __j.resize(__nnz);
   __val.resize(__nnz);
 
-  int count = 0;
+  // #pragma omp parallel for
+  for (int i = 1; i <= __row; i++) {
+    if (__i[i - 1] == 0) {
+      __i[i] = 0;
+      for (int j = i - 1; j >= 0; j--) {
+        if (__i[j] == 0) {
+          __i[i] += __matrix[j].size();
+        } else {
+          __i[i] += __i[j] + __matrix[j].size();
+          break;
+        }
+      }
+    } else {
+      __i[i] = __i[i - 1] + __matrix[i - 1].size();
+    }
+  }
+
+  // #pragma omp parallel for
   for (int i = 0; i < __row; i++) {
-    __i[i] = count;
+    int count = 0;
     for (list<entry>::iterator it = __matrix[i].begin();
          it != __matrix[i].end(); it++) {
-      __j[count] = (it->first);
-      __val[count] = it->second;
+      __j[__i[i] + count] = (it->first);
+      __val[__i[i] + count] = it->second;
       count++;
     }
   }
-  __i[__row] = count;
 
   MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE, __Col,
                             __i.data(), __j.data(), __val.data(), &__mat);

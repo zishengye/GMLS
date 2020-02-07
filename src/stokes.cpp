@@ -131,7 +131,7 @@ void GMLS_Solver::StokesEquation() {
 
   auto minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
 
-  double epsilonMultiplier = 2.5;
+  double epsilonMultiplier = __polynomialOrder + 0.5;
 
   int estimatedUpperBoundNumberNeighbors =
       2 * pow(2 * epsilonMultiplier, __dim);
@@ -223,7 +223,7 @@ void GMLS_Solver::StokesEquation() {
   pressureBasis.addTargets(pressureOperation);
 
   pressureBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureBasis.setWeightingPower(4);
+  pressureBasis.setWeightingPower(__polynomialOrder);
 
   pressureBasis.generateAlphas(number_of_batches);
 
@@ -254,7 +254,7 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
 
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureNeumannBoundaryBasis.setWeightingPower(4);
+  pressureNeumannBoundaryBasis.setWeightingPower(__polynomialOrder);
 
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
@@ -282,7 +282,7 @@ void GMLS_Solver::StokesEquation() {
   velocityBasis.addTargets(velocityOperation);
 
   velocityBasis.setWeightingType(WeightingFunctionType::Power);
-  velocityBasis.setWeightingPower(4);
+  velocityBasis.setWeightingPower(__polynomialOrder);
 
   velocityBasis.generateAlphas(number_of_batches);
 
@@ -737,13 +737,8 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0 && particleType[i] < 4) {
       // double x = coord[i][0];
       // double y = coord[i][1];
-      // double z = coord[i][2];
-      // rhs[fieldDof * i] =
-      //     cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
-      // rhs[fieldDof * i + 1] =
-      //     -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
-      // rhs[fieldDof * i + 2] =
-      //     sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
+      // rhs[fieldDof * i] = cos(2 * M_PI * x) * sin(2 * M_PI * y);
+      // rhs[fieldDof * i + 1] = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
 
       // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
       // const double bi =
@@ -751,26 +746,55 @@ void GMLS_Solver::StokesEquation() {
       //     LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
       //     neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
       // rhs[fieldDof * i + velocityDof] =
-      //     bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-      //                            sin(2 * M_PI * y) * sin(2 * M_PI * z)) +
-      //           normal[i][1] * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-      //                           cos(2 * M_PI * y) * sin(2 * M_PI * z)) -
-      //           normal[i][2] * (12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-      //                           sin(2 * M_PI * y) * cos(2 * M_PI * z)));
-
+      //     bi * (-normal[i][0] *
+      //               (8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI *
+      //               y)) +
+      //           normal[i][1] *
+      //               (8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI *
+      //               y)));
+      double x = coord[i][0];
+      double y = coord[i][1];
+      double z = coord[i][2];
       rhs[fieldDof * i] =
-          1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
+          cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
+      rhs[fieldDof * i + 1] =
+          -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+      rhs[fieldDof * i + 2] =
+          sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
+
+      const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+      const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+          LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+          neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+      rhs[fieldDof * i + velocityDof] =
+          bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+                                 sin(2 * M_PI * y) * sin(2 * M_PI * z)) +
+                normal[i][1] * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                                cos(2 * M_PI * y) * sin(2 * M_PI * z)) -
+                normal[i][2] * (12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                                sin(2 * M_PI * y) * cos(2 * M_PI * z)));
+
+      // rhs[fieldDof * i] =
+      //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
     } else {
+      double x = coord[i][0];
+      double y = coord[i][1];
+      double z = coord[i][2];
+      rhs[fieldDof * i] = 12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+                          sin(2 * M_PI * y) * sin(2 * M_PI * z);
+      rhs[fieldDof * i + 1] = -24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                              cos(2 * M_PI * y) * sin(2 * M_PI * z);
+      rhs[fieldDof * i + 2] = 12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                              sin(2 * M_PI * y) * cos(2 * M_PI * z);
+
       // double x = coord[i][0];
       // double y = coord[i][1];
-      // double z = coord[i][2];
-      // rhs[fieldDof * i] = 12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-      //                     sin(2 * M_PI * y) * sin(2 * M_PI * z);
-      // rhs[fieldDof * i + 1] = -24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-      //                         cos(2 * M_PI * y) * sin(2 * M_PI * z);
-      // rhs[fieldDof * i + 2] = 12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-      //                         sin(2 * M_PI * y) * cos(2 * M_PI * z);
-      // rhs[fieldDof * i + velocityDof] = 0.0;
+      // rhs[fieldDof * i] =
+      //     8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y);
+      // rhs[fieldDof * i + 1] =
+      //     -8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y);
+
+      rhs[fieldDof * i + velocityDof] = 0.0;
     }
   }
 
@@ -803,31 +827,40 @@ void GMLS_Solver::StokesEquation() {
       velocity[i][axes1] = res[fieldDof * i + axes1];
   }
 
-  // // check data
-  // double residual_velocity_norm, residual_pressure_norm;
-  // residual_velocity_norm = 0.0;
-  // residual_pressure_norm = 0.0;
-  // for (int i = 0; i < localParticleNum; i++) {
-  //   double x = coord[i][0];
-  //   double y = coord[i][1];
-  //   double z = coord[i][2];
-  //   double actual_velocity_x =
-  //       cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
-  //   double actual_velocity_y =
-  //       -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
-  //   double actual_velocity_z =
-  //       sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
-  //   double actual_pressure = 0.0;
-  //   residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
-  //                             pow(actual_velocity_y - velocity[i][1], 2) +
-  //                             pow(actual_velocity_z - velocity[i][2], 2);
-  //   residual_pressure_norm += pow(actual_pressure - pressure[i], 2);
-  // }
+  // check data
+  double residual_velocity_norm, actual_velocity_norm;
+  residual_velocity_norm = 0.0;
+  for (int i = 0; i < localParticleNum; i++) {
+    double x = coord[i][0];
+    double y = coord[i][1];
+    double z = coord[i][2];
+    double actual_velocity_x =
+        cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
+    double actual_velocity_y =
+        -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+    double actual_velocity_z =
+        sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
+    residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
+                              pow(actual_velocity_y - velocity[i][1], 2) +
+                              pow(actual_velocity_z - velocity[i][2], 2);
 
-  // PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3ef\n",
-  //             sqrt(residual_velocity_norm) / globalParticleNum);
-  // PetscPrintf(PETSC_COMM_WORLD, "pressure residual norm: %.3ef\n",
-  //             sqrt(residual_pressure_norm) / globalParticleNum);
+    actual_velocity_norm = pow(actual_velocity_x, 2) +
+                           pow(actual_velocity_y, 2) +
+                           pow(actual_velocity_z, 2);
+
+    // double x = coord[i][0];
+    // double y = coord[i][1];
+    // double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
+    // double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
+    // residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
+    //                           pow(actual_velocity_y - velocity[i][1], 2);
+
+    // actual_velocity_norm +=
+    //     pow(actual_velocity_x, 2) + pow(actual_velocity_y, 2);
+  }
+
+  PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3e\n",
+              sqrt(residual_velocity_norm) / sqrt(actual_velocity_norm));
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {

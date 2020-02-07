@@ -139,6 +139,7 @@ void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
 }
 
 void PetscSparseMatrix::sortbyj() {
+#pragma omp parallel for
   for (PetscInt i = 0; i < __row; i++) {
     __matrix[i].sort(compare_index);
   }
