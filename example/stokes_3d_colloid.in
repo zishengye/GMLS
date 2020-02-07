@@ -1,5 +1,5 @@
 # problem domain setup
--Dim 3 -Mx 50 -My 50 -Mz 50
+-Dim 3 -Mx 50 -My 50 -Mz 50 -BatchSize 10
 
 # problem parameter setup
 -ft 0.001 -dt 0.01 -eta 1.0
