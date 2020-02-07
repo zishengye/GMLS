@@ -844,9 +844,9 @@ void GMLS_Solver::StokesEquation() {
                               pow(actual_velocity_y - velocity[i][1], 2) +
                               pow(actual_velocity_z - velocity[i][2], 2);
 
-    actual_velocity_norm = pow(actual_velocity_x, 2) +
-                           pow(actual_velocity_y, 2) +
-                           pow(actual_velocity_z, 2);
+    actual_velocity_norm += pow(actual_velocity_x, 2) +
+                            pow(actual_velocity_y, 2) +
+                            pow(actual_velocity_z, 2);
 
     // double x = coord[i][0];
     // double y = coord[i][1];
