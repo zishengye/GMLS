@@ -1,5 +1,5 @@
 # problem domain setup
--Dim 2 -Mx 20 -My 20 -PolynomialOrder 3 -BatchSize 10
+-Dim 2 -Mx 40 -My 40 -PolynomialOrder 2 -BatchSize 10
 
 # problem parameter setup
 -ft 0.001 -dt 0.01 -eta 1.0
@@ -8,11 +8,11 @@
 -EquationType Stokes
 
 # linear solver setup
--ksp_type fgmres -ksp_monitor_true_residual 
+-ksp_type fgmres -ksp_monitor_true_residual -ksp_rtol 1e-6
 -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
 -fieldsplit_0_pc_type hypre
 -fieldsplit_1_pc_type hypre
 -fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_pc_hypre_boomeramg_interp_type classical -fieldsplit_0_pc_hypre_boomeramg_coarsen_type Falgout -fieldsplit_0_pc_hypre_boomeramg_relax_type_down l1-Gauss-Seidel -fieldsplit_0_pc_hypre_boomeramg_relax_type_up backward-l1-Gauss-Seidel -fieldsplit_0_pc_hypre_boomeramg_relax_type_coarse l1scaled-Jacobi
 -fieldsplit_1_pc_hypre_type boomeramg -fieldsplit_1_pc_hypre_boomeramg_interp_type direct -fieldsplit_1_pc_hypre_boomeramg_coarsen_type Ruge-Stueben -fieldsplit_1_pc_hypre_boomeramg_relax_type_down l1-Gauss-Seidel -fieldsplit_1_pc_hypre_boomeramg_relax_type_up backward-l1-Gauss-Seidel -fieldsplit_1_pc_hypre_boomeramg_relax_type_coarse l1scaled-Jacobi
--fieldsplit_0_ksp_type gmres -fieldsplit_0_ksp_rtol 1e-7
--fieldsplit_1_ksp_type gmres -fieldsplit_1_ksp_rtol 1e-7
+-fieldsplit_0_ksp_type gmres -fieldsplit_0_ksp_rtol 1e-8
+-fieldsplit_1_ksp_type gmres -fieldsplit_1_ksp_rtol 1e-8

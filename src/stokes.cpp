@@ -223,7 +223,7 @@ void GMLS_Solver::StokesEquation() {
   pressureBasis.addTargets(pressureOperation);
 
   pressureBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureBasis.setWeightingPower(__polynomialOrder + 2);
+  pressureBasis.setWeightingPower(__polynomialOrder);
 
   pressureBasis.generateAlphas(number_of_batches);
 
@@ -254,7 +254,7 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
 
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureNeumannBoundaryBasis.setWeightingPower(__polynomialOrder + 2);
+  pressureNeumannBoundaryBasis.setWeightingPower(__polynomialOrder);
 
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
@@ -282,7 +282,7 @@ void GMLS_Solver::StokesEquation() {
   velocityBasis.addTargets(velocityOperation);
 
   velocityBasis.setWeightingType(WeightingFunctionType::Power);
-  velocityBasis.setWeightingPower(__polynomialOrder + 2);
+  velocityBasis.setWeightingPower(__polynomialOrder);
 
   velocityBasis.generateAlphas(number_of_batches);
 
@@ -830,9 +830,8 @@ void GMLS_Solver::StokesEquation() {
   }
 
   // check data
-  double residual_velocity_norm, actual_velocity_norm;
+  double residual_velocity_norm;
   residual_velocity_norm = 0.0;
-  actual_velocity_norm = 0.0;
   for (int i = 0; i < localParticleNum; i++) {
     if (__dim == 3) {
       double x = coord[i][0];
@@ -847,10 +846,6 @@ void GMLS_Solver::StokesEquation() {
       residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
                                 pow(actual_velocity_y - velocity[i][1], 2) +
                                 pow(actual_velocity_z - velocity[i][2], 2);
-
-      actual_velocity_norm += pow(actual_velocity_x, 2) +
-                              pow(actual_velocity_y, 2) +
-                              pow(actual_velocity_z, 2);
     } else {
       double x = coord[i][0];
       double y = coord[i][1];
@@ -858,14 +853,11 @@ void GMLS_Solver::StokesEquation() {
       double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
       residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
                                 pow(actual_velocity_y - velocity[i][1], 2);
-
-      actual_velocity_norm +=
-          pow(actual_velocity_x, 2) + pow(actual_velocity_y, 2);
     }
   }
 
   PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3e\n",
-              sqrt(residual_velocity_norm) / sqrt(actual_velocity_norm));
+              sqrt(residual_velocity_norm / globalParticleNum));
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
