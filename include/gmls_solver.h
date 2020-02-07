@@ -36,6 +36,7 @@ class GMLS_Solver {
   std::string __schemeType;
   int __polynomialOrder;
   int __writeData;
+  int __batchSize;
 
   bool __successInitialized;
 

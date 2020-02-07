@@ -135,6 +135,12 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     return;
   }
 
+  if ((SearchCommand<int>(argc, argv, "-BatchSize", __batchSize)) == 1) {
+    return;
+  } else if (__batchSize < 0) {
+    return;
+  }
+
   // [summary of problem setup]
 
   PetscPrintf(PETSC_COMM_WORLD, "===============================\n");

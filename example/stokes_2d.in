@@ -1,5 +1,5 @@
 # problem domain setup
--Dim 2 -Mx 80 -My 80 -PolynomialOrder 3
+-Dim 2 -Mx 20 -My 20 -PolynomialOrder 3 -BatchSize 10
 
 # problem parameter setup
 -ft 0.001 -dt 0.01 -eta 1.0

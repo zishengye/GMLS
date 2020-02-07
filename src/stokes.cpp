@@ -69,7 +69,7 @@ void GMLS_Solver::StokesEquation() {
 
   double tStart, tEnd;
 
-  const int number_of_batches = 1;
+  const int number_of_batches = __batchSize;
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
@@ -735,64 +735,66 @@ void GMLS_Solver::StokesEquation() {
 
   for (int i = 0; i < localParticleNum; i++) {
     if (particleType[i] != 0 && particleType[i] < 4) {
-      // double x = coord[i][0];
-      // double y = coord[i][1];
-      // rhs[fieldDof * i] = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-      // rhs[fieldDof * i + 1] = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
+      if (__dim == 2) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        rhs[fieldDof * i] = cos(2 * M_PI * x) * sin(2 * M_PI * y);
+        rhs[fieldDof * i + 1] = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
 
-      // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-      // const double bi =
-      // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-      //     LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-      //     neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-      // rhs[fieldDof * i + velocityDof] =
-      //     bi * (-normal[i][0] *
-      //               (8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI *
-      //               y)) +
-      //           normal[i][1] *
-      //               (8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI *
-      //               y)));
-      double x = coord[i][0];
-      double y = coord[i][1];
-      double z = coord[i][2];
-      rhs[fieldDof * i] =
-          cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
-      rhs[fieldDof * i + 1] =
-          -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
-      rhs[fieldDof * i + 2] =
-          sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
+        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+            LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+        rhs[fieldDof * i + velocityDof] =
+            bi * (-normal[i][0] * (8 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+                                   sin(2 * M_PI * y)) +
+                  normal[i][1] * (8 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                                  cos(2 * M_PI * y)));
+      } else {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
+        rhs[fieldDof * i] =
+            cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
+        rhs[fieldDof * i + 1] =
+            -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+        rhs[fieldDof * i + 2] =
+            sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
 
-      const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-      const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-          LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-          neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-      rhs[fieldDof * i + velocityDof] =
-          bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-                                 sin(2 * M_PI * y) * sin(2 * M_PI * z)) +
-                normal[i][1] * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                cos(2 * M_PI * y) * sin(2 * M_PI * z)) -
-                normal[i][2] * (12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                sin(2 * M_PI * y) * cos(2 * M_PI * z)));
+        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+            LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+        rhs[fieldDof * i + velocityDof] =
+            bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+                                   sin(2 * M_PI * y) * sin(2 * M_PI * z)) +
+                  normal[i][1] * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                                  cos(2 * M_PI * y) * sin(2 * M_PI * z)) -
+                  normal[i][2] * (12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                                  sin(2 * M_PI * y) * cos(2 * M_PI * z)));
+      }
 
       // rhs[fieldDof * i] =
       //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
     } else {
-      double x = coord[i][0];
-      double y = coord[i][1];
-      double z = coord[i][2];
-      rhs[fieldDof * i] = 12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-                          sin(2 * M_PI * y) * sin(2 * M_PI * z);
-      rhs[fieldDof * i + 1] = -24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                              cos(2 * M_PI * y) * sin(2 * M_PI * z);
-      rhs[fieldDof * i + 2] = 12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                              sin(2 * M_PI * y) * cos(2 * M_PI * z);
-
-      // double x = coord[i][0];
-      // double y = coord[i][1];
-      // rhs[fieldDof * i] =
-      //     8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y);
-      // rhs[fieldDof * i + 1] =
-      //     -8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y);
+      if (__dim == 3) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
+        rhs[fieldDof * i] = 12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+                            sin(2 * M_PI * y) * sin(2 * M_PI * z);
+        rhs[fieldDof * i + 1] = -24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                                cos(2 * M_PI * y) * sin(2 * M_PI * z);
+        rhs[fieldDof * i + 2] = 12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+                                sin(2 * M_PI * y) * cos(2 * M_PI * z);
+      } else {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        rhs[fieldDof * i] =
+            8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y);
+        rhs[fieldDof * i + 1] =
+            -8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y);
+      }
 
       rhs[fieldDof * i + velocityDof] = 0.0;
     }
@@ -830,33 +832,36 @@ void GMLS_Solver::StokesEquation() {
   // check data
   double residual_velocity_norm, actual_velocity_norm;
   residual_velocity_norm = 0.0;
+  actual_velocity_norm = 0.0;
   for (int i = 0; i < localParticleNum; i++) {
-    double x = coord[i][0];
-    double y = coord[i][1];
-    double z = coord[i][2];
-    double actual_velocity_x =
-        cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
-    double actual_velocity_y =
-        -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
-    double actual_velocity_z =
-        sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
-    residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
-                              pow(actual_velocity_y - velocity[i][1], 2) +
-                              pow(actual_velocity_z - velocity[i][2], 2);
+    if (__dim == 3) {
+      double x = coord[i][0];
+      double y = coord[i][1];
+      double z = coord[i][2];
+      double actual_velocity_x =
+          cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
+      double actual_velocity_y =
+          -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+      double actual_velocity_z =
+          sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
+      residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
+                                pow(actual_velocity_y - velocity[i][1], 2) +
+                                pow(actual_velocity_z - velocity[i][2], 2);
 
-    actual_velocity_norm += pow(actual_velocity_x, 2) +
-                            pow(actual_velocity_y, 2) +
-                            pow(actual_velocity_z, 2);
+      actual_velocity_norm += pow(actual_velocity_x, 2) +
+                              pow(actual_velocity_y, 2) +
+                              pow(actual_velocity_z, 2);
+    } else {
+      double x = coord[i][0];
+      double y = coord[i][1];
+      double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
+      double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
+      residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
+                                pow(actual_velocity_y - velocity[i][1], 2);
 
-    // double x = coord[i][0];
-    // double y = coord[i][1];
-    // double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-    // double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
-    // residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
-    //                           pow(actual_velocity_y - velocity[i][1], 2);
-
-    // actual_velocity_norm +=
-    //     pow(actual_velocity_x, 2) + pow(actual_velocity_y, 2);
+      actual_velocity_norm +=
+          pow(actual_velocity_x, 2) + pow(actual_velocity_y, 2);
+    }
   }
 
   PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3e\n",
