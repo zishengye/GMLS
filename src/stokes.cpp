@@ -223,7 +223,7 @@ void GMLS_Solver::StokesEquation() {
   pressureBasis.addTargets(pressureOperation);
 
   pressureBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureBasis.setWeightingPower(__polynomialOrder);
+  pressureBasis.setWeightingPower(__polynomialOrder + 2);
 
   pressureBasis.generateAlphas(number_of_batches);
 
@@ -254,7 +254,7 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.addTargets(pressureNeumannBoundaryOperations);
 
   pressureNeumannBoundaryBasis.setWeightingType(WeightingFunctionType::Power);
-  pressureNeumannBoundaryBasis.setWeightingPower(__polynomialOrder);
+  pressureNeumannBoundaryBasis.setWeightingPower(__polynomialOrder + 2);
 
   pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
@@ -282,7 +282,7 @@ void GMLS_Solver::StokesEquation() {
   velocityBasis.addTargets(velocityOperation);
 
   velocityBasis.setWeightingType(WeightingFunctionType::Power);
-  velocityBasis.setWeightingPower(__polynomialOrder);
+  velocityBasis.setWeightingPower(__polynomialOrder + 2);
 
   velocityBasis.generateAlphas(number_of_batches);
 
@@ -348,120 +348,6 @@ void GMLS_Solver::StokesEquation() {
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
 
-  // sort neighbor by index
-#pragma omp parallel for
-  for (int i = 0; i < localParticleNum; i++) {
-    int neighborSize = neighborLists(i, 0);
-
-    if (particleType[i] == 0) {
-      // inner fluid particle
-      for (int axes = 0; axes < velocityDof; axes++)
-        A.setRowSize(i * fieldDof + axes, neighborSize * fieldDof);
-
-      A.setRowSize(i * fieldDof + velocityDof, neighborSize + 1);
-    } else if (particleType[i] < 4) {
-      // wall boundary fluid particle
-      for (int axes = 0; axes < velocityDof; axes++)
-        A.setRowSize(i * fieldDof + axes, neighborSize * fieldDof);
-      A.setRowSize(i * fieldDof + velocityDof, neighborSize * fieldDof);
-    } else {
-      // colloid boundary fluid particle
-      for (int axes = 0; axes < velocityDof; axes++)
-        A.setRowSize(i * fieldDof + axes,
-                     neighborSize * fieldDof + rigidBodyDof);
-      A.setRowSize(i * fieldDof + velocityDof, neighborSize * fieldDof);
-    }
-  }
-
-// compute matrix graph
-#pragma omp parallel for
-  for (int i = 0; i < localParticleNum; i++) {
-    vector<int> neighborListsSorted;
-    int neighborSize = neighborLists(i, 0);
-    neighborListsSorted.resize(neighborSize);
-    for (int j = 0; j < neighborLists(i, 0); j++) {
-      neighborListsSorted[j] = neighborLists(i, j + 1);
-    }
-    sort(neighborListsSorted.begin(), neighborListsSorted.end());
-
-    if (particleType[i] == 0) {
-      // inner fluid particle
-      vector<PetscInt> colIndex(neighborSize * fieldDof);
-      for (int j = 0; j < neighborListsSorted.size(); j++) {
-        for (int axes = 0; axes < velocityDof; axes++)
-          colIndex[fieldDof * j + axes] =
-              neighborListsSorted[j] * fieldDof + axes;
-
-        colIndex[fieldDof * j + velocityDof] =
-            neighborListsSorted[j] * fieldDof + velocityDof;
-      }
-
-      // velocity block
-      for (int axes = 0; axes < velocityDof; axes++)
-        A.setColIndex(i * fieldDof + axes, colIndex);
-
-      colIndex.resize(neighborSize + 1);
-      for (int j = 0; j < neighborListsSorted.size(); j++) {
-        colIndex[j] = neighborListsSorted[j] * fieldDof + velocityDof;
-      }
-      colIndex[neighborSize] = globalLagrangeMultiplierOffset;
-
-      // pressure block
-      A.setColIndex(i * fieldDof + velocityDof, colIndex);
-    } else if (particleType[i] < 4) {
-      // wall boundary fluid particle
-      vector<PetscInt> colIndex(neighborSize * fieldDof);
-      for (int j = 0; j < neighborListsSorted.size(); j++) {
-        for (int axes = 0; axes < velocityDof; axes++)
-          colIndex[fieldDof * j + axes] =
-              neighborListsSorted[j] * fieldDof + axes;
-
-        colIndex[fieldDof * j + velocityDof] =
-            neighborListsSorted[j] * fieldDof + velocityDof;
-      }
-
-      // velocity block
-      for (int axes = 0; axes < velocityDof; axes++)
-        A.setColIndex(i * fieldDof + axes, colIndex);
-
-      // pressure block
-      A.setColIndex(i * fieldDof + velocityDof, colIndex);
-    } else {
-      // colloid boundary fluid particle
-      for (int axes = 0; axes < velocityDof; axes++)
-        A.setRowSize(i * fieldDof + axes,
-                     neighborSize * fieldDof + rigidBodyDof);
-      A.setRowSize(i * fieldDof + velocityDof, neighborSize * fieldDof);
-
-      // wall boundary fluid particle
-      vector<PetscInt> colIndex(neighborSize * fieldDof);
-      for (int j = 0; j < neighborListsSorted.size(); j++) {
-        for (int axes = 0; axes < velocityDof; axes++)
-          colIndex[fieldDof * j + axes] =
-              neighborListsSorted[j] * fieldDof + axes;
-
-        colIndex[fieldDof * j + velocityDof] =
-            neighborListsSorted[j] * fieldDof + velocityDof;
-      }
-
-      // pressure block
-      A.setColIndex(i * fieldDof + velocityDof, colIndex);
-
-      colIndex.resize(neighborSize * fieldDof + rigidBodyDof);
-      for (int j = 0; j < rigidBodyDof; j++) {
-        colIndex[neighborSize * fieldDof + j] =
-            globalRigidBodyOffset + attachedRigidBodyIndex[i] * rigidBodyDof +
-            j;
-      }
-
-      // velocity block
-      for (int axes = 0; axes < velocityDof; axes++)
-        A.setColIndex(i * fieldDof + axes, colIndex);
-    }
-  }
-
-  // insert matrix entity
-  // #pragma omp parallel for
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
@@ -735,68 +621,75 @@ void GMLS_Solver::StokesEquation() {
 
   for (int i = 0; i < localParticleNum; i++) {
     if (particleType[i] != 0 && particleType[i] < 4) {
-      if (__dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        rhs[fieldDof * i] = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-        rhs[fieldDof * i + 1] = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
+      // if (__dim == 2) {
+      //   double x = coord[i][0];
+      //   double y = coord[i][1];
+      //   rhs[fieldDof * i] = cos(2 * M_PI * x) * sin(2 * M_PI * y);
+      //   rhs[fieldDof * i + 1] = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
 
-        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-        rhs[fieldDof * i + velocityDof] =
-            bi * (-normal[i][0] * (8 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-                                   sin(2 * M_PI * y)) +
-                  normal[i][1] * (8 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                  cos(2 * M_PI * y)));
-      } else {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
-        rhs[fieldDof * i] =
-            cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
-        rhs[fieldDof * i + 1] =
-            -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
-        rhs[fieldDof * i + 2] =
-            sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
+      //   const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+      //   const double bi =
+      //   pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+      //       LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+      //       neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+      //   rhs[fieldDof * i + velocityDof] =
+      //       bi * (-normal[i][0] * (8 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+      //                              sin(2 * M_PI * y)) +
+      //             normal[i][1] * (8 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+      //                             cos(2 * M_PI * y)));
+      // } else {
+      //   double x = coord[i][0];
+      //   double y = coord[i][1];
+      //   double z = coord[i][2];
+      //   rhs[fieldDof * i] =
+      //       cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
+      //   rhs[fieldDof * i + 1] =
+      //       -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+      //   rhs[fieldDof * i + 2] =
+      //       sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
 
-        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-        rhs[fieldDof * i + velocityDof] =
-            bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-                                   sin(2 * M_PI * y) * sin(2 * M_PI * z)) +
-                  normal[i][1] * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                  cos(2 * M_PI * y) * sin(2 * M_PI * z)) -
-                  normal[i][2] * (12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                  sin(2 * M_PI * y) * cos(2 * M_PI * z)));
-      }
+      //   const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+      //   const double bi =
+      //   pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+      //       LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+      //       neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+      //   rhs[fieldDof * i + velocityDof] =
+      //       bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+      //                              sin(2 * M_PI * y) * sin(2 * M_PI * z)) +
+      //             normal[i][1] * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+      //                             cos(2 * M_PI * y) * sin(2 * M_PI * z)) -
+      //             normal[i][2] * (12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+      //                             sin(2 * M_PI * y) * cos(2 * M_PI * z)));
+      // }
 
       // rhs[fieldDof * i] =
       //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
-    } else {
-      if (__dim == 3) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
-        rhs[fieldDof * i] = 12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-                            sin(2 * M_PI * y) * sin(2 * M_PI * z);
-        rhs[fieldDof * i + 1] = -24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                cos(2 * M_PI * y) * sin(2 * M_PI * z);
-        rhs[fieldDof * i + 2] = 12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                sin(2 * M_PI * y) * cos(2 * M_PI * z);
-      } else {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        rhs[fieldDof * i] =
-            8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y);
-        rhs[fieldDof * i + 1] =
-            -8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y);
-      }
 
-      rhs[fieldDof * i + velocityDof] = 0.0;
+      double x = coord[i][0] / __boundingBoxSize[0];
+      double y = coord[i][1] / __boundingBoxSize[1];
+      rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
+      rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
+    } else {
+      //   if (__dim == 3) {
+      //     double x = coord[i][0];
+      //     double y = coord[i][1];
+      //     double z = coord[i][2];
+      //     rhs[fieldDof * i] = 12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+      //                         sin(2 * M_PI * y) * sin(2 * M_PI * z);
+      //     rhs[fieldDof * i + 1] = -24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+      //                             cos(2 * M_PI * y) * sin(2 * M_PI * z);
+      //     rhs[fieldDof * i + 2] = 12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+      //                             sin(2 * M_PI * y) * cos(2 * M_PI * z);
+      //   } else {
+      //     double x = coord[i][0];
+      //     double y = coord[i][1];
+      //     rhs[fieldDof * i] =
+      //         8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y);
+      //     rhs[fieldDof * i + 1] =
+      //         -8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y);
+      //   }
+
+      //   rhs[fieldDof * i + velocityDof] = 0.0;
     }
   }
 
@@ -830,34 +723,37 @@ void GMLS_Solver::StokesEquation() {
   }
 
   // check data
-  double residual_velocity_norm;
-  residual_velocity_norm = 0.0;
-  for (int i = 0; i < localParticleNum; i++) {
-    if (__dim == 3) {
-      double x = coord[i][0];
-      double y = coord[i][1];
-      double z = coord[i][2];
-      double actual_velocity_x =
-          cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
-      double actual_velocity_y =
-          -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
-      double actual_velocity_z =
-          sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
-      residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
-                                pow(actual_velocity_y - velocity[i][1], 2) +
-                                pow(actual_velocity_z - velocity[i][2], 2);
-    } else {
-      double x = coord[i][0];
-      double y = coord[i][1];
-      double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-      double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
-      residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
-                                pow(actual_velocity_y - velocity[i][1], 2);
-    }
-  }
+  // double residual_velocity_norm;
+  // residual_velocity_norm = 0.0;
+  // for (int i = 0; i < localParticleNum; i++) {
+  //   if (__dim == 3) {
+  //     double x = coord[i][0];
+  //     double y = coord[i][1];
+  //     double z = coord[i][2];
+  //     double actual_velocity_x =
+  //         cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
+  //     double actual_velocity_y =
+  //         -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+  //     double actual_velocity_z =
+  //         sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
+  //     residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2)
+  //     +
+  //                               pow(actual_velocity_y - velocity[i][1], 2)
+  //                               + pow(actual_velocity_z - velocity[i][2],
+  //                               2);
+  //   } else {
+  //     double x = coord[i][0];
+  //     double y = coord[i][1];
+  //     double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
+  //     double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
+  //     residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2)
+  //     +
+  //                               pow(actual_velocity_y - velocity[i][1], 2);
+  //   }
+  // }
 
-  PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3e\n",
-              sqrt(residual_velocity_norm / globalParticleNum));
+  // PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3e\n",
+  //             sqrt(residual_velocity_norm / globalParticleNum));
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
