@@ -160,7 +160,8 @@ class GMLS_Solver {
     static auto &_gapParticleSize = __gap.vector.GetHandle("size");
     static auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
-    if (X.mag() < __boundingBoxSize[0] / 2.0 - particleSize[0] * 0.5) {
+    if ((X.mag() + 1e-15) <
+        __boundingBoxSize[0] / 2.0 - particleSize[0] * 0.5) {
       int idx = IsInRigidBody(X, particleSize[0]);
 
       if (rigidBodyParticle || idx == -2) {
