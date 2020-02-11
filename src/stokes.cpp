@@ -422,63 +422,6 @@ void GMLS_Solver::StokesEquation() {
         vec3 dA = (__dim == 3)
                       ? (normal[i] * particleSize[i][0] * particleSize[i][1])
                       : (normal[i] * particleSize[i][0]);
-
-        // apply pressure
-        for (int axes1 = 0; axes1 < translationDof; axes1++) {
-          A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                iPressureGlobal, -dA[axes1]);
-        }
-
-        for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
-          const int neighborParticleIndex =
-              backgroundSourceIndex[neighborLists(i, j + 1)];
-
-          for (int axes3 = 0; axes3 < __dim; axes3++) {
-            const int jVelocityGlobal =
-                fieldDof * neighborParticleIndex + axes3;
-
-            double *f = new double[__dim];
-            for (int axes1 = 0; axes1 < __dim; axes1++) {
-              f[axes1] = 0.0;
-            }
-
-            for (int axes1 = 0; axes1 < __dim; axes1++) {
-              // output component 1
-              for (int axes2 = 0; axes2 < __dim; axes2++) {
-                // output component 2
-                const int velocityGradientAlphaIndex1 =
-                    velocityGradientIndex[(axes1 * __dim + axes2) * __dim +
-                                          axes3];
-                const int velocityGradientAlphaIndex2 =
-                    velocityGradientIndex[(axes2 * __dim + axes1) * __dim +
-                                          axes3];
-                const double sigma =
-                    __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
-                             velocityAlphas(i, velocityGradientAlphaIndex2, j));
-
-                f[axes1] += sigma * dA[axes2];
-              }
-            }
-
-            // force balance
-            for (int axes1 = 0; axes1 < translationDof; axes1++) {
-              A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                    jVelocityGlobal, f[axes1]);
-            }
-
-            // torque balance
-            for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-              A.outProcessIncrement(
-                  currentRigidBodyLocalOffset + translationDof + axes1,
-                  jVelocityGlobal,
-                  rci[(axes1 + 1) % translationDof] *
-                          f[(axes1 + 2) % translationDof] -
-                      rci[(axes1 + 2) % translationDof] *
-                          f[(axes1 + 1) % translationDof]);
-            }
-            delete[] f;
-          }
-        }
       }  // end of particles on rigid body
     }
 
@@ -570,6 +513,13 @@ void GMLS_Solver::StokesEquation() {
     // add a penalty factor
     A.increment(localLagrangeMultiplierOffset, globalLagrangeMultiplierOffset,
                 globalParticleNum);
+
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int axes = 0; axes < rigidBodyDof; axes++) {
+        A.increment(localRigidBodyOffset + i * rigidBodyDof + axes,
+                    globalRigidBodyOffset + i * rigidBodyDof + axes, 1.0);
+      }
+    }
   }
 
   A.FinalAssemble();
@@ -666,10 +616,8 @@ void GMLS_Solver::StokesEquation() {
       // rhs[fieldDof * i] =
       //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
 
-      double x = coord[i][0] / __boundingBoxSize[0];
-      double y = coord[i][1] / __boundingBoxSize[1];
-      rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
-      rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
+      rhs[fieldDof * i] = -normal[i][1] * 0.5;
+      rhs[fieldDof * i + 1] = normal[i][0] * 0.5;
     } else {
       // if (__dim == 3) {
       //   double x = coord[i][0];
@@ -692,6 +640,12 @@ void GMLS_Solver::StokesEquation() {
 
       // rhs[fieldDof * i + velocityDof] = 0.0;
     }
+  }
+
+  if (__myID == __MPISize - 1) {
+    rhs[localRigidBodyOffset] = 0.0;
+    rhs[localRigidBodyOffset + 1] = 0.0;
+    rhs[localRigidBodyOffset + 2] = 10 / M_PI;
   }
 
   delete all_pressure;
@@ -724,34 +678,53 @@ void GMLS_Solver::StokesEquation() {
   }
 
   // check data
-  // double residual_velocity_norm;
-  // residual_velocity_norm = 0.0;
-  // for (int i = 0; i < localParticleNum; i++) {
-  //   if (__dim == 3) {
-  //     double x = coord[i][0];
-  //     double y = coord[i][1];
-  //     double z = coord[i][2];
-  //     double actual_velocity_x =
-  //         cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
-  //     double actual_velocity_y =
-  //         -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
-  //     double actual_velocity_z =
-  //         sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
-  //     residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
-  //                               pow(actual_velocity_y - velocity[i][1], 2) +
-  //                               pow(actual_velocity_z - velocity[i][2], 2);
-  //   } else {
-  //     double x = coord[i][0];
-  //     double y = coord[i][1];
-  //     double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-  //     double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
-  //     residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
-  //                               pow(actual_velocity_y - velocity[i][1], 2);
-  //   }
-  // }
+  double drag[2];
+  drag[0] = 0.0;
+  drag[1] = 0.0;
+  for (int i = 0; i < localParticleNum; i++) {
+    vec3 dA = normal[i] * particleSize[i][0];
+    if (particleType[i] == 4) {
+      drag[0] += -dA[0] * pressure[i];
+      drag[1] += -dA[1] * pressure[i];
 
-  // PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3e\n",
-  //             sqrt(residual_velocity_norm / globalParticleNum));
+      for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
+        const int neighborParticleIndex =
+            backgroundSourceIndex[neighborLists(i, j + 1)];
+
+        for (int axes3 = 0; axes3 < __dim; axes3++) {
+          const int jVelocityGlobal = fieldDof * neighborParticleIndex + axes3;
+
+          double *f = new double[__dim];
+          for (int axes1 = 0; axes1 < __dim; axes1++) {
+            f[axes1] = 0.0;
+          }
+
+          for (int axes1 = 0; axes1 < __dim; axes1++) {
+            // output component 1
+            for (int axes2 = 0; axes2 < __dim; axes2++) {
+              // output component 2
+              const int velocityGradientAlphaIndex1 =
+                  velocityGradientIndex[(axes1 * __dim + axes2) * __dim +
+                                        axes3];
+              const int velocityGradientAlphaIndex2 =
+                  velocityGradientIndex[(axes2 * __dim + axes1) * __dim +
+                                        axes3];
+              const double sigma =
+                  __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
+                           velocityAlphas(i, velocityGradientAlphaIndex2, j));
+
+              f[axes1] += sigma * dA[axes2];
+            }
+          }
+
+          drag[0] += f[0] * res[jVelocityGlobal];
+          drag[1] += f[1] * res[jVelocityGlobal];
+        }
+      }
+    }
+  }
+
+  PetscPrintf(PETSC_COMM_WORLD, "drag force: %.3e, %.3e.\n", drag[0], drag[1]);
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {

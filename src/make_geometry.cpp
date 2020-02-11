@@ -18,8 +18,8 @@ void GMLS_Solver::SetBoundingBox() {
                                  __boundingBoxSize[1] / 2.0,
                                  __boundingBoxSize[2] / 2.0));
   } else if (__dim == 2) {
-    __boundingBoxSize[0] = 2.0;
-    __boundingBoxSize[1] = 2.0;
+    __boundingBoxSize[0] = M_PI;
+    __boundingBoxSize[1] = M_PI;
     __boundingBoxSize[2] = 0.0;
 
     __boundingBox.push_back(
@@ -299,80 +299,16 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
     double vol = __particleSize0[0] * __particleSize0[1];
     int localIndex = coord.size();
     zPos = 0.0;
-    // down
-    if (__domainBoundaryType[0] != 0) {
-      xPos = __domain[0][0];
-      yPos = __domain[0][1];
-      if (__domainBoundaryType[3] != 0) {
-        vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
-      }
-      xPos += 0.5 * __particleSize0[0];
 
-      while (xPos < __domain[1][0] - 1e-5) {
-        vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(0.0, 1.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-        xPos += __particleSize0[0];
-      }
-    }
-
-    // right
-    if (__domainBoundaryType[1] != 0) {
-      xPos = __domain[1][0];
-      yPos = __domain[0][1];
-      if (__domainBoundaryType[0] != 0) {
-        vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
-      }
-      yPos += 0.5 * __particleSize0[1];
-
-      while (yPos < __domain[1][1] - 1e-5) {
-        vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(-1.0, 0.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-        yPos += __particleSize0[1];
-      }
-    }
-
-    // up
-    if (__domainBoundaryType[2] != 0) {
-      xPos = __domain[1][0];
-      yPos = __domain[1][1];
-      if (__domainBoundaryType[1] != 0) {
-        vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(-sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
-      }
-      xPos -= 0.5 * __particleSize0[0];
-
-      while (xPos > __domain[0][0] + 1e-5) {
-        vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(0.0, -1.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-        xPos -= __particleSize0[0];
-      }
-    }
-
-    // left
-    if (__domainBoundaryType[3] != 0) {
-      xPos = __domain[0][0];
-      yPos = __domain[1][1];
-      if (__domainBoundaryType[2] != 0) {
-        vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
-      }
-      yPos -= 0.5 * __particleSize0[1];
-
-      while (yPos > __domain[0][1] + 1e-5) {
-        vec3 pos = vec3(xPos, yPos, zPos);
-        normal = vec3(1.0, 0.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
-        yPos -= __particleSize0[1];
-      }
+    double r = __boundingBoxSize[0] / 2.0;
+    double h = __particleSize0[0];
+    int M_theta = round(2 * M_PI * r / h);
+    double d_theta = 2 * M_PI * r / M_theta;
+    for (int i = 0; i < M_theta; ++i) {
+      double theta = 2 * M_PI * (i + 0.5) / M_theta;
+      vec3 normal = vec3(-cos(theta), -sin(theta), 0.0);
+      vec3 pos = normal * r;
+      InitWallFaceParticle(pos, 1, __particleSize0, normal, localIndex, vol);
     }
   }  // end of 2d construction
   if (__dim == 3) {

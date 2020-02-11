@@ -113,6 +113,32 @@ class GMLS_Solver {
     }
   }
 
+  void InitWallFaceParticle(vec3 &X, int particleType, vec3 &particleSize,
+                            vec3 &normal, int &globalIndex, double vol,
+                            bool rigidBodyParticle = false,
+                            int rigidBodyIndex = -1,
+                            vec3 pCoord = vec3(0.0, 0.0, 0.0)) {
+    static std::vector<vec3> &_coord = __field.vector.GetHandle("coord");
+    static std::vector<vec3> &_normal = __field.vector.GetHandle("normal");
+    static std::vector<vec3> &_particleSize = __field.vector.GetHandle("size");
+    static std::vector<vec3> &_pCoord =
+        __field.vector.GetHandle("parameter coordinate");
+    static std::vector<int> &_globalIndex =
+        __field.index.GetHandle("global index");
+    static std::vector<int> &_particleType =
+        __field.index.GetHandle("particle type");
+    static std::vector<int> &_attachedRigidBodyIndex =
+        __field.index.GetHandle("attached rigid body index");
+
+    _coord.push_back(X);
+    _particleType.push_back(particleType);
+    _particleSize.push_back(particleSize);
+    _normal.push_back(normal);
+    _globalIndex.push_back(globalIndex++);
+    _attachedRigidBodyIndex.push_back(rigidBodyIndex);
+    _pCoord.push_back(pCoord);
+  }
+
   void InsertParticle(vec3 &X, int particleType, vec3 &particleSize,
                       vec3 &normal, int &globalIndex, double vol,
                       bool rigidBodyParticle = false, int rigidBodyIndex = -1,
@@ -134,21 +160,23 @@ class GMLS_Solver {
     static auto &_gapParticleSize = __gap.vector.GetHandle("size");
     static auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
-    int idx = IsInRigidBody(X, particleSize[0]);
+    if (X.mag() < __boundingBoxSize[0] / 2.0 - particleSize[0] * 0.5) {
+      int idx = IsInRigidBody(X, particleSize[0]);
 
-    if (rigidBodyParticle || idx == -2) {
-      _coord.push_back(X);
-      _particleType.push_back(particleType);
-      _particleSize.push_back(particleSize);
-      _normal.push_back(normal);
-      _globalIndex.push_back(globalIndex++);
-      _attachedRigidBodyIndex.push_back(rigidBodyIndex);
-      _pCoord.push_back(pCoord);
-    } else if (idx > 0) {
-      _gapCoord.push_back(X);
-      _gapNormal.push_back(normal);
-      _gapParticleSize.push_back(particleSize);
-      _gapParticleType.push_back(particleType);
+      if (rigidBodyParticle || idx == -2) {
+        _coord.push_back(X);
+        _particleType.push_back(particleType);
+        _particleSize.push_back(particleSize);
+        _normal.push_back(normal);
+        _globalIndex.push_back(globalIndex++);
+        _attachedRigidBodyIndex.push_back(rigidBodyIndex);
+        _pCoord.push_back(pCoord);
+      } else if (idx > 0) {
+        _gapCoord.push_back(X);
+        _gapNormal.push_back(normal);
+        _gapParticleSize.push_back(particleSize);
+        _gapParticleType.push_back(particleType);
+      }
     }
   }
 

@@ -52,9 +52,9 @@ int GMLS_Solver::IsInRigidBody(vec3 &pos, double h) {
   static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
   for (size_t i = 0; i < rigidBodyCoord.size(); i++) {
     vec3 dis = pos - rigidBodyCoord[i];
-    if (dis.mag() < rigidBodySize[i] - 0.5 * __particleSize0[0]) {
+    if (dis.mag() < M_PI / 10 - 0.5 * __particleSize0[0]) {
       return -1;
-    } else if ((dis.mag() + 1e-15) < (rigidBodySize[i] + 0.5 * h)) {
+    } else if ((dis.mag() + 1e-15) < (M_PI / 10 + 0.5 * h)) {
       return i;
     }
   }
@@ -108,7 +108,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
     vec3 particleSize = vec3(h, h, 0);
 
     for (size_t n = 0; n < rigidBodyCoord.size(); n++) {
-      double r = rigidBodySize[n];
+      double r = M_PI / 10;
       int M_theta = round(2 * M_PI * r / h);
       double d_theta = 2 * M_PI * r / M_theta;
       for (int i = 0; i < M_theta; ++i) {
