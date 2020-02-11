@@ -54,7 +54,7 @@ int GMLS_Solver::IsInRigidBody(vec3 &pos, double h) {
     vec3 dis = pos - rigidBodyCoord[i];
     if (dis.mag() < rigidBodySize[i] - 0.5 * __particleSize0[0]) {
       return -1;
-    } else if ((dis.mag() + 1e-15) < (rigidBodySize[i] + 0.5 * h)) {
+    } else if ((dis.mag() + 1e-15) < (rigidBodySize[i] + 0.25 * h)) {
       return i;
     }
   }
@@ -102,7 +102,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
   }
 
   if (__dim == 2) {
-    double h = __particleSize0[0];
+    double h = __particleSize0[0] / 2;
     double vol = pow(h, 2);
 
     vec3 particleSize = vec3(h, h, 0);
