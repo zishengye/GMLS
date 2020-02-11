@@ -620,147 +620,150 @@ void GMLS_Solver::StokesEquation() {
   }
 
   for (int i = 0; i < localParticleNum; i++) {
-    if (particleType[i] != 0 && particleType[i] < 4) {
-      if (__dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        rhs[fieldDof * i] = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-        rhs[fieldDof * i + 1] = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
+    // if (particleType[i] != 0 && particleType[i] < 4) {
+    //   if (__dim == 2) {
+    //     double x = coord[i][0];
+    //     double y = coord[i][1];
+    //     rhs[fieldDof * i] = cos(2 * M_PI * x) * sin(2 * M_PI * y);
+    //     rhs[fieldDof * i + 1] = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
 
-        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-        rhs[fieldDof * i + velocityDof] =
-            bi * (-normal[i][0] * (8 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-                                   sin(2 * M_PI * y)) +
-                  normal[i][1] * (8 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                  cos(2 * M_PI * y)));
-      } else {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
-        rhs[fieldDof * i] =
-            cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
-        rhs[fieldDof * i + 1] =
-            -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
-        rhs[fieldDof * i + 2] =
-            sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
+    //     const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+    //     const double bi =
+    //     pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+    //         LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+    //         neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+    //     rhs[fieldDof * i + velocityDof] =
+    //         bi * (-normal[i][0] * (8 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+    //                                sin(2 * M_PI * y)) +
+    //               normal[i][1] * (8 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+    //                               cos(2 * M_PI * y)));
+    //   } else {
+    //     double x = coord[i][0];
+    //     double y = coord[i][1];
+    //     double z = coord[i][2];
+    //     rhs[fieldDof * i] =
+    //         cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
+    //     rhs[fieldDof * i + 1] =
+    //         -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+    //     rhs[fieldDof * i + 2] =
+    //         sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
 
-        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-        rhs[fieldDof * i + velocityDof] =
-            bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-                                   sin(2 * M_PI * y) * sin(2 * M_PI * z)) +
-                  normal[i][1] * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                  cos(2 * M_PI * y) * sin(2 * M_PI * z)) -
-                  normal[i][2] * (12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                  sin(2 * M_PI * y) * cos(2 * M_PI * z)));
-      }
+    //     const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+    //     const double bi =
+    //     pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+    //         LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+    //         neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+    //     rhs[fieldDof * i + velocityDof] =
+    //         bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+    //                                sin(2 * M_PI * y) * sin(2 * M_PI * z)) +
+    //               normal[i][1] * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+    //                               cos(2 * M_PI * y) * sin(2 * M_PI * z)) -
+    //               normal[i][2] * (12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+    //                               sin(2 * M_PI * y) * cos(2 * M_PI * z)));
+    //   }
 
-      // 2-d cavity flow
-      // rhs[fieldDof * i] =
-      //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
+    // 2-d cavity flow
+    // rhs[fieldDof * i] =
+    //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
 
-      // double x = coord[i][0] / __boundingBoxSize[0];
-      // double y = coord[i][1] / __boundingBoxSize[1];
-      // rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
-      // rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
-    } else {
-      if (__dim == 3) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
-        rhs[fieldDof * i] = 12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-                            sin(2 * M_PI * y) * sin(2 * M_PI * z);
-        rhs[fieldDof * i + 1] = -24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                cos(2 * M_PI * y) * sin(2 * M_PI * z);
-        rhs[fieldDof * i + 2] = 12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-                                sin(2 * M_PI * y) * cos(2 * M_PI * z);
-      } else {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        rhs[fieldDof * i] =
-            8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y);
-        rhs[fieldDof * i + 1] =
-            -8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y);
-      }
+    double x = coord[i][0] / __boundingBoxSize[0];
+    double y = coord[i][1] / __boundingBoxSize[1];
+    rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
+    rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
+  }
+  else {
+    // if (__dim == 3) {
+    //   double x = coord[i][0];
+    //   double y = coord[i][1];
+    //   double z = coord[i][2];
+    //   rhs[fieldDof * i] = 12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
+    //                       sin(2 * M_PI * y) * sin(2 * M_PI * z);
+    //   rhs[fieldDof * i + 1] = -24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+    //                           cos(2 * M_PI * y) * sin(2 * M_PI * z);
+    //   rhs[fieldDof * i + 2] = 12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
+    //                           sin(2 * M_PI * y) * cos(2 * M_PI * z);
+    // } else {
+    //   double x = coord[i][0];
+    //   double y = coord[i][1];
+    //   rhs[fieldDof * i] =
+    //       8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y);
+    //   rhs[fieldDof * i + 1] =
+    //       -8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y);
+    // }
 
-      rhs[fieldDof * i + velocityDof] = 0.0;
+    // rhs[fieldDof * i + velocityDof] = 0.0;
+  }
+}
+
+delete all_pressure;
+delete all_velocity;
+delete neuman_pressure;
+
+MPI_Barrier(MPI_COMM_WORLD);
+tStart = MPI_Wtime();
+if (numRigidBody == 0) {
+  A.Solve(rhs, res, __dim);
+} else {
+  // A.Solve(rhs, res, __dim, numRigidBody);
+  A.Solve(rhs, res, neighborInclusion, __dim, numRigidBody);
+}
+MPI_Barrier(MPI_COMM_WORLD);
+tEnd = MPI_Wtime();
+PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
+            tEnd - tStart);
+
+// copy data
+static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
+static vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
+pressure.resize(localParticleNum);
+velocity.resize(localParticleNum);
+
+for (int i = 0; i < localParticleNum; i++) {
+  pressure[i] = res[fieldDof * i + velocityDof];
+  for (int axes1 = 0; axes1 < __dim; axes1++)
+    velocity[i][axes1] = res[fieldDof * i + axes1];
+}
+
+// check data
+// double residual_velocity_norm;
+// residual_velocity_norm = 0.0;
+// for (int i = 0; i < localParticleNum; i++) {
+//   if (__dim == 3) {
+//     double x = coord[i][0];
+//     double y = coord[i][1];
+//     double z = coord[i][2];
+//     double actual_velocity_x =
+//         cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
+//     double actual_velocity_y =
+//         -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+//     double actual_velocity_z =
+//         sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
+//     residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
+//                               pow(actual_velocity_y - velocity[i][1], 2) +
+//                               pow(actual_velocity_z - velocity[i][2], 2);
+//   } else {
+//     double x = coord[i][0];
+//     double y = coord[i][1];
+//     double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
+//     double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
+//     residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
+//                               pow(actual_velocity_y - velocity[i][1], 2);
+//   }
+// }
+
+// PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3e\n",
+//             sqrt(residual_velocity_norm / globalParticleNum));
+
+if (__myID == __MPISize - 1) {
+  for (int i = 0; i < numRigidBody; i++) {
+    for (int j = 0; j < translationDof; j++) {
+      rigidBodyVelocity[i][j] =
+          res[localRigidBodyOffset + i * rigidBodyDof + j];
+    }
+    for (int j = 0; j < rotationDof; j++) {
+      rigidBodyAngularVelocity[i][j] =
+          res[localRigidBodyOffset + i * rigidBodyDof + translationDof + j];
     }
   }
-
-  delete all_pressure;
-  delete all_velocity;
-  delete neuman_pressure;
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  tStart = MPI_Wtime();
-  if (numRigidBody == 0) {
-    A.Solve(rhs, res, __dim);
-  } else {
-    // A.Solve(rhs, res, __dim, numRigidBody);
-    A.Solve(rhs, res, neighborInclusion, __dim, numRigidBody);
-  }
-  MPI_Barrier(MPI_COMM_WORLD);
-  tEnd = MPI_Wtime();
-  PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
-              tEnd - tStart);
-
-  // copy data
-  static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
-  static vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
-  pressure.resize(localParticleNum);
-  velocity.resize(localParticleNum);
-
-  for (int i = 0; i < localParticleNum; i++) {
-    pressure[i] = res[fieldDof * i + velocityDof];
-    for (int axes1 = 0; axes1 < __dim; axes1++)
-      velocity[i][axes1] = res[fieldDof * i + axes1];
-  }
-
-  // check data
-  double residual_velocity_norm;
-  residual_velocity_norm = 0.0;
-  for (int i = 0; i < localParticleNum; i++) {
-    if (__dim == 3) {
-      double x = coord[i][0];
-      double y = coord[i][1];
-      double z = coord[i][2];
-      double actual_velocity_x =
-          cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
-      double actual_velocity_y =
-          -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
-      double actual_velocity_z =
-          sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
-      residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
-                                pow(actual_velocity_y - velocity[i][1], 2) +
-                                pow(actual_velocity_z - velocity[i][2], 2);
-    } else {
-      double x = coord[i][0];
-      double y = coord[i][1];
-      double actual_velocity_x = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-      double actual_velocity_y = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
-      residual_velocity_norm += pow(actual_velocity_x - velocity[i][0], 2) +
-                                pow(actual_velocity_y - velocity[i][1], 2);
-    }
-  }
-
-  PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3e\n",
-              sqrt(residual_velocity_norm / globalParticleNum));
-
-  if (__myID == __MPISize - 1) {
-    for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < translationDof; j++) {
-        rigidBodyVelocity[i][j] =
-            res[localRigidBodyOffset + i * rigidBodyDof + j];
-      }
-      for (int j = 0; j < rotationDof; j++) {
-        rigidBodyAngularVelocity[i][j] =
-            res[localRigidBodyOffset + i * rigidBodyDof + translationDof + j];
-      }
-    }
-  }
+}
 }
