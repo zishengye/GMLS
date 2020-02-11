@@ -196,7 +196,7 @@ void GMLS_Solver::StokesEquation() {
   Kokkos::View<double ***>::HostMirror tangentBundles =
       Kokkos::create_mirror_view(tangentBundlesDevice);
 
-  int counter = 0;
+  counter = 0;
   for (int i = 0; i < localParticleNum; i++) {
     if (particleType[i] != 0) {
       if (__dim == 3) {
