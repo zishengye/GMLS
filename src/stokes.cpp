@@ -4,6 +4,109 @@
 using namespace std;
 using namespace Compadre;
 
+double wannierUx(double x, double y) {
+  double v1 = 1.0;
+  double v2 = 0.5;
+
+  double a1 = M_PI / 10;
+  double a2 = M_PI / 2;
+  double e = 1.0;
+
+  double d1 = (a2 * a2 - a1 * a1) / (2.0 * e) - e / 2.0;
+  double d2 = d1 + e;
+  double s =
+      sqrt((a2 - a1 - e) * (a2 - a1 + e) * (a2 + a1 + e) * (a2 + a1 - e)) /
+      (2.0 * e);
+  double l1 = log((d1 + s) / (d1 - s));
+  double l2 = log((d2 + s) / (d2 - s));
+  double den = (a2 * a2 + a1 * a1) * (l1 - l2) - 4.0 * s * e;
+  double curlb = 2.0 * (d2 * d2 - d1 * d1) * (a1 * v1 + a2 * v2) /
+                     ((a2 * a2 + a1 * a1) * den) +
+                 a1 * a1 * a2 * a2 * (v1 / a1 - v2 / a2) /
+                     (s * (a1 * a1 + a2 * a2) * (d2 - d1));
+
+  double A = -0.5 * (d1 * d2 - s * s) * curlb;
+  double B = (d1 + s) * (d2 + s) * curlb;
+  double C = (d1 - s) * (d2 - s) * curlb;
+  double D =
+      (d1 * l2 - d2 * l1) * (a1 * v1 + a2 * v2) / den -
+      2.0 * s * ((a2 * a2 - a1 * a1) / (a2 * a2 + a1 * a1)) *
+          (a1 * v1 + a2 * v2) / den -
+      a1 * a1 * a2 * a2 * (v1 / a1 - v2 / a2) / ((a1 * a1 + a2 * a2) * e);
+  double E = 0.5 * (l1 - l2) * (a1 * v1 + a2 * v2) / den;
+  double F = e * (a1 * v1 + a2 * v2) / den;
+
+  double y0 = y;
+  double spy = s + y;
+  double smy = s - y;
+  double zp = x * x + spy * spy;
+  double zm = x * x + smy * smy;
+  double l = log(zp / zm);
+  double zr = 2.0 * (spy / zp + smy / zm);
+
+  double ux = -A * zr -
+              B * ((s + 2.0 * y) * zp - 2.0 * spy * spy * y) / (zp * zp) -
+              C * ((s - 2.0 * y) * zm + 2.0 * smy * smy * y) / (zm * zm) - D -
+              E * 2.0 * y - F * (l + y * zr);
+  double uy = -A * 8.0 * s * x * y / (zp * zm) -
+              B * 2.0 * x * y * spy / (zp * zp) -
+              C * 2.0 * x * y * smy / (zm * zm) + E * 2.0 * x -
+              F * 8.0 * s * x * y * y / (zp * zm);
+
+  return ux;
+}
+double wannierUy(double x, double y) {
+  double v1 = 1.0;
+  double v2 = 0.5;
+
+  double a1 = M_PI / 10;
+  double a2 = M_PI / 2;
+  double e = 1.0;
+
+  double d1 = (a2 * a2 - a1 * a1) / (2.0 * e) - e / 2.0;
+  double d2 = d1 + e;
+  double s =
+      sqrt((a2 - a1 - e) * (a2 - a1 + e) * (a2 + a1 + e) * (a2 + a1 - e)) /
+      (2.0 * e);
+  double l1 = log((d1 + s) / (d1 - s));
+  double l2 = log((d2 + s) / (d2 - s));
+  double den = (a2 * a2 + a1 * a1) * (l1 - l2) - 4.0 * s * e;
+  double curlb = 2.0 * (d2 * d2 - d1 * d1) * (a1 * v1 + a2 * v2) /
+                     ((a2 * a2 + a1 * a1) * den) +
+                 a1 * a1 * a2 * a2 * (v1 / a1 - v2 / a2) /
+                     (s * (a1 * a1 + a2 * a2) * (d2 - d1));
+
+  double A = -0.5 * (d1 * d2 - s * s) * curlb;
+  double B = (d1 + s) * (d2 + s) * curlb;
+  double C = (d1 - s) * (d2 - s) * curlb;
+  double D =
+      (d1 * l2 - d2 * l1) * (a1 * v1 + a2 * v2) / den -
+      2.0 * s * ((a2 * a2 - a1 * a1) / (a2 * a2 + a1 * a1)) *
+          (a1 * v1 + a2 * v2) / den -
+      a1 * a1 * a2 * a2 * (v1 / a1 - v2 / a2) / ((a1 * a1 + a2 * a2) * e);
+  double E = 0.5 * (l1 - l2) * (a1 * v1 + a2 * v2) / den;
+  double F = e * (a1 * v1 + a2 * v2) / den;
+
+  double y0 = y;
+  double spy = s + y;
+  double smy = s - y;
+  double zp = x * x + spy * spy;
+  double zm = x * x + smy * smy;
+  double l = log(zp / zm);
+  double zr = 2.0 * (spy / zp + smy / zm);
+
+  double ux = -A * zr -
+              B * ((s + 2.0 * y) * zp - 2.0 * spy * spy * y) / (zp * zp) -
+              C * ((s - 2.0 * y) * zm + 2.0 * smy * smy * y) / (zm * zm) - D -
+              E * 2.0 * y - F * (l + y * zr);
+  double uy = -A * 8.0 * s * x * y / (zp * zm) -
+              B * 2.0 * x * y * spy / (zp * zp) -
+              C * 2.0 * x * y * smy / (zm * zm) + E * 2.0 * x -
+              F * 8.0 * s * x * y * y / (zp * zm);
+
+  return uy;
+}
+
 void GMLS_Solver::StokesEquationInitialization() {
   __field.vector.Register("fluid velocity");
   __field.scalar.Register("fluid pressure");
@@ -15,16 +118,16 @@ void GMLS_Solver::StokesEquationInitialization() {
                   new GMLS(VectorTaylorPolynomial,
                            StaggeredEdgeAnalyticGradientIntegralSample,
                            __polynomialOrder, __dim, "SVD", "STANDARD"));
-  __gmls.Register(
-      "pressure basis neumann boundary",
-      new GMLS(VectorTaylorPolynomial,
-               StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
-               __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
+  __gmls.Register("pressure basis neumann boundary",
+                  new GMLS(VectorTaylorPolynomial,
+                           StaggeredEdgeAnalyticGradientIntegralSample,
+                           __polynomialOrder, __dim, "SVD", "STANDARD",
+                           "NEUMANN_GRAD_SCALAR"));
 
-  __gmls.Register(
-      "velocity basis",
-      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-               __polynomialOrder, __dim, "LU", "STANDARD"));
+  __gmls.Register("velocity basis",
+                  new GMLS(DivergenceFreeVectorTaylorPolynomial,
+                           VectorPointSample, __polynomialOrder, __dim, "LU",
+                           "STANDARD"));
 }
 
 void GMLS_Solver::StokesEquation() {
@@ -164,7 +267,7 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 4)
       epsilon(i) = __particleSize0[0] * epsilonMultiplier;
     else
-      epsilon(i) = __particleSize0[0] * (epsilonMultiplier + 1);
+      epsilon(i) = __particleSize0[0] * epsilonMultiplier;
 
     if (particleType[i] != 0) {
       if (particleType[i] != 4)
@@ -172,7 +275,7 @@ void GMLS_Solver::StokesEquation() {
             __particleSize0[0] * epsilonMultiplier;
       else
         neumannBoundaryEpsilon(counter) =
-            __particleSize0[0] * (epsilonMultiplier + 1);
+            __particleSize0[0] * epsilonMultiplier;
       counter++;
     }
   }
@@ -433,7 +536,7 @@ void GMLS_Solver::StokesEquation() {
         vec3 dA = (__dim == 3)
                       ? (normal[i] * particleSize[i][0] * particleSize[i][1])
                       : (normal[i] * particleSize[i][0]);
-      }  // end of particles on rigid body
+      } // end of particles on rigid body
     }
 
     // n \cdot grad p
@@ -462,7 +565,7 @@ void GMLS_Solver::StokesEquation() {
           A.increment(iPressureLocal, jVelocityGlobal, -bi * gradient);
         }
       }
-    }  // end of velocity block
+    } // end of velocity block
 
     // pressure block
     if (particleType[i] == 0) {
@@ -516,8 +619,8 @@ void GMLS_Solver::StokesEquation() {
         A.increment(iPressureLocal, jPressureGlobal, -Aij);
         A.increment(iPressureLocal, iPressureGlobal, Aij);
       }
-    }  // end of pressure block
-  }    // end of fluid particle loop1
+    } // end of pressure block
+  }   // end of fluid particle loop1
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
@@ -736,6 +839,29 @@ void GMLS_Solver::StokesEquation() {
   }
 
   PetscPrintf(PETSC_COMM_WORLD, "drag force: %.3e, %.3e.\n", drag[0], drag[1]);
+
+  double a1 = M_PI / 10;
+  double a2 = M_PI / 2;
+  double e = 1.0;
+
+  double d1 = (a2 * a2 - a1 * a1) / (2.0 * e) - e / 2.0;
+  double d2 = d1 + e;
+
+  double velocity_residual_norm = 0.0;
+  double velocity_true_norm = 0.0;
+  for (int i = 0; i < localParticleNum; i++) {
+    double ux = wannierUx(coord[i][0], coord[i][1] + d2);
+    double uy = wannierUy(coord[i][0], coord[i][1] + d2);
+
+    velocity_residual_norm +=
+        pow(velocity[i][0] - ux, 2) + pow(velocity[i][1] - uy, 2);
+    velocity_true_norm += pow(ux, 2) + pow(uy, 2);
+
+    velocity[i][0] = ux;
+    velocity[i][1] = uy;
+  }
+  PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3e.\n",
+              sqrt(velocity_residual_norm / velocity_true_norm));
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {

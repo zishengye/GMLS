@@ -25,7 +25,7 @@ int SearchCommand(int argc, char **argv, const std::string &commandName,
                   T &res);
 
 class GMLS_Solver {
- private:
+private:
   // MPI setting
   int __myID;
   int __MPISize;
@@ -160,8 +160,8 @@ class GMLS_Solver {
     static auto &_gapParticleSize = __gap.vector.GetHandle("size");
     static auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
-    if ((X.mag() + 1e-15) <
-        __boundingBoxSize[0] / 2.0 - particleSize[0] * 0.5) {
+    if ((X.mag() - 1e-15) <
+        __boundingBoxSize[0] / 2.0 - particleSize[0] * 0.25) {
       int idx = IsInRigidBody(X, particleSize[0]);
 
       if (rigidBodyParticle || idx == -2) {
@@ -292,8 +292,7 @@ class GMLS_Solver {
   void ForwardEulerIntegration();
 
   // operator
-  template <typename Func>
-  void SerialOperation(Func operation) {
+  template <typename Func> void SerialOperation(Func operation) {
     for (int i = 0; i < __MPISize; i++) {
       if (i == __myID) {
         operation();
@@ -302,8 +301,7 @@ class GMLS_Solver {
     }
   }
 
-  template <typename Func>
-  void MasterOperation(int master, Func operation) {
+  template <typename Func> void MasterOperation(int master, Func operation) {
     if (master == __myID) {
       operation();
     }
@@ -316,7 +314,7 @@ class GMLS_Solver {
   void WriteDataTimeStep();
   void WriteDataAdaptiveStep();
 
- public:
+public:
   GMLS_Solver(int argc, char **argv);
 
   void TimeIntegration();
