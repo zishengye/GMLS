@@ -543,3 +543,5 @@ lib/
 *.mtl
 
 benchmark/
+
+*.txt

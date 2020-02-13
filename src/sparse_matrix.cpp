@@ -6,6 +6,20 @@
 
 using namespace std;
 
+int PetscSparseMatrix::Write(string fileName) {
+  ofstream output(fileName, ios::trunc);
+
+  for (int i = 0; i < __row; i++) {
+    for (list<entry>::iterator it = __matrix[i].begin();
+         it != __matrix[i].end(); it++) {
+      output << (i + 1) << '\t' << (it->first + 1) << '\t' << it->second
+             << endl;
+    }
+  }
+
+  output.close();
+}
+
 int PetscSparseMatrix::FinalAssemble() {
   // move data from outProcessIncrement
   int myid, MPIsize;
