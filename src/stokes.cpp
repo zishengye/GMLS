@@ -11,20 +11,9 @@ void GMLS_Solver::StokesEquationInitialization() {
   __field.scalar.Register("rhs");
   __field.scalar.Register("res");
 
-  __gmls.Register("pressure basis",
-                  new GMLS(VectorTaylorPolynomial,
-                           StaggeredEdgeAnalyticGradientIntegralSample,
-                           __polynomialOrder, __dim, "SVD", "STANDARD"));
-  __gmls.Register(
-      "pressure basis neumann boundary",
-      new GMLS(VectorTaylorPolynomial,
-               StaggeredEdgeAnalyticGradientIntegralSample, __polynomialOrder,
-               __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
-
-  __gmls.Register(
-      "velocity basis",
-      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-               __polynomialOrder, __dim, "LU", "STANDARD"));
+  __gmls.Register("pressure basis", nullptr);
+  __gmls.Register("pressure basis neumann boundary", nullptr);
+  __gmls.Register("velocity basis", nullptr);
 }
 
 void GMLS_Solver::StokesEquation() {
@@ -41,13 +30,21 @@ void GMLS_Solver::StokesEquation() {
   static vector<int> &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
 
-  GMLS *all_pressure = new GMLS(ScalarTaylorPolynomial,
-                                StaggeredEdgeAnalyticGradientIntegralSample,
-                                __polynomialOrder, __dim, "SVD", "STANDARD");
-  GMLS *neuman_pressure = new GMLS(
+  GMLS *all_pressure = *__gmls.GetPointer("pressure basis");
+  GMLS *neuman_pressure = *__gmls.GetPointer("pressure basis neumann boundary");
+  GMLS *all_velocity = *__gmls.GetPointer("velocity basis");
+
+  if (all_pressure != nullptr) delete all_pressure;
+  if (neuman_pressure != nullptr) delete neuman_pressure;
+  if (all_velocity != nullptr) delete all_velocity;
+
+  all_pressure = new GMLS(ScalarTaylorPolynomial,
+                          StaggeredEdgeAnalyticGradientIntegralSample,
+                          __polynomialOrder, __dim, "SVD", "STANDARD");
+  neuman_pressure = new GMLS(
       ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
       __polynomialOrder, __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
-  GMLS *all_velocity =
+  all_velocity =
       new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
                __polynomialOrder, __dim, "SVD", "STANDARD");
 
@@ -693,10 +690,6 @@ void GMLS_Solver::StokesEquation() {
       // rhs[fieldDof * i + velocityDof] = 0.0;
     }
   }
-
-  delete all_pressure;
-  delete all_velocity;
-  delete neuman_pressure;
 
   // A.Write("A.txt");
 

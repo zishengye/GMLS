@@ -4,106 +4,39 @@ using namespace std;
 using namespace Compadre;
 
 bool GMLS_Solver::NeedRefinement() {
-  if (__adaptive_step < 0) {
-    // prepare stage;
+  if (__adaptive_step < 1) {
+    // prepare stage
+
+    PetscPrintf(PETSC_COMM_WORLD, "\nstart of adaptive refinement\n");
+
     static vector<int> &particleNum =
         __field.index.GetHandle("particle number");
     int &localParticleNum = particleNum[0];
     int &globalParticleNum = particleNum[1];
 
-    GMLS *all_velocity =
-        new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                 __polynomialOrder, __dim, "SVD", "STANDARD");
-
-    GMLS &velocityBasis = *all_velocity;
-
-    static vector<vec3> &backgroundSourceCoord =
-        __background.vector.GetHandle("source coord");
-    static vector<int> &backgroundSourceIndex =
-        __background.index.GetHandle("source index");
-    static vector<vec3> &coord = __field.vector.GetHandle("coord");
-
-    int numSourceCoords = backgroundSourceCoord.size();
-    int numTargetCoords = coord.size();
-    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
-        "source coordinates", numSourceCoords, 3);
-    Kokkos::View<double **>::HostMirror sourceCoords =
-        Kokkos::create_mirror_view(sourceCoordsDevice);
-
-    for (size_t i = 0; i < backgroundSourceCoord.size(); i++) {
-      for (int j = 0; j < 3; j++) {
-        sourceCoords(i, j) = backgroundSourceCoord[i][j];
-      }
-    }
-
-    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> targetCoordsDevice(
-        "target coordinates", numTargetCoords, 3);
-    Kokkos::View<double **>::HostMirror targetCoords =
-        Kokkos::create_mirror_view(targetCoordsDevice);
-
-    // create target coords
-    vector<int> fluid2NeumannBoundary;
-    int iNeumanBoundary = 0;
-    for (int i = 0; i < localParticleNum; i++) {
-      for (int j = 0; j < 3; j++) {
-        targetCoords(i, j) = coord[i][j];
-      }
-    }
-
-    Kokkos::deep_copy(sourceCoordsDevice, sourceCoords);
-    Kokkos::deep_copy(targetCoordsDevice, targetCoords);
-
-    auto pointCloudSearch(CreatePointCloudSearch(sourceCoords, __dim));
-
-    const int minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
-
-    double epsilonMultiplier = 1.5;
-    int estimatedUpperBoundNumberNeighbors =
-        8 * pointCloudSearch.getEstimatedNumberNeighborsUpperBound(
-                minNeighbors, __dim, epsilonMultiplier);
-
-    Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
-        "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
-    Kokkos::View<int **>::HostMirror neighborLists =
-        Kokkos::create_mirror_view(neighborListsDevice);
-
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilonDevice(
-        "h supports", numTargetCoords);
-    Kokkos::View<double *>::HostMirror epsilon =
-        Kokkos::create_mirror_view(epsilonDevice);
-
-    pointCloudSearch.generateNeighborListsFromKNNSearch(
-        false, targetCoords, neighborLists, epsilon, minNeighbors,
-        epsilonMultiplier);
-
-    Kokkos::deep_copy(neighborListsDevice, neighborLists);
-    Kokkos::deep_copy(epsilonDevice, epsilon);
-
-    velocityBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
-                                 targetCoordsDevice, epsilonDevice);
-
-    vector<TargetOperation> velocityOperation(1);
-    velocityOperation[0] = GradientOfVectorPointEvaluation;
-
-    velocityBasis.addTargets(velocityOperation);
-
-    velocityBasis.setWeightingType(WeightingFunctionType::Power);
-    velocityBasis.setWeightingPower(2);
-
-    velocityBasis.generateAlphas(1);
+    GMLS *all_velocity = *__gmls.GetPointer("velocity basis");
+    cout << all_velocity << endl;
+    GMLS &velocityBasis = *__gmls.GetHandle("velocity basis");
 
     vector<int> velocityGradientIndex(pow(__dim, 3));
     for (int i = 0; i < __dim; i++) {
       for (int j = 0; j < __dim; j++) {
         for (int k = 0; k < __dim; k++) {
+          PetscPrintf(PETSC_COMM_WORLD, "get gmls data\n");
           velocityGradientIndex[(i * __dim + j) * __dim + k] =
               velocityBasis.getAlphaColumnOffset(
                   GradientOfVectorPointEvaluation, i, j, k, 0);
         }
       }
     }
+
+    PetscPrintf(PETSC_COMM_WORLD, "get gmls data\n");
+
     auto velocityNeighborListsLengths = velocityBasis.getNeighborListsLengths();
     auto velocityAlphas = velocityBasis.getAlphas();
+    auto neighborLists = velocityBasis.getNeighborLists();
+
+    PetscPrintf(PETSC_COMM_WORLD, "get gmls data\n");
 
     // communicate velocity field
     static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
@@ -223,8 +156,6 @@ bool GMLS_Solver::NeedRefinement() {
     PetscPrintf(PETSC_COMM_WORLD, "Total error for gradient of velocity: %f\n",
                 globalError);
 
-    delete all_velocity;
-
     // mark stage
     double alpha = pow(0.8, __adaptive_step);
     vector<int> splitTag;
@@ -248,7 +179,7 @@ bool GMLS_Solver::NeedRefinement() {
 
   __adaptive_step++;
 
-  if (__adaptive_step > 0) return false;
+  if (__adaptive_step > 1) return false;
 
   return true;
 }
