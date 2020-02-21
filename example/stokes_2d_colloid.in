@@ -1,14 +1,15 @@
 # problem domain setup
--Dim 2 -Mx 100 -My 100 -BatchSize 10
+-Dim 2 -Mx 100 -My 100 -BatchSize 1
+-WriteData 1 -AdaptiveRefinement 1 -AdaptiveRefinementTolerance 1
 
 # problem parameter setup
--ft 0.1 -dt 0.1 -eta 1.0
+-ft 0.01 -dt 0.1 -eta 1.0
 
 # problem type
 -EquationType Stokes
 
 # linear solver setup
--ksp_type fgmres -ksp_monitor_true_residual -ksp_gmres_restart 150
+-ksp_type fgmres -ksp_monitor_true_residual -ksp_gmres_restart 50
 
 -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
 -fieldsplit_0_pc_type hypre

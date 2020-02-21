@@ -216,6 +216,7 @@ void GMLS_Solver::WriteDataTimeStep() {
   if (__equationType == "Stokes") {
     vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
     vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
+    auto &error = __field.scalar.GetHandle("error");
     vector<vec3> &rigidPos = __rigidBody.vector.GetHandle("position");
     vector<vec3> &rigidTheta = __rigidBody.vector.GetHandle("orientation");
     vector<vec3> &rigidVelocity = __rigidBody.vector.GetHandle("velocity");
@@ -259,6 +260,23 @@ void GMLS_Solver::WriteDataTimeStep() {
       file.close();
     });
 
+    MasterOperation(0, [this]() {
+      ofstream file;
+      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+      file << "SCALARS err float 1" << endl;
+      file << "LOOKUP_TABLE default " << endl;
+      file.close();
+    });
+
+    SerialOperation([error, this]() {
+      ofstream file;
+      file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+      for (size_t i = 0; i < error.size(); i++) {
+        file << sqrt(error[i]) << endl;
+      }
+      file.close();
+    });
+
     MasterOperation(
         0, [rigidPos, rigidTheta, rigidVelocity, rigidAngularVelocity]() {
           ofstream file;
@@ -287,20 +305,27 @@ void GMLS_Solver::WriteDataTimeStep() {
 }
 
 void GMLS_Solver::WriteDataAdaptiveStep() {
-  vector<vec3> &coord = __field.vector.GetHandle("coord");
-  vector<vec3> &particleSize = __field.vector.GetHandle("size");
-  vector<vec3> &normal = __field.vector.GetHandle("normal");
-  vector<int> &particleType = __field.index.GetHandle("particle type");
-  vector<int> &particleNum = __field.index.GetHandle("particle number");
+  auto &coord = __field.vector.GetHandle("coord");
+  auto &particleSize = __field.vector.GetHandle("size");
+  auto &normal = __field.vector.GetHandle("normal");
+  auto &particleType = __field.index.GetHandle("particle type");
+  auto &particleNum = __field.index.GetHandle("particle number");
   int &globalParticleNum = particleNum[1];
 
-  vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
-  vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
+  auto &velocity = __field.vector.GetHandle("fluid velocity");
+  auto &pressure = __field.scalar.GetHandle("fluid pressure");
+  auto &error = __field.scalar.GetHandle("error");
+  auto &volume = __field.scalar.GetHandle("volume");
+
+  PetscPrintf(PETSC_COMM_WORLD, "writing adaptive step output\n");
 
   MasterOperation(0, [globalParticleNum, this]() {
     ofstream file;
     file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
               ios::trunc);
+    if (!file.is_open()) {
+      cout << "adaptive step output file open failed\n";
+    }
     file << "# vtk DataFile Version 2.0" << endl;
     file << "particlePositions" << endl;
     file << "ASCII" << endl;
@@ -365,44 +390,82 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
     file.close();
   });
 
-  // MasterOperation(0, [this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "SCALARS p float 1" << endl;
-  //   file << "LOOKUP_TABLE default " << endl;
-  //   file.close();
-  // });
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "SCALARS vol float 1" << endl;
+    file << "LOOKUP_TABLE default " << endl;
+    file.close();
+  });
 
-  // SerialOperation([pressure, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < pressure.size(); i++) {
-  //     file << pressure[i] << endl;
-  //   }
-  //   file.close();
-  // });
+  SerialOperation([volume, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < volume.size(); i++) {
+      file << volume[i] << endl;
+    }
+    file.close();
+  });
 
-  // MasterOperation(0, [this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "SCALARS u float " + to_string(__dim) << endl;
-  //   file << "LOOKUP_TABLE default" << endl;
-  //   file.close();
-  // });
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "SCALARS err float 1" << endl;
+    file << "LOOKUP_TABLE default " << endl;
+    file.close();
+  });
 
-  // SerialOperation([velocity, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < velocity.size(); i++) {
-  //     for (int axes = 0; axes < __dim; axes++) {
-  //       file << velocity[i][axes] << ' ';
-  //     }
-  //     file << endl;
-  //   }
-  //   file.close();
-  // });
+  SerialOperation([error, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < error.size(); i++) {
+      file << sqrt(error[i]) << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "SCALARS p float 1" << endl;
+    file << "LOOKUP_TABLE default " << endl;
+    file.close();
+  });
+
+  SerialOperation([pressure, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < pressure.size(); i++) {
+      file << pressure[i] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "SCALARS u float " + to_string(__dim) << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([velocity, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < velocity.size(); i++) {
+      for (int axes = 0; axes < __dim; axes++) {
+        file << velocity[i][axes] << ' ';
+      }
+      file << endl;
+    }
+    file.close();
+  });
 }

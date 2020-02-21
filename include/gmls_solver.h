@@ -37,6 +37,8 @@ class GMLS_Solver {
   int __polynomialOrder;
   int __writeData;
   int __batchSize;
+  int __adaptiveRefinement;
+  double __adaptiveRefinementTolerance;
 
   bool __successInitialized;
 
@@ -44,8 +46,6 @@ class GMLS_Solver {
 
   double __finalTime;
   double __dt;
-
-  double __recoveryGradUerrorTolerance;
 
   // solver step info
   double __recoveryGradUerror;
@@ -117,16 +117,14 @@ class GMLS_Solver {
                       vec3 &normal, int &globalIndex, double vol,
                       bool rigidBodyParticle = false, int rigidBodyIndex = -1,
                       vec3 pCoord = vec3(0.0, 0.0, 0.0)) {
-    static std::vector<vec3> &_coord = __field.vector.GetHandle("coord");
-    static std::vector<vec3> &_normal = __field.vector.GetHandle("normal");
-    static std::vector<vec3> &_particleSize = __field.vector.GetHandle("size");
-    static std::vector<vec3> &_pCoord =
-        __field.vector.GetHandle("parameter coordinate");
-    static std::vector<int> &_globalIndex =
-        __field.index.GetHandle("global index");
-    static std::vector<int> &_particleType =
-        __field.index.GetHandle("particle type");
-    static std::vector<int> &_attachedRigidBodyIndex =
+    static auto &_coord = __field.vector.GetHandle("coord");
+    static auto &_normal = __field.vector.GetHandle("normal");
+    static auto &_particleSize = __field.vector.GetHandle("size");
+    static auto &_pCoord = __field.vector.GetHandle("parameter coordinate");
+    static auto &_volume = __field.scalar.GetHandle("volume");
+    static auto &_globalIndex = __field.index.GetHandle("global index");
+    static auto &_particleType = __field.index.GetHandle("particle type");
+    static auto &_attachedRigidBodyIndex =
         __field.index.GetHandle("attached rigid body index");
 
     static auto &_gapCoord = __gap.vector.GetHandle("coord");
@@ -141,10 +139,11 @@ class GMLS_Solver {
       _particleType.push_back(particleType);
       _particleSize.push_back(particleSize);
       _normal.push_back(normal);
+      _volume.push_back(vol);
       _globalIndex.push_back(globalIndex++);
       _attachedRigidBodyIndex.push_back(rigidBodyIndex);
       _pCoord.push_back(pCoord);
-    } else if (idx > 0) {
+    } else if (idx > -1) {
       _gapCoord.push_back(X);
       _gapNormal.push_back(normal);
       _gapParticleSize.push_back(particleSize);
@@ -187,10 +186,12 @@ class GMLS_Solver {
 
   void DataSwapAmongNeighbor(std::vector<int> &sendData,
                              std::vector<int> &recvData);
-  void DataSwapAmongNeighbor(std::vector<vec3> &sendData,
+  void DataSwapAmongNeighbor(std::vector<double> &sendData,
                              std::vector<double> &recvData);
+  void DataSwapAmongNeighbor(std::vector<vec3> &sendData,
+                             std::vector<vec3> &recvData);
   void DataSwapAmongNeighbor(std::vector<std::vector<double>> &sendData,
-                             std::vector<double> &recvData,
+                             std::vector<std::vector<double>> &recvData,
                              const int unitLength);
 
   MPI_Win __neighborWinCount;
@@ -201,6 +202,9 @@ class GMLS_Solver {
   GeneralInfo __neighbor;
 
   std::vector<std::vector<int>> __neighborSendParticleIndex;
+
+  std::vector<std::vector<int>> __neighborLists;
+  std::vector<double> __epsilon;
 
   template <typename Cond>
   bool PutParticleInNeighborList(int neighborBlockNum, Cond cond) {
