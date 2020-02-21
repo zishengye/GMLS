@@ -246,8 +246,7 @@ void GMLS_Solver::ParticleIndex() {
   }
 
   SerialOperation([this]() {
-    cout << endl
-         << "[Proc " << this->__myID << "]: generated " << coord.size()
+    cout << "[Proc " << this->__myID << "]: generated " << coord.size()
          << " particles." << endl;
   });
 }

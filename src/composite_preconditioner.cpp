@@ -23,7 +23,7 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   KSPSetOperators(shell->nearField, *cmat, *cmat);
   ISDuplicate(*isg0, &shell->isg0);
   ISDuplicate(*isg1, &shell->isg1);
-  KSPSetType(shell->field, KSPGMRES);
+  KSPSetType(shell->field, KSPFGMRES);
   KSPGMRESSetRestart(shell->field, 50);
   KSPSetType(shell->nearField, KSPPREONLY);
   KSPSetTolerances(shell->field, 1e-2, 1e-50, 1e5, 5000);
