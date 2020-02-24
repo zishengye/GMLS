@@ -52,7 +52,7 @@ int GMLS_Solver::IsInRigidBody(vec3 &pos, double h) {
   static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
   for (size_t i = 0; i < rigidBodyCoord.size(); i++) {
     vec3 dis = pos - rigidBodyCoord[i];
-    if (dis.mag() < M_PI / 10 - 0.5 * __particleSize0[0]) {
+    if (dis.mag() < M_PI / 10 - 1.5 * h) {
       return -1;
     } else if ((dis.mag() + 1e-15) < (M_PI / 10 + 0.25 * h)) {
       return i;

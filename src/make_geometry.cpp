@@ -637,17 +637,8 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
     }
   }
 
-  SplitFieldParticle(fieldSplitTag);
-  SplitFieldBoundaryParticle(fieldBoundarySplitTag);
-  SplitRigidBodySurfaceParticle(fieldRigidBodySurfaceSplitTag);
-
   // split gap particle
-  auto &_gapCoord = __gap.vector.GetHandle("coord");
-
-  vector<vec3> gapCoord;
-  for (auto it = _gapCoord.begin(); it != _gapCoord.end(); it++) {
-    gapCoord.push_back(*it);
-  }
+  auto &gapCoord = __gap.vector.GetHandle("coord");
 
   static vector<vec3> &backgroundSourceCoord =
       __background.vector.GetHandle("source coord");
@@ -716,7 +707,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
 
   vector<int> recvFieldParticleSplitTag;
   vector<int> backgroundFieldParticleSplitTag;
-  DataSwapAmongNeighbor(fieldParticleSplitTag, recvFieldParticleSplitTag);
+  DataSwapAmongNeighbor(splitTag, recvFieldParticleSplitTag);
 
   backgroundFieldParticleSplitTag.insert(backgroundFieldParticleSplitTag.end(),
                                          fieldParticleSplitTag.begin(),
@@ -725,14 +716,19 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
                                          recvFieldParticleSplitTag.begin(),
                                          recvFieldParticleSplitTag.end());
 
-  vector<int> gapParticleSplitTag;
+  vector<int> gapParticleSplitTag(numTargetCoords);
   for (int i = 0; i < numTargetCoords; i++) {
     if (backgroundFieldParticleSplitTag[backgroundSourceIndex[neighborLists(
             i, 1)]] == 1) {
-      gapParticleSplitTag.push_back(i);
+      gapParticleSplitTag[i] = 1;
+    } else {
+      gapParticleSplitTag[i] = 0;
     }
   }
 
+  SplitFieldParticle(fieldSplitTag);
+  SplitFieldBoundaryParticle(fieldBoundarySplitTag);
+  SplitRigidBodySurfaceParticle(fieldRigidBodySurfaceSplitTag);
   SplitGapParticle(gapParticleSplitTag);
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -769,12 +765,21 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
         for (int j = -1; j < 2; j += 2) {
           vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
           if (!insert) {
-            int idx = IsInRigidBody(newPos, xDelta);
-            if (idx == -2) {
-              coord[tag] = newPos;
+            if (newPos.mag() <
+                (__boundingBoxSize[0] / 2.0 - 0.25 * particleSize[tag][0])) {
+              int idx = IsInRigidBody(newPos, xDelta);
+              if (idx == -2) {
+                coord[tag] = newPos;
 
-              insert = true;
-            } else if (idx > -1) {
+                insert = true;
+              } else if (idx > -1) {
+                _gapCoord.push_back(newPos);
+                _gapNormal.push_back(normal[tag]);
+                _gapParticleSize.push_back(particleSize[tag]);
+                _gapParticleType.push_back(particleType[tag]);
+              }
+            } else if (newPos.mag() < (__boundingBoxSize[0] / 2.0 +
+                                       1.5 * particleSize[tag][0])) {
               _gapCoord.push_back(newPos);
               _gapNormal.push_back(normal[tag]);
               _gapParticleSize.push_back(particleSize[tag]);
@@ -888,10 +893,10 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
   static auto &_gapParticleSize = __gap.vector.GetHandle("size");
   static auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
-  auto oldGapCoord = _gapCoord;
-  auto oldGapNormal = _gapNormal;
-  auto oldGapParticleSize = _gapParticleSize;
-  auto oldGapParticleType = _gapParticleType;
+  auto oldGapCoord = move(_gapCoord);
+  auto oldGapNormal = move(_gapNormal);
+  auto oldGapParticleSize = move(_gapParticleSize);
+  auto oldGapParticleType = move(_gapParticleType);
 
   _gapCoord.clear();
   _gapNormal.clear();
@@ -922,19 +927,31 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
   }
 
   if (__dim == 2) {
-    for (auto tag : splitTag) {
-      vec3 origin = oldGapCoord[tag];
-      const double xDelta = oldGapParticleSize[tag][0] * 0.25;
-      const double yDelta = oldGapParticleSize[tag][1] * 0.25;
-      for (int i = -1; i < 2; i += 2) {
-        for (int j = -1; j < 2; j += 2) {
-          vec3 newParticleSize = oldGapParticleSize[tag] * 0.5;
-          vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
-          double vol = newParticleSize[0] * newParticleSize[1];
-          InsertParticle(newPos, oldGapParticleType[tag], newParticleSize,
-                         oldGapNormal[tag], localIndex, vol);
+    for (int tag = 0; tag < splitTag.size(); tag++) {
+      if (splitTag[tag] == 0) {
+        InsertParticle(oldGapCoord[tag], oldGapParticleType[tag],
+                       oldGapParticleSize[tag], oldGapNormal[tag], localIndex,
+                       oldGapParticleSize[tag][0] * oldGapParticleSize[tag][1]);
+      } else {
+        vec3 origin = oldGapCoord[tag];
+        const double xDelta = oldGapParticleSize[tag][0] * 0.25;
+        const double yDelta = oldGapParticleSize[tag][1] * 0.25;
+        for (int i = -1; i < 2; i += 2) {
+          for (int j = -1; j < 2; j += 2) {
+            vec3 newParticleSize = oldGapParticleSize[tag] * 0.5;
+            vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
+            double vol = newParticleSize[0] * newParticleSize[1];
+            InsertParticle(newPos, oldGapParticleType[tag], newParticleSize,
+                           oldGapNormal[tag], localIndex, vol);
+          }
         }
       }
+    }
+
+    for (int tag = splitTag.size(); tag < oldGapCoord.size(); tag++) {
+      InsertParticle(oldGapCoord[tag], oldGapParticleType[tag],
+                     oldGapParticleSize[tag], oldGapNormal[tag], localIndex,
+                     oldGapParticleSize[tag][0] * oldGapParticleSize[tag][1]);
     }
   }
 }

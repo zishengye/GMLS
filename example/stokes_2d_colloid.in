@@ -1,6 +1,6 @@
 # problem domain setup
 -Dim 2 -Mx 100 -My 100 -BatchSize 1
--WriteData 1 -AdaptiveRefinement 1 -AdaptiveRefinementTolerance 1e-2
+-WriteData 1 -AdaptiveRefinement 1 -AdaptiveRefinementTolerance 1e-4
 
 # problem parameter setup
 -ft 0.01 -dt 0.1 -eta 1.0

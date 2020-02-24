@@ -476,12 +476,17 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
   auto &normal = __field.vector.GetHandle("normal");
   auto &particleType = __field.index.GetHandle("particle type");
   auto &particleNum = __field.index.GetHandle("particle number");
-  int &globalParticleNum = particleNum[1];
+  auto &globalParticleNum = particleNum[1];
 
   auto &velocity = __field.vector.GetHandle("fluid velocity");
   auto &pressure = __field.scalar.GetHandle("fluid pressure");
   auto &error = __field.scalar.GetHandle("error");
   auto &volume = __field.scalar.GetHandle("volume");
+
+  auto &_gapCoord = __gap.vector.GetHandle("coord");
+  auto &_gapNormal = __gap.vector.GetHandle("normal");
+  auto &_gapParticleSize = __gap.vector.GetHandle("size");
+  auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
   PetscPrintf(PETSC_COMM_WORLD, "writing adaptive step output\n");
 
@@ -580,6 +585,87 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
               ios::app);
     for (size_t i = 0; i < volume.size(); i++) {
       file << volume[i] << endl;
+    }
+    file.close();
+  });
+
+  int globalGapParticleNum = _gapCoord.size();
+
+  MasterOperation(0, [globalGapParticleNum, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::trunc);
+    if (!file.is_open()) {
+      cout << "adaptive step output file open failed\n";
+    }
+    file << "# vtk DataFile Version 2.0" << endl;
+    file << "particlePositions" << endl;
+    file << "ASCII" << endl;
+    file << "DATASET POLYDATA " << endl;
+    file << " POINTS " << globalGapParticleNum << " float" << endl;
+    file.close();
+  });
+
+  SerialOperation([_gapCoord, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < _gapCoord.size(); i++) {
+      file << _gapCoord[i][0] << ' ' << _gapCoord[i][1] << ' '
+           << _gapCoord[i][2] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [globalGapParticleNum, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    file << "POINT_DATA " << globalGapParticleNum << endl;
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS ID int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([_gapParticleType, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < _gapParticleType.size(); i++) {
+      file << _gapParticleType[i] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS d float 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([_gapParticleSize, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < _gapParticleSize.size(); i++) {
+      file << _gapParticleSize[i][0] << endl;
     }
     file.close();
   });

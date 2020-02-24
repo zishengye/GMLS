@@ -160,7 +160,7 @@ private:
     static auto &_gapParticleSize = __gap.vector.GetHandle("size");
     static auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
-    if (X.mag() < __boundingBoxSize[0] / 2.0 - 0.25 * particleSize[0]) {
+    if (X.mag() < (__boundingBoxSize[0] / 2.0 - 0.25 * particleSize[0])) {
 
       int idx = IsInRigidBody(X, particleSize[0]);
 
@@ -179,7 +179,7 @@ private:
         _gapParticleSize.push_back(particleSize);
         _gapParticleType.push_back(particleType);
       }
-    } else {
+    } else if (X.mag() < __boundingBoxSize[0] / 2.0 + 1.5 * particleSize[0]) {
       _gapCoord.push_back(X);
       _gapNormal.push_back(normal);
       _gapParticleSize.push_back(particleSize);
