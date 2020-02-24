@@ -114,20 +114,17 @@ void GMLS_Solver::StokesEquationInitialization() {
   __field.scalar.Register("rhs");
   __field.scalar.Register("res");
 
-  __gmls.Register("pressure basis",
-                  new GMLS(VectorTaylorPolynomial,
-                           StaggeredEdgeAnalyticGradientIntegralSample,
-                           __polynomialOrder, __dim, "SVD", "STANDARD"));
-  __gmls.Register("pressure basis neumann boundary",
-                  new GMLS(VectorTaylorPolynomial,
-                           StaggeredEdgeAnalyticGradientIntegralSample,
-                           __polynomialOrder, __dim, "SVD", "STANDARD",
-                           "NEUMANN_GRAD_SCALAR"));
+  __gmls.Register("pressure basis");
+  __gmls.Register("pressure basis neumann boundary");
+  __gmls.Register("velocity basis");
 
-  __gmls.Register("velocity basis",
-                  new GMLS(DivergenceFreeVectorTaylorPolynomial,
-                           VectorPointSample, __polynomialOrder, __dim, "LU",
-                           "STANDARD"));
+  auto all_pressure = __gmls.GetPointer("pressure basis");
+  auto neumann_pressure = __gmls.GetPointer("pressure basis neumann boundary");
+  auto all_velocity = __gmls.GetPointer("velocity basis");
+
+  *all_pressure = nullptr;
+  *neumann_pressure = nullptr;
+  *all_velocity = nullptr;
 }
 
 void GMLS_Solver::StokesEquation() {
@@ -144,19 +141,30 @@ void GMLS_Solver::StokesEquation() {
   static vector<int> &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
 
-  GMLS *all_pressure = new GMLS(ScalarTaylorPolynomial,
-                                StaggeredEdgeAnalyticGradientIntegralSample,
-                                __polynomialOrder, __dim, "SVD", "STANDARD");
-  GMLS *neuman_pressure = new GMLS(
+  auto all_pressure = __gmls.GetPointer("pressure basis");
+  auto neumann_pressure = __gmls.GetPointer("pressure basis neumann boundary");
+  auto all_velocity = __gmls.GetPointer("velocity basis");
+
+  if (*all_pressure != nullptr)
+    delete *all_pressure;
+  if (*neumann_pressure != nullptr)
+    delete *neumann_pressure;
+  if (*all_velocity != nullptr)
+    delete *all_velocity;
+
+  *all_pressure = new GMLS(ScalarTaylorPolynomial,
+                           StaggeredEdgeAnalyticGradientIntegralSample,
+                           __polynomialOrder, __dim, "SVD", "STANDARD");
+  *neumann_pressure = new GMLS(
       ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
       __polynomialOrder, __dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
-  GMLS *all_velocity =
+  *all_velocity =
       new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
                __polynomialOrder, __dim, "SVD", "STANDARD");
 
-  GMLS &pressureBasis = *all_pressure;
-  GMLS &pressureNeumannBoundaryBasis = *neuman_pressure;
-  GMLS &velocityBasis = *all_velocity;
+  GMLS &pressureBasis = **all_pressure;
+  GMLS &pressureNeumannBoundaryBasis = **neumann_pressure;
+  GMLS &velocityBasis = **all_velocity;
 
   static vector<vec3> &rigidBodyPosition =
       __rigidBody.vector.GetHandle("position");
@@ -237,7 +245,7 @@ void GMLS_Solver::StokesEquation() {
   double epsilonMultiplier = __polynomialOrder + 0.5;
 
   int estimatedUpperBoundNumberNeighbors =
-      2 * pow(2 * epsilonMultiplier, __dim);
+      pow(2, __dim) * pow(2 * epsilonMultiplier, __dim);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
       "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
@@ -263,20 +271,19 @@ void GMLS_Solver::StokesEquation() {
       Kokkos::create_mirror_view(neumannBoundaryEpsilonDevice);
 
   int counter = 0;
+  __epsilon.resize(localParticleNum);
   for (int i = 0; i < numTargetCoords; i++) {
-    if (particleType[i] != 4)
-      epsilon(i) = __particleSize0[0] * epsilonMultiplier;
-    else
-      epsilon(i) = __particleSize0[0] * epsilonMultiplier;
-
+    epsilon(i) = (max(__particleSize0[0] * pow(0.5, __adaptive_step),
+                      particleSize[i][0])) *
+                     epsilonMultiplier +
+                 1e-15;
+    __epsilon[i] = epsilon(i);
     if (particleType[i] != 0) {
-      if (particleType[i] != 4)
-        neumannBoundaryEpsilon(counter) =
-            __particleSize0[0] * epsilonMultiplier;
-      else
-        neumannBoundaryEpsilon(counter) =
-            __particleSize0[0] * epsilonMultiplier;
-      counter++;
+      neumannBoundaryEpsilon(counter++) =
+          (max(__particleSize0[0] * pow(0.5, __adaptive_step),
+               particleSize[i][0])) *
+              epsilonMultiplier +
+          1e-15;
     }
   }
 
@@ -292,6 +299,15 @@ void GMLS_Solver::StokesEquation() {
   Kokkos::deep_copy(neumannBoundaryNeighborListsDevice,
                     neumannBoundaryNeighborLists);
   Kokkos::deep_copy(neumannBoundaryEpsilonDevice, neumannBoundaryEpsilon);
+
+  __neighborLists.resize(numTargetCoords);
+  for (size_t i = 0; i < __neighborLists.size(); i++) {
+    __neighborLists[i].resize(estimatedUpperBoundNumberNeighbors);
+
+    for (size_t j = 0; j < estimatedUpperBoundNumberNeighbors; j++) {
+      __neighborLists[i][j] = neighborLists(i, j);
+    }
+  }
 
   // tangent bundle for neumann boundary particles
   Kokkos::View<double ***, Kokkos::DefaultExecutionSpace> tangentBundlesDevice(
@@ -388,9 +404,10 @@ void GMLS_Solver::StokesEquation() {
   velocityBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
                                targetCoordsDevice, epsilonDevice);
 
-  vector<TargetOperation> velocityOperation(2);
+  vector<TargetOperation> velocityOperation(3);
   velocityOperation[0] = CurlCurlOfVectorPointEvaluation;
   velocityOperation[1] = GradientOfVectorPointEvaluation;
+  velocityOperation[2] = ScalarPointEvaluation;
 
   velocityBasis.clearTargets();
   velocityBasis.addTargets(velocityOperation);
@@ -536,6 +553,63 @@ void GMLS_Solver::StokesEquation() {
         vec3 dA = (__dim == 3)
                       ? (normal[i] * particleSize[i][0] * particleSize[i][1])
                       : (normal[i] * particleSize[i][0]);
+
+        // apply pressure
+        for (int axes1 = 0; axes1 < translationDof; axes1++) {
+          A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                iPressureGlobal, -dA[axes1]);
+        }
+
+        for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
+          const int neighborParticleIndex =
+              backgroundSourceIndex[neighborLists(i, j + 1)];
+
+          for (int axes3 = 0; axes3 < __dim; axes3++) {
+            const int jVelocityGlobal =
+                fieldDof * neighborParticleIndex + axes3;
+
+            double *f = new double[__dim];
+            for (int axes1 = 0; axes1 < __dim; axes1++) {
+              f[axes1] = 0.0;
+            }
+
+            for (int axes1 = 0; axes1 < __dim; axes1++) {
+              // output component 1
+              for (int axes2 = 0; axes2 < __dim; axes2++) {
+                // output component 2
+                const int velocityGradientAlphaIndex1 =
+                    velocityGradientIndex[(axes1 * __dim + axes2) * __dim +
+                                          axes3];
+                const int velocityGradientAlphaIndex2 =
+                    velocityGradientIndex[(axes2 * __dim + axes1) * __dim +
+                                          axes3];
+                const double sigma =
+                    __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
+                             velocityAlphas(i, velocityGradientAlphaIndex2, j));
+
+                f[axes1] += sigma * dA[axes2];
+              }
+            }
+
+            // force balance
+            for (int axes1 = 0; axes1 < translationDof; axes1++) {
+              A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+                                    jVelocityGlobal, f[axes1]);
+            }
+
+            // torque balance
+            for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+              A.outProcessIncrement(currentRigidBodyLocalOffset +
+                                        translationDof + axes1,
+                                    jVelocityGlobal,
+                                    rci[(axes1 + 1) % translationDof] *
+                                            f[(axes1 + 2) % translationDof] -
+                                        rci[(axes1 + 2) % translationDof] *
+                                            f[(axes1 + 1) % translationDof]);
+            }
+            delete[] f;
+          }
+        }
       } // end of particles on rigid body
     }
 

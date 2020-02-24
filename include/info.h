@@ -32,9 +32,10 @@ class infoEntity {
   }
 
   T& GetHandle(std::string entityName) { return *__entity.at(entityName); }
+  T* GetPointer(std::string entityName) { return __entity.at(entityName); }
 };
 
-typedef infoEntity<Compadre::GMLS> gmlsInfo;
+typedef infoEntity<Compadre::GMLS*> gmlsInfo;
 
 struct GeneralInfo {
   infoEntity<std::vector<vec3>> vector;

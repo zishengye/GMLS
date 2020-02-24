@@ -60,17 +60,19 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     // TODO: check the correctness of the command
   }
 
-  // default recovery_UerrorTolerance is 1e-1
-  if ((SearchCommand<double>(argc, argv, "-Recovery_UerrorTolerance",
-                             __recoveryGradUerrorTolerance)) == 1) {
-    __recoveryGradUerrorTolerance = 1e-1;
-  } else {
-    // TODO: check the correctness of the command
-  }
-
   // default serial output
   if ((SearchCommand<int>(argc, argv, "-WriteData", __writeData)) == 1) {
     __writeData = 1;
+  }
+
+  if ((SearchCommand<int>(argc, argv, "-AdaptiveRefinement",
+                          __adaptiveRefinement)) == 1) {
+    __adaptiveRefinement = 0;
+  } else {
+    if ((SearchCommand<double>(argc, argv, "-AdaptiveRefinementTolerance",
+                               __adaptiveRefinementTolerance)) == 1) {
+      __adaptiveRefinementTolerance = 1e-3;
+    }
   }
 
   // default manifold flag is off
@@ -167,6 +169,15 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
                 __boundingBoxCount[1]);
   }
   PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", __eta);
+  if (__adaptiveRefinement) {
+    PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: on\n");
+    PetscPrintf(PETSC_COMM_WORLD,
+                "==> Adaptive refinement tolerance: "
+                "%f\n",
+                __adaptiveRefinementTolerance);
+  } else {
+    PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: off\n");
+  }
 
   __successInitialized = true;
 }

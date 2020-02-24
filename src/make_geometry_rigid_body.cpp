@@ -102,23 +102,25 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
   }
 
   if (__dim == 2) {
-    double h = __particleSize0[0] / 2;
+    double h = __particleSize0[0];
     double vol = pow(h, 2);
-
-    vec3 particleSize = vec3(h, h, 0);
 
     for (size_t n = 0; n < rigidBodyCoord.size(); n++) {
       double r = M_PI / 10;
       int M_theta = round(2 * M_PI * r / h);
       double d_theta = 2 * M_PI * r / M_theta;
+
+      vec3 particleSize = vec3(d_theta, 0, 0);
+
       for (int i = 0; i < M_theta; ++i) {
         double theta = 2 * M_PI * (i + 0.5) / M_theta;
+        vec3 pCoord = vec3(theta, 0.0, 0.0);
         vec3 normal = vec3(cos(theta), sin(theta), 0.0);
         vec3 pos = normal * r + rigidBodyCoord[n];
         if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
             pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
-          InsertParticle(pos, 4, particleSize, normal, localIndex, vol, true,
-                         n);
+          InsertParticle(pos, 4, particleSize, normal, localIndex, vol, true, n,
+                         pCoord);
       }
     }
   }
@@ -133,6 +135,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
   static auto &particleType = __field.index.GetHandle("particle type");
   static auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
+  static auto &volume = __field.scalar.GetHandle("volume");
 
   static vector<vec3> &rigidBodyCoord =
       __rigidBody.vector.GetHandle("position");
@@ -142,8 +145,10 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
 
   if (__dim == 3) {
     for (auto tag : splitTag) {
-      const double thetaDelta = particleSize[tag][0] * 0.25;
-      const double phiDelta = particleSize[tag][1] * 0.25;
+      const double thetaDelta = particleSize[tag][0] * 0.25 /
+                                rigidBodySize[attachedRigidBodyIndex[tag]];
+      const double phiDelta = particleSize[tag][1] * 0.25 /
+                              rigidBodySize[attachedRigidBodyIndex[tag]];
 
       double theta = pCoord[tag][0];
       double phi = pCoord[tag][1];
@@ -162,17 +167,52 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
             coord[tag] = newPos;
             particleSize[tag][0] /= 2.0;
             particleSize[tag][1] /= 2.0;
+            volume[tag] /= 8.0;
             normal[tag] = newNormal;
             pCoord[tag] = vec3(theta + i * thetaDelta, phi + j * phiDelta, 0.0);
 
             insert = true;
           } else {
-            double vol = particleSize[tag][0] * particleSize[tag][1];
+            double vol = volume[tag];
             InsertParticle(
                 newPos, particleType[tag], particleSize[tag], newNormal,
                 localIndex, vol, true, attachedRigidBodyIndex[tag],
                 vec3(theta + i * thetaDelta, phi + j * phiDelta, 0.0));
           }
+        }
+      }
+    }
+  }
+
+  if (__dim == 2) {
+    for (auto tag : splitTag) {
+      const double thetaDelta = particleSize[tag][0] * 0.25 /
+                                rigidBodySize[attachedRigidBodyIndex[tag]];
+
+      double theta = pCoord[tag][0];
+
+      bool insert = false;
+      for (int i = -1; i < 2; i += 2) {
+        vec3 newNormal =
+            vec3(cos(theta + i * thetaDelta), sin(theta + i * thetaDelta), 0.0);
+        vec3 newPos = newNormal * rigidBodySize[attachedRigidBodyIndex[tag]] +
+                      rigidBodyCoord[attachedRigidBodyIndex[tag]];
+
+        if (!insert) {
+          coord[tag] = newPos;
+          particleSize[tag][0] /= 2.0;
+          particleSize[tag][1] /= 2.0;
+          volume[tag] /= 4.0;
+          normal[tag] = newNormal;
+          pCoord[tag] = vec3(theta + i * thetaDelta, 0.0, 0.0);
+
+          insert = true;
+        } else {
+          double vol = volume[tag];
+          InsertParticle(newPos, particleType[tag], particleSize[tag],
+                         newNormal, localIndex, vol, true,
+                         attachedRigidBodyIndex[tag],
+                         vec3(theta + i * thetaDelta, 0.0, 0.0));
         }
       }
     }

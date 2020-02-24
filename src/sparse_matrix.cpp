@@ -6,6 +6,20 @@
 
 using namespace std;
 
+int PetscSparseMatrix::Write(string fileName) {
+  ofstream output(fileName, ios::trunc);
+
+  for (int i = 0; i < __row; i++) {
+    for (list<entry>::iterator it = __matrix[i].begin();
+         it != __matrix[i].end(); it++) {
+      output << (i + 1) << '\t' << (it->first + 1) << '\t' << it->second
+             << endl;
+    }
+  }
+
+  output.close();
+}
+
 int PetscSparseMatrix::FinalAssemble() {
   // move data from outProcessIncrement
   int myid, MPIsize;
@@ -823,13 +837,6 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   KSPSolve(_ksp, _rhs, _x);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
-
-  MatCreateVecs(__mat, &diag, NULL);
-  MatMult(__mat, _x, diag);
-  VecAXPY(diag, -1.0, _rhs);
-  PetscReal norm;
-  VecNorm(diag, NORM_2, &norm);
-  PetscPrintf(PETSC_COMM_WORLD, "norm: %f\n", norm);
 
   KSPDestroy(&_ksp);
 

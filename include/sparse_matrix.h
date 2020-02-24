@@ -72,6 +72,8 @@ class PetscSparseMatrix {
   inline void outProcessIncrement(const PetscInt i, const PetscInt j,
                                   double daij);
 
+  int Write(std::string filename);
+
   int StructureAssemble();
   int FinalAssemble();
 
