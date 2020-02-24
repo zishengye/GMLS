@@ -343,6 +343,8 @@ bool GMLS_Solver::NeedRefinement() {
     BuildNeighborList();
 
     __adaptive_step++;
+  } else {
+    return false;
   }
 
   return true;

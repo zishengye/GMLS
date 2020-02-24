@@ -71,7 +71,7 @@ private:
   GeneralInfo __field;
   GeneralInfo __eq;
 
-  QueueInfo __gap;
+  GeneralInfo __gap;
 
   // rigid body info
   GeneralInfo __rigidBody;
@@ -123,6 +123,7 @@ private:
     static std::vector<vec3> &_particleSize = __field.vector.GetHandle("size");
     static std::vector<vec3> &_pCoord =
         __field.vector.GetHandle("parameter coordinate");
+    static auto &_volume = __field.scalar.GetHandle("volume");
     static std::vector<int> &_globalIndex =
         __field.index.GetHandle("global index");
     static std::vector<int> &_particleType =
@@ -137,6 +138,7 @@ private:
     _globalIndex.push_back(globalIndex++);
     _attachedRigidBodyIndex.push_back(rigidBodyIndex);
     _pCoord.push_back(pCoord);
+    _volume.push_back(vol);
   }
 
   void InsertParticle(vec3 &X, int particleType, vec3 &particleSize,
@@ -158,18 +160,26 @@ private:
     static auto &_gapParticleSize = __gap.vector.GetHandle("size");
     static auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
-    int idx = IsInRigidBody(X, particleSize[0]);
+    if (X.mag() < __boundingBoxSize[0] / 2.0 - 0.25 * particleSize[0]) {
 
-    if (rigidBodyParticle || idx == -2) {
-      _coord.push_back(X);
-      _particleType.push_back(particleType);
-      _particleSize.push_back(particleSize);
-      _normal.push_back(normal);
-      _volume.push_back(vol);
-      _globalIndex.push_back(globalIndex++);
-      _attachedRigidBodyIndex.push_back(rigidBodyIndex);
-      _pCoord.push_back(pCoord);
-    } else if (idx > -1) {
+      int idx = IsInRigidBody(X, particleSize[0]);
+
+      if (rigidBodyParticle || idx == -2) {
+        _coord.push_back(X);
+        _particleType.push_back(particleType);
+        _particleSize.push_back(particleSize);
+        _normal.push_back(normal);
+        _volume.push_back(vol);
+        _globalIndex.push_back(globalIndex++);
+        _attachedRigidBodyIndex.push_back(rigidBodyIndex);
+        _pCoord.push_back(pCoord);
+      } else if (idx > -1) {
+        _gapCoord.push_back(X);
+        _gapNormal.push_back(normal);
+        _gapParticleSize.push_back(particleSize);
+        _gapParticleType.push_back(particleType);
+      }
+    } else {
       _gapCoord.push_back(X);
       _gapNormal.push_back(normal);
       _gapParticleSize.push_back(particleSize);
@@ -266,6 +276,7 @@ private:
   void SplitFieldParticle(std::vector<int> &splitTag);
   void SplitFieldBoundaryParticle(std::vector<int> &splitTag);
   void SplitRigidBodySurfaceParticle(std::vector<int> &splitTag);
+  void SplitGapParticle(std::vector<int> &splitTag);
 
   int __adaptive_step;
 
@@ -314,6 +325,7 @@ private:
 
   void WriteDataTimeStep();
   void WriteDataAdaptiveStep();
+  void WriteDataAdaptiveGeometry();
 
 public:
   GMLS_Solver(int argc, char **argv);

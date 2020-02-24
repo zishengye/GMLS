@@ -469,3 +469,118 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
     file.close();
   });
 }
+
+void GMLS_Solver::WriteDataAdaptiveGeometry() {
+  auto &coord = __field.vector.GetHandle("coord");
+  auto &particleSize = __field.vector.GetHandle("size");
+  auto &normal = __field.vector.GetHandle("normal");
+  auto &particleType = __field.index.GetHandle("particle type");
+  auto &particleNum = __field.index.GetHandle("particle number");
+  int &globalParticleNum = particleNum[1];
+
+  auto &velocity = __field.vector.GetHandle("fluid velocity");
+  auto &pressure = __field.scalar.GetHandle("fluid pressure");
+  auto &error = __field.scalar.GetHandle("error");
+  auto &volume = __field.scalar.GetHandle("volume");
+
+  PetscPrintf(PETSC_COMM_WORLD, "writing adaptive step output\n");
+
+  MasterOperation(0, [globalParticleNum, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::trunc);
+    if (!file.is_open()) {
+      cout << "adaptive step output file open failed\n";
+    }
+    file << "# vtk DataFile Version 2.0" << endl;
+    file << "particlePositions" << endl;
+    file << "ASCII" << endl;
+    file << "DATASET POLYDATA " << endl;
+    file << " POINTS " << globalParticleNum << " float" << endl;
+    file.close();
+  });
+
+  SerialOperation([coord, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < coord.size(); i++) {
+      file << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [globalParticleNum, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    file << "POINT_DATA " << globalParticleNum << endl;
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS ID int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([particleType, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < particleType.size(); i++) {
+      file << particleType[i] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS d float 1" << endl;
+    file << "LOOKUP_TABLE default " << endl;
+    file.close();
+  });
+
+  SerialOperation([particleSize, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < particleSize.size(); i++) {
+      file << particleSize[i][0] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS vol float 1" << endl;
+    file << "LOOKUP_TABLE default " << endl;
+    file.close();
+  });
+
+  SerialOperation([volume, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < volume.size(); i++) {
+      file << volume[i] << endl;
+    }
+    file.close();
+  });
+}

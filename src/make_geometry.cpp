@@ -4,6 +4,7 @@
 #include <iostream>
 
 using namespace std;
+using namespace Compadre;
 
 void GMLS_Solver::SetBoundingBox() {
   if (__dim == 3) {
@@ -312,8 +313,9 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
     for (int i = 0; i < M_theta; ++i) {
       double theta = 2 * M_PI * (i + 0.5) / M_theta;
       vec3 normal = vec3(-cos(theta), -sin(theta), 0.0);
-      vec3 pos = normal * r;
-      InitWallFaceParticle(pos, 1, __particleSize0, normal, localIndex, vol);
+      vec3 pos = normal * (-r);
+      InitWallFaceParticle(pos, 2, __particleSize0, normal, localIndex, vol,
+                           false, -1, vec3(theta, 0.0, 0.0));
     }
   } // end of 2d construction
   if (__dim == 3) {
@@ -639,6 +641,100 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   SplitFieldBoundaryParticle(fieldBoundarySplitTag);
   SplitRigidBodySurfaceParticle(fieldRigidBodySurfaceSplitTag);
 
+  // split gap particle
+  auto &_gapCoord = __gap.vector.GetHandle("coord");
+
+  vector<vec3> gapCoord;
+  for (auto it = _gapCoord.begin(); it != _gapCoord.end(); it++) {
+    gapCoord.push_back(*it);
+  }
+
+  static vector<vec3> &backgroundSourceCoord =
+      __background.vector.GetHandle("source coord");
+  static vector<int> &backgroundSourceIndex =
+      __background.index.GetHandle("source index");
+
+  int numSourceCoords = backgroundSourceCoord.size();
+  int numTargetCoords = gapCoord.size();
+
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
+      "source coordinates", numSourceCoords, 3);
+  Kokkos::View<double **>::HostMirror sourceCoords =
+      Kokkos::create_mirror_view(sourceCoordsDevice);
+
+  for (size_t i = 0; i < backgroundSourceCoord.size(); i++) {
+    for (int j = 0; j < 3; j++) {
+      sourceCoords(i, j) = backgroundSourceCoord[i][j];
+    }
+  }
+
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> targetCoordsDevice(
+      "target coordinates", numTargetCoords, 3);
+  Kokkos::View<double **>::HostMirror targetCoords =
+      Kokkos::create_mirror_view(targetCoordsDevice);
+
+  for (int i = 0; i < numTargetCoords; i++) {
+    for (int j = 0; j < 3; j++) {
+      targetCoords(i, j) = gapCoord[i][j];
+    }
+  }
+
+  Kokkos::deep_copy(sourceCoordsDevice, sourceCoords);
+  Kokkos::deep_copy(targetCoordsDevice, targetCoords);
+
+  auto pointCloudSearch(CreatePointCloudSearch(sourceCoords, __dim));
+
+  int estimatedUpperBoundNumberNeighbors = 8;
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
+      "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
+  Kokkos::View<int **>::HostMirror neighborLists =
+      Kokkos::create_mirror_view(neighborListsDevice);
+
+  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilonDevice(
+      "h supports", numTargetCoords);
+  Kokkos::View<double *>::HostMirror epsilon =
+      Kokkos::create_mirror_view(epsilonDevice);
+
+  pointCloudSearch.generateNeighborListsFromKNNSearch(
+      false, targetCoords, neighborLists, epsilon, 2, 1.0);
+
+  Kokkos::deep_copy(neighborListsDevice, neighborLists);
+
+  static vector<int> &particleNum = __field.index.GetHandle("particle number");
+  int &localParticleNum = particleNum[0];
+
+  vector<int> fieldParticleSplitTag(localParticleNum);
+
+  for (int i = 0; i < localParticleNum; i++) {
+    fieldParticleSplitTag[i] = 0;
+  }
+
+  for (auto tag : splitTag) {
+    fieldParticleSplitTag[tag] = 1;
+  }
+
+  vector<int> recvFieldParticleSplitTag;
+  vector<int> backgroundFieldParticleSplitTag;
+  DataSwapAmongNeighbor(fieldParticleSplitTag, recvFieldParticleSplitTag);
+
+  backgroundFieldParticleSplitTag.insert(backgroundFieldParticleSplitTag.end(),
+                                         fieldParticleSplitTag.begin(),
+                                         fieldParticleSplitTag.end());
+  backgroundFieldParticleSplitTag.insert(backgroundFieldParticleSplitTag.end(),
+                                         recvFieldParticleSplitTag.begin(),
+                                         recvFieldParticleSplitTag.end());
+
+  vector<int> gapParticleSplitTag;
+  for (int i = 0; i < numTargetCoords; i++) {
+    if (backgroundFieldParticleSplitTag[backgroundSourceIndex[neighborLists(
+            i, 1)]] == 1) {
+      gapParticleSplitTag.push_back(i);
+    }
+  }
+
+  SplitGapParticle(gapParticleSplitTag);
+
   MPI_Barrier(MPI_COMM_WORLD);
   ParticleIndex();
 }
@@ -653,17 +749,10 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
       __field.index.GetHandle("attached rigid body index");
   static auto &volume = __field.scalar.GetHandle("volume");
 
-  // gap particles
   static auto &_gapCoord = __gap.vector.GetHandle("coord");
   static auto &_gapNormal = __gap.vector.GetHandle("normal");
   static auto &_gapParticleSize = __gap.vector.GetHandle("size");
   static auto &_gapParticleType = __gap.index.GetHandle("particle type");
-
-  auto size = _gapCoord.size();
-  auto itCoord = _gapCoord.begin();
-  auto itNormal = _gapNormal.begin();
-  auto itParticleSize = _gapParticleSize.begin();
-  auto itParticleType = _gapParticleType.begin();
 
   int localIndex = coord.size();
 
@@ -732,69 +821,13 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
       }
     }
   }
-
-  // gap particles
-  if (__dim == 3) {
-    for (auto i = 0; i < size; i++) {
-      vec3 origin = *itCoord;
-      const double xDelta = (*itParticleSize)[0] * 0.25;
-      const double yDelta = (*itParticleSize)[1] * 0.25;
-      const double zDelta = (*itParticleSize)[2] * 0.25;
-      for (int i = -1; i < 2; i += 2) {
-        for (int j = -1; j < 2; j += 2) {
-          for (int k = -1; k < 2; k += 2) {
-            vec3 newParticleSize = (*itParticleSize) * 0.5;
-            vec3 newPos = origin + vec3(i * xDelta, j * yDelta, k * zDelta);
-            double vol = (*itParticleSize)[0] * (*itParticleSize)[1] *
-                         (*itParticleSize)[2] / 8.0;
-            InsertParticle(newPos, *itParticleType, newParticleSize, *itNormal,
-                           localIndex, vol);
-          }
-        }
-      }
-      itCoord++;
-      itNormal++;
-      itParticleSize++;
-      itParticleType++;
-
-      _gapCoord.pop_front();
-      _gapNormal.pop_front();
-      _gapParticleSize.pop_front();
-      _gapParticleType.pop_front();
-    }
-  }
-
-  if (__dim == 2) {
-    for (auto i = 0; i < size; i++) {
-      vec3 origin = *itCoord;
-      const double xDelta = (*itParticleSize)[0] * 0.25;
-      const double yDelta = (*itParticleSize)[1] * 0.25;
-      for (int i = -1; i < 2; i += 2) {
-        for (int j = -1; j < 2; j += 2) {
-          vec3 newParticleSize = (*itParticleSize) * 0.5;
-          vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
-          double vol = newParticleSize[0] * newParticleSize[1];
-          InsertParticle(newPos, *itParticleType, newParticleSize, *itNormal,
-                         localIndex, vol);
-        }
-      }
-      itCoord++;
-      itNormal++;
-      itParticleSize++;
-      itParticleType++;
-
-      _gapCoord.pop_front();
-      _gapNormal.pop_front();
-      _gapParticleSize.pop_front();
-      _gapParticleType.pop_front();
-    }
-  }
 }
 
 void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
   static auto &coord = __field.vector.GetHandle("coord");
   static auto &normal = __field.vector.GetHandle("normal");
   static auto &particleSize = __field.vector.GetHandle("size");
+  static auto &pCoord = __field.vector.GetHandle("parameter coordinate");
   static auto &globalIndex = __field.index.GetHandle("global index");
   static auto &particleType = __field.index.GetHandle("particle type");
   static auto &attachedRigidBodyIndex =
@@ -810,30 +843,98 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
         particleSize[tag][0] /= 2.0;
         particleSize[tag][1] /= 2.0;
       } else {
-        vec3 origin = coord[tag];
-        const double xDelta = particleSize[tag][0] * 0.25 * normal[tag][1];
-        const double yDelta = particleSize[tag][1] * 0.25 * normal[tag][0];
+        double r = __boundingBoxSize[0] / 2.0;
+        const double thetaDelta = particleSize[tag][0] * 0.25 / r;
+
+        double theta = pCoord[tag][0];
+
         bool insert = false;
         for (int i = -1; i < 2; i += 2) {
-          vec3 newPos = origin + vec3(i * xDelta, i * yDelta, 0.0);
-          if (!insert) {
-            if (IsInRigidBody(newPos, xDelta) == -2) {
-              coord[tag] = newPos;
-              particleSize[tag][0] /= 2.0;
-              particleSize[tag][1] /= 2.0;
-              volume[tag] /= 4.0;
+          vec3 newNormal = vec3(-cos(theta + i * thetaDelta),
+                                -sin(theta + i * thetaDelta), 0.0);
+          vec3 newPos = newNormal * (-r);
 
-              insert = true;
-            }
+          if (!insert) {
+            coord[tag] = newPos;
+            particleSize[tag][0] /= 2.0;
+            particleSize[tag][1] /= 2.0;
+            volume[tag] /= 4.0;
+            normal[tag] = newNormal;
+            pCoord[tag] = vec3(theta + i * thetaDelta, 0.0, 0.0);
+
+            insert = true;
           } else {
             double vol = volume[tag];
-            InsertParticle(newPos, particleType[tag], particleSize[tag],
-                           normal[tag], localIndex, vol);
+            InitWallFaceParticle(newPos, particleType[tag], particleSize[tag],
+                                 newNormal, localIndex, vol, false, -1,
+                                 vec3(theta + i * thetaDelta, 0.0, 0.0));
           }
         }
       }
     }
   }
   if (__dim == 3) {
+  }
+}
+
+void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
+  static auto &coord = __field.vector.GetHandle("coord");
+
+  int localIndex = coord.size();
+
+  // gap particles
+  static auto &_gapCoord = __gap.vector.GetHandle("coord");
+  static auto &_gapNormal = __gap.vector.GetHandle("normal");
+  static auto &_gapParticleSize = __gap.vector.GetHandle("size");
+  static auto &_gapParticleType = __gap.index.GetHandle("particle type");
+
+  auto oldGapCoord = _gapCoord;
+  auto oldGapNormal = _gapNormal;
+  auto oldGapParticleSize = _gapParticleSize;
+  auto oldGapParticleType = _gapParticleType;
+
+  _gapCoord.clear();
+  _gapNormal.clear();
+  _gapParticleType.clear();
+  _gapParticleSize.clear();
+
+  // gap particles
+  if (__dim == 3) {
+    for (auto tag : splitTag) {
+      vec3 origin = oldGapCoord[tag];
+      const double xDelta = oldGapParticleSize[tag][0] * 0.25;
+      const double yDelta = oldGapParticleSize[tag][1] * 0.25;
+      const double zDelta = oldGapParticleSize[tag][2] * 0.25;
+      for (int i = -1; i < 2; i += 2) {
+        for (int j = -1; j < 2; j += 2) {
+          for (int k = -1; k < 2; k += 2) {
+            vec3 newParticleSize = oldGapParticleSize[tag] * 0.5;
+            vec3 newPos = origin + vec3(i * xDelta, j * yDelta, k * zDelta);
+            double vol = oldGapParticleSize[tag][0] *
+                         oldGapParticleSize[tag][1] *
+                         oldGapParticleSize[tag][2] / 8.0;
+            InsertParticle(newPos, oldGapParticleType[tag], newParticleSize,
+                           oldGapNormal[tag], localIndex, vol);
+          }
+        }
+      }
+    }
+  }
+
+  if (__dim == 2) {
+    for (auto tag : splitTag) {
+      vec3 origin = oldGapCoord[tag];
+      const double xDelta = oldGapParticleSize[tag][0] * 0.25;
+      const double yDelta = oldGapParticleSize[tag][1] * 0.25;
+      for (int i = -1; i < 2; i += 2) {
+        for (int j = -1; j < 2; j += 2) {
+          vec3 newParticleSize = oldGapParticleSize[tag] * 0.5;
+          vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
+          double vol = newParticleSize[0] * newParticleSize[1];
+          InsertParticle(newPos, oldGapParticleType[tag], newParticleSize,
+                         oldGapNormal[tag], localIndex, vol);
+        }
+      }
+    }
   }
 }

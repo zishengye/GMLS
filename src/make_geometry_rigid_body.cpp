@@ -33,7 +33,7 @@ void GMLS_Solver::InitRigidBody() {
       rigidBodyPosition.push_back(xyz);
       input >> size;
       input >> type;
-      rigidBodySize.push_back(size);
+      rigidBodySize.push_back(M_PI / 10);
 
       rigidBodyOrientation.push_back(vec3(0.0, 0.0, 0.0));
       rigidBodyVelocity.push_back(vec3(0.0, 0.0, 0.0));
@@ -106,7 +106,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
     double vol = pow(h, 2);
 
     for (size_t n = 0; n < rigidBodyCoord.size(); n++) {
-      double r = M_PI / 10;
+      double r = rigidBodySize[n];
       int M_theta = round(2 * M_PI * r / h);
       double d_theta = 2 * M_PI * r / M_theta;
 

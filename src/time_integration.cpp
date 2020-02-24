@@ -75,6 +75,7 @@ void GMLS_Solver::ForwardEulerIntegration() {
     // }
 
     do {
+      WriteDataAdaptiveGeometry();
       (this->*__equationSolver)();
     } while (NeedRefinement());
 

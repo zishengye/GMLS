@@ -836,17 +836,14 @@ void GMLS_Solver::StokesEquation() {
     rhs[localRigidBodyOffset + 2] = 10 / M_PI;
   }
 
-  delete all_pressure;
-  delete all_velocity;
-  delete neumann_pressure;
-
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
   if (numRigidBody == 0) {
     A.Solve(rhs, res, __dim);
   } else {
+    A.Solve(rhs, res);
     // A.Solve(rhs, res, __dim, numRigidBody);
-    A.Solve(rhs, res, neighborInclusion, __dim, numRigidBody);
+    // A.Solve(rhs, res, neighborInclusion, __dim, numRigidBody);
   }
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
