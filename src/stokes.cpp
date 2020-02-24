@@ -838,7 +838,7 @@ void GMLS_Solver::StokesEquation() {
 
   delete all_pressure;
   delete all_velocity;
-  delete neuman_pressure;
+  delete neumann_pressure;
 
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
