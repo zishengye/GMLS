@@ -228,48 +228,60 @@ bool GMLS_Solver::NeedRefinement() {
           }
         }
 
-        for (int axes1 = 0; axes1 < __dim; axes1++) {
-          for (int axes2 = axes1; axes2 < __dim; axes2++) {
-            if (axes1 == axes2)
-              error[i] +=
-                  pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
-                          backgroundRecoveredVelocityGradient
-                              [neighborParticleIndex][axes1 * __dim + axes2],
-                      2) *
-                  backgroundVolume[neighborParticleIndex];
-            else {
-              error[i] +=
-                  0.5 *
-                  pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
-                          backgroundRecoveredVelocityGradient
-                              [neighborParticleIndex][axes1 * __dim + axes2] +
-                          reconstructedVelocityGradient[axes2 * __dim + axes1] -
-                          backgroundRecoveredVelocityGradient
-                              [neighborParticleIndex][axes2 * __dim + axes1],
-                      2) *
-                  backgroundVolume[neighborParticleIndex];
-            }
-          }
+        // for (int axes1 = 0; axes1 < __dim; axes1++) {
+        //   for (int axes2 = axes1; axes2 < __dim; axes2++) {
+        //     if (axes1 == axes2)
+        //       error[i] +=
+        //           pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
+        //                   backgroundRecoveredVelocityGradient
+        //                       [neighborParticleIndex][axes1 * __dim + axes2],
+        //               2) *
+        //           backgroundVolume[neighborParticleIndex];
+        //     else {
+        //       error[i] +=
+        //           0.5 *
+        //           pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
+        //                   backgroundRecoveredVelocityGradient
+        //                       [neighborParticleIndex][axes1 * __dim + axes2]
+        //                       +
+        //                   reconstructedVelocityGradient[axes2 * __dim +
+        //                   axes1] - backgroundRecoveredVelocityGradient
+        //                       [neighborParticleIndex][axes2 * __dim + axes1],
+        //               2) *
+        //           backgroundVolume[neighborParticleIndex];
+        //     }
+        //   }
+        // }
+        for (int axes = 0; axes < gradientComponentNum; axes++) {
+          error[i] +=
+              pow(reconstructedVelocityGradient[axes] -
+                      backgroundRecoveredVelocityGradient[neighborParticleIndex]
+                                                         [axes],
+                  2) *
+              backgroundVolume[neighborParticleIndex];
         }
       }
 
       error[i] = error[i] / totalNeighborVol * volume[i];
       localError += error[i];
 
-      for (int axes1 = 0; axes1 < __dim; axes1++) {
-        for (int axes2 = axes1; axes2 < __dim; axes2++) {
-          if (axes1 == axes2)
-            localDirectGradientNorm +=
-                pow(gradient(i, axes1 * __dim + axes2), 2) * volume[i];
-          else {
-            localDirectGradientNorm +=
-                0.5 *
-                pow(gradient(i, axes1 * __dim + axes2) +
-                        gradient(i, axes2 * __dim + axes1),
-                    2) *
-                volume[i];
-          }
-        }
+      // for (int axes1 = 0; axes1 < __dim; axes1++) {
+      //   for (int axes2 = axes1; axes2 < __dim; axes2++) {
+      //     if (axes1 == axes2)
+      //       localDirectGradientNorm +=
+      //           pow(gradient(i, axes1 * __dim + axes2), 2) * volume[i];
+      //     else {
+      //       localDirectGradientNorm +=
+      //           0.5 *
+      //           pow(gradient(i, axes1 * __dim + axes2) +
+      //                   gradient(i, axes2 * __dim + axes1),
+      //               2) *
+      //           volume[i];
+      //     }
+      //   }
+      // }
+      for (int axes = 0; axes < gradientComponentNum; axes++) {
+        localDirectGradientNorm += pow(gradient(i, axes), 2) * volume[i];
       }
     }
 
