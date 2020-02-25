@@ -400,8 +400,6 @@ void GMLS_Solver::StokesEquation() {
   auto pressureNeumannBoundaryNeighborListsLengths =
       pressureNeumannBoundaryBasis.getNeighborListsLengths();
 
-  PetscPrintf(PETSC_COMM_WORLD, "finish pressure nuemann basis building\n");
-
   // velocity basis
   velocityBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
                                targetCoordsDevice, epsilonDevice);
