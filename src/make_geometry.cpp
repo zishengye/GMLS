@@ -737,10 +737,10 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
       }
 
       if ((gapParticleSize[i][0] <
-           1.5 * backgroundParticleSize[backgroundSourceIndex[neighborLists(
-                     i, j + 1)]][0]) &&
+           0.75 * backgroundParticleSize[backgroundSourceIndex[neighborLists(
+                      i, j + 1)]][0]) &&
           backgroundSplitTag[backgroundSourceIndex[neighborLists(i, j + 1)]] ==
-              0) {
+              1) {
         splitBasedOnNeighborSize = false;
       }
     }
