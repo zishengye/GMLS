@@ -733,8 +733,8 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
              0.5 * backgroundParticleSize[backgroundSourceIndex[neighborLists(
                        i, 1)]][0]) ||
         gapParticleSize[i][0] >
-            backgroundParticleSize[backgroundSourceIndex[neighborLists(i, 1)]]
-                                  [0]) {
+            1.5 * backgroundParticleSize[backgroundSourceIndex[neighborLists(
+                      i, 1)]][0]) {
       gapParticleSplitTag[i] = 1;
     } else {
       gapParticleSplitTag[i] = 0;
