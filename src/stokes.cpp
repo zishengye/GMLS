@@ -309,6 +309,8 @@ void GMLS_Solver::StokesEquation() {
     }
   }
 
+  PetscPrintf(PETSC_COMM_WORLD, "finish neighbor list building\n");
+
   // tangent bundle for neumann boundary particles
   Kokkos::View<double ***, Kokkos::DefaultExecutionSpace> tangentBundlesDevice(
       "tangent bundles", neumannBoundaryNumTargetCoords, __dim, __dim);
@@ -370,6 +372,8 @@ void GMLS_Solver::StokesEquation() {
 
   auto pressureNeighborListsLengths = pressureBasis.getNeighborListsLengths();
 
+  PetscPrintf(PETSC_COMM_WORLD, "finish pressure basis building\n");
+
   // pressure Neumann boundary basis
   pressureNeumannBoundaryBasis.setProblemData(
       neumannBoundaryNeighborListsDevice, sourceCoordsDevice,
@@ -399,6 +403,8 @@ void GMLS_Solver::StokesEquation() {
 
   auto pressureNeumannBoundaryNeighborListsLengths =
       pressureNeumannBoundaryBasis.getNeighborListsLengths();
+
+  PetscPrintf(PETSC_COMM_WORLD, "finish pressure nuemann basis building\n");
 
   // velocity basis
   velocityBasis.setProblemData(neighborListsDevice, sourceCoordsDevice,
