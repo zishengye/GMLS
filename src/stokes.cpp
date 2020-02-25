@@ -555,61 +555,63 @@ void GMLS_Solver::StokesEquation() {
                       : (normal[i] * particleSize[i][0]);
 
         // apply pressure
-        for (int axes1 = 0; axes1 < translationDof; axes1++) {
-          A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                iPressureGlobal, -dA[axes1]);
-        }
+        // for (int axes1 = 0; axes1 < translationDof; axes1++) {
+        //   A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+        //                         iPressureGlobal, -dA[axes1]);
+        // }
 
-        for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
-          const int neighborParticleIndex =
-              backgroundSourceIndex[neighborLists(i, j + 1)];
+        // for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
+        //   const int neighborParticleIndex =
+        //       backgroundSourceIndex[neighborLists(i, j + 1)];
 
-          for (int axes3 = 0; axes3 < __dim; axes3++) {
-            const int jVelocityGlobal =
-                fieldDof * neighborParticleIndex + axes3;
+        //   for (int axes3 = 0; axes3 < __dim; axes3++) {
+        //     const int jVelocityGlobal =
+        //         fieldDof * neighborParticleIndex + axes3;
 
-            double *f = new double[__dim];
-            for (int axes1 = 0; axes1 < __dim; axes1++) {
-              f[axes1] = 0.0;
-            }
+        //     double *f = new double[__dim];
+        //     for (int axes1 = 0; axes1 < __dim; axes1++) {
+        //       f[axes1] = 0.0;
+        //     }
 
-            for (int axes1 = 0; axes1 < __dim; axes1++) {
-              // output component 1
-              for (int axes2 = 0; axes2 < __dim; axes2++) {
-                // output component 2
-                const int velocityGradientAlphaIndex1 =
-                    velocityGradientIndex[(axes1 * __dim + axes2) * __dim +
-                                          axes3];
-                const int velocityGradientAlphaIndex2 =
-                    velocityGradientIndex[(axes2 * __dim + axes1) * __dim +
-                                          axes3];
-                const double sigma =
-                    __eta * (velocityAlphas(i, velocityGradientAlphaIndex1, j) +
-                             velocityAlphas(i, velocityGradientAlphaIndex2, j));
+        //     for (int axes1 = 0; axes1 < __dim; axes1++) {
+        //       // output component 1
+        //       for (int axes2 = 0; axes2 < __dim; axes2++) {
+        //         // output component 2
+        //         const int velocityGradientAlphaIndex1 =
+        //             velocityGradientIndex[(axes1 * __dim + axes2) * __dim +
+        //                                   axes3];
+        //         const int velocityGradientAlphaIndex2 =
+        //             velocityGradientIndex[(axes2 * __dim + axes1) * __dim +
+        //                                   axes3];
+        //         const double sigma =
+        //             __eta * (velocityAlphas(i, velocityGradientAlphaIndex1,
+        //             j) +
+        //                      velocityAlphas(i, velocityGradientAlphaIndex2,
+        //                      j));
 
-                f[axes1] += sigma * dA[axes2];
-              }
-            }
+        //         f[axes1] += sigma * dA[axes2];
+        //       }
+        //     }
 
-            // force balance
-            for (int axes1 = 0; axes1 < translationDof; axes1++) {
-              A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
-                                    jVelocityGlobal, f[axes1]);
-            }
+        //     // force balance
+        //     for (int axes1 = 0; axes1 < translationDof; axes1++) {
+        //       A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
+        //                             jVelocityGlobal, f[axes1]);
+        //     }
 
-            // torque balance
-            for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-              A.outProcessIncrement(currentRigidBodyLocalOffset +
-                                        translationDof + axes1,
-                                    jVelocityGlobal,
-                                    rci[(axes1 + 1) % translationDof] *
-                                            f[(axes1 + 2) % translationDof] -
-                                        rci[(axes1 + 2) % translationDof] *
-                                            f[(axes1 + 1) % translationDof]);
-            }
-            delete[] f;
-          }
-        }
+        //     // torque balance
+        //     for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+        //       A.outProcessIncrement(currentRigidBodyLocalOffset +
+        //                                 translationDof + axes1,
+        //                             jVelocityGlobal,
+        //                             rci[(axes1 + 1) % translationDof] *
+        //                                     f[(axes1 + 2) % translationDof] -
+        //                                 rci[(axes1 + 2) % translationDof] *
+        //                                     f[(axes1 + 1) % translationDof]);
+        //     }
+        //     delete[] f;
+        //   }
+        // }
       } // end of particles on rigid body
     }
 
