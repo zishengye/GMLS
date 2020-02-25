@@ -621,7 +621,9 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
 }
 
 void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
-  static auto &particleType = __field.index.GetHandle("particle type");
+  auto &particleType = __field.index.GetHandle("particle type");
+  auto &particleSize = __field.vector.GetHandle("size");
+  auto &gapParticleSize = __gap.vector.GetHandle("size");
 
   vector<int> fieldSplitTag;
   vector<int> fieldBoundarySplitTag;
@@ -705,21 +707,31 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
     fieldParticleSplitTag[tag] = 1;
   }
 
-  vector<int> recvFieldParticleSplitTag;
-  vector<int> backgroundFieldParticleSplitTag;
-  DataSwapAmongNeighbor(splitTag, recvFieldParticleSplitTag);
+  vector<int> recvSplitTag;
+  vector<int> backgroundSplitTag;
+  vector<vec3> recvParticleSize;
+  vector<vec3> backgroundParticleSize;
+  DataSwapAmongNeighbor(particleSize, recvParticleSize);
+  DataSwapAmongNeighbor(splitTag, recvSplitTag);
 
-  backgroundFieldParticleSplitTag.insert(backgroundFieldParticleSplitTag.end(),
-                                         fieldParticleSplitTag.begin(),
-                                         fieldParticleSplitTag.end());
-  backgroundFieldParticleSplitTag.insert(backgroundFieldParticleSplitTag.end(),
-                                         recvFieldParticleSplitTag.begin(),
-                                         recvFieldParticleSplitTag.end());
+  backgroundParticleSize.insert(backgroundParticleSize.end(),
+                                particleSize.begin(), particleSize.end());
+  backgroundParticleSize.insert(backgroundParticleSize.end(),
+                                recvParticleSize.begin(),
+                                recvParticleSize.end());
+
+  backgroundSplitTag.insert(backgroundSplitTag.end(),
+                            fieldParticleSplitTag.begin(),
+                            fieldParticleSplitTag.end());
+  backgroundSplitTag.insert(backgroundSplitTag.end(), recvSplitTag.begin(),
+                            recvSplitTag.end());
 
   vector<int> gapParticleSplitTag(numTargetCoords);
   for (int i = 0; i < numTargetCoords; i++) {
-    if (backgroundFieldParticleSplitTag[backgroundSourceIndex[neighborLists(
-            i, 1)]] == 1) {
+    if (backgroundSplitTag[backgroundSourceIndex[neighborLists(i, 1)]] == 1 ||
+        gapParticleSize[i][0] <
+            backgroundParticleSize[backgroundSourceIndex[neighborLists(i, 1)]]
+                                  [0]) {
       gapParticleSplitTag[i] = 1;
     } else {
       gapParticleSplitTag[i] = 0;

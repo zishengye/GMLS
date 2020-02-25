@@ -1,5 +1,5 @@
 # problem domain setup
--Dim 2 -Mx 100 -My 100 -BatchSize 1
+-Dim 2 -Mx 100 -My 100 -BatchSize 1 -PolynomialOrder 4
 -WriteData 1 -AdaptiveRefinement 1 -AdaptiveRefinementTolerance 1e-4
 
 # problem parameter setup
