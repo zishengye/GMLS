@@ -677,7 +677,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
 
   auto pointCloudSearch(CreatePointCloudSearch(sourceCoords, __dim));
 
-  int estimatedUpperBoundNumberNeighbors = 8;
+  int estimatedUpperBoundNumberNeighbors = 2 * pow(2, __dim);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighborListsDevice(
       "neighbor lists", numTargetCoords, estimatedUpperBoundNumberNeighbors);
@@ -690,7 +690,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
       Kokkos::create_mirror_view(epsilonDevice);
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
-      false, targetCoords, neighborLists, epsilon, 2, 1.0);
+      false, targetCoords, neighborLists, epsilon, pow(2, __dim), 1.0);
 
   Kokkos::deep_copy(neighborListsDevice, neighborLists);
 
