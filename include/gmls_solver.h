@@ -160,26 +160,18 @@ private:
     static auto &_gapParticleSize = __gap.vector.GetHandle("size");
     static auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
-    if (X.mag() < (__boundingBoxSize[0] / 2.0 - 0.25 * particleSize[0])) {
+    int idx = IsInRigidBody(X, particleSize[0]);
 
-      int idx = IsInRigidBody(X, particleSize[0]);
-
-      if (rigidBodyParticle || idx == -2) {
-        _coord.push_back(X);
-        _particleType.push_back(particleType);
-        _particleSize.push_back(particleSize);
-        _normal.push_back(normal);
-        _volume.push_back(vol);
-        _globalIndex.push_back(globalIndex++);
-        _attachedRigidBodyIndex.push_back(rigidBodyIndex);
-        _pCoord.push_back(pCoord);
-      } else if (idx > -1) {
-        _gapCoord.push_back(X);
-        _gapNormal.push_back(normal);
-        _gapParticleSize.push_back(particleSize);
-        _gapParticleType.push_back(particleType);
-      }
-    } else if (X.mag() < __boundingBoxSize[0] / 2.0 + 1.5 * particleSize[0]) {
+    if (rigidBodyParticle || idx == -2) {
+      _coord.push_back(X);
+      _particleType.push_back(particleType);
+      _particleSize.push_back(particleSize);
+      _normal.push_back(normal);
+      _volume.push_back(vol);
+      _globalIndex.push_back(globalIndex++);
+      _attachedRigidBodyIndex.push_back(rigidBodyIndex);
+      _pCoord.push_back(pCoord);
+    } else if (idx > -1) {
       _gapCoord.push_back(X);
       _gapNormal.push_back(normal);
       _gapParticleSize.push_back(particleSize);

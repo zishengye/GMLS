@@ -1,6 +1,6 @@
 # problem domain setup
--Dim 2 -Mx 50 -My 50 -BatchSize 1 -PolynomialOrder 4
--WriteData 1 -AdaptiveRefinement 1 -AdaptiveRefinementTolerance 1e-4
+-Dim 2 -Mx 30 -My 30 -BatchSize 1
+-WriteData 1 -AdaptiveRefinement 1 -AdaptiveRefinementTolerance 3e-2
 
 # problem parameter setup
 -ft 0.01 -dt 0.1 -eta 1.0
@@ -11,13 +11,13 @@
 # linear solver setup
 -ksp_type fgmres -ksp_monitor_true_residual -ksp_gmres_restart 50
 
--pc_type lu -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
+-pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
 -fieldsplit_0_pc_type hypre
 -fieldsplit_1_pc_type hypre
 -fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_pc_hypre_boomeramg_interp_type classical -fieldsplit_0_pc_hypre_boomeramg_coarsen_type Falgout
 -fieldsplit_1_pc_hypre_type boomeramg -fieldsplit_1_pc_hypre_boomeramg_interp_type direct -fieldsplit_1_pc_hypre_boomeramg_coarsen_type Ruge-Stueben
--fieldsplit_0_ksp_type preonly -fieldsplit_0_ksp_max_it 1
--fieldsplit_1_ksp_type preonly -fieldsplit_1_ksp_max_it 1
+-fieldsplit_0_ksp_type fgmres -fieldsplit_0_ksp_rtol 1e-3
+-fieldsplit_1_ksp_type fgmres -fieldsplit_1_ksp_rtol 1e-3
 
 # rigid body inclusion
 -rigid_body_input example/2d_rigid_body.in

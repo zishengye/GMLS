@@ -33,7 +33,7 @@ void GMLS_Solver::InitRigidBody() {
       rigidBodyPosition.push_back(xyz);
       input >> size;
       input >> type;
-      rigidBodySize.push_back(M_PI / 10);
+      rigidBodySize.push_back(size);
 
       rigidBodyOrientation.push_back(vec3(0.0, 0.0, 0.0));
       rigidBodyVelocity.push_back(vec3(0.0, 0.0, 0.0));
@@ -52,9 +52,9 @@ int GMLS_Solver::IsInRigidBody(vec3 &pos, double h) {
   static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
   for (size_t i = 0; i < rigidBodyCoord.size(); i++) {
     vec3 dis = pos - rigidBodyCoord[i];
-    if (dis.mag() < M_PI / 10 - 1.5 * h) {
+    if (dis.mag() < rigidBodySize[i] / 10 - 1.5 * h) {
       return -1;
-    } else if ((dis.mag() + 1e-15) < (M_PI / 10 + 0.25 * h)) {
+    } else if ((dis.mag() + 1e-15) < (rigidBodySize[i] + 0.25 * h)) {
       return i;
     }
   }

@@ -19,8 +19,8 @@ void GMLS_Solver::SetBoundingBox() {
                                  __boundingBoxSize[1] / 2.0,
                                  __boundingBoxSize[2] / 2.0));
   } else if (__dim == 2) {
-    __boundingBoxSize[0] = M_PI;
-    __boundingBoxSize[1] = M_PI;
+    __boundingBoxSize[0] = 2.0;
+    __boundingBoxSize[1] = 2.0;
     __boundingBoxSize[2] = 0.0;
 
     __boundingBox.push_back(
@@ -305,19 +305,82 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
     double vol = __particleSize0[0] * __particleSize0[1];
     int localIndex = coord.size();
     zPos = 0.0;
+    // down
+    if (__domainBoundaryType[0] != 0) {
+      xPos = __domain[0][0];
+      yPos = __domain[0][1];
+      if (__domainBoundaryType[3] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
+      }
+      xPos += 0.5 * __particleSize0[0];
 
-    double r = __boundingBoxSize[0] / 2.0;
-    double h = __particleSize0[0];
-    int M_theta = round(2 * M_PI * r / h);
-    double d_theta = 2 * M_PI * r / M_theta;
-    for (int i = 0; i < M_theta; ++i) {
-      double theta = 2 * M_PI * (i + 0.5) / M_theta;
-      vec3 normal = vec3(-cos(theta), -sin(theta), 0.0);
-      vec3 pos = normal * (-r);
-      InitWallFaceParticle(pos, 2, __particleSize0, normal, localIndex, vol,
-                           false, -1, vec3(theta, 0.0, 0.0));
+      while (xPos < __domain[1][0] - 1e-5) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(0.0, 1.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        xPos += __particleSize0[0];
+      }
     }
-  } // end of 2d construction
+
+    // right
+    if (__domainBoundaryType[1] != 0) {
+      xPos = __domain[1][0];
+      yPos = __domain[0][1];
+      if (__domainBoundaryType[0] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
+      }
+      yPos += 0.5 * __particleSize0[1];
+
+      while (yPos < __domain[1][1] - 1e-5) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(-1.0, 0.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        yPos += __particleSize0[1];
+      }
+    }
+
+    // up
+    if (__domainBoundaryType[2] != 0) {
+      xPos = __domain[1][0];
+      yPos = __domain[1][1];
+      if (__domainBoundaryType[1] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(-sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
+      }
+      xPos -= 0.5 * __particleSize0[0];
+
+      while (xPos > __domain[0][0] + 1e-5) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(0.0, -1.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        xPos -= __particleSize0[0];
+      }
+    }
+
+    // left
+    if (__domainBoundaryType[3] != 0) {
+      xPos = __domain[0][0];
+      yPos = __domain[1][1];
+      if (__domainBoundaryType[2] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
+      }
+      yPos -= 0.5 * __particleSize0[1];
+
+      while (yPos > __domain[0][1] + 1e-5) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(1.0, 0.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        yPos -= __particleSize0[1];
+      }
+    }
+  }  // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = coord.size();
@@ -796,21 +859,12 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
         for (int j = -1; j < 2; j += 2) {
           vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
           if (!insert) {
-            if (newPos.mag() <
-                (__boundingBoxSize[0] / 2.0 - 0.25 * particleSize[tag][0])) {
-              int idx = IsInRigidBody(newPos, xDelta);
-              if (idx == -2) {
-                coord[tag] = newPos;
+            int idx = IsInRigidBody(newPos, xDelta);
+            if (idx == -2) {
+              coord[tag] = newPos;
 
-                insert = true;
-              } else if (idx > -1) {
-                _gapCoord.push_back(newPos);
-                _gapNormal.push_back(normal[tag]);
-                _gapParticleSize.push_back(particleSize[tag]);
-                _gapParticleType.push_back(particleType[tag]);
-              }
-            } else if (newPos.mag() < (__boundingBoxSize[0] / 2.0 +
-                                       1.5 * particleSize[tag][0])) {
+              insert = true;
+            } else if (idx > -1) {
               _gapCoord.push_back(newPos);
               _gapNormal.push_back(normal[tag]);
               _gapParticleSize.push_back(particleSize[tag]);
@@ -878,32 +932,29 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
         // corner particle
         particleSize[tag][0] /= 2.0;
         particleSize[tag][1] /= 2.0;
+        volume[tag] /= 4.0;
       } else {
-        double r = __boundingBoxSize[0] / 2.0;
-        const double thetaDelta = particleSize[tag][0] * 0.25 / r;
+        particleSize[tag][0] /= 2.0;
+        particleSize[tag][1] /= 2.0;
+        volume[tag] /= 4.0;
 
         double theta = pCoord[tag][0];
 
+        vec3 oldCoord = coord[tag];
+
         bool insert = false;
         for (int i = -1; i < 2; i += 2) {
-          vec3 newNormal = vec3(-cos(theta + i * thetaDelta),
-                                -sin(theta + i * thetaDelta), 0.0);
-          vec3 newPos = newNormal * (-r);
+          vec3 newPos = oldCoord + vec3(normal[tag][1], -normal[tag][0], 0.0) *
+                                       i * particleSize[tag][0] * 0.5;
 
           if (!insert) {
             coord[tag] = newPos;
-            particleSize[tag][0] /= 2.0;
-            particleSize[tag][1] /= 2.0;
-            volume[tag] /= 4.0;
-            normal[tag] = newNormal;
-            pCoord[tag] = vec3(theta + i * thetaDelta, 0.0, 0.0);
 
             insert = true;
           } else {
             double vol = volume[tag];
             InitWallFaceParticle(newPos, particleType[tag], particleSize[tag],
-                                 newNormal, localIndex, vol, false, -1,
-                                 vec3(theta + i * thetaDelta, 0.0, 0.0));
+                                 normal[tag], localIndex, vol);
           }
         }
       }
