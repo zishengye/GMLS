@@ -10,7 +10,7 @@ double wannierUx(double x, double y) {
 
   double a1 = M_PI / 10;
   double a2 = M_PI / 2;
-  double e = 1.0;
+  double e = 1.24092909817;
 
   double d1 = (a2 * a2 - a1 * a1) / (2.0 * e) - e / 2.0;
   double d2 = d1 + e;
@@ -61,7 +61,7 @@ double wannierUy(double x, double y) {
 
   double a1 = M_PI / 10;
   double a2 = M_PI / 2;
-  double e = 1.0;
+  double e = 1.24092909817;
 
   double d1 = (a2 * a2 - a1 * a1) / (2.0 * e) - e / 2.0;
   double d2 = d1 + e;
@@ -806,8 +806,8 @@ void GMLS_Solver::StokesEquation() {
       // rhs[fieldDof * i] =
       //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
 
-      rhs[fieldDof * i] = -normal[i][1] * 0.5;
-      rhs[fieldDof * i + 1] = normal[i][0] * 0.5;
+      rhs[fieldDof * i] = normal[i][1] * 0.5;
+      rhs[fieldDof * i + 1] = -normal[i][0] * 0.5;
     } else {
       // if (__dim == 3) {
       //   double x = coord[i][0];
