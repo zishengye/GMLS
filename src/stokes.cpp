@@ -529,7 +529,6 @@ void GMLS_Solver::StokesEquation() {
             globalRigidBodyOffset + rigidBodyDof * currentRigidBody;
 
         vec3 rci = coord[i] - rigidBodyPosition[currentRigidBody];
-        cout << rci.mag() << endl;
         // non-slip condition
         // translation
         for (int axes1 = 0; axes1 < translationDof; axes1++) {
@@ -942,12 +941,11 @@ void GMLS_Solver::StokesEquation() {
       for (int j = 0; j < translationDof; j++) {
         rigidBodyVelocity[i][j] =
             res[localRigidBodyOffset + i * rigidBodyDof + j];
-
-        cout << rigidBodyVelocity[i][j] << endl;
       }
       for (int j = 0; j < rotationDof; j++) {
         rigidBodyAngularVelocity[i][j] =
             res[localRigidBodyOffset + i * rigidBodyDof + translationDof + j];
+        cout << rigidBodyAngularVelocity[i][j] << endl;
       }
     }
   }
