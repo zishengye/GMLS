@@ -931,9 +931,6 @@ void GMLS_Solver::StokesEquation() {
     velocity_residual_norm +=
         pow(velocity[i][0] - ux, 2) + pow(velocity[i][1] - uy, 2);
     velocity_true_norm += pow(ux, 2) + pow(uy, 2);
-
-    velocity[i][0] = ux;
-    velocity[i][1] = uy;
   }
   PetscPrintf(PETSC_COMM_WORLD, "velocity residual norm: %.3e.\n",
               sqrt(velocity_residual_norm / velocity_true_norm));
