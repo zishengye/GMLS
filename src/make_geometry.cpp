@@ -737,7 +737,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
     }
 
     bool splitBasedOnNeighbor = false;
-    if (static_cast<float>(counter) > 0.5 * neighborLists(i, 0)) {
+    if (static_cast<float>(counter) > 0.3 * neighborLists(i, 0)) {
       splitBasedOnNeighbor = true;
     }
 
