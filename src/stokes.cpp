@@ -529,6 +529,7 @@ void GMLS_Solver::StokesEquation() {
             globalRigidBodyOffset + rigidBodyDof * currentRigidBody;
 
         vec3 rci = coord[i] - rigidBodyPosition[currentRigidBody];
+        cout << rci.mag() << endl;
         // non-slip condition
         // translation
         for (int axes1 = 0; axes1 < translationDof; axes1++) {
