@@ -421,7 +421,11 @@ void GMLS_Solver::StokesEquation() {
   velocityBasis.setWeightingType(WeightingFunctionType::Power);
   velocityBasis.setWeightingPower(4);
 
+  PetscPrintf(PETSC_COMM_WORLD, "before generating velocity alphas\n");
+
   velocityBasis.generateAlphas(number_of_batches);
+
+  PetscPrintf(PETSC_COMM_WORLD, "after generating velocity alphas\n");
 
   auto velocityAlphas = velocityBasis.getAlphas();
 
