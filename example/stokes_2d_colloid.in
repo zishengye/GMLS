@@ -16,8 +16,8 @@
 -fieldsplit_1_pc_type hypre
 -fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_pc_hypre_boomeramg_interp_type classical -fieldsplit_0_pc_hypre_boomeramg_coarsen_type Falgout
 -fieldsplit_1_pc_hypre_type boomeramg -fieldsplit_1_pc_hypre_boomeramg_interp_type direct -fieldsplit_1_pc_hypre_boomeramg_coarsen_type Ruge-Stueben
--fieldsplit_0_ksp_type fgmres -fieldsplit_0_ksp_rtol 1e-3
--fieldsplit_1_ksp_type fgmres -fieldsplit_1_ksp_rtol 1e-3
+-fieldsplit_0_ksp_type preonly -fieldsplit_0_ksp_max_it 1
+-fieldsplit_1_ksp_type preonly -fieldsplit_1_ksp_max_it 1
 
 # rigid body inclusion
 -rigid_body_input example/2d_rigid_body.in
