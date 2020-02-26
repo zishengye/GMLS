@@ -485,7 +485,7 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
                  sizeof(double), MPI_INFO_NULL, MPI_COMM_WORLD,
                  &__neighborWinParticleSwap);
 
-  vector<int> sendDataBlock;
+  vector<double> sendDataBlock;
 
   for (int i = 0; i < neighborNum; i++) {
     if (neighborFlag[i] == true) {

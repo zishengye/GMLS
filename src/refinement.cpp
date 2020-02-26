@@ -185,13 +185,11 @@ bool GMLS_Solver::NeedRefinement() {
     DataSwapAmongNeighbor(volume, recvVolume);
     vector<double> backgroundVolume;
 
-    for (int i = 0; i < localParticleNum; i++) {
-      backgroundVolume.push_back(volume[i]);
-    }
+    backgroundVolume.insert(backgroundVolume.end(), volume.begin(),
+                            volume.end());
 
-    for (int i = 0; i < totalNeighborParticleNum; i++) {
-      backgroundVolume.push_back(recvVolume[i]);
-    }
+    backgroundVolume.insert(backgroundVolume.end(), recvVolume.begin(),
+                            recvVolume.end());
 
     double localError = 0.0;
     double localVol = 0.0;
@@ -228,61 +226,60 @@ bool GMLS_Solver::NeedRefinement() {
           }
         }
 
-        // for (int axes1 = 0; axes1 < __dim; axes1++) {
-        //   for (int axes2 = axes1; axes2 < __dim; axes2++) {
-        //     if (axes1 == axes2)
-        //       error[i] +=
-        //           pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
-        //                   backgroundRecoveredVelocityGradient
-        //                       [neighborParticleIndex][axes1 * __dim + axes2],
-        //               2) *
-        //           backgroundVolume[neighborParticleIndex];
-        //     else {
-        //       error[i] +=
-        //           0.5 *
-        //           pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
-        //                   backgroundRecoveredVelocityGradient
-        //                       [neighborParticleIndex][axes1 * __dim + axes2]
-        //                       +
-        //                   reconstructedVelocityGradient[axes2 * __dim +
-        //                   axes1] - backgroundRecoveredVelocityGradient
-        //                       [neighborParticleIndex][axes2 * __dim + axes1],
-        //               2) *
-        //           backgroundVolume[neighborParticleIndex];
-        //     }
-        //   }
-        // }
-        for (int axes = 0; axes < gradientComponentNum; axes++) {
-          error[i] +=
-              pow(reconstructedVelocityGradient[axes] -
-                      backgroundRecoveredVelocityGradient[neighborParticleIndex]
-                                                         [axes],
-                  2) *
-              backgroundVolume[neighborParticleIndex];
+        for (int axes1 = 0; axes1 < __dim; axes1++) {
+          for (int axes2 = axes1; axes2 < __dim; axes2++) {
+            if (axes1 == axes2)
+              error[i] +=
+                  pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
+                          backgroundRecoveredVelocityGradient
+                              [neighborParticleIndex][axes1 * __dim + axes2],
+                      2) *
+                  backgroundVolume[neighborParticleIndex];
+            else {
+              error[i] +=
+                  0.5 *
+                  pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
+                          backgroundRecoveredVelocityGradient
+                              [neighborParticleIndex][axes1 * __dim + axes2] +
+                          reconstructedVelocityGradient[axes2 * __dim + axes1] -
+                          backgroundRecoveredVelocityGradient
+                              [neighborParticleIndex][axes2 * __dim + axes1],
+                      2) *
+                  backgroundVolume[neighborParticleIndex];
+            }
+          }
         }
+        // for (int axes = 0; axes < gradientComponentNum; axes++) {
+        //   error[i] +=
+        //       pow(reconstructedVelocityGradient[axes] -
+        //               backgroundRecoveredVelocityGradient[neighborParticleIndex]
+        //                                                  [axes],
+        //           2) *
+        //       backgroundVolume[neighborParticleIndex];
+        // }
       }
 
       error[i] = error[i] / totalNeighborVol * volume[i];
       localError += error[i];
 
-      // for (int axes1 = 0; axes1 < __dim; axes1++) {
-      //   for (int axes2 = axes1; axes2 < __dim; axes2++) {
-      //     if (axes1 == axes2)
-      //       localDirectGradientNorm +=
-      //           pow(gradient(i, axes1 * __dim + axes2), 2) * volume[i];
-      //     else {
-      //       localDirectGradientNorm +=
-      //           0.5 *
-      //           pow(gradient(i, axes1 * __dim + axes2) +
-      //                   gradient(i, axes2 * __dim + axes1),
-      //               2) *
-      //           volume[i];
-      //     }
-      //   }
-      // }
-      for (int axes = 0; axes < gradientComponentNum; axes++) {
-        localDirectGradientNorm += pow(gradient(i, axes), 2) * volume[i];
+      for (int axes1 = 0; axes1 < __dim; axes1++) {
+        for (int axes2 = axes1; axes2 < __dim; axes2++) {
+          if (axes1 == axes2)
+            localDirectGradientNorm +=
+                pow(gradient(i, axes1 * __dim + axes2), 2) * volume[i];
+          else {
+            localDirectGradientNorm +=
+                0.5 *
+                pow(gradient(i, axes1 * __dim + axes2) +
+                        gradient(i, axes2 * __dim + axes1),
+                    2) *
+                volume[i];
+          }
+        }
       }
+      // for (int axes = 0; axes < gradientComponentNum; axes++) {
+      //   localDirectGradientNorm += pow(gradient(i, axes), 2) * volume[i];
+      // }
     }
 
     MPI_Allreduce(&localError, &globalError, 1, MPI_DOUBLE, MPI_SUM,
@@ -296,24 +293,23 @@ bool GMLS_Solver::NeedRefinement() {
         "Total error for gradient of velocity: %f, with tolerance: %f\n",
         globalError, __adaptiveRefinementTolerance);
 
-    if (globalError < __adaptiveRefinementTolerance)
-      return false;
+    if (globalError < __adaptiveRefinementTolerance) return false;
 
     // mark stage
     double alpha;
 
     switch (__adaptive_step) {
-    case 0:
-      alpha = 0.99;
-      break;
-    case 1:
-      alpha = 0.95;
-      break;
-    case 2:
-      alpha = 0.80;
-      break;
-    default:
-      alpha = 0.70;
+      case 0:
+        alpha = 0.99;
+        break;
+      case 1:
+        alpha = 0.95;
+        break;
+      case 2:
+        alpha = 0.80;
+        break;
+      default:
+        alpha = 0.70;
     }
 
     vector<pair<int, double>> chopper;
