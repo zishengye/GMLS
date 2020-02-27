@@ -357,6 +357,8 @@ void GMLS_Solver::StokesEquation() {
     localPressureDof++;
   }
 
+  int outProcessRow = rigidBodyDof * numRigidBody + 1;
+
   int fieldDof = __dim + 1;
   int velocityDof = __dim;
 
@@ -368,7 +370,8 @@ void GMLS_Solver::StokesEquation() {
   int localDof = localVelocityDof + localPressureDof;
   int globalDof = globalVelocityDof + globalPressureDof;
 
-  PetscSparseMatrix A(localDof, localDof, globalDof);
+  PetscSparseMatrix A(localDof, localDof, globalDof, outProcessRow,
+                      localLagrangeMultiplierOffset);
 
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();

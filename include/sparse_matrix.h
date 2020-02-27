@@ -23,14 +23,12 @@ class PetscSparseMatrix {
 
   typedef std::pair<PetscInt, double> entry;
   std::vector<std::list<entry>> __matrix;
+  std::vector<std::list<entry>> __out_process_matrix;
 
-  PetscInt __row, __col, __nnz, __Col;
+  PetscInt __row, __col, __nnz, __Col, __out_process_row,
+      __out_process_reduction;
 
   Mat __mat;
-
-  std::vector<PetscInt> __unsorted_i;
-  std::vector<PetscInt> __unsorted_j;
-  std::vector<PetscReal> __unsorted_val;
 
   inline void sortbyj();
 
@@ -43,16 +41,32 @@ class PetscSparseMatrix {
 
   // only for square matrix
   PetscSparseMatrix(PetscInt m /* local # of rows */,
-                    PetscInt N /* global # of cols */)
-      : __isAssembled(false), __row(m), __col(m), __Col(N) {
+                    PetscInt N /* global # of cols */,
+                    PetscInt out_process_row = 0,
+                    PetscInt out_process_row_reduction = 0)
+      : __isAssembled(false),
+        __row(m),
+        __col(m),
+        __Col(N),
+        __out_process_row(out_process_row),
+        __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
+    __out_process_matrix.resize(out_process_row);
   }
 
   PetscSparseMatrix(PetscInt m /* local # of rows */,
                     PetscInt n /* local # of cols */,
-                    PetscInt N /* global # of cols */)
-      : __isAssembled(false), __row(m), __col(n), __Col(N) {
+                    PetscInt N /* global # of cols */,
+                    PetscInt out_process_row = 0,
+                    PetscInt out_process_row_reduction = 0)
+      : __isAssembled(false),
+        __row(m),
+        __col(n),
+        __Col(N),
+        __out_process_row(out_process_row),
+        __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
+    __out_process_matrix.resize(out_process_row);
   }
 
   ~PetscSparseMatrix() {
@@ -135,14 +149,34 @@ void PetscSparseMatrix::increment(const PetscInt i, const PetscInt j,
 
 void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
                                             const double daij) {
-  __unsorted_i.push_back(i);
-  __unsorted_j.push_back(j);
-  __unsorted_val.push_back(daij);
+  if (std::abs(daij) > 1e-15) {
+    bool inlist = false;
+
+    PetscInt in = i - __out_process_reduction;
+
+    for (std::list<entry>::iterator it = __out_process_matrix[in].begin();
+         it != __out_process_matrix[in].end(); it++) {
+      if (it->first == j) {
+        it->second += daij;
+        inlist = true;
+        break;
+      }
+    }
+
+    if (!inlist) {
+      __out_process_matrix[in].push_back(entry(j, daij));
+    }
+  }
 }
 
 void PetscSparseMatrix::sortbyj() {
 #pragma omp parallel for
   for (PetscInt i = 0; i < __row; i++) {
     __matrix[i].sort(compare_index);
+  }
+
+#pragma omp parallel for
+  for (PetscInt i = 0; i < __out_process_row; i++) {
+    __out_process_matrix[i].sort(compare_index);
   }
 }

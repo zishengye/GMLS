@@ -26,47 +26,56 @@ int PetscSparseMatrix::FinalAssemble() {
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
-  int sendCount = __unsorted_val.size();
-  vector<int> recvCount(MPIsize);
-  vector<int> displs(MPIsize + 1);
-
-  MPI_Gather(&sendCount, 1, MPI_INT, recvCount.data(), 1, MPI_INT, MPIsize - 1,
-             MPI_COMM_WORLD);
-
-  if (myid == MPIsize - 1) {
-    displs[0] = 0;
-    for (int i = 1; i <= MPIsize; i++) {
-      displs[i] = displs[i - 1] + recvCount[i - 1];
-    }
-  }
-
-  vector<PetscInt> iRecv;
-  vector<PetscInt> jRecv;
-  vector<PetscReal> valRecv;
-
-  iRecv.resize(displs[MPIsize]);
-  jRecv.resize(displs[MPIsize]);
-  valRecv.resize(displs[MPIsize]);
-
-  MPI_Gatherv(__unsorted_i.data(), sendCount, MPI_UNSIGNED, iRecv.data(),
-              recvCount.data(), displs.data(), MPI_UNSIGNED, MPIsize - 1,
-              MPI_COMM_WORLD);
-  MPI_Gatherv(__unsorted_j.data(), sendCount, MPI_UNSIGNED, jRecv.data(),
-              recvCount.data(), displs.data(), MPI_UNSIGNED, MPIsize - 1,
-              MPI_COMM_WORLD);
-  MPI_Gatherv(__unsorted_val.data(), sendCount, MPI_DOUBLE, valRecv.data(),
-              recvCount.data(), displs.data(), MPI_DOUBLE, MPIsize - 1,
-              MPI_COMM_WORLD);
-
-  // merge data
-  if (myid == MPIsize - 1) {
-    for (int i = 0; i < iRecv.size(); i++) {
-      this->increment(iRecv[i], jRecv[i], valRecv[i]);
-    }
-  }
-
   // prepare data for Petsc construction
   sortbyj();
+
+  for (PetscInt row = 0; row < __out_process_row; row++) {
+    int send_count = __out_process_matrix[row].size();
+    vector<int> recv_count(MPIsize);
+
+    MPI_Gather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
+               MPIsize - 1, MPI_COMM_WORLD);
+
+    vector<int> displs(MPIsize + 1);
+    if (myid == MPIsize - 1) {
+      displs[0] = 0;
+      for (int i = 1; i <= MPIsize; i++) {
+        displs[i] = displs[i - 1] + recv_count[i - 1];
+      }
+    }
+
+    vector<PetscInt> recv_j;
+    vector<PetscReal> recv_val;
+
+    recv_j.resize(displs[MPIsize]);
+    recv_val.resize(displs[MPIsize]);
+
+    vector<PetscInt> send_j(send_count);
+    vector<PetscReal> send_val(send_count);
+
+    size_t n = 0;
+    for (list<entry>::iterator it = __out_process_matrix[row].begin();
+         it != __out_process_matrix[row].end(); it++) {
+      send_j[n] = it->first;
+      send_val[n] = it->second;
+      n++;
+    }
+
+    MPI_Gatherv(send_j.data(), send_count, MPI_UNSIGNED, recv_j.data(),
+                recv_count.data(), displs.data(), MPI_UNSIGNED, MPIsize - 1,
+                MPI_COMM_WORLD);
+    MPI_Gatherv(send_val.data(), send_count, MPI_DOUBLE, recv_val.data(),
+                recv_count.data(), displs.data(), MPI_DOUBLE, MPIsize - 1,
+                MPI_COMM_WORLD);
+
+    // merge data
+    if (myid == MPIsize - 1) {
+      for (int i = 0; i < recv_j.size(); i++) {
+        __matrix[row + __out_process_reduction].push_back(
+            entry(recv_j[i], recv_val[i]));
+      }
+    }
+  }
 
   __i.resize(__row + 1);
 
