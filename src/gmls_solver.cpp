@@ -60,6 +60,13 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     // TODO: check the correctness of the command
   }
 
+  if ((SearchCommand<int>(argc, argv, "-WeightingFunctionOrder",
+                          __weightFuncOrder)) == 1) {
+    __weightFuncOrder = 4;
+  } else {
+    // TODO: check the correctness of the command
+  }
+
   // default serial output
   if ((SearchCommand<int>(argc, argv, "-WriteData", __writeData)) == 1) {
     __writeData = 1;

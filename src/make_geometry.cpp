@@ -221,9 +221,16 @@ void GMLS_Solver::InitUniformParticleField() {
 }
 
 void GMLS_Solver::ParticleIndex() {
-  static vector<vec3> &coord = __field.vector.GetHandle("coord");
-  static vector<int> &globalIndex = __field.index.GetHandle("global index");
+  static auto &coord = __field.vector.GetHandle("coord");
+  static auto &normal = __field.vector.GetHandle("normal");
+  static auto &particleSize = __field.vector.GetHandle("size");
+  static auto &pCoord = __field.vector.GetHandle("parameter coordinate");
+  static auto &volume = __field.scalar.GetHandle("volume");
+  static auto &globalIndex = __field.index.GetHandle("global index");
+  static auto &particleType = __field.index.GetHandle("particle type");
   static vector<int> &particleNum = __field.index.GetHandle("particle number");
+  static auto &attachedRigidBodyIndex =
+      __field.index.GetHandle("attached rigid body index");
 
   particleNum.resize(2 + __MPISize);
 
@@ -775,7 +782,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   vector<vec3> recvParticleSize;
   vector<vec3> backgroundParticleSize;
   DataSwapAmongNeighbor(particleSize, recvParticleSize);
-  DataSwapAmongNeighbor(splitTag, recvSplitTag);
+  DataSwapAmongNeighbor(fieldParticleSplitTag, recvSplitTag);
 
   backgroundParticleSize.insert(backgroundParticleSize.end(),
                                 particleSize.begin(), particleSize.end());
@@ -794,16 +801,13 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
     int counter = 0;
     bool splitBasedOnNeighborSize = true;
     for (int j = 0; j < neighborLists(i, 0); j++) {
-      if (backgroundSplitTag[backgroundSourceIndex[neighborLists(i, j + 1)]] ==
-          1) {
+      if (backgroundSplitTag[neighborLists(i, j + 1)] == 1) {
         counter++;
       }
 
       if ((gapParticleSize[i][0] <
-           0.75 * backgroundParticleSize[backgroundSourceIndex[neighborLists(
-                      i, j + 1)]][0]) &&
-          backgroundSplitTag[backgroundSourceIndex[neighborLists(i, j + 1)]] ==
-              1) {
+           0.75 * backgroundParticleSize[neighborLists(i, j + 1)][0]) &&
+          backgroundSplitTag[neighborLists(i, j + 1)] == 1) {
         splitBasedOnNeighborSize = false;
       }
     }

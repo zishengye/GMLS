@@ -425,6 +425,8 @@ void GMLS_Solver::BuildNeighborList() {
 
 void GMLS_Solver::DataSwapAmongNeighbor(vector<int> &sendData,
                                         vector<int> &recvData) {
+  MPI_Barrier(MPI_COMM_WORLD);
+
   static vector<int> &neighborFlag =
       __neighbor.index.GetHandle("neighbor flag");
 
@@ -468,6 +470,8 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<int> &sendData,
 
 void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
                                         vector<double> &recvData) {
+  MPI_Barrier(MPI_COMM_WORLD);
+
   static vector<int> &neighborFlag =
       __neighbor.index.GetHandle("neighbor flag");
 
@@ -512,6 +516,8 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
 
 void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
                                         vector<vec3> &recvData) {
+  MPI_Barrier(MPI_COMM_WORLD);
+
   static vector<int> &neighborFlag =
       __neighbor.index.GetHandle("neighbor flag");
 
@@ -567,6 +573,8 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
 void GMLS_Solver::DataSwapAmongNeighbor(vector<vector<double>> &sendData,
                                         vector<vector<double>> &recvData,
                                         const int unitLength = 1) {
+  MPI_Barrier(MPI_COMM_WORLD);
+
   static vector<int> &neighborFlag =
       __neighbor.index.GetHandle("neighbor flag");
 
