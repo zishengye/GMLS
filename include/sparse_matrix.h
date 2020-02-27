@@ -22,15 +22,13 @@ class PetscSparseMatrix {
   bool __isAssembled;
 
   typedef std::pair<PetscInt, double> entry;
-  std::vector<std::list<entry>> __matrix;
-  std::vector<std::list<entry>> __out_process_matrix;
+  std::vector<std::vector<entry>> __matrix;
+  std::vector<std::vector<entry>> __out_process_matrix;
 
   PetscInt __row, __col, __nnz, __Col, __out_process_row,
       __out_process_reduction;
 
   Mat __mat;
-
-  inline void sortbyj();
 
  public:
   std::vector<PetscInt> __i;
@@ -80,8 +78,9 @@ class PetscSparseMatrix {
     __matrix.resize(m);
   }
 
-  inline void setRowSize(const PetscInt row, const size_t size);
   inline void setColIndex(const PetscInt row, std::vector<PetscInt> &index);
+  inline void setOutProcessColIndex(const PetscInt row,
+                                    std::vector<PetscInt> &index);
   inline void increment(const PetscInt i, const PetscInt j, double daij);
   inline void outProcessIncrement(const PetscInt i, const PetscInt j,
                                   double daij);
@@ -111,72 +110,54 @@ class PetscSparseMatrix {
                     int numRigidBody, int rigidBodyDof);
 };
 
-void PetscSparseMatrix::setRowSize(const PetscInt row, const size_t size) {
-  __matrix[row].resize(size);
-}
-
 void PetscSparseMatrix::setColIndex(const PetscInt row,
                                     std::vector<PetscInt> &index) {
-  if (__matrix[row].size() == index.size()) {
-    size_t counter = 0;
-    for (std::list<entry>::iterator it = __matrix[row].begin();
-         it != __matrix[row].end(); it++) {
-      it->first = index[counter++];
-      it->second = 0.0;
-    }
+  sort(index.begin(), index.end());
+  __matrix[row].resize(index.size());
+  size_t counter = 0;
+  for (std::vector<entry>::iterator it = __matrix[row].begin();
+       it != __matrix[row].end(); it++) {
+    it->first = index[counter++];
+    it->second = 0.0;
+  }
+}
+
+void PetscSparseMatrix::setOutProcessColIndex(const PetscInt row,
+                                              std::vector<PetscInt> &index) {
+  sort(index.begin(), index.end());
+  __out_process_matrix[row - __out_process_reduction].resize(index.size());
+  size_t counter = 0;
+  for (std::vector<entry>::iterator it =
+           __out_process_matrix[row - __out_process_reduction].begin();
+       it != __out_process_matrix[row - __out_process_reduction].end(); it++) {
+    it->first = index[counter++];
+    it->second = 0.0;
   }
 }
 
 void PetscSparseMatrix::increment(const PetscInt i, const PetscInt j,
                                   const double daij) {
   if (std::abs(daij) > 1e-15) {
-    bool inlist = false;
-
-    for (std::list<entry>::iterator it = __matrix[i].begin();
-         it != __matrix[i].end(); it++) {
-      if (it->first == j) {
-        it->second += daij;
-        inlist = true;
-        break;
-      }
-    }
-
-    if (!inlist) {
-      __matrix[i].push_back(entry(j, daij));
-    }
+    auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
+                          entry(j, daij), compare_index);
+    if (it->first == j)
+      it->second += daij;
+    else
+      std::cout << i << ' ' << j << " increment misplacement" << std::endl;
   }
 }
 
 void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
                                             const double daij) {
   if (std::abs(daij) > 1e-15) {
-    bool inlist = false;
-
     PetscInt in = i - __out_process_reduction;
-
-    for (std::list<entry>::iterator it = __out_process_matrix[in].begin();
-         it != __out_process_matrix[in].end(); it++) {
-      if (it->first == j) {
-        it->second += daij;
-        inlist = true;
-        break;
-      }
-    }
-
-    if (!inlist) {
-      __out_process_matrix[in].push_back(entry(j, daij));
-    }
-  }
-}
-
-void PetscSparseMatrix::sortbyj() {
-#pragma omp parallel for
-  for (PetscInt i = 0; i < __row; i++) {
-    __matrix[i].sort(compare_index);
-  }
-
-#pragma omp parallel for
-  for (PetscInt i = 0; i < __out_process_row; i++) {
-    __out_process_matrix[i].sort(compare_index);
+    auto it = lower_bound(__out_process_matrix[in].begin(),
+                          __out_process_matrix[in].end(), entry(j, daij),
+                          compare_index);
+    if (it->first == j)
+      it->second += daij;
+    else
+      std::cout << in << ' ' << j << " out process increament misplacement"
+                << std::endl;
   }
 }

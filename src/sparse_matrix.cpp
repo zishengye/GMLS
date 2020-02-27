@@ -10,7 +10,7 @@ int PetscSparseMatrix::Write(string fileName) {
   ofstream output(fileName, ios::trunc);
 
   for (int i = 0; i < __row; i++) {
-    for (list<entry>::iterator it = __matrix[i].begin();
+    for (vector<entry>::iterator it = __matrix[i].begin();
          it != __matrix[i].end(); it++) {
       output << (i + 1) << '\t' << (it->first + 1) << '\t' << it->second
              << endl;
@@ -25,9 +25,6 @@ int PetscSparseMatrix::FinalAssemble() {
   int myid, MPIsize;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
-
-  // prepare data for Petsc construction
-  sortbyj();
 
   for (PetscInt row = 0; row < __out_process_row; row++) {
     int send_count = __out_process_matrix[row].size();
@@ -54,7 +51,7 @@ int PetscSparseMatrix::FinalAssemble() {
     vector<PetscReal> send_val(send_count);
 
     size_t n = 0;
-    for (list<entry>::iterator it = __out_process_matrix[row].begin();
+    for (vector<entry>::iterator it = __out_process_matrix[row].begin();
          it != __out_process_matrix[row].end(); it++) {
       send_j[n] = it->first;
       send_val[n] = it->second;
@@ -106,7 +103,7 @@ int PetscSparseMatrix::FinalAssemble() {
 
   for (int i = 0; i < __row; i++) {
     int count = 0;
-    for (list<entry>::iterator it = __matrix[i].begin();
+    for (vector<entry>::iterator it = __matrix[i].begin();
          it != __matrix[i].end(); it++) {
       __j[__i[i] + count] = (it->first);
       __val[__i[i] + count] = it->second;

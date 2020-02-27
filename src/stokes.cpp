@@ -376,6 +376,141 @@ void GMLS_Solver::StokesEquation() {
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
 
+  // compute matrix graph
+  vector<vector<PetscInt>> outProcessIndex(outProcessRow);
+  for (int i = 0; i < localParticleNum; i++) {
+    const int currentParticleLocalIndex = i;
+    const int currentParticleGlobalIndex = backgroundSourceIndex[i];
+
+    const int iPressureLocal =
+        currentParticleLocalIndex * fieldDof + velocityDof;
+    const int iPressureGlobal =
+        currentParticleGlobalIndex * fieldDof + velocityDof;
+
+    vector<PetscInt> index;
+    if (particleType[i] == 0) {
+      // velocity block
+      index.clear();
+      for (int j = 0; j < neighborLists(i, 0); j++) {
+        const int neighborParticleIndex =
+            backgroundSourceIndex[neighborLists(i, j + 1)];
+
+        for (int axes = 0; axes < fieldDof; axes++) {
+          index.push_back(fieldDof * neighborParticleIndex + axes);
+        }
+      }
+
+      for (int axes = 0; axes < velocityDof; axes++) {
+        A.setColIndex(currentParticleLocalIndex * fieldDof + axes, index);
+      }
+
+      // pressure block
+      index.clear();
+      for (int j = 0; j < neighborLists(i, 0); j++) {
+        const int neighborParticleIndex =
+            backgroundSourceIndex[neighborLists(i, j + 1)];
+
+        index.push_back(fieldDof * neighborParticleIndex + velocityDof);
+      }
+      // Lagrange multiplier
+      index.push_back(globalLagrangeMultiplierOffset);
+
+      A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
+
+      // Lagrange multiplier
+      outProcessIndex[0].push_back(currentParticleGlobalIndex * fieldDof +
+                                   velocityDof);
+    }
+
+    if (particleType[i] != 0 && particleType[i] < 4) {
+      // velocity block
+      index.clear();
+      index.resize(1);
+      for (int axes = 0; axes < velocityDof; axes++) {
+        index[0] = currentParticleGlobalIndex * fieldDof + axes;
+        A.setColIndex(currentParticleLocalIndex * fieldDof + axes, index);
+      }
+
+      // pressure block
+      index.clear();
+      for (int j = 0; j < neighborLists(i, 0); j++) {
+        const int neighborParticleIndex =
+            backgroundSourceIndex[neighborLists(i, j + 1)];
+
+        for (int axes = 0; axes < fieldDof; axes++) {
+          index.push_back(fieldDof * neighborParticleIndex + axes);
+        }
+      }
+
+      A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
+    }
+
+    if (particleType[i] >= 4) {
+      // velocity block
+      index.clear();
+      index.resize(2 + rotationDof);
+      for (int axes = 0; axes < rotationDof; axes++) {
+        index[2 + axes] = globalRigidBodyOffset +
+                          attachedRigidBodyIndex[i] * rigidBodyDof +
+                          translationDof + axes;
+      }
+
+      for (int axes = 0; axes < velocityDof; axes++) {
+        index[0] = currentParticleGlobalIndex * fieldDof + axes;
+        index[1] = globalRigidBodyOffset +
+                   attachedRigidBodyIndex[i] * rigidBodyDof + axes;
+        A.setColIndex(currentParticleLocalIndex * fieldDof + axes, index);
+      }
+
+      // pressure block
+      index.clear();
+      for (int j = 0; j < neighborLists(i, 0); j++) {
+        const int neighborParticleIndex =
+            backgroundSourceIndex[neighborLists(i, j + 1)];
+
+        for (int axes = 0; axes < fieldDof; axes++) {
+          index.push_back(fieldDof * neighborParticleIndex + axes);
+        }
+      }
+
+      A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
+
+      // attached rigid body
+      index.clear();
+      for (int j = 0; j < neighborLists(i, 0); j++) {
+        const int neighborParticleIndex =
+            backgroundSourceIndex[neighborLists(i, j + 1)];
+
+        for (int axes = 0; axes < velocityDof; axes++) {
+          index.push_back(fieldDof * neighborParticleIndex + axes);
+        }
+      }
+      index.push_back(fieldDof * currentParticleGlobalIndex + velocityDof);
+
+      for (int axes = 0; axes < rigidBodyDof; axes++) {
+        vector<PetscInt> &it =
+            outProcessIndex[1 + attachedRigidBodyIndex[i] * rigidBodyDof +
+                            axes];
+        it.insert(it.end(), index.begin(), index.end());
+      }
+    }
+  }
+
+  if (__myID == __MPISize - 1) {
+    outProcessIndex[0].push_back(globalLagrangeMultiplierOffset);
+  }
+
+  for (int i = 0; i < outProcessIndex.size(); i++) {
+    sort(outProcessIndex[i].begin(), outProcessIndex[i].end());
+    outProcessIndex[i].erase(
+        unique(outProcessIndex[i].begin(), outProcessIndex[i].end()),
+        outProcessIndex[i].end());
+
+    A.setOutProcessColIndex(localLagrangeMultiplierOffset + i,
+                            outProcessIndex[i]);
+  }
+
+  // insert matrix entity
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
@@ -596,8 +731,8 @@ void GMLS_Solver::StokesEquation() {
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
     // add a penalty factor
-    A.increment(localLagrangeMultiplierOffset, globalLagrangeMultiplierOffset,
-                globalParticleNum);
+    A.outProcessIncrement(localLagrangeMultiplierOffset,
+                          globalLagrangeMultiplierOffset, globalParticleNum);
   }
 
   A.FinalAssemble();
