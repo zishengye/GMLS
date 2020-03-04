@@ -441,8 +441,14 @@ void GMLS_Solver::StokesEquation() {
           index.push_back(fieldDof * neighborParticleIndex + axes);
         }
       }
+      // Lagrange multiplier
+      index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
+
+      // Lagrange multiplier
+      outProcessIndex[0].push_back(currentParticleGlobalIndex * fieldDof +
+                                   velocityDof);
     }
 
     if (particleType[i] >= 4) {
@@ -472,8 +478,14 @@ void GMLS_Solver::StokesEquation() {
           index.push_back(fieldDof * neighborParticleIndex + axes);
         }
       }
+      // Lagrange multiplier
+      index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
+
+      // Lagrange multiplier
+      outProcessIndex[0].push_back(currentParticleGlobalIndex * fieldDof +
+                                   velocityDof);
 
       // attached rigid body
       index.clear();
@@ -700,11 +712,6 @@ void GMLS_Solver::StokesEquation() {
           A.increment(iVelocityLocal, iPressureGlobal, Dijx);
         }
       }
-
-      // Lagrangian multiplier
-      A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
-      A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal,
-                            1.0);
     }
     if (particleType[i] != 0) {
       const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
@@ -725,8 +732,13 @@ void GMLS_Solver::StokesEquation() {
         A.increment(iPressureLocal, jPressureGlobal, -Aij);
         A.increment(iPressureLocal, iPressureGlobal, Aij);
       }
-    }  // end of pressure block
-  }    // end of fluid particle loop1
+    }
+
+    // Lagrangian multiplier
+    A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
+    A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal, 1.0);
+    // end of pressure block
+  }  // end of fluid particle loop1
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
@@ -872,6 +884,8 @@ void GMLS_Solver::StokesEquation() {
       // rhs[fieldDof * i + velocityDof] = 0.0;
     }
   }
+
+  // A.Write("A.txt");
 
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();

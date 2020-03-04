@@ -1,14 +1,13 @@
 # problem domain setup
--Dim 2 -Mx 200 -My 200 -PolynomialOrder 2 -BatchSize 10
+-Dim 2 -Mx 40 -My 40 -PolynomialOrder 2 -BatchSize 10
 
 # problem parameter setup
--ft 0.001 -dt 0.01 -eta 1.0
+-ft 0.001 -dt 0.01 -eta 1.0 -rho 1.0
 
 # problem type
 -EquationType Stokes
 
 # linear solver setup
--log_view
 -ksp_type fgmres -ksp_monitor_true_residual -ksp_gmres_restart 150 -ksp_rtol 1e-6
 -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_schur_fact_type lower
 -fieldsplit_0_pc_type hypre
