@@ -208,13 +208,13 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   Vec diag;
 
-  MatCreateVecs(uu, &diag, NULL);
-  MatGetDiagonal(uu, diag);
+  MatCreateVecs(pp, &diag, NULL);
+  MatGetDiagonal(pp, diag);
   VecReciprocal(diag);
-  MatDiagonalScale(up, diag, NULL);
-  MatMatMult(pu, up, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &up_s);
+  MatDiagonalScale(pu, diag, NULL);
+  MatMatMult(up, pu, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &up_s);
   MatScale(up_s, -1.0);
-  MatAXPY(up_s, 1.0, pp, DIFFERENT_NONZERO_PATTERN);
+  MatAXPY(up_s, 1.0, uu, DIFFERENT_NONZERO_PATTERN);
 
   Vec _rhs, _x;
   VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
@@ -229,8 +229,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PC _pc;
 
   KSPGetPC(_ksp, &_pc);
-  PCFieldSplitSetIS(_pc, "0", isg_velocity);
   PCFieldSplitSetIS(_pc, "1", isg_pressure);
+  PCFieldSplitSetIS(_pc, "0", isg_velocity);
 
   PCFieldSplitSetSchurPre(_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, up_s);
 
@@ -240,7 +240,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PCFieldSplitGetSubKSP(_pc, &n, &_subKsp);
   KSPSetOperators(_subKsp[1], up_s, up_s);
   KSPSetFromOptions(_subKsp[0]);
-  KSPSetOperators(_subKsp[0], uu, uu);
+  KSPSetOperators(_subKsp[0], pp, pp);
 
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   KSPSolve(_ksp, _rhs, _x);

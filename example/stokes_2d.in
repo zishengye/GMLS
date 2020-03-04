@@ -1,5 +1,5 @@
 # problem domain setup
--Dim 2 -Mx 40 -My 40 -PolynomialOrder 2 -BatchSize 10
+-Dim 2 -Mx 100 -My 100 -PolynomialOrder 2 -BatchSize 10
 
 # problem parameter setup
 -ft 0.001 -dt 0.01 -eta 1.0 -rho 1.0
@@ -15,4 +15,4 @@
 -fieldsplit_0_pc_hypre_type boomeramg -fieldsplit_0_pc_hypre_boomeramg_interp_type classical -fieldsplit_0_pc_hypre_boomeramg_coarsen_type Falgout
 -fieldsplit_1_pc_hypre_type boomeramg -fieldsplit_1_pc_hypre_boomeramg_interp_type direct -fieldsplit_1_pc_hypre_boomeramg_coarsen_type Ruge-Stueben
 -fieldsplit_0_ksp_type fgmres -fieldsplit_0_ksp_rtol 1e-3 -fieldsplit_0_ksp_monitor
--fieldsplit_1_ksp_type fgmres -fieldsplit_1_ksp_rtol 1e-3
+-fieldsplit_1_ksp_type fgmres -fieldsplit_1_ksp_rtol 1e-3 -fieldsplit_1_ksp_monitor
