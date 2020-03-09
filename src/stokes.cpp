@@ -838,29 +838,30 @@ void GMLS_Solver::StokesEquation() {
       //   }
 
       // 2-d cavity flow
-      // rhs[fieldDof * i] =
-      //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
+      rhs[fieldDof * i] =
+          1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
 
       // 2-d Taylor-Green vortex-like flow
-      if (__dim == 2) {
-        double x = coord[i][0] / __boundingBoxSize[0];
-        double y = coord[i][1] / __boundingBoxSize[1];
+      // if (__dim == 2) {
+      //   double x = coord[i][0] / __boundingBoxSize[0];
+      //   double y = coord[i][1] / __boundingBoxSize[1];
 
-        rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
-        rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
-      }
+      //   rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
+      //   rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
+      // }
 
-      // 3-d Taylor-Green vortex-like flow
-      if (__dim == 3) {
-        double x = coord[i][0] / __boundingBoxSize[0];
-        double y = coord[i][1] / __boundingBoxSize[1];
-        double z = coord[i][2] / __boundingBoxSize[2];
+      // // 3-d Taylor-Green vortex-like flow
+      // if (__dim == 3) {
+      //   double x = coord[i][0] / __boundingBoxSize[0];
+      //   double y = coord[i][1] / __boundingBoxSize[1];
+      //   double z = coord[i][2] / __boundingBoxSize[2];
 
-        rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-        rhs[fieldDof * i + 1] =
-            -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-        rhs[fieldDof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
-      }
+      //   rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+      //   rhs[fieldDof * i + 1] =
+      //       -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+      //   rhs[fieldDof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
+      //   z);
+      // }
     } else {
       // if (__dim == 3) {
       //   double x = coord[i][0];
