@@ -19,8 +19,8 @@ void GMLS_Solver::SetBoundingBox() {
                                  __boundingBoxSize[1] / 2.0,
                                  __boundingBoxSize[2] / 2.0));
   } else if (__dim == 2) {
-    __boundingBoxSize[0] = 2.0;
-    __boundingBoxSize[1] = 2.0;
+    __boundingBoxSize[0] = 1.0;
+    __boundingBoxSize[1] = 1.0;
     __boundingBoxSize[2] = 0.0;
 
     __boundingBox.push_back(
