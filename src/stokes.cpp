@@ -889,7 +889,7 @@ void GMLS_Solver::StokesEquation() {
     }
   }
 
-  A.Write("A.txt");
+  // A.Write("A.txt");
 
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
