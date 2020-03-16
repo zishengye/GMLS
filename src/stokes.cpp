@@ -42,12 +42,9 @@ void GMLS_Solver::StokesEquation() {
   auto neumann_pressure = __gmls.GetPointer("pressure basis neumann boundary");
   auto all_velocity = __gmls.GetPointer("velocity basis");
 
-  if (*all_pressure != nullptr)
-    delete *all_pressure;
-  if (*neumann_pressure != nullptr)
-    delete *neumann_pressure;
-  if (*all_velocity != nullptr)
-    delete *all_velocity;
+  if (*all_pressure != nullptr) delete *all_pressure;
+  if (*neumann_pressure != nullptr) delete *neumann_pressure;
+  if (*all_velocity != nullptr) delete *all_velocity;
 
   *all_pressure = new GMLS(ScalarTaylorPolynomial,
                            StaggeredEdgeAnalyticGradientIntegralSample,
@@ -646,18 +643,18 @@ void GMLS_Solver::StokesEquation() {
 
             // torque balance
             for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-              A.outProcessIncrement(currentRigidBodyLocalOffset +
-                                        translationDof + axes1,
-                                    jVelocityGlobal,
-                                    rci[(axes1 + 1) % translationDof] *
-                                            f[(axes1 + 2) % translationDof] -
-                                        rci[(axes1 + 2) % translationDof] *
-                                            f[(axes1 + 1) % translationDof]);
+              A.outProcessIncrement(
+                  currentRigidBodyLocalOffset + translationDof + axes1,
+                  jVelocityGlobal,
+                  rci[(axes1 + 1) % translationDof] *
+                          f[(axes1 + 2) % translationDof] -
+                      rci[(axes1 + 2) % translationDof] *
+                          f[(axes1 + 1) % translationDof]);
             }
             delete[] f;
           }
         }
-      } // end of particles on rigid body
+      }  // end of particles on rigid body
     }
 
     // n \cdot grad p
@@ -683,10 +680,10 @@ void GMLS_Solver::StokesEquation() {
 
             gradient += normal[i][axes1] * Lij;
           }
-          A.increment(iPressureLocal, jVelocityGlobal, -bi * gradient);
+          A.increment(iPressureLocal, jVelocityGlobal, bi * gradient);
         }
       }
-    } // end of velocity block
+    }  // end of velocity block
 
     // pressure block
     if (particleType[i] == 0) {
@@ -700,8 +697,8 @@ void GMLS_Solver::StokesEquation() {
         const double Aij = pressureAlphas(i, pressureLaplacianIndex, j);
 
         // laplacian p
-        A.increment(iPressureLocal, jPressureGlobal, -Aij);
-        A.increment(iPressureLocal, iPressureGlobal, Aij);
+        A.increment(iPressureLocal, jPressureGlobal, Aij);
+        A.increment(iPressureLocal, iPressureGlobal, -Aij);
 
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           const int iVelocityLocal =
@@ -732,8 +729,8 @@ void GMLS_Solver::StokesEquation() {
             neumannBoudnaryIndex, pressureNeumannBoundaryLaplacianIndex, j);
 
         // laplacian p
-        A.increment(iPressureLocal, jPressureGlobal, -Aij);
-        A.increment(iPressureLocal, iPressureGlobal, Aij);
+        A.increment(iPressureLocal, jPressureGlobal, Aij);
+        A.increment(iPressureLocal, iPressureGlobal, -Aij);
       }
     }
 
@@ -741,13 +738,13 @@ void GMLS_Solver::StokesEquation() {
     A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
     A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal, 1.0);
     // end of pressure block
-  } // end of fluid particle loop1
+  }  // end of fluid particle loop1
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
     // add a penalty factor
     A.outProcessIncrement(localLagrangeMultiplierOffset,
-                          globalLagrangeMultiplierOffset, globalParticleNum);
+                          globalLagrangeMultiplierOffset, -globalParticleNum);
   }
 
   A.FinalAssemble();
@@ -889,7 +886,7 @@ void GMLS_Solver::StokesEquation() {
     }
   }
 
-  // A.Write("A.txt");
+  A.Write("A.txt");
 
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
