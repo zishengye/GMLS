@@ -19,8 +19,8 @@ void GMLS_Solver::SetBoundingBox() {
                                  __boundingBoxSize[1] / 2.0,
                                  __boundingBoxSize[2] / 2.0));
   } else if (__dim == 2) {
-    __boundingBoxSize[0] = 1.0;
-    __boundingBoxSize[1] = 1.0;
+    __boundingBoxSize[0] = 2.0;
+    __boundingBoxSize[1] = 2.0;
     __boundingBoxSize[2] = 0.0;
 
     __boundingBox.push_back(
@@ -387,7 +387,7 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
         yPos -= __particleSize0[1];
       }
     }
-  } // end of 2d construction
+  }  // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = coord.size();
