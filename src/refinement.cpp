@@ -1,8 +1,15 @@
+#include <limits>
+
 #include "DivergenceFree.h"
 #include "gmls_solver.h"
 
 using namespace std;
 using namespace Compadre;
+
+struct ErrorComb {
+  double error;
+  int rank;
+};
 
 bool pairCompare(const std::pair<int, double> &firstElem,
                  const std::pair<int, double> &secondElem) {
@@ -329,10 +336,30 @@ bool GMLS_Solver::NeedRefinement() {
     vector<int> splitTag;
     double subError = 0.0;
 
-    for (int i = 0; i < localParticleNum; i++) {
-      subError += chopper[localParticleNum - i - 1].second;
+    // parallel sorting
+    auto i = 0;
+    bool is_loop = true;
+    while (i <= localParticleNum && is_loop) {
+      ErrorComb currentLocalError;
+      ErrorComb currentGlobalError;
+
+      currentLocalError.rank = __myID;
+      if (i == localParticleNum) {
+        currentLocalError.error = DBL_MAX;
+      } else {
+        currentLocalError.error = chopper[localParticleNum - i - 1].second;
+      }
+
+      MPI_Allreduce(&currentLocalError, &currentGlobalError, 1, MPI_DOUBLE_INT,
+                    MPI_MAXLOC, MPI_COMM_WORLD);
+      subError += currentGlobalError.error;
       if (subError < alpha * globalError) {
-        splitTag.push_back(chopper[localParticleNum - i - 1].first);
+        if (currentGlobalError.rank == __myID) {
+          splitTag.push_back(chopper[localParticleNum - i - 1].first);
+          i++;
+        }
+      } else {
+        is_loop = false;
       }
     }
 
