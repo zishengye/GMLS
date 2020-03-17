@@ -28,7 +28,7 @@ class PetscSparseMatrix {
   PetscInt __row, __col, __nnz, __Col, __out_process_row,
       __out_process_reduction;
 
-  Mat __mat;
+  Mat __mat, __diag_block;
 
  public:
   std::vector<PetscInt> __i;
@@ -89,6 +89,8 @@ class PetscSparseMatrix {
 
   int StructureAssemble();
   int FinalAssemble();
+  int FinalAssemble(int dimesion, int globalParticleNum,
+                    std::vector<int> &backgroundIndex);
 
   // (*this) * x = rhs
   void Solve(std::vector<double> &rhs,

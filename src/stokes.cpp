@@ -747,7 +747,7 @@ void GMLS_Solver::StokesEquation() {
                           globalLagrangeMultiplierOffset, -globalParticleNum);
   }
 
-  A.FinalAssemble();
+  A.FinalAssemble(__dim, globalParticleNum, backgroundSourceIndex);
 
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
