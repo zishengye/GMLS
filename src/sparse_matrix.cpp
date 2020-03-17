@@ -409,11 +409,6 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   MatAXPY(up_s, 1.0, pp, DIFFERENT_NONZERO_PATTERN);
   MatDestroy(&iuup);
 
-  Vec _rhs, _x;
-  VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
-                        rhs.data(), &_rhs);
-  VecDuplicate(_rhs, &_x);
-
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
   KSPSetOperators(_ksp, __mat, __mat);
@@ -434,6 +429,11 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   KSPSetOperators(_subKsp[1], up_s, up_s);
   KSPSetFromOptions(_subKsp[0]);
   KSPSetOperators(_subKsp[0], uu, uu);
+
+  Vec _rhs, _x;
+  VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
+                        rhs.data(), &_rhs);
+  VecDuplicate(_rhs, &_x);
 
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   KSPSolve(_ksp, _rhs, _x);
