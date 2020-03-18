@@ -24,7 +24,7 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   ISDuplicate(*isg0, &shell->isg0);
   ISDuplicate(*isg1, &shell->isg1);
   KSPSetType(shell->field, KSPFGMRES);
-  KSPSetTolerances(shell->field, 1e-3, 1e-50, 1e5, 300);
+  KSPSetTolerances(shell->field, 1e-3, 1e-50, 1e5, 3000);
   KSPGMRESSetOrthogonalization(shell->field,
                                KSPGMRESModifiedGramSchmidtOrthogonalization);
   KSPGMRESSetRestart(shell->field, 150);
@@ -73,6 +73,9 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecGetSubVector(x, shell->isg0, &x1);
   VecGetSubVector(y, shell->isg0, &y1);
   KSPSolve(shell->field, x1, y1);
+  PetscInt its;
+  KSPGetIterationNumber(shell->field, &its);
+  PetscPrintf(PETSC_COMM_WORLD, "iteration number: %d\n", its);
   VecRestoreSubVector(x, shell->isg0, &x1);
   VecRestoreSubVector(y, shell->isg0, &y1);
 
