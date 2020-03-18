@@ -24,10 +24,10 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   ISDuplicate(*isg0, &shell->isg0);
   ISDuplicate(*isg1, &shell->isg1);
   KSPSetType(shell->field, KSPFGMRES);
-  KSPSetTolerances(shell->field, 1e-1, 1e-50, 1e5, 10);
+  KSPSetTolerances(shell->field, 1e-3, 1e-50, 1e5, 300);
   KSPGMRESSetOrthogonalization(shell->field,
                                KSPGMRESModifiedGramSchmidtOrthogonalization);
-  KSPGMRESSetRestart(shell->field, 10);
+  KSPGMRESSetRestart(shell->field, 150);
   KSPSetType(shell->nearField, KSPPREONLY);
   KSPSetTolerances(shell->nearField, 1e-6, 1e-50, 1e5, 1);
 
@@ -35,20 +35,21 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   PC pcNearField;
 
   KSPGetPC(shell->field, &pcField);
-  PCSetType(pcField, PCFIELDSPLIT);
-  PCFieldSplitSetIS(pcField, "0", *isg00);
-  PCFieldSplitSetIS(pcField, "1", *isg01);
-  PCFieldSplitSetSchurPre(pcField, PC_FIELDSPLIT_SCHUR_PRE_USER, *asmat);
+  PCSetType(pcField, PCHYPRE);
+  // PCSetType(pcField, PCFIELDSPLIT);
+  // PCFieldSplitSetIS(pcField, "0", *isg00);
+  // PCFieldSplitSetIS(pcField, "1", *isg01);
+  // PCFieldSplitSetSchurPre(pcField, PC_FIELDSPLIT_SCHUR_PRE_USER, *asmat);
   PCSetFromOptions(pcField);
   PCSetUp(pcField);
 
-  KSP *subKsp;
-  PetscInt n = 1;
-  PCFieldSplitGetSubKSP(pcField, &n, &subKsp);
-  KSPSetOperators(subKsp[1], *asmat, *asmat);
-  KSPSetFromOptions(subKsp[0]);
-  KSPSetFromOptions(subKsp[1]);
-  PetscFree(subKsp);
+  // KSP *subKsp;
+  // PetscInt n = 1;
+  // PCFieldSplitGetSubKSP(pcField, &n, &subKsp);
+  // KSPSetOperators(subKsp[1], *asmat, *asmat);
+  // KSPSetFromOptions(subKsp[0]);
+  // KSPSetFromOptions(subKsp[1]);
+  // PetscFree(subKsp);
 
   KSPGetPC(shell->nearField, &pcNearField);
   PCSetType(pcNearField, PCLU);

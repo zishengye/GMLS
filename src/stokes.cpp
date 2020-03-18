@@ -747,7 +747,8 @@ void GMLS_Solver::StokesEquation() {
                           globalLagrangeMultiplierOffset, -globalParticleNum);
   }
 
-  A.FinalAssemble(__dim, globalParticleNum, backgroundSourceIndex);
+  // A.FinalAssemble(__dim, globalParticleNum, backgroundSourceIndex);
+  A.FinalAssemble();
 
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
@@ -891,7 +892,8 @@ void GMLS_Solver::StokesEquation() {
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
   if (numRigidBody == 0) {
-    A.Solve(rhs, res, __dim);
+    // A.Solve(rhs, res, __dim);
+    A.Solve(rhs, res);
   } else {
     // A.Solve(rhs, res, __dim, numRigidBody);
     A.Solve(rhs, res, neighborInclusion, __dim, numRigidBody);

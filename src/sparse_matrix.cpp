@@ -1002,13 +1002,13 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   Vec diag;
 
-  MatCreateVecs(uu, &diag, NULL);
-  MatGetDiagonal(uu, diag);
-  VecReciprocal(diag);
-  MatDiagonalScale(up, diag, NULL);
-  MatMatMult(pu, up, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &up_s);
-  MatScale(up_s, -1.0);
-  MatAXPY(up_s, 1.0, pp, DIFFERENT_NONZERO_PATTERN);
+  // MatCreateVecs(uu, &diag, NULL);
+  // MatGetDiagonal(uu, diag);
+  // VecReciprocal(diag);
+  // MatDiagonalScale(up, diag, NULL);
+  // MatMatMult(pu, up, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &up_s);
+  // MatScale(up_s, -1.0);
+  // MatAXPY(up_s, 1.0, pp, DIFFERENT_NONZERO_PATTERN);
 
   Vec _rhs, _x;
   VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
@@ -1052,7 +1052,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   VecDestroy(&_rhs);
   VecDestroy(&_x);
-  VecDestroy(&diag);
+  // VecDestroy(&diag);
 
   MatDestroy(&ff);
   MatDestroy(&nn);
@@ -1061,7 +1061,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   MatDestroy(&up);
   MatDestroy(&pu);
   MatDestroy(&pp);
-  MatDestroy(&up_s);
+  // MatDestroy(&up_s);
 
   ISDestroy(&isg_field);
   ISDestroy(&isg_velocity);
