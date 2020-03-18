@@ -73,9 +73,6 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecGetSubVector(x, shell->isg0, &x1);
   VecGetSubVector(y, shell->isg0, &y1);
   KSPSolve(shell->field, x1, y1);
-  PetscInt its;
-  KSPGetIterationNumber(shell->field, &its);
-  PetscPrintf(PETSC_COMM_WORLD, "iteration number: %d\n", its);
   VecRestoreSubVector(x, shell->isg0, &x1);
   VecRestoreSubVector(y, shell->isg0, &y1);
 
