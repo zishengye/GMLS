@@ -390,28 +390,28 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   MatCreateSubMatrix(__mat, isg_pressure, isg_pressure, MAT_INITIAL_MATRIX,
                      &pp);
 
-  MatNullSpace null_space;
-  MatNullSpaceCreate(MPI_COMM_WORLD, PETSC_TRUE, 0, 0, &null_space);
-  MatSetNullSpace(pp, null_space);
+  // MatNullSpace null_space;
+  // MatNullSpaceCreate(MPI_COMM_WORLD, PETSC_TRUE, 0, 0, &null_space);
+  // MatSetNullSpace(pp, null_space);
 
-  Vec diag;
+  // Vec diag;
 
-  MatCreateVecs(uu, &diag, NULL);
-  MatGetDiagonal(uu, diag);
-  VecReciprocal(diag);
-  MatDiagonalScale(up, diag, NULL);
-  MatMatMult(pu, up, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &up_s);
-  MatScale(up_s, -1.0);
-  MatAXPY(up_s, 1.0, pp, DIFFERENT_NONZERO_PATTERN);
-
-  VecDestroy(&diag);
-
-  // Mat iuup;
-  // MatMatMult(__diag_block, up, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &iuup);
-  // MatMatMult(pu, iuup, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &up_s);
+  // MatCreateVecs(uu, &diag, NULL);
+  // MatGetDiagonal(uu, diag);
+  // VecReciprocal(diag);
+  // MatDiagonalScale(up, diag, NULL);
+  // MatMatMult(pu, up, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &up_s);
   // MatScale(up_s, -1.0);
   // MatAXPY(up_s, 1.0, pp, DIFFERENT_NONZERO_PATTERN);
-  // MatDestroy(&iuup);
+
+  // VecDestroy(&diag);
+
+  Mat iuup;
+  MatMatMult(__diag_block, up, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &iuup);
+  MatMatMult(pu, iuup, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &up_s);
+  MatScale(up_s, -1.0);
+  MatAXPY(up_s, 1.0, pp, DIFFERENT_NONZERO_PATTERN);
+  MatDestroy(&iuup);
 
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
