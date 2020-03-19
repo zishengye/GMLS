@@ -779,9 +779,12 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
 
   vector<int> recvSplitTag;
   vector<int> backgroundSplitTag;
+  vector<int> recvParticleType;
+  vector<int> backgroundParticleType;
   vector<vec3> recvParticleSize;
   vector<vec3> backgroundParticleSize;
   DataSwapAmongNeighbor(particleSize, recvParticleSize);
+  DataSwapAmongNeighbor(particleType, recvParticleType);
   DataSwapAmongNeighbor(fieldParticleSplitTag, recvSplitTag);
 
   backgroundParticleSize.insert(backgroundParticleSize.end(),
@@ -789,6 +792,12 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   backgroundParticleSize.insert(backgroundParticleSize.end(),
                                 recvParticleSize.begin(),
                                 recvParticleSize.end());
+
+  backgroundParticleType.insert(backgroundParticleType.end(),
+                                particleType.begin(), particleType.end());
+  backgroundParticleType.insert(backgroundParticleType.end(),
+                                recvParticleType.begin(),
+                                recvParticleType.end());
 
   backgroundSplitTag.insert(backgroundSplitTag.end(),
                             fieldParticleSplitTag.begin(),
@@ -801,7 +810,8 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
     int counter = 0;
     bool splitBasedOnNeighborSize = true;
     for (int j = 0; j < neighborLists(i, 0); j++) {
-      if (backgroundSplitTag[neighborLists(i, j + 1)] == 1) {
+      if (backgroundSplitTag[neighborLists(i, j + 1)] == 1 &&
+          backgroundParticleType[neighborLists(i, j + 1)] == 4) {
         counter++;
       }
 
