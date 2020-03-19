@@ -1034,7 +1034,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
   HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor,
-                      &isg_velocity, &isg_pressure, &pp, _rhs);
+                      &isg_velocity, &isg_pressure, &__mat, _rhs);
 
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");

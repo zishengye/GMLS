@@ -5,6 +5,7 @@
 struct HypreLUShellPC {
   KSP field;
   KSP nearField;
+  KSP globalSmoother;
 
   IS isg0, isg1;
 

@@ -11,7 +11,7 @@ PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell) {
 
 PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
                                    IS *isg0, IS *isg1, IS *isg00, IS *isg01,
-                                   Mat *asmat, Vec x) {
+                                   Mat *Amat, Vec x) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -19,50 +19,47 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
 
   KSPCreate(PETSC_COMM_WORLD, &shell->field);
   KSPCreate(PETSC_COMM_WORLD, &shell->nearField);
+  KSPCreate(PETSC_COMM_WORLD, &shell->globalSmoother);
   KSPSetOperators(shell->field, *amat, *amat);
   KSPSetOperators(shell->nearField, *cmat, *cmat);
+  KSPSetOperators(shell->globalSmoother, *Amat, *Amat);
   ISDuplicate(*isg0, &shell->isg0);
   ISDuplicate(*isg1, &shell->isg1);
   KSPSetType(shell->field, KSPPREONLY);
   KSPSetTolerances(shell->field, 1e-3, 1e-50, 1e5, 1);
-  KSPGMRESSetOrthogonalization(shell->field,
-                               KSPGMRESModifiedGramSchmidtOrthogonalization);
-  KSPGMRESSetRestart(shell->field, 10);
   KSPSetType(shell->nearField, KSPPREONLY);
   KSPSetTolerances(shell->nearField, 1e-6, 1e-50, 1e5, 1);
+  KSPSetType(shell->globalSmoother, KSPGMRES);
+  KSPSetTolerances(shell->globalSmoother, 1e-3, 1e-50, 1e5, 1);
+  KSPSetInitialGuessNonzero(shell->globalSmoother, PETSC_TRUE);
 
   PC pcField;
   PC pcNearField;
+  PC pcGlobalSmoother;
 
   KSPGetPC(shell->field, &pcField);
   PCSetType(pcField, PCHYPRE);
-  // PCSetType(pcField, PCFIELDSPLIT);
-  // PCFieldSplitSetIS(pcField, "0", *isg00);
-  // PCFieldSplitSetIS(pcField, "1", *isg01);
-  // PCFieldSplitSetSchurPre(pcField, PC_FIELDSPLIT_SCHUR_PRE_USER, *asmat);
   PCSetFromOptions(pcField);
   PCSetUp(pcField);
-
-  // KSP *subKsp;
-  // PetscInt n = 1;
-  // PCFieldSplitGetSubKSP(pcField, &n, &subKsp);
-  // KSPSetOperators(subKsp[1], *asmat, *asmat);
-  // KSPSetFromOptions(subKsp[0]);
-  // KSPSetFromOptions(subKsp[1]);
-  // PetscFree(subKsp);
 
   KSPGetPC(shell->nearField, &pcNearField);
   PCSetType(pcNearField, PCLU);
   PCSetUp(pcNearField);
 
+  KSPGetPC(shell->globalSmoother, &pcGlobalSmoother);
+  PCSetType(pcGlobalSmoother, PCASM);
+  PCSetFromOptions(pcGlobalSmoother);
+  PCSetUp(pcGlobalSmoother);
+
   KSPSetUp(shell->field);
   KSPSetUp(shell->nearField);
+  KSPSetUp(shell->globalSmoother);
 
   return 0;
 }
 
 PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
-  Vec x1, x2, y1, y2, z1, z2, t, t1, t2;
+  Vec x1, x2, y1, y2, z, z1, z2, t, t1, t2;
 
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
@@ -86,9 +83,19 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecAXPY(y2, -1.0, z2);
   VecRestoreSubVector(t, shell->isg1, &t2);
   VecRestoreSubVector(y, shell->isg1, &y2);
-
   VecDestroy(&t);
   VecDestroy(&z2);
+
+  // VecDuplicate(x, &t);
+  // VecDuplicate(x, &z);
+  // MatMult(*shell->A, y, t);
+  // VecAXPY(t, -1.0, x);
+  // KSPSolve(shell->globalSmoother, t, z);
+  // VecAXPY(y, -1.0, z);
+  // VecDestroy(&t);
+  // VecDestroy(&z);
+
+  KSPSolve(shell->globalSmoother, x, y);
 
   // multiplicative - first rigid, then field
   // VecSet(y, 0.0);
