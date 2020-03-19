@@ -843,13 +843,17 @@ void GMLS_Solver::StokesEquation() {
       //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
 
       // 2-d Taylor-Green vortex-like flow
-      if (__dim == 2) {
-        double x = coord[i][0] / __boundingBoxSize[0];
-        double y = coord[i][1] / __boundingBoxSize[1];
+      // if (__dim == 2) {
+      //   double x = coord[i][0] / __boundingBoxSize[0];
+      //   double y = coord[i][1] / __boundingBoxSize[1];
 
-        rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
-        rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
-      }
+      //   rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
+      //   rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
+      // }
+
+      // 2-d Poiseuille flow
+      double y = coord[i][1] / __boundingBoxSize[1] * 2;
+      rhs[fieldDof * i] = 0.1 * y * y;
 
       // // 3-d Taylor-Green vortex-like flow
       if (__dim == 3) {
