@@ -165,6 +165,7 @@ void GMLS_Solver::StokesEquation() {
       Kokkos::create_mirror_view(neumannBoundaryEpsilonDevice);
 
   int counter = 0;
+  double maxEpsilon = 0.0;
   __epsilon.resize(localParticleNum);
   for (int i = 0; i < numTargetCoords; i++) {
     epsilon(i) = (max(__particleSize0[0] * pow(0.5, __adaptive_step),
@@ -172,6 +173,9 @@ void GMLS_Solver::StokesEquation() {
                      epsilonMultiplier +
                  1e-15;
     __epsilon[i] = epsilon(i);
+    if (epsilon(i) > maxEpsilon) {
+      maxEpsilon = epsilon(i);
+    }
     if (particleType[i] != 0) {
       neumannBoundaryEpsilon(counter++) =
           (max(__particleSize0[0] * pow(0.5, __adaptive_step),
@@ -181,12 +185,64 @@ void GMLS_Solver::StokesEquation() {
     }
   }
 
-  pointCloudSearch.generateNeighborListsFromRadiusSearch(
-      false, targetCoords, neighborLists, epsilon);
+  MPI_Allreduce(MPI_IN_PLACE, &maxEpsilon, 1, MPI_DOUBLE, MPI_MAX,
+                MPI_COMM_WORLD);
 
-  pointCloudSearch.generateNeighborListsFromRadiusSearch(
-      false, neumannBoundaryTargetCoords, neumannBoundaryNeighborLists,
-      neumannBoundaryEpsilon);
+  vector<double> __neumannBoundaryEpsilon(neumannBoundaryNumTargetCoords);
+  for (int i = 0; i < neumannBoundaryNumTargetCoords; i++) {
+    __neumannBoundaryEpsilon[i] = neumannBoundaryEpsilon(i);
+  }
+
+  vector<double> recvEpsilon, backgroundEpsilon;
+
+  DataSwapAmongNeighbor(__epsilon, recvEpsilon);
+
+  backgroundEpsilon.insert(backgroundEpsilon.end(), __epsilon.begin(),
+                           __epsilon.end());
+  backgroundEpsilon.insert(backgroundEpsilon.end(), recvEpsilon.begin(),
+                           recvEpsilon.end());
+
+  Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+      backgroundEpsilonKokkosDevice("background h supports",
+                                    backgroundEpsilon.size());
+  Kokkos::View<double *>::HostMirror backgroundEpsilonKokkos =
+      Kokkos::create_mirror_view(backgroundEpsilonKokkosDevice);
+
+  for (int i = 0; i < backgroundEpsilon.size(); i++) {
+    backgroundEpsilonKokkos(i) = backgroundEpsilon[i];
+  }
+
+  Kokkos::deep_copy(backgroundEpsilonKokkosDevice, backgroundEpsilonKokkos);
+
+  // pointCloudSearch.generateNeighborListsFromRadiusSearch(
+  //     false, targetCoords, neighborLists, epsilon);
+
+  // counter = 0;
+  // for (int i = 0; i < numTargetCoords; i++) {
+  //   if (particleType[i] != 0) {
+  //     neumannBoundaryNeighborLists(counter, 0) = neighborLists(i, 0);
+  //     for (int j = 0; j < neighborLists(i, 0); j++) {
+  //       neumannBoundaryNeighborLists(counter, j + 1) = neighborLists(i, j +
+  //       1);
+  //     }
+  //     counter++;
+  //   }
+  // }
+
+  pointCloudSearch.generateSymmetricNeighborListsFromRadiusSearch(
+      false, targetCoords, neighborLists, backgroundEpsilonKokkos, 0.0,
+      maxEpsilon);
+
+  counter = 0;
+  for (int i = 0; i < numTargetCoords; i++) {
+    if (particleType[i] != 0) {
+      neumannBoundaryNeighborLists(counter, 0) = neighborLists(i, 0);
+      for (int j = 0; j < neighborLists(i, 0); j++) {
+        neumannBoundaryNeighborLists(counter, j + 1) = neighborLists(i, j + 1);
+      }
+      counter++;
+    }
+  }
 
   Kokkos::deep_copy(neighborListsDevice, neighborLists);
   Kokkos::deep_copy(epsilonDevice, epsilon);
@@ -497,6 +553,7 @@ void GMLS_Solver::StokesEquation() {
           index.push_back(fieldDof * neighborParticleIndex + axes);
         }
       }
+      // pressure term
       index.push_back(fieldDof * currentParticleGlobalIndex + velocityDof);
 
       for (int axes = 0; axes < rigidBodyDof; axes++) {
@@ -810,9 +867,8 @@ void GMLS_Solver::StokesEquation() {
       //         neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
       //     rhs[fieldDof * i + velocityDof] =
       //         bi * (-normal[i][0] * (8 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-      //                                sin(2 * M_PI * y)) +
-      //               normal[i][1] * (8 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-      //                               cos(2 * M_PI * y)));
+      //         sin(2 * M_PI * y)) + normal[i][1] * (8 * pow(M_PI, 2) * sin(2 *
+      //         M_PI * x) * cos(2 * M_PI * y)));
       //   } else {
       //     double x = coord[i][0];
       //     double y = coord[i][1];
@@ -820,7 +876,8 @@ void GMLS_Solver::StokesEquation() {
       //     rhs[fieldDof * i] =
       //         cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
       //     rhs[fieldDof * i + 1] =
-      //         -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI * z);
+      //         -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI *
+      //         z);
       //     rhs[fieldDof * i + 2] =
       //         sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
 
@@ -830,12 +887,12 @@ void GMLS_Solver::StokesEquation() {
       //         LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
       //         neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
       //     rhs[fieldDof * i + velocityDof] =
-      //         bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-      //                                sin(2 * M_PI * y) * sin(2 * M_PI * z)) +
-      //               normal[i][1] * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-      //                               cos(2 * M_PI * y) * sin(2 * M_PI * z)) -
-      //               normal[i][2] * (12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-      //                               sin(2 * M_PI * y) * cos(2 * M_PI * z)));
+      //         bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI *
+      //         x) * sin(2 * M_PI * y) * sin(2 * M_PI * z)) + normal[i][1]
+      //         * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI *
+      //         y) * sin(2 * M_PI * z)) - normal[i][2] * (12 * pow(M_PI, 2)
+      //         * sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI *
+      //         z)));
       //   }
 
       // 2-d cavity flow

@@ -29,9 +29,8 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   KSPSetTolerances(shell->field, 1e-3, 1e-50, 1e5, 1);
   KSPSetType(shell->nearField, KSPPREONLY);
   KSPSetTolerances(shell->nearField, 1e-6, 1e-50, 1e5, 1);
-  KSPSetType(shell->globalSmoother, KSPGMRES);
+  KSPSetType(shell->globalSmoother, KSPPREONLY);
   KSPSetTolerances(shell->globalSmoother, 1e-3, 1e-50, 1e5, 1);
-  KSPSetInitialGuessNonzero(shell->globalSmoother, PETSC_TRUE);
 
   PC pcField;
   PC pcNearField;
@@ -47,7 +46,7 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   PCSetUp(pcNearField);
 
   KSPGetPC(shell->globalSmoother, &pcGlobalSmoother);
-  PCSetType(pcGlobalSmoother, PCASM);
+  PCSetType(pcGlobalSmoother, PCBJACOBI);
   PCSetFromOptions(pcGlobalSmoother);
   PCSetUp(pcGlobalSmoother);
 
@@ -65,13 +64,29 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   PCShellGetContext(pc, (void **)&shell);
 
   // multiplicative - first field, then rigid
+
+  // VecGetSubVector(x, shell->isg0, &x1);
+  // VecGetSubVector(y, shell->isg0, &y1);
+  // KSPSolve(shell->globalSmoother, x1, y1);
+  // VecRestoreSubVector(x, shell->isg0, &x1);
+  // VecRestoreSubVector(y, shell->isg0, &y1);
+
+  // KSPSolve(shell->globalSmoother, x, y);
+
   VecSet(y, 0.0);
 
-  VecGetSubVector(x, shell->isg0, &x1);
+  VecDuplicate(x, &t);
+  MatMult(*shell->A, y, t);
+  VecAXPY(t, -1.0, x);
+  VecGetSubVector(t, shell->isg0, &t1);
+  VecDuplicate(t1, &z1);
+  KSPSolve(shell->field, t1, z1);
+  VecRestoreSubVector(t, shell->isg0, &t1);
   VecGetSubVector(y, shell->isg0, &y1);
-  KSPSolve(shell->field, x1, y1);
-  VecRestoreSubVector(x, shell->isg0, &x1);
+  VecAXPY(y1, -1.0, z1);
   VecRestoreSubVector(y, shell->isg0, &y1);
+  VecDestroy(&t);
+  VecDestroy(&z1);
 
   VecDuplicate(x, &t);
   MatMult(*shell->A, y, t);
@@ -87,6 +102,19 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecDestroy(&z2);
 
   // VecDuplicate(x, &t);
+  // MatMult(*shell->A, y, t);
+  // VecAXPY(t, -1.0, x);
+  // VecGetSubVector(t, shell->isg0, &t1);
+  // VecDuplicate(t1, &z1);
+  // KSPSolve(shell->globalSmoother, t1, z1);
+  // VecRestoreSubVector(t, shell->isg0, &t1);
+  // VecGetSubVector(y, shell->isg0, &y1);
+  // VecAXPY(y1, -1.0, z1);
+  // VecRestoreSubVector(y, shell->isg0, &y1);
+  // VecDestroy(&t);
+  // VecDestroy(&z1);
+
+  // VecDuplicate(x, &t);
   // VecDuplicate(x, &z);
   // MatMult(*shell->A, y, t);
   // VecAXPY(t, -1.0, x);
@@ -94,8 +122,6 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   // VecAXPY(y, -1.0, z);
   // VecDestroy(&t);
   // VecDestroy(&z);
-
-  KSPSolve(shell->globalSmoother, x, y);
 
   // multiplicative - first rigid, then field
   // VecSet(y, 0.0);
