@@ -411,16 +411,17 @@ void GMLS_Solver::BuildNeighborList() {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  SerialOperation([=]() {
-    if (backgroundSourceCoord.size() != backgroundSourceIndex.size())
-      cout << "[Proc " << __myID
-           << "]: wrong generation of background particles "
-           << backgroundSourceCoord.size() << ' '
-           << backgroundSourceIndex.size() << endl;
-    else
-      cout << "[Proc " << __myID << "]: generated "
-           << backgroundSourceCoord.size() << " background particles." << endl;
-  });
+  // SerialOperation([=]() {
+  //   if (backgroundSourceCoord.size() != backgroundSourceIndex.size())
+  //     cout << "[Proc " << __myID
+  //          << "]: wrong generation of background particles "
+  //          << backgroundSourceCoord.size() << ' '
+  //          << backgroundSourceIndex.size() << endl;
+  //   else
+  //     cout << "[Proc " << __myID << "]: generated "
+  //          << backgroundSourceCoord.size() << " background particles." <<
+  //          endl;
+  // });
 }
 
 void GMLS_Solver::DataSwapAmongNeighbor(vector<int> &sendData,
