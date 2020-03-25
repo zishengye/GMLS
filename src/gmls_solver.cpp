@@ -16,9 +16,9 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   char processor_name[MPI_MAX_PROCESSOR_NAME];
   int name_len;
   MPI_Get_processor_name(processor_name, &name_len);
-  SerialOperation([processor_name, this]() {
-    cout << "[Process " << __myID << "], on " << processor_name << endl;
-  });
+  // SerialOperation([processor_name, this]() {
+  //   cout << "[Process " << __myID << "], on " << processor_name << endl;
+  // });
 
   // default dimension is 3
   if (SearchCommand<int>(argc, argv, "-Dim", __dim) == 1) {

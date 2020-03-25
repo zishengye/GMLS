@@ -31,7 +31,7 @@ build the executable.
 Suggested installation command:
 
 ```
-./configure --with-cc=gcc --with-cxx=g++ --with-fc=gfortran --with-debugging=0 COPTFLAGS='-O3 -march=native -mtune=native' CXXOPTFLAGS='-O3 -march=native -mtune=native' FOPTFLAGS='-O3 -march=native -mtune=native' --download-mpich --download-fblaslapack --download-superlu_dist --download-mumps --download-scalapack --download-hypre --prefix=/opt/petsc/ --with-openmp
+./configure --with-cc=gcc --with-cxx=g++ --with-fc=gfortran --with-debugging=0 COPTFLAGS='-O3 -march=native -mtune=native' CXXOPTFLAGS='-O3 -march=native -mtune=native' FOPTFLAGS='-O3 -march=native -mtune=native' --download-mpich --download-fblaslapack --download-superlu_dist --download-mumps --download-scalapack --download-hypre --prefix=/opt/petsc/
 ```
 
 [Kokkos](https://github.com/kokkos/kokkos-kernels)
@@ -41,7 +41,7 @@ It is suggested to install a standalone Kokkos kernel. One could directly instal
 Suggested installation commamd:
 
 ```
-sudo ../generate_makefile.bash --prefix=/opt/kokkos --with-openmp --cxxflags="-fPIC" --ldflags="-ldl"
+sudo ../generate_makefile.bash --prefix=/opt/kokkos --cxxflags="-fPIC" --ldflags="-ldl"
 ```
 
 [Compadre](https://github.com/SNLComputation/compadre)
