@@ -373,7 +373,8 @@ bool GMLS_Solver::NeedRefinement() {
       }
     }
 
-    WriteDataAdaptiveStep();
+    if (__writeData)
+      WriteDataAdaptiveStep();
 
     int localSplitParticleNum = splitTag.size();
     int globalSplitParticleNum;
