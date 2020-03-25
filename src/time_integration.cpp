@@ -75,7 +75,9 @@ void GMLS_Solver::ForwardEulerIntegration() {
     // }
 
     do {
-      WriteDataAdaptiveGeometry();
+      if (__writeData)
+        WriteDataAdaptiveGeometry();
+      PetscPrintf(PETSC_COMM_WORLD, "Adaptive level: %d\n", __adaptive_step);
       (this->*__equationSolver)();
     } while (NeedRefinement());
 
