@@ -435,7 +435,6 @@ void GMLS_Solver::StokesEquation() {
   // compute matrix graph
   vector<vector<PetscInt>> outProcessIndex(outProcessRow);
 
-#pragma omp parallel for
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
@@ -583,7 +582,6 @@ void GMLS_Solver::StokesEquation() {
   }
 
   // insert matrix entity
-#pragma omp parallel for
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];

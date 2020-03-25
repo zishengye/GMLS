@@ -54,7 +54,6 @@ int PetscSparseMatrix::FinalAssemble() {
     n = __out_process_matrix[row].size();
     send_j.resize(n);
     send_val.resize(n);
-#pragma omp parallel for
     for (auto i = 0; i < n; i++) {
       send_j[i] = __out_process_matrix[row][i].first;
       send_val[i] = __out_process_matrix[row][i].second;
@@ -70,7 +69,6 @@ int PetscSparseMatrix::FinalAssemble() {
     // merge data
     if (myid == MPIsize - 1) {
       __matrix[row + __out_process_reduction].resize(recv_j.size());
-#pragma omp parallel for
       for (int i = 0; i < recv_j.size(); i++) {
         __matrix[row + __out_process_reduction][i] =
             entry(recv_j[i], recv_val[i]);
@@ -105,7 +103,6 @@ int PetscSparseMatrix::FinalAssemble() {
     }
   }
 
-#pragma omp parallel for
   for (int i = 0; i < __row; i++) {
     for (auto n = 0; n < __matrix[i].size(); n++) {
       __j[__i[i] + n] = (__matrix[i][n].first);

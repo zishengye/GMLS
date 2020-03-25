@@ -157,7 +157,6 @@ void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
                           __out_process_matrix[in].end(), entry(j, daij),
                           compare_index);
     if (it->first == j)
-#pragma omp critical
       it->second += daij;
     else
       std::cout << in << ' ' << j << " out process increament misplacement"
