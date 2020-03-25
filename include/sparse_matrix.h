@@ -100,8 +100,8 @@ class PetscSparseMatrix {
   void Solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
              int numRigidBody);
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
-             std::vector<int> &neighborInclusion, int dimension,
-             int numRigidBody);
+             std::vector<int> &neighborInclusion,
+             std::vector<int> &interface_flag, int dimension, int numRigidBody);
   // two field solver with rigid body inclusion
 
   // [A Bt; B C] * [x; y] = [f; g]

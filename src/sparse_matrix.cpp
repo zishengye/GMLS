@@ -895,7 +895,8 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
 }
 
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
-                              vector<int> &neighborInclusion, int dimension,
+                              vector<int> &neighborInclusion,
+                              vector<int> &interface_flag, int dimension,
                               int numRigidBody) {
   int fieldDof = dimension + 1;
   int velocityDof = dimension;
@@ -904,6 +905,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   vector<int> idx_field, idx_rigid;
   vector<int> idx_global;
+  vector<int> idx_interface;
 
   int MPIsize, myId;
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
@@ -925,6 +927,14 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     }
 
     idx_global = idx_field;
+
+    for (int i = 0; i < localParticleNum; i++) {
+      if (interface_flag[localN1 / fieldDof + i] != 0) {
+        for (int j = 0; j < fieldDof; j++) {
+          idx_interface.push_back(localN1 + fieldDof * i + j);
+        }
+      }
+    }
   } else {
     int localParticleNum =
         (localN2 - localN1 - 1 - numRigidBody * rigidBodyDof) / fieldDof;
@@ -952,6 +962,14 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
                              i * rigidBodyDof + j);
       }
     }
+
+    for (int i = 0; i < localParticleNum; i++) {
+      if (interface_flag[localN1 / fieldDof + i] != 0) {
+        for (int j = 0; j < fieldDof; j++) {
+          idx_interface.push_back(localN1 + fieldDof * i + j);
+        }
+      }
+    }
   }
 
   vector<PetscInt> idx_neighbor;
@@ -963,6 +981,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   IS isg_field, isg_neighbor;
   IS isg_global;
+  IS isg_interface;
 
   ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
                   PETSC_COPY_VALUES, &isg_field);
@@ -970,6 +989,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
                   PETSC_COPY_VALUES, &isg_neighbor);
   ISCreateGeneral(MPI_COMM_WORLD, idx_global.size(), idx_global.data(),
                   PETSC_COPY_VALUES, &isg_global);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_interface.size(), idx_interface.data(),
+                  PETSC_COPY_VALUES, &isg_interface);
 
   Vec _rhs, _x;
   VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,

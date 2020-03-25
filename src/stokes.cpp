@@ -836,6 +836,18 @@ void GMLS_Solver::StokesEquation() {
   MPI_Bcast(neighborInclusion.data(), neighborInclusionSize, MPI_INT,
             __MPISize - 1, MPI_COMM_WORLD);
 
+  vector<int> interface_flag(globalParticleNum);
+  for (int i = 0; i < localParticleNum; i++) {
+    if (particleType[i] != 0) {
+      for (int j = 0; j < neighborLists(i, 0); i++) {
+        interface_flag[backgroundSourceIndex[neighborLists(i, j + 1)]] = 1;
+      }
+    }
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, interface_flag.data(), globalParticleNum, MPI_INT,
+                MPI_SUM, MPI_COMM_WORLD);
+
   PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
 
   vector<double> &rhs = __field.scalar.GetHandle("rhs");
@@ -956,7 +968,7 @@ void GMLS_Solver::StokesEquation() {
     A.Solve(rhs, res);
   } else {
     // A.Solve(rhs, res, __dim, numRigidBody);
-    A.Solve(rhs, res, neighborInclusion, __dim, numRigidBody);
+    A.Solve(rhs, res, neighborInclusion, interface_flag, __dim, numRigidBody);
   }
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
