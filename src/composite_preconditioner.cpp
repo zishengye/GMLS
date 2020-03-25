@@ -22,7 +22,7 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   KSPCreate(PETSC_COMM_WORLD, &shell->globalSmoother);
   KSPSetOperators(shell->field, *amat, *amat);
   KSPSetOperators(shell->nearField, *cmat, *cmat);
-  KSPSetOperators(shell->globalSmoother, *Amat, *Amat);
+  KSPSetOperators(shell->globalSmoother, *amat, *amat);
   ISDuplicate(*isg0, &shell->isg0);
   ISDuplicate(*isg1, &shell->isg1);
   KSPSetType(shell->field, KSPPREONLY);
@@ -101,18 +101,18 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecDestroy(&t);
   VecDestroy(&z2);
 
-  // VecDuplicate(x, &t);
-  // MatMult(*shell->A, y, t);
-  // VecAXPY(t, -1.0, x);
-  // VecGetSubVector(t, shell->isg0, &t1);
-  // VecDuplicate(t1, &z1);
-  // KSPSolve(shell->globalSmoother, t1, z1);
-  // VecRestoreSubVector(t, shell->isg0, &t1);
-  // VecGetSubVector(y, shell->isg0, &y1);
-  // VecAXPY(y1, -1.0, z1);
-  // VecRestoreSubVector(y, shell->isg0, &y1);
-  // VecDestroy(&t);
-  // VecDestroy(&z1);
+  VecDuplicate(x, &t);
+  MatMult(*shell->A, y, t);
+  VecAXPY(t, -1.0, x);
+  VecGetSubVector(t, shell->isg0, &t1);
+  VecDuplicate(t1, &z1);
+  KSPSolve(shell->globalSmoother, t1, z1);
+  VecRestoreSubVector(t, shell->isg0, &t1);
+  VecGetSubVector(y, shell->isg0, &y1);
+  VecAXPY(y1, -1.0, z1);
+  VecRestoreSubVector(y, shell->isg0, &y1);
+  VecDestroy(&t);
+  VecDestroy(&z1);
 
   // VecDuplicate(x, &t);
   // VecDuplicate(x, &z);
