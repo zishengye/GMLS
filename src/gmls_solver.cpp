@@ -69,7 +69,7 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
 
   // default serial output
   if ((SearchCommand<int>(argc, argv, "-WriteData", __writeData)) == 1) {
-    __writeData = 1;
+    __writeData = 0;
   }
 
   if ((SearchCommand<int>(argc, argv, "-AdaptiveRefinement",
