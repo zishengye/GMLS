@@ -839,7 +839,7 @@ void GMLS_Solver::StokesEquation() {
   vector<int> interface_flag(globalParticleNum);
   for (int i = 0; i < localParticleNum; i++) {
     if (particleType[i] != 0) {
-      for (int j = 0; j < neighborLists(i, 0); i++) {
+      for (int j = 0; j < neighborLists(i, 0); j++) {
         interface_flag[backgroundSourceIndex[neighborLists(i, j + 1)]] = 1;
       }
     }
