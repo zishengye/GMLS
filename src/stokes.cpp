@@ -582,7 +582,7 @@ void GMLS_Solver::StokesEquation() {
                             outProcessIndex[i]);
   }
 
-// insert matrix entity
+  // insert matrix entity
 #pragma omp parallel for
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
@@ -799,7 +799,7 @@ void GMLS_Solver::StokesEquation() {
     A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
     A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal, 1.0);
     // end of pressure block
-  }  // end of fluid particle loop1
+  }  // end of fluid particle loop
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure

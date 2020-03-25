@@ -51,11 +51,13 @@ int PetscSparseMatrix::FinalAssemble() {
     vector<PetscReal> send_val(send_count);
 
     size_t n = 0;
-    for (vector<entry>::iterator it = __out_process_matrix[row].begin();
-         it != __out_process_matrix[row].end(); it++) {
-      send_j[n] = it->first;
-      send_val[n] = it->second;
-      n++;
+    n = __out_process_matrix[row].size();
+    send_j.resize(n);
+    send_val.resize(n);
+#pragma omp parallel for
+    for (auto i = 0; i < n; i++) {
+      send_j[i] = __out_process_matrix[row][i].first;
+      send_val[i] = __out_process_matrix[row][i].second;
     }
 
     MPI_Gatherv(send_j.data(), send_count, MPI_UNSIGNED, recv_j.data(),
@@ -67,9 +69,11 @@ int PetscSparseMatrix::FinalAssemble() {
 
     // merge data
     if (myid == MPIsize - 1) {
+      __matrix[row + __out_process_reduction].resize(recv_j.size());
+#pragma omp parallel for
       for (int i = 0; i < recv_j.size(); i++) {
-        __matrix[row + __out_process_reduction].push_back(
-            entry(recv_j[i], recv_val[i]));
+        __matrix[row + __out_process_reduction][i] =
+            entry(recv_j[i], recv_val[i]);
       }
     }
   }
@@ -103,12 +107,9 @@ int PetscSparseMatrix::FinalAssemble() {
 
 #pragma omp parallel for
   for (int i = 0; i < __row; i++) {
-    int count = 0;
-    for (vector<entry>::iterator it = __matrix[i].begin();
-         it != __matrix[i].end(); it++) {
-      __j[__i[i] + count] = (it->first);
-      __val[__i[i] + count] = it->second;
-      count++;
+    for (auto n = 0; n < __matrix[i].size(); n++) {
+      __j[__i[i] + n] = (__matrix[i][n].first);
+      __val[__i[i] + n] = __matrix[i][n].second;
     }
   }
 
