@@ -1033,4 +1033,6 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   ISDestroy(&isg_field);
   ISDestroy(&isg_neighbor);
+  ISDestroy(&isg_global);
+  ISDestroy(&isg_interface);
 }
