@@ -313,7 +313,16 @@ bool GMLS_Solver::NeedRefinement() {
         alpha = 0.95;
         break;
       case 2:
+        alpha = 0.90;
+        break;
+      case 3:
+        alpha = 0.85;
+        break;
+      case 4:
         alpha = 0.80;
+        break;
+      case 5:
+        alpha = 0.75;
         break;
       default:
         alpha = 0.70;
