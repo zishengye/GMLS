@@ -101,6 +101,7 @@ int PetscSparseMatrix::FinalAssemble() {
     }
   }
 
+#pragma omp parallel for
   for (int i = 0; i < __row; i++) {
     int count = 0;
     for (vector<entry>::iterator it = __matrix[i].begin();
@@ -1010,7 +1011,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PCFieldSplitSetIS(_pc, "0", isg_field);
   PCFieldSplitSetIS(_pc, "1", isg_neighbor);
   PCFieldSplitSetIS(_pc, "2", isg_interface);
-  // PCFieldSplitSetIS(_pc, "3", isg_field);
+  PCFieldSplitSetIS(_pc, "3", isg_field);
 
   PCSetFromOptions(_pc);
   PCSetUp(_pc);

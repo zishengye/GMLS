@@ -434,6 +434,8 @@ void GMLS_Solver::StokesEquation() {
 
   // compute matrix graph
   vector<vector<PetscInt>> outProcessIndex(outProcessRow);
+
+#pragma omp parallel for
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
@@ -472,10 +474,6 @@ void GMLS_Solver::StokesEquation() {
       index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
-
-      // Lagrange multiplier
-      outProcessIndex[0].push_back(currentParticleGlobalIndex * fieldDof +
-                                   velocityDof);
     }
 
     if (particleType[i] != 0 && particleType[i] < 4) {
@@ -501,10 +499,6 @@ void GMLS_Solver::StokesEquation() {
       index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
-
-      // Lagrange multiplier
-      outProcessIndex[0].push_back(currentParticleGlobalIndex * fieldDof +
-                                   velocityDof);
     }
 
     if (particleType[i] >= 4) {
@@ -538,11 +532,20 @@ void GMLS_Solver::StokesEquation() {
       index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
+    }
+  }
 
-      // Lagrange multiplier
-      outProcessIndex[0].push_back(currentParticleGlobalIndex * fieldDof +
-                                   velocityDof);
+  // outprocess graph
+  for (int i = 0; i < localParticleNum; i++) {
+    const int currentParticleLocalIndex = i;
+    const int currentParticleGlobalIndex = backgroundSourceIndex[i];
 
+    // Lagrange multiplier
+    outProcessIndex[0].push_back(currentParticleGlobalIndex * fieldDof +
+                                 velocityDof);
+
+    if (particleType[i] >= 4) {
+      vector<PetscInt> index;
       // attached rigid body
       index.clear();
       for (int j = 0; j < neighborLists(i, 0); j++) {
@@ -579,7 +582,8 @@ void GMLS_Solver::StokesEquation() {
                             outProcessIndex[i]);
   }
 
-  // insert matrix entity
+// insert matrix entity
+#pragma omp parallel for
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
