@@ -1008,8 +1008,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   PCFieldSplitSetIS(_pc, "0", isg_field);
   PCFieldSplitSetIS(_pc, "1", isg_neighbor);
-  // PCFieldSplitSetIS(_pc, "2", isg_interface);
-  // PCFieldSplitSetIS(_pc, "3", isg_field);
+  PCFieldSplitSetIS(_pc, "2", isg_interface);
+  PCFieldSplitSetIS(_pc, "3", isg_field);
 
   PCSetFromOptions(_pc);
   PCSetUp(_pc);
