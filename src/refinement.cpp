@@ -300,32 +300,15 @@ bool GMLS_Solver::NeedRefinement() {
         "Total error for gradient of velocity: %f, with tolerance: %f\n",
         globalError, __adaptiveRefinementTolerance);
 
-    if (globalError < __adaptiveRefinementTolerance) return false;
+    if (globalError < __adaptiveRefinementTolerance)
+      return false;
 
     // mark stage
     double alpha;
 
     switch (__adaptive_step) {
-      case 0:
-        alpha = 0.99;
-        break;
-      case 1:
-        alpha = 0.95;
-        break;
-      case 2:
-        alpha = 0.90;
-        break;
-      case 3:
-        alpha = 0.85;
-        break;
-      case 4:
-        alpha = 0.80;
-        break;
-      case 5:
-        alpha = 0.75;
-        break;
-      default:
-        alpha = 0.70;
+    default:
+      alpha = 0.99;
     }
 
     vector<pair<int, double>> chopper;
