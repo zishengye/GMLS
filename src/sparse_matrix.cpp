@@ -911,14 +911,15 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
     idx_global.push_back(localN1 + fieldDof * localParticleNum + velocityDof);
 
-    for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < rigidBodyDof; j++) {
-        idx_rigid[rigidBodyDof * i + j] =
-            localN1 + fieldDof * localParticleNum + 1 + i * rigidBodyDof + j;
-        idx_global.push_back(localN1 + fieldDof * localParticleNum + fieldDof +
-                             i * rigidBodyDof + j);
-      }
-    }
+    // for (int i = 0; i < numRigidBody; i++) {
+    //   for (int j = 0; j < rigidBodyDof; j++) {
+    //     idx_rigid[rigidBodyDof * i + j] =
+    //         localN1 + fieldDof * localParticleNum + 1 + i * rigidBodyDof + j;
+    //     idx_global.push_back(localN1 + fieldDof * localParticleNum + fieldDof
+    //     +
+    //                          i * rigidBodyDof + j);
+    //   }
+    // }
 
     for (int i = 0; i < localParticleNum; i++) {
       if (interface_flag[localN1 / fieldDof + i] != 0) {
@@ -966,7 +967,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   PCFieldSplitSetIS(_pc, "0", isg_field);
   PCFieldSplitSetIS(_pc, "1", isg_neighbor);
-  PCFieldSplitSetIS(_pc, "2", isg_field);
+  PCFieldSplitSetIS(_pc, "2", isg_global);
   // PCFieldSplitSetIS(_pc, "3", isg_field);
 
   PCSetFromOptions(_pc);
