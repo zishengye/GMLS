@@ -1,7 +1,7 @@
 #pragma once
 
-#include <assert.h>
 #include <algorithm>
+#include <assert.h>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -18,7 +18,7 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
 }
 
 class PetscSparseMatrix {
- private:
+private:
   bool __isAssembled;
 
   typedef std::pair<PetscInt, double> entry;
@@ -30,7 +30,7 @@ class PetscSparseMatrix {
 
   Mat __mat, __diag_block;
 
- public:
+public:
   std::vector<PetscInt> __i;
   std::vector<PetscInt> __j;
   std::vector<PetscReal> __val;
@@ -42,10 +42,7 @@ class PetscSparseMatrix {
                     PetscInt N /* global # of cols */,
                     PetscInt out_process_row = 0,
                     PetscInt out_process_row_reduction = 0)
-      : __isAssembled(false),
-        __row(m),
-        __col(m),
-        __Col(N),
+      : __isAssembled(false), __row(m), __col(m), __Col(N),
         __out_process_row(out_process_row),
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
@@ -57,10 +54,7 @@ class PetscSparseMatrix {
                     PetscInt N /* global # of cols */,
                     PetscInt out_process_row = 0,
                     PetscInt out_process_row_reduction = 0)
-      : __isAssembled(false),
-        __row(m),
-        __col(n),
-        __Col(N),
+      : __isAssembled(false), __row(m), __col(n), __Col(N),
         __out_process_row(out_process_row),
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
@@ -68,7 +62,8 @@ class PetscSparseMatrix {
   }
 
   ~PetscSparseMatrix() {
-    if (__isAssembled) MatDestroy(&__mat);
+    if (__isAssembled)
+      MatDestroy(&__mat);
   }
 
   void resize(PetscInt m, PetscInt n) {
@@ -94,9 +89,9 @@ class PetscSparseMatrix {
 
   // (*this) * x = rhs
   void Solve(std::vector<double> &rhs,
-             std::vector<double> &x);  // simple solver
+             std::vector<double> &x); // simple solver
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
-             int dimension);  // two field solver
+             int dimension); // two field solver
   void Solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
              int numRigidBody);
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
@@ -156,7 +151,7 @@ void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
     auto it = lower_bound(__out_process_matrix[in].begin(),
                           __out_process_matrix[in].end(), entry(j, daij),
                           compare_index);
-    if (it->first == j)
+    if (it != __out_process_matrix[in].end() && it->first == j)
       it->second += daij;
     else
       std::cout << in << ' ' << j << " out process increament misplacement"
