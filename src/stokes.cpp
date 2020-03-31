@@ -894,11 +894,11 @@ void GMLS_Solver::StokesEquation() {
             LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
             neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
 
-        rhs[fieldDof * i + velocityDof] =
-            bi * (normal[i][0] * 0.5 * pow(M_PI, 2.0) * cos(0.5 * M_PI * x) *
-                      sin(0.5 * M_PI * y) -
-                  normal[i][1] * 0.5 * pow(M_PI, 2.0) * sin(0.5 * M_PI * x) *
-                      cos(0.5 * M_PI * y));
+        // rhs[fieldDof * i + velocityDof] =
+        //     bi * (normal[i][0] * 0.5 * pow(M_PI, 2.0) * cos(0.5 * M_PI * x) *
+        //               sin(0.5 * M_PI * y) -
+        //           normal[i][1] * 0.5 * pow(M_PI, 2.0) * sin(0.5 * M_PI * x) *
+        //               cos(0.5 * M_PI * y));
 
         // 2-d cavity flow
         // rhs[fieldDof * i] =
@@ -918,15 +918,16 @@ void GMLS_Solver::StokesEquation() {
       //   z);
       // }
     } else if (particleType[i] == 0) {
-      if (__dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+      // if (__dim == 2) {
+      //   double x = coord[i][0];
+      //   double y = coord[i][1];
 
-        rhs[fieldDof * i] =
-            0.5 * pow(M_PI, 2.0) * cos(0.5 * M_PI * x) * sin(0.5 * M_PI * y);
-        rhs[fieldDof * i + 1] =
-            -0.5 * pow(M_PI, 2.0) * sin(0.5 * M_PI * x) * cos(0.5 * M_PI * y);
-      }
+      //   rhs[fieldDof * i] =
+      //       0.5 * pow(M_PI, 2.0) * cos(0.5 * M_PI * x) * sin(0.5 * M_PI * y);
+      //   rhs[fieldDof * i + 1] =
+      //       -0.5 * pow(M_PI, 2.0) * sin(0.5 * M_PI * x) * cos(0.5 * M_PI *
+      //       y);
+      // }
     }
   }
 
