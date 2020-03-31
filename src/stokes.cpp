@@ -236,14 +236,14 @@ void GMLS_Solver::StokesEquation() {
       false, targetCoords, neighborLists, backgroundEpsilonKokkos, 0.0,
       maxEpsilon);
 
-  counter = 0;
-  for (int i = 0; i < numTargetCoords; i++) {
+  for (int i = 0; i < localParticleNum; i++) {
     if (particleType[i] != 0) {
-      neumannBoundaryNeighborLists(counter, 0) = neighborLists(i, 0);
+      neumannBoundaryNeighborLists(fluid2NeumannBoundary[i], 0) =
+          neighborLists(i, 0);
       for (int j = 0; j < neighborLists(i, 0); j++) {
-        neumannBoundaryNeighborLists(counter, j + 1) = neighborLists(i, j + 1);
+        neumannBoundaryNeighborLists(fluid2NeumannBoundary[i], j + 1) =
+            neighborLists(i, j + 1);
       }
-      counter++;
     }
   }
 
@@ -881,96 +881,52 @@ void GMLS_Solver::StokesEquation() {
 
   for (int i = 0; i < localParticleNum; i++) {
     if (particleType[i] != 0 && particleType[i] < 4) {
-      //   if (__dim == 2) {
-      //     double x = coord[i][0];
-      //     double y = coord[i][1];
-      //     rhs[fieldDof * i] = cos(2 * M_PI * x) * sin(2 * M_PI * y);
-      //     rhs[fieldDof * i + 1] = -sin(2 * M_PI * x) * cos(2 * M_PI * y);
-
-      //     const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-      //     const double bi =
-      //     pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-      //         LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-      //         neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-      //     rhs[fieldDof * i + velocityDof] =
-      //         bi * (-normal[i][0] * (8 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-      //         sin(2 * M_PI * y)) + normal[i][1] * (8 * pow(M_PI, 2) * sin(2 *
-      //         M_PI * x) * cos(2 * M_PI * y)));
-      //   } else {
-      //     double x = coord[i][0];
-      //     double y = coord[i][1];
-      //     double z = coord[i][2];
-      //     rhs[fieldDof * i] =
-      //         cos(2 * M_PI * x) * sin(2 * M_PI * y) * sin(2 * M_PI * z);
-      //     rhs[fieldDof * i + 1] =
-      //         -2 * sin(2 * M_PI * x) * cos(2 * M_PI * y) * sin(2 * M_PI *
-      //         z);
-      //     rhs[fieldDof * i + 2] =
-      //         sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI * z);
-
-      //     const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-      //     const double bi =
-      //     pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-      //         LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-      //         neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
-      //     rhs[fieldDof * i + velocityDof] =
-      //         bi * (-normal[i][0] * (12 * pow(M_PI, 2) * cos(2 * M_PI *
-      //         x) * sin(2 * M_PI * y) * sin(2 * M_PI * z)) + normal[i][1]
-      //         * (24 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI *
-      //         y) * sin(2 * M_PI * z)) - normal[i][2] * (12 * pow(M_PI, 2)
-      //         * sin(2 * M_PI * x) * sin(2 * M_PI * y) * cos(2 * M_PI *
-      //         z)));
-      //   }
-
-      // 2-d cavity flow
-      // rhs[fieldDof * i] =
-      //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
-
       // 2-d Taylor-Green vortex-like flow
       if (__dim == 2) {
-        double x = coord[i][0] / __boundingBoxSize[0];
-        double y = coord[i][1] / __boundingBoxSize[1];
+        double x = coord[i][0];
+        double y = coord[i][1];
 
-        rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
-        rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
+        rhs[fieldDof * i] = cos(0.5 * M_PI * x) * sin(0.5 * M_PI * y);
+        rhs[fieldDof * i + 1] = -sin(0.5 * M_PI * x) * cos(0.5 * M_PI * y);
+
+        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+            LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+
+        rhs[fieldDof * i + velocityDof] =
+            bi * (normal[i][0] * 0.5 * pow(M_PI, 2.0) * cos(0.5 * M_PI * x) *
+                      sin(0.5 * M_PI * y) -
+                  normal[i][1] * 0.5 * pow(M_PI, 2.0) * sin(0.5 * M_PI * x) *
+                      cos(0.5 * M_PI * y));
+
+        // 2-d cavity flow
+        // rhs[fieldDof * i] =
+        //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
       }
 
-      // 2-d Poiseuille flow
-      // double y = coord[i][1] / __boundingBoxSize[1] * 2;
-      // rhs[fieldDof * i] = 0.1 * y * y;
-
-      // // 3-d Taylor-Green vortex-like flow
-      if (__dim == 3) {
-        double x = coord[i][0] / __boundingBoxSize[0];
-        double y = coord[i][1] / __boundingBoxSize[1];
-        double z = coord[i][2] / __boundingBoxSize[2];
-
-        rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-        rhs[fieldDof * i + 1] =
-            -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-        rhs[fieldDof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
-      }
-    } else {
+      // 3-d Taylor-Green vortex-like flow
       // if (__dim == 3) {
       //   double x = coord[i][0];
       //   double y = coord[i][1];
       //   double z = coord[i][2];
-      //   rhs[fieldDof * i] = 12 * pow(M_PI, 2) * cos(2 * M_PI * x) *
-      //                       sin(2 * M_PI * y) * sin(2 * M_PI * z);
-      //   rhs[fieldDof * i + 1] = -24 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-      //                           cos(2 * M_PI * y) * sin(2 * M_PI * z);
-      //   rhs[fieldDof * i + 2] = 12 * pow(M_PI, 2) * sin(2 * M_PI * x) *
-      //                           sin(2 * M_PI * y) * cos(2 * M_PI * z);
-      // } else {
-      //   double x = coord[i][0];
-      //   double y = coord[i][1];
-      //   rhs[fieldDof * i] =
-      //       8 * pow(M_PI, 2) * cos(2 * M_PI * x) * sin(2 * M_PI * y);
-      //   rhs[fieldDof * i + 1] =
-      //       -8 * pow(M_PI, 2) * sin(2 * M_PI * x) * cos(2 * M_PI * y);
-      // }
 
-      // rhs[fieldDof * i + velocityDof] = 0.0;
+      //   rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+      //   rhs[fieldDof * i + 1] =
+      //       -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+      //   rhs[fieldDof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
+      //   z);
+      // }
+    } else if (particleType[i] == 0) {
+      if (__dim == 2) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+
+        rhs[fieldDof * i] =
+            0.5 * pow(M_PI, 2.0) * cos(0.5 * M_PI * x) * sin(0.5 * M_PI * y);
+        rhs[fieldDof * i + 1] =
+            -0.5 * pow(M_PI, 2.0) * sin(0.5 * M_PI * x) * cos(0.5 * M_PI * y);
+      }
     }
   }
 
@@ -1001,6 +957,44 @@ void GMLS_Solver::StokesEquation() {
     for (int axes1 = 0; axes1 < __dim; axes1++)
       velocity[i][axes1] = res[fieldDof * i + axes1];
   }
+
+  // check data
+  double error_velocity = 0.0;
+  double norm_velocity = 0.0;
+  double error_pressure = 0.0;
+  double norm_pressure = 0.0;
+  for (int i = 0; i < localParticleNum; i++) {
+    if (__dim == 2) {
+      double x = coord[i][0];
+      double y = coord[i][1];
+
+      double true_pressure = -cos(M_PI * x) - cos(M_PI * y);
+      double true_velocity[2];
+      true_velocity[0] = cos(0.5 * M_PI * x) * sin(0.5 * M_PI * y);
+      true_velocity[1] = -sin(0.5 * M_PI * x) * cos(0.5 * M_PI * y);
+
+      error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
+                        pow(true_velocity[1] - velocity[i][1], 2);
+      error_pressure += pow(true_pressure - pressure[i], 2);
+
+      norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2);
+      norm_pressure += pow(true_pressure, 2);
+    }
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, &error_velocity, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &error_pressure, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &norm_velocity, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &norm_pressure, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  PetscPrintf(MPI_COMM_WORLD, "relative pressure error: %f\n",
+              sqrt(error_pressure / norm_pressure));
+  PetscPrintf(MPI_COMM_WORLD, "relative velocity error: %f\n",
+              sqrt(error_velocity / norm_velocity));
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
