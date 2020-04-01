@@ -883,16 +883,17 @@ void GMLS_Solver::StokesEquation() {
     if (particleType[i] != 0 && particleType[i] < 4) {
       // 2-d Taylor-Green vortex-like flow
       if (__dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+        // double x = coord[i][0];
+        // double y = coord[i][1];
 
-        rhs[fieldDof * i] = cos(0.5 * M_PI * x) * sin(0.5 * M_PI * y);
-        rhs[fieldDof * i + 1] = -sin(0.5 * M_PI * x) * cos(0.5 * M_PI * y);
+        // rhs[fieldDof * i] = cos(0.5 * M_PI * x) * sin(0.5 * M_PI * y);
+        // rhs[fieldDof * i + 1] = -sin(0.5 * M_PI * x) * cos(0.5 * M_PI * y);
 
-        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
-            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+        // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+        // const double bi =
+        // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+        //     LaplacianOfScalarPointEvaluation, neumannBoudnaryIndex,
+        //     neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
 
         // rhs[fieldDof * i + velocityDof] =
         //     bi * (normal[i][0] * 0.5 * pow(M_PI, 2.0) * cos(0.5 * M_PI * x) *
@@ -931,6 +932,13 @@ void GMLS_Solver::StokesEquation() {
     }
   }
 
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i < numRigidBody; i++) {
+      rhs[localRigidBodyOffset + i * rigidBodyDof + translationDof] =
+          pow(-1, i + 1);
+    }
+  }
+
   // A.Write("A.txt");
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -960,42 +968,42 @@ void GMLS_Solver::StokesEquation() {
   }
 
   // check data
-  double error_velocity = 0.0;
-  double norm_velocity = 0.0;
-  double error_pressure = 0.0;
-  double norm_pressure = 0.0;
-  for (int i = 0; i < localParticleNum; i++) {
-    if (__dim == 2) {
-      double x = coord[i][0];
-      double y = coord[i][1];
+  // double error_velocity = 0.0;
+  // double norm_velocity = 0.0;
+  // double error_pressure = 0.0;
+  // double norm_pressure = 0.0;
+  // for (int i = 0; i < localParticleNum; i++) {
+  //   if (__dim == 2) {
+  //     double x = coord[i][0];
+  //     double y = coord[i][1];
 
-      double true_pressure = -cos(M_PI * x) - cos(M_PI * y);
-      double true_velocity[2];
-      true_velocity[0] = cos(0.5 * M_PI * x) * sin(0.5 * M_PI * y);
-      true_velocity[1] = -sin(0.5 * M_PI * x) * cos(0.5 * M_PI * y);
+  //     double true_pressure = -cos(M_PI * x) - cos(M_PI * y);
+  //     double true_velocity[2];
+  //     true_velocity[0] = cos(0.5 * M_PI * x) * sin(0.5 * M_PI * y);
+  //     true_velocity[1] = -sin(0.5 * M_PI * x) * cos(0.5 * M_PI * y);
 
-      error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
-                        pow(true_velocity[1] - velocity[i][1], 2);
-      error_pressure += pow(true_pressure - pressure[i], 2);
+  //     error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
+  //                       pow(true_velocity[1] - velocity[i][1], 2);
+  //     error_pressure += pow(true_pressure - pressure[i], 2);
 
-      norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2);
-      norm_pressure += pow(true_pressure, 2);
-    }
-  }
+  //     norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2);
+  //     norm_pressure += pow(true_pressure, 2);
+  //   }
+  // }
 
-  MPI_Allreduce(MPI_IN_PLACE, &error_velocity, 1, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
-  MPI_Allreduce(MPI_IN_PLACE, &error_pressure, 1, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
-  MPI_Allreduce(MPI_IN_PLACE, &norm_velocity, 1, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
-  MPI_Allreduce(MPI_IN_PLACE, &norm_pressure, 1, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, &error_velocity, 1, MPI_DOUBLE, MPI_SUM,
+  //               MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, &error_pressure, 1, MPI_DOUBLE, MPI_SUM,
+  //               MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, &norm_velocity, 1, MPI_DOUBLE, MPI_SUM,
+  //               MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, &norm_pressure, 1, MPI_DOUBLE, MPI_SUM,
+  //               MPI_COMM_WORLD);
 
-  PetscPrintf(MPI_COMM_WORLD, "relative pressure error: %f\n",
-              sqrt(error_pressure / norm_pressure));
-  PetscPrintf(MPI_COMM_WORLD, "relative velocity error: %f\n",
-              sqrt(error_velocity / norm_velocity));
+  // PetscPrintf(MPI_COMM_WORLD, "relative pressure error: %f\n",
+  //             sqrt(error_pressure / norm_pressure));
+  // PetscPrintf(MPI_COMM_WORLD, "relative velocity error: %f\n",
+  //             sqrt(error_velocity / norm_velocity));
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
@@ -1006,6 +1014,37 @@ void GMLS_Solver::StokesEquation() {
       for (int j = 0; j < rotationDof; j++) {
         rigidBodyAngularVelocity[i][j] =
             res[localRigidBodyOffset + i * rigidBodyDof + translationDof + j];
+      }
+    }
+  }
+
+  // communicate velocity and angular velocity
+  vector<double> translation_velocity(numRigidBody * translationDof);
+  vector<double> angular_velocity(numRigidBody * rotationDof);
+
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < translationDof; j++) {
+        translation_velocity[i * translationDof + j] = rigidBodyVelocity[i][j];
+      }
+      for (int j = 0; j < rotationDof; j++) {
+        angular_velocity[i * rotationDof + j] = rigidBodyAngularVelocity[i][j];
+      }
+    }
+  }
+
+  MPI_Bcast(translation_velocity.data(), numRigidBody * translationDof,
+            MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
+  MPI_Bcast(angular_velocity.data(), numRigidBody * rotationDof, MPI_DOUBLE,
+            __MPISize - 1, MPI_COMM_WORLD);
+
+  if (__myID != __MPISize - 1) {
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < translationDof; j++) {
+        rigidBodyVelocity[i][j] = translation_velocity[i * translationDof + j];
+      }
+      for (int j = 0; j < rotationDof; j++) {
+        rigidBodyAngularVelocity[i][j] = angular_velocity[i * rotationDof + j];
       }
     }
   }

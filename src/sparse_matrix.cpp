@@ -973,6 +973,10 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PCSetFromOptions(_pc);
   PCSetUp(_pc);
 
+  PetscReal norm;
+  VecNorm(_rhs, NORM_2, &norm);
+  PetscPrintf(PETSC_COMM_WORLD, "norm: %f\n", norm);
+
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   KSPSolve(_ksp, _rhs, _x);
