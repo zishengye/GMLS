@@ -931,7 +931,7 @@ void GMLS_Solver::StokesEquation() {
                       sin(M_PI * y) * cos(M_PI * z)) +
             bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
                   normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
-                  normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * y));
+                  normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
       }
     } else if (particleType[i] == 0) {
       if (__dim == 2) {
