@@ -1098,14 +1098,14 @@ void GMLS_Solver::StokesEquation() {
     MPI_Allreduce(MPI_IN_PLACE, &norm_pressure, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
 
-    PetscPrintf(MPI_COMM_WORLD, "relative pressure error: %f\n",
+    PetscPrintf(MPI_COMM_WORLD, "relative pressure error: %.10f\n",
                 sqrt(error_pressure / norm_pressure));
-    PetscPrintf(MPI_COMM_WORLD, "relative velocity error: %f\n",
+    PetscPrintf(MPI_COMM_WORLD, "relative velocity error: %.10f\n",
                 sqrt(error_velocity / norm_velocity));
 
-    PetscPrintf(MPI_COMM_WORLD, "RMS pressure error: %f\n",
+    PetscPrintf(MPI_COMM_WORLD, "RMS pressure error: %.10f\n",
                 sqrt(error_pressure / globalParticleNum));
-    PetscPrintf(MPI_COMM_WORLD, "RMS velocity error: %f\n",
+    PetscPrintf(MPI_COMM_WORLD, "RMS velocity error: %.10f\n",
                 sqrt(error_velocity / globalParticleNum));
   }
 
