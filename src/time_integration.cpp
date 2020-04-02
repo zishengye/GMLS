@@ -155,6 +155,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
         BuildNeighborList();
       }
 
+      __adaptive_step = 0;
       do {
         if (__writeData)
           WriteDataAdaptiveGeometry();
