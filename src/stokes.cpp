@@ -970,6 +970,29 @@ void GMLS_Solver::StokesEquation() {
 
   // check data
   if (numRigidBody == 0) {
+    double true_pressure_mean = 0.0;
+    double pressure_mean = 0.0;
+    for (int i = 0; i < localParticleNum; i++) {
+
+      if (__dim == 2) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+
+        double true_pressure = -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y);
+
+        true_pressure_mean += true_pressure;
+        pressure_mean += pressure[i];
+      }
+    }
+
+    MPI_Allreduce(MPI_IN_PLACE, &true_pressure_mean, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &pressure_mean, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+
+    true_pressure_mean /= globalParticleNum;
+    pressure_mean /= globalParticleNum;
+
     double error_velocity = 0.0;
     double norm_velocity = 0.0;
     double error_pressure = 0.0;
@@ -979,13 +1002,14 @@ void GMLS_Solver::StokesEquation() {
         double x = coord[i][0];
         double y = coord[i][1];
 
-        double true_pressure = -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y);
+        double true_pressure =
+            -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) - true_pressure_mean;
         double true_velocity[2];
         true_velocity[0] = cos(M_PI * x) * sin(M_PI * y);
         true_velocity[1] = -sin(M_PI * x) * cos(M_PI * y);
 
         error_velocity += pow(true_velocity[0] - velocity[i][0], 2);
-        error_pressure += pow(true_pressure - pressure[i], 2);
+        error_pressure += pow(true_pressure - pressure[i] + pressure_mean, 2);
 
         norm_velocity += pow(true_velocity[0], 2);
         norm_pressure += pow(true_pressure, 2);
