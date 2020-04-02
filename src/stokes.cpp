@@ -807,7 +807,7 @@ void GMLS_Solver::StokesEquation() {
     // Lagrangian multiplier for pressure
     // add a penalty factor
     A.outProcessIncrement(localLagrangeMultiplierOffset,
-                          globalLagrangeMultiplierOffset, 2.0);
+                          globalLagrangeMultiplierOffset, globalParticleNum);
     for (int i = 0; i < velocityDof; i++) {
       A.outProcessIncrement(localOutProcessOffset + i,
                             globalOutProcessOffset + i, 1.0);
