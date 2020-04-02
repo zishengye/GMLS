@@ -904,17 +904,35 @@ void GMLS_Solver::StokesEquation() {
       }
 
       // 3-d Taylor-Green vortex-like flow
-      // if (__dim == 3) {
-      //   double x = coord[i][0];
-      //   double y = coord[i][1];
-      //   double z = coord[i][2];
+      if (__dim == 3) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
 
-      //   rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-      //   rhs[fieldDof * i + 1] =
-      //       -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-      //   rhs[fieldDof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
-      //   z);
-      // }
+        rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+        rhs[fieldDof * i + 1] =
+            -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+        rhs[fieldDof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+
+        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+            DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
+            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+
+        rhs[fieldDof * i + velocityDof] =
+            -4.0 * pow(M_PI, 2.0) *
+                (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
+                 cos(2.0 * M_PI * z)) +
+            bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                      sin(M_PI * y) * sin(M_PI * z) -
+                  normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                      cos(M_PI * y) * sin(M_PI * z) +
+                  normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                      sin(M_PI * y) * cos(M_PI * z)) +
+            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
+                  normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * y));
+      }
     } else if (particleType[i] == 0) {
       if (__dim == 2) {
         double x = coord[i][0];
@@ -929,6 +947,26 @@ void GMLS_Solver::StokesEquation() {
 
         rhs[fieldDof * i + velocityDof] =
             -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
+      }
+
+      if (__dim == 3) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
+
+        rhs[fieldDof * i] =
+            3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z) +
+            2.0 * M_PI * sin(2.0 * M_PI * x);
+        rhs[fieldDof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
+                                    cos(M_PI * y) * sin(M_PI * z) +
+                                2.0 * M_PI * sin(2.0 * M_PI * y);
+        rhs[fieldDof * i + 2] =
+            3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
+            2.0 * M_PI * sin(2.0 * M_PI * z);
+
+        rhs[fieldDof * i + velocityDof] =
+            -4.0 * pow(M_PI, 2.0) *
+            (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
       }
     }
   }
@@ -983,6 +1021,18 @@ void GMLS_Solver::StokesEquation() {
         true_pressure_mean += true_pressure;
         pressure_mean += pressure[i];
       }
+
+      if (__dim == 3) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
+
+        double true_pressure =
+            -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) - cos(2.0 * M_PI * z);
+
+        true_pressure_mean += true_pressure;
+        pressure_mean += pressure[i];
+      }
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &true_pressure_mean, 1, MPI_DOUBLE, MPI_SUM,
@@ -1008,10 +1058,33 @@ void GMLS_Solver::StokesEquation() {
         true_velocity[0] = cos(M_PI * x) * sin(M_PI * y);
         true_velocity[1] = -sin(M_PI * x) * cos(M_PI * y);
 
-        error_velocity += pow(true_velocity[0] - velocity[i][0], 2);
+        error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
+                          pow(true_velocity[1] - velocity[i][1], 2);
         error_pressure += pow(true_pressure - pressure[i] + pressure_mean, 2);
 
-        norm_velocity += pow(true_velocity[0], 2);
+        norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2);
+        norm_pressure += pow(true_pressure, 2);
+      }
+
+      if (__dim == 3) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
+
+        double true_pressure = -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) -
+                               cos(2.0 * M_PI * z) - true_pressure_mean;
+        double true_velocity[3];
+        true_velocity[0] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+        true_velocity[1] = -2.0 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+        true_velocity[2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+
+        error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
+                          pow(true_velocity[1] - velocity[i][1], 2) +
+                          pow(true_velocity[2] - velocity[i][2], 2);
+        error_pressure += pow(true_pressure - pressure[i] + pressure_mean, 2);
+
+        norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2) +
+                         pow(true_velocity[2], 2);
         norm_pressure += pow(true_pressure, 2);
       }
     }
