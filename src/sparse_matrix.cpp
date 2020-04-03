@@ -100,9 +100,6 @@ int PetscSparseMatrix::FinalAssemble() {
   __j.resize(__nnz);
   __val.resize(__nnz);
 
-  MPI_Allreduce(MPI_IN_PLACE, &__nnz, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(MPI_COMM_WORLD, "nnz: %d\n", __nnz);
-
   for (int i = 1; i <= __row; i++) {
     if (__i[i - 1] == 0) {
       __i[i] = 0;
