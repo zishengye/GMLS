@@ -373,6 +373,10 @@ bool GMLS_Solver::NeedRefinement() {
       }
     }
 
+    for (int i = 0; i < localParticleNum; i++) {
+      error[i] = sqrt(error[i]);
+    }
+
     if (__writeData)
       WriteDataAdaptiveStep();
 

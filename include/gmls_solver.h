@@ -142,8 +142,8 @@ private:
     _volume.push_back(vol);
   }
 
-  void InsertParticle(vec3 &X, int particleType, vec3 &particleSize,
-                      vec3 &normal, int &globalIndex, double vol,
+  void InsertParticle(const vec3 &X, int particleType, const vec3 &particleSize,
+                      const vec3 &normal, int &globalIndex, double vol,
                       bool rigidBodyParticle = false, int rigidBodyIndex = -1,
                       vec3 pCoord = vec3(0.0, 0.0, 0.0)) {
     static auto &_coord = __field.vector.GetHandle("coord");
@@ -274,7 +274,7 @@ private:
   int __adaptive_step;
 
   // rigid body supporting functions
-  int IsInRigidBody(vec3 &pos, double h);
+  int IsInRigidBody(const vec3 &pos, double h);
 
   void InitRigidBodySurfaceParticle();
 

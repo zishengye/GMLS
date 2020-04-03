@@ -3,11 +3,10 @@
 #include <fstream>
 #include <vector>
 
-template <class T>
-class triple {
+template <class T> class triple {
   T data[3];
 
- public:
+public:
   triple() {
     data[0] = 0;
     data[1] = 0;
@@ -50,7 +49,7 @@ class triple {
     return ((data[0] < y[0]) || (data[1] < y[1]) || (data[2] < y[2]));
   }
 
-  triple<T> operator-(triple<T> y) {
+  const triple<T> operator-(triple<T> y) const {
     return triple<T>(data[0] - y[0], data[1] - y[1], data[2] - y[2]);
   }
 
@@ -67,13 +66,11 @@ class triple {
   }
 };
 
-template <class T>
-triple<T> operator+(triple<T> xScalar, triple<T> y) {
+template <class T> triple<T> operator+(triple<T> xScalar, triple<T> y) {
   return triple<T>(xScalar[0] + y[0], xScalar[1] + y[1], xScalar[2] + y[2]);
 }
 
-template <class T>
-double maxmag(std::vector<triple<T>> maxof) {
+template <class T> double maxmag(std::vector<triple<T>> maxof) {
   double maxm = 0.0;
   for (int i = 0; i < maxof.size(); i++) {
     maxm = MAX(maxm, maxof[i].mag());

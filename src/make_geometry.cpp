@@ -176,6 +176,7 @@ void GMLS_Solver::ClearParticle() {
   static auto &coord = __field.vector.GetHandle("coord");
   static auto &normal = __field.vector.GetHandle("normal");
   static auto &size = __field.vector.GetHandle("size");
+  static auto &pCoord = __field.vector.GetHandle("parameter coordinate");
   static auto &volume = __field.scalar.GetHandle("volume");
   static auto &particleType = __field.index.GetHandle("particle type");
   static auto &globalIndex = __field.index.GetHandle("global index");
@@ -196,6 +197,7 @@ void GMLS_Solver::ClearParticle() {
   coord.clear();
   normal.clear();
   size.clear();
+  pCoord.clear();
   volume.clear();
   particleType.clear();
   globalIndex.clear();
@@ -260,12 +262,35 @@ void GMLS_Solver::ParticleIndex() {
 
   PetscPrintf(PETSC_COMM_WORLD, "global particle number: %d\n",
               globalParticleNum);
+
+  // check data consistence
+  if (coord.size() != normal.size()) {
+    cout << __myID << " normal size inconsistent!" << endl;
+  }
+  if (coord.size() != particleSize.size()) {
+    cout << __myID << " particleSize size inconsistent!" << endl;
+  }
+  if (coord.size() != pCoord.size()) {
+    cout << __myID << " pCoord size inconsistent!" << endl;
+  }
+  if (coord.size() != volume.size()) {
+    cout << __myID << " volume size inconsistent!" << endl;
+  }
+  if (coord.size() != globalIndex.size()) {
+    cout << __myID << " globalIndex size inconsistent!" << endl;
+  }
+  if (coord.size() != particleType.size()) {
+    cout << __myID << " particleType size inconsistent!" << endl;
+  }
+  if (coord.size() != attachedRigidBodyIndex.size()) {
+    cout << __myID << " attachedRigidBodyIndex size inconsistent!" << endl;
+  }
 }
 
 bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
 
 void GMLS_Solver::InitFieldParticle() {
-  __cutoffDistance = (__polynomialOrder + 0.5 + 1e-5) *
+  __cutoffDistance = (__polynomialOrder + 1.0 + 1e-5) *
                      std::max(__particleSize0[0], __particleSize0[1]);
 
   double xPos, yPos, zPos;
@@ -702,6 +727,8 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   vector<int> fieldSplitTag;
   vector<int> fieldBoundarySplitTag;
   vector<int> fieldRigidBodySurfaceSplitTag;
+
+  sort(splitTag.begin(), splitTag.end());
 
   for (auto tag : splitTag) {
     if (particleType[tag] == 0) {

@@ -46,7 +46,7 @@ void GMLS_Solver::InitRigidBody() {
   }
 }
 
-int GMLS_Solver::IsInRigidBody(vec3 &pos, double h) {
+int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h) {
   static vector<vec3> &rigidBodyCoord =
       __rigidBody.vector.GetHandle("position");
   static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
@@ -110,7 +110,8 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
     for (size_t n = 0; n < rigidBodyCoord.size(); n++) {
       double r = rigidBodySize[n];
       int M_theta = round(2 * M_PI * r / h);
-      if (M_theta % 2 == 1) M_theta++;
+      if (M_theta % 2 == 1)
+        M_theta++;
       double d_theta = 2 * M_PI * r / M_theta;
 
       vec3 particleSize = vec3(d_theta, 0, 0);
@@ -140,9 +141,8 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
       __field.index.GetHandle("attached rigid body index");
   static auto &volume = __field.scalar.GetHandle("volume");
 
-  static vector<vec3> &rigidBodyCoord =
-      __rigidBody.vector.GetHandle("position");
-  static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
+  static auto &rigidBodyCoord = __rigidBody.vector.GetHandle("position");
+  static auto &rigidBodySize = __rigidBody.scalar.GetHandle("size");
 
   int localIndex = coord.size();
 
@@ -194,30 +194,27 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
 
       double theta = pCoord[tag][0];
 
-      bool insert = false;
-      for (int i = -1; i < 2; i += 2) {
-        vec3 newNormal =
-            vec3(cos(theta + i * thetaDelta), sin(theta + i * thetaDelta), 0.0);
-        vec3 newPos = newNormal * rigidBodySize[attachedRigidBodyIndex[tag]] +
-                      rigidBodyCoord[attachedRigidBodyIndex[tag]];
+      vec3 newNormal = vec3(
+          cos(theta) * cos(thetaDelta) - sin(theta) * sin(thetaDelta),
+          cos(theta) * sin(thetaDelta) + sin(theta) * cos(thetaDelta), 0.0);
+      vec3 newPos = newNormal * rigidBodySize[attachedRigidBodyIndex[tag]] +
+                    rigidBodyCoord[attachedRigidBodyIndex[tag]];
 
-        if (!insert) {
-          coord[tag] = newPos;
-          particleSize[tag][0] /= 2.0;
-          particleSize[tag][1] /= 2.0;
-          volume[tag] /= 4.0;
-          normal[tag] = newNormal;
-          pCoord[tag] = vec3(theta + i * thetaDelta, 0.0, 0.0);
+      coord[tag] = newPos;
+      particleSize[tag][0] /= 2.0;
+      volume[tag] /= 4.0;
+      normal[tag] = newNormal;
+      pCoord[tag] = vec3(theta + thetaDelta, 0.0, 0.0);
 
-          insert = true;
-        } else {
-          double vol = volume[tag];
-          InsertParticle(newPos, particleType[tag], particleSize[tag],
-                         newNormal, localIndex, vol, true,
-                         attachedRigidBodyIndex[tag],
-                         vec3(theta + i * thetaDelta, 0.0, 0.0));
-        }
-      }
+      newNormal = vec3(
+          cos(theta) * cos(-thetaDelta) - sin(theta) * sin(-thetaDelta),
+          cos(theta) * sin(-thetaDelta) + sin(theta) * cos(-thetaDelta), 0.0);
+      newPos = newNormal * rigidBodySize[attachedRigidBodyIndex[tag]] +
+               rigidBodyCoord[attachedRigidBodyIndex[tag]];
+
+      InsertParticle(newPos, particleType[tag], particleSize[tag], newNormal,
+                     localIndex, volume[tag], true, attachedRigidBodyIndex[tag],
+                     vec3(theta - thetaDelta, 0.0, 0.0));
     }
   }
 }
