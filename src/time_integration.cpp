@@ -259,5 +259,9 @@ void GMLS_Solver::RungeKuttaIntegration() {
       output << endl;
       output.close();
     }
+
+    if (__writeData != 0) {
+      WriteDataTimeStep();
+    }
   }
 }
