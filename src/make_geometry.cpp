@@ -290,8 +290,9 @@ void GMLS_Solver::ParticleIndex() {
 bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
 
 void GMLS_Solver::InitFieldParticle() {
-  __cutoffDistance = (__polynomialOrder + 1.0 + 1e-5) *
-                     std::max(__particleSize0[0], __particleSize0[1]);
+  __cutoffDistance = (__polynomialOrder + 1.0) *
+                         std::max(__particleSize0[0], __particleSize0[1]) +
+                     1e-5;
 
   double xPos, yPos, zPos;
   vec3 normal = vec3(1.0, 0.0, 0.0);

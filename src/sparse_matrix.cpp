@@ -68,10 +68,23 @@ int PetscSparseMatrix::FinalAssemble() {
 
     // merge data
     if (myid == MPIsize - 1) {
-      __matrix[row + __out_process_reduction].resize(recv_j.size());
-      for (int i = 0; i < recv_j.size(); i++) {
+      vector<int> sorted_recv_j = recv_j;
+      sort(sorted_recv_j.begin(), sorted_recv_j.end());
+      sorted_recv_j.erase(unique(sorted_recv_j.begin(), sorted_recv_j.end()),
+                          sorted_recv_j.end());
+
+      __matrix[row + __out_process_reduction].resize(sorted_recv_j.size());
+      for (int i = 0; i < sorted_recv_j.size(); i++) {
         __matrix[row + __out_process_reduction][i] =
-            entry(recv_j[i], recv_val[i]);
+            entry(sorted_recv_j[i], 0.0);
+      }
+
+      for (int i = 0; i < recv_j.size(); i++) {
+        auto it = lower_bound(__matrix[row + __out_process_reduction].begin(),
+                              __matrix[row + __out_process_reduction].end(),
+                              entry(recv_j[i], recv_val[i]), compare_index);
+
+        it->second += recv_val[i];
       }
     }
   }
@@ -86,6 +99,9 @@ int PetscSparseMatrix::FinalAssemble() {
 
   __j.resize(__nnz);
   __val.resize(__nnz);
+
+  MPI_Allreduce(MPI_IN_PLACE, &__nnz, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(MPI_COMM_WORLD, "nnz: %d\n", __nnz);
 
   for (int i = 1; i <= __row; i++) {
     if (__i[i - 1] == 0) {
