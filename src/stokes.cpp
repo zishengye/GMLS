@@ -42,6 +42,13 @@ void GMLS_Solver::StokesEquation() {
   auto neumann_pressure = __gmls.GetPointer("pressure basis neumann boundary");
   auto all_velocity = __gmls.GetPointer("velocity basis");
 
+  double tStart, tEnd;
+
+  const int number_of_batches = __batchSize;
+  MPI_Barrier(MPI_COMM_WORLD);
+  tStart = MPI_Wtime();
+  PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
+
   if (*all_pressure != nullptr)
     delete *all_pressure;
   if (*neumann_pressure != nullptr)
@@ -75,13 +82,6 @@ void GMLS_Solver::StokesEquation() {
 
   int &localParticleNum = particleNum[0];
   int &globalParticleNum = particleNum[1];
-
-  double tStart, tEnd;
-
-  const int number_of_batches = __batchSize;
-  MPI_Barrier(MPI_COMM_WORLD);
-  tStart = MPI_Wtime();
-  PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
   // create source coords (full particle set)
   int numSourceCoords = backgroundSourceCoord.size();

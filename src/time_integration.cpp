@@ -70,8 +70,10 @@ void GMLS_Solver::ForwardEulerIntegration() {
       InitUniformParticleField();
 
       EmposeBoundaryCondition();
-
-      BuildNeighborList();
+      for (int i = 0; i < 400; i++) {
+        PetscPrintf(PETSC_COMM_WORLD, "num %d\n", i);
+        BuildNeighborList();
+      }
     }
 
     // if (t == 0) {
@@ -154,6 +156,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
         BuildNeighborList();
       }
+
+      PetscPrintf(PETSC_COMM_WORLD, "start of adaptive step\n");
 
       __adaptive_step = 0;
       do {

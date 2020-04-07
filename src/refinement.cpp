@@ -384,8 +384,6 @@ bool GMLS_Solver::NeedRefinement() {
     int globalSplitParticleNum;
     MPI_Allreduce(&localSplitParticleNum, &globalSplitParticleNum, 1, MPI_INT,
                   MPI_SUM, MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD, "Total number of split particle: %d\n",
-                globalSplitParticleNum);
 
     // refine stage
     SplitParticle(splitTag);
