@@ -98,8 +98,8 @@ void GMLS_Solver::BuildNeighborList() {
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nBuilding neighbor list...\n");
   // set up neighbor list for communication
-  backgroundSourceCoord.resize(0);
-  backgroundSourceIndex.resize(0);
+  backgroundSourceCoord.clear();
+  backgroundSourceIndex.clear();
 
   vector<bool> isNeighbor;
   int neighborNum = pow(3, __dim);

@@ -627,7 +627,7 @@ void GMLS_Solver::StokesEquation() {
       }
 
       // particles on rigid body
-      if (particleType[i] == 4) {
+      if (particleType[i] >= 4) {
         const int currentRigidBody = attachedRigidBodyIndex[i];
         const int currentRigidBodyLocalOffset =
             localRigidBodyOffset + rigidBodyDof * currentRigidBody;
@@ -822,43 +822,44 @@ void GMLS_Solver::StokesEquation() {
               tEnd - tStart);
 
   vector<int> neighborInclusion;
-  // int neighborInclusionSize;
-  // if (__myID == __MPISize - 1) {
-  //   neighborInclusion.insert(neighborInclusion.end(),
-  //                            A.__j.begin() + A.__i[localRigidBodyOffset],
-  //                            A.__j.end());
-
-  //   for (int i = 0; i < rigidBodyDof * numRigidBody; i++) {
-  //     neighborInclusion.push_back(globalRigidBodyOffset + i);
-  //   }
-  //   sort(neighborInclusion.begin(), neighborInclusion.end());
-
-  //   auto it = unique(neighborInclusion.begin(), neighborInclusion.end());
-  //   neighborInclusion.resize(distance(neighborInclusion.begin(), it));
-
-  //   neighborInclusionSize = neighborInclusion.size();
-  // }
-  // MPI_Bcast(&neighborInclusionSize, 1, MPI_INT, __MPISize - 1,
-  // MPI_COMM_WORLD); if (__myID != __MPISize - 1) {
-  //   neighborInclusion.resize(neighborInclusionSize);
-  // }
-  // MPI_Bcast(neighborInclusion.data(), neighborInclusionSize, MPI_INT,
-  //           __MPISize - 1, MPI_COMM_WORLD);
-
-  for (int i = 0; i < localParticleNum; i++) {
-    if (particleType[i] >= 4) {
-      for (int j = 0; j < fieldDof; j++)
-        neighborInclusion.push_back(fieldDof * backgroundSourceIndex[i] + j);
-    }
-  }
+  int neighborInclusionSize;
   if (__myID == __MPISize - 1) {
-    for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < rigidBodyDof; j++) {
-        neighborInclusion.push_back(globalRigidBodyOffset + i * rigidBodyDof +
-                                    j);
-      }
+    neighborInclusion.insert(neighborInclusion.end(),
+                             A.__j.begin() + A.__i[localRigidBodyOffset],
+                             A.__j.end());
+
+    for (int i = 0; i < rigidBodyDof * numRigidBody; i++) {
+      neighborInclusion.push_back(globalRigidBodyOffset + i);
     }
+    sort(neighborInclusion.begin(), neighborInclusion.end());
+
+    auto it = unique(neighborInclusion.begin(), neighborInclusion.end());
+    neighborInclusion.resize(distance(neighborInclusion.begin(), it));
+
+    neighborInclusionSize = neighborInclusion.size();
   }
+  MPI_Bcast(&neighborInclusionSize, 1, MPI_INT, __MPISize - 1, MPI_COMM_WORLD);
+  if (__myID != __MPISize - 1) {
+    neighborInclusion.resize(neighborInclusionSize);
+  }
+  MPI_Bcast(neighborInclusion.data(), neighborInclusionSize, MPI_INT,
+            __MPISize - 1, MPI_COMM_WORLD);
+
+  // for (int i = 0; i < localParticleNum; i++) {
+  //   if (particleType[i] >= 4) {
+  //     for (int j = 0; j < fieldDof; j++)
+  //       neighborInclusion.push_back(fieldDof * backgroundSourceIndex[i] + j);
+  //   }
+  // }
+  // if (__myID == __MPISize - 1) {
+  //   for (int i = 0; i < numRigidBody; i++) {
+  //     for (int j = 0; j < rigidBodyDof; j++) {
+  //       neighborInclusion.push_back(globalRigidBodyOffset + i * rigidBodyDof
+  //       +
+  //                                   j);
+  //     }
+  //   }
+  // }
 
   vector<int> interface_flag(globalParticleNum);
   for (int i = 0; i < localParticleNum; i++) {
