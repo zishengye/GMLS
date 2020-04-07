@@ -70,10 +70,8 @@ void GMLS_Solver::ForwardEulerIntegration() {
       InitUniformParticleField();
 
       EmposeBoundaryCondition();
-      for (int i = 0; i < 400; i++) {
-        PetscPrintf(PETSC_COMM_WORLD, "num %d\n", i);
-        BuildNeighborList();
-      }
+
+      BuildNeighborList();
     }
 
     // if (t == 0) {
