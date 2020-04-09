@@ -80,6 +80,11 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
                                __adaptiveRefinementTolerance)) == 1) {
       __adaptiveRefinementTolerance = 1e-3;
     }
+
+    if ((SearchCommand<string>(argc, argv, "-AdaptiveBaseField",
+                               __adaptive_base_field)) == 1) {
+      __adaptive_base_field = "Pressure";
+    }
   }
 
   // default manifold flag is off

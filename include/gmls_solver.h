@@ -25,7 +25,7 @@ int SearchCommand(int argc, char **argv, const std::string &commandName,
                   T &res);
 
 class GMLS_Solver {
-private:
+ private:
   // MPI setting
   int __myID;
   int __MPISize;
@@ -40,6 +40,8 @@ private:
   int __batchSize;
   int __adaptiveRefinement;
   double __adaptiveRefinementTolerance;
+  int __adaptive_step;
+  std::string __adaptive_base_field;
 
   bool __successInitialized;
 
@@ -271,8 +273,6 @@ private:
   void SplitRigidBodySurfaceParticle(std::vector<int> &splitTag);
   void SplitGapParticle(std::vector<int> &splitTag);
 
-  int __adaptive_step;
-
   // rigid body supporting functions
   int IsInRigidBody(const vec3 &pos, double h);
 
@@ -298,7 +298,8 @@ private:
   void RungeKuttaIntegration();
 
   // operator
-  template <typename Func> void SerialOperation(Func operation) {
+  template <typename Func>
+  void SerialOperation(Func operation) {
     for (int i = 0; i < __MPISize; i++) {
       if (i == __myID) {
         operation();
@@ -307,7 +308,8 @@ private:
     }
   }
 
-  template <typename Func> void MasterOperation(int master, Func operation) {
+  template <typename Func>
+  void MasterOperation(int master, Func operation) {
     if (master == __myID) {
       operation();
     }
@@ -321,7 +323,7 @@ private:
   void WriteDataAdaptiveStep();
   void WriteDataAdaptiveGeometry();
 
-public:
+ public:
   GMLS_Solver(int argc, char **argv);
 
   void TimeIntegration();
