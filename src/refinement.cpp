@@ -303,7 +303,17 @@ bool GMLS_Solver::NeedRefinement() {
     if (globalError < __adaptiveRefinementTolerance) return false;
 
     // mark stage
-    double alpha = 0.99;
+    double alpha;
+    switch (__adaptive_step) {
+      case 0:
+        alpha = 0.99;
+        break;
+      case 1:
+        alpha = 0.99;
+      default:
+        alpha = 0.8;
+        break;
+    }
 
     vector<pair<int, double>> chopper;
     pair<int, double> toAdd;
