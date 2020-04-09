@@ -310,22 +310,22 @@ bool GMLS_Solver::NeedRefinement() {
         alpha = 0.99;
         break;
       case 1:
-        alpha = 0.95;
+        alpha = 0.98;
         break;
       case 2:
-        alpha = 0.90;
+        alpha = 0.97;
         break;
       case 3:
-        alpha = 0.85;
+        alpha = 0.96;
         break;
       case 4:
-        alpha = 0.80;
+        alpha = 0.95;
         break;
       case 5:
-        alpha = 0.75;
+        alpha = 0.94;
         break;
       default:
-        alpha = 0.70;
+        alpha = 0.93;
     }
 
     vector<pair<int, double>> chopper;
