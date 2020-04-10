@@ -296,6 +296,89 @@ bool GMLS_Solver::NeedRefinement() {
     }
 
     if (__adaptive_base_field == "Pressure") {
+      vector<int> pressureGradientIndex;
+      for (int i = 0; i < __dim; i++)
+        pressureGradientIndex.push_back(pressureBasis.getAlphaColumnOffset(
+            GradientOfScalarPointEvaluation, i, 0, 0, 0));
+
+      auto pressureAlphas = pressureBasis.getAlphas();
+      auto neighborLists = pressureBasis.getNeighborLists();
+
+      auto &pressure = __field.scalar.GetHandle("fluid pressure");
+      vector<double> recvPressure;
+      DataSwapAmongNeighbor(pressure, recvPressure);
+      vector<double> backgroundPressure = pressure;
+      backgroundPressure.insert(backgroundPressure.end(), recvPressure.begin(),
+                                recvPressure.end());
+
+      Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+          backgroundPressureDevice("background pressure",
+                                   backgroundPressure.size());
+      Kokkos::View<double *>::HostMirror backgroundPressureHost =
+          Kokkos::create_mirror_view(backgroundPressureDevice);
+
+      for (size_t i = 0; i < backgroundPressure.size(); i++) {
+        backgroundPressureHost(i) = backgroundPressure[i];
+      }
+
+      Kokkos::deep_copy(backgroundPressureHost, backgroundPressureDevice);
+
+      Evaluator pressureEvaluator(&pressureBasis);
+
+      auto coefficients =
+          pressureEvaluator
+              .applyFullPolynomialCoefficientsBasisToDataAllComponents<
+                  double **, Kokkos::HostSpace>(backgroundPressureDevice);
+
+      auto gradient =
+          pressureEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
+              double **, Kokkos::HostSpace>(backgroundPressureDevice,
+                                            GradientOfScalarPointEvaluation);
+
+      auto coefficientsSize = pressureBasis.getPolynomialCoefficientsSize();
+
+      vector<vector<double>> coefficientsChunk(localParticleNum);
+      for (int i = 0; i < localParticleNum; i++) {
+        coefficientsChunk[i].resize(coefficientsSize);
+        for (int j = 0; j < coefficientsSize; j++) {
+          coefficientsChunk[i][j] = coefficients(i, j);
+        }
+      }
+
+      vector<vector<double>> recvCoefficientsChunk;
+
+      DataSwapAmongNeighbor(coefficientsChunk, recvCoefficientsChunk,
+                            coefficientsSize);
+
+      vector<vector<double>> backgroundCoefficients;
+      for (int i = 0; i < localParticleNum; i++) {
+        backgroundCoefficients.push_back(coefficientsChunk[i]);
+      }
+
+      for (int i = 0; i < totalNeighborParticleNum; i++) {
+        backgroundCoefficients.push_back(recvCoefficientsChunk[i]);
+      }
+
+      // estimate stage
+      vector<vec3> recoveredPressureGradient;
+      recoveredPressureGradient.resize(localParticleNum);
+
+      for (int i = 0; i < localParticleNum; i++) {
+        for (int j = 0; j < neighborLists(i, 0); j++) {
+          const int neighborParticleIndex = neighborLists(i, j + 1);
+
+          vec3 dX = coord[i] - backgroundSourceCoord[neighborParticleIndex];
+          for (int axes1 = 0; axes1 < __dim; axes1++) {
+            if (__dim == 2)
+              recoveredPressureGradient[i][axes1] +=
+                  calStaggeredScalarGrad(
+                      axes1, dX[0], dX[1], __polynomialOrder,
+                      backgroundEpsilon[neighborParticleIndex],
+                      backgroundCoefficients[neighborParticleIndex]) /
+                  neighborLists(i, 0);
+          }
+        }
+      }
     }
 
     MPI_Allreduce(&localError, &globalError, 1, MPI_DOUBLE, MPI_SUM,

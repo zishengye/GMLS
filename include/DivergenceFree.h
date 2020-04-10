@@ -120,3 +120,18 @@ inline double calDivFreeBasisGrad(const int outputAxes1, const int outputAxes2,
 
   return grad;
 }
+
+inline double calStaggeredScalarGrad(const int outputAxes, const double dx,
+                                     const double dy, const int polynomialOrder,
+                                     const double epsilon,
+                                     const std::vector<double> &coeff) {
+  double grad = 0.0;
+
+  std::vector<double> epsilonInverse(polynomialOrder);
+
+  for (int i = 0; i < polynomialOrder; i++) {
+    epsilonInverse[i] = std::pow(epsilon, -(i + 1));
+  }
+
+  return grad;
+}
