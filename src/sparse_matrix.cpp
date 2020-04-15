@@ -123,8 +123,14 @@ int PetscSparseMatrix::FinalAssemble() {
     }
   }
 
-  MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE, __Col,
-                            __i.data(), __j.data(), __val.data(), &__mat);
+  if (__Col != 0)
+    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
+                              __Col, __i.data(), __j.data(), __val.data(),
+                              &__mat);
+  else
+    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
+                              PETSC_DECIDE, __i.data(), __j.data(),
+                              __val.data(), &__mat);
 
   __isAssembled = true;
 
@@ -868,7 +874,8 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
                               vector<int> &neighborInclusion,
                               vector<int> &interface_flag, int dimension,
-                              int numRigidBody) {
+                              int numRigidBody, int adatptive_step,
+                              PetscSparseMatrix &I, PetscSparseMatrix &R) {
   int fieldDof = dimension + 1;
   int velocityDof = dimension;
   int pressureDof = 1;
@@ -966,7 +973,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   Vec _rhs, _x;
   VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
                         rhs.data(), &_rhs);
-  VecDuplicate(_rhs, &_x);
+  VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, x.size(), PETSC_DECIDE, x.data(),
+                        &_x);
 
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
@@ -985,6 +993,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   PCSetFromOptions(_pc);
   PCSetUp(_pc);
+
+  KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
 
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");

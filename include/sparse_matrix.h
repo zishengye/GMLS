@@ -28,9 +28,9 @@ private:
   PetscInt __row, __col, __nnz, __Col, __out_process_row,
       __out_process_reduction;
 
+public:
   Mat __mat, __diag_block;
 
-public:
   std::vector<PetscInt> __i;
   std::vector<PetscInt> __j;
   std::vector<PetscReal> __val;
@@ -68,9 +68,22 @@ public:
 
   void resize(PetscInt m, PetscInt n) {
     __row = m;
-    __col = m;
-    __Col = n;
+    __col = n;
+    __Col = 0;
     __matrix.resize(m);
+
+    __out_process_row = 0;
+    __out_process_reduction = 0;
+  }
+
+  void resize(PetscInt m, PetscInt n, PetscInt N) {
+    __row = m;
+    __col = n;
+    __Col = N;
+    __matrix.resize(m);
+
+    __out_process_row = 0;
+    __out_process_reduction = 0;
   }
 
   inline void setColIndex(const PetscInt row, std::vector<PetscInt> &index);
@@ -96,7 +109,8 @@ public:
              int numRigidBody);
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
              std::vector<int> &neighborInclusion,
-             std::vector<int> &interface_flag, int dimension, int numRigidBody);
+             std::vector<int> &interface_flag, int dimension, int numRigidBody,
+             int adaptive_step, PetscSparseMatrix &I, PetscSparseMatrix &R);
   // two field solver with rigid body inclusion
 
   // [A Bt; B C] * [x; y] = [f; g]
