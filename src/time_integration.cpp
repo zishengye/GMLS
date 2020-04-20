@@ -13,6 +13,12 @@ void GMLS_Solver::TimeIntegration() {
     InitRigidBody();
 
     InitDomainDecomposition();
+
+    if (__adaptiveRefinement) {
+      __field.vector.Register("old coord");
+      __background.vector.Register("old source coord");
+      __background.index.Register("old source index");
+    }
   } else {
     SetBoundingBoxManifold();
     SetBoundingBoxBoundaryManifold();
@@ -20,12 +26,6 @@ void GMLS_Solver::TimeIntegration() {
     InitRigidBody();
 
     InitDomainDecompositionManifold();
-
-    if (__adaptiveRefinement) {
-      __field.vector.Register("old coord");
-      __field.vector.Register("old source coord");
-      __field.scalar.Register("old source index");
-    }
   }
 
   // equation type selection and initialization
@@ -78,12 +78,6 @@ void GMLS_Solver::ForwardEulerIntegration() {
       EmposeBoundaryCondition();
 
       BuildNeighborList();
-
-      if (__adaptiveRefinement) {
-        __field.vector.Register("old coord");
-        __background.vector.Register("old source coord");
-        __background.index.Register("old source index");
-      }
     }
 
     // if (t == 0) {

@@ -931,15 +931,12 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
     idx_global.push_back(localN1 + fieldDof * localParticleNum + velocityDof);
 
-    // for (int i = 0; i < numRigidBody; i++) {
-    //   for (int j = 0; j < rigidBodyDof; j++) {
-    //     idx_rigid[rigidBodyDof * i + j] =
-    //         localN1 + fieldDof * localParticleNum + 1 + i * rigidBodyDof + j;
-    //     idx_global.push_back(localN1 + fieldDof * localParticleNum + fieldDof
-    //     +
-    //                          i * rigidBodyDof + j);
-    //   }
-    // }
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < rigidBodyDof; j++) {
+        idx_rigid[rigidBodyDof * i + j] =
+            localN1 + fieldDof * localParticleNum + 1 + i * rigidBodyDof + j;
+      }
+    }
 
     for (int i = 0; i < localParticleNum; i++) {
       if (interface_flag[localN1 / fieldDof + i] != 0) {
@@ -960,6 +957,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   IS isg_field, isg_neighbor;
   IS isg_global;
   IS isg_interface;
+  IS isg_rigid;
 
   ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
                   PETSC_COPY_VALUES, &isg_field);
@@ -969,6 +967,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
                   PETSC_COPY_VALUES, &isg_global);
   ISCreateGeneral(MPI_COMM_WORLD, idx_interface.size(), idx_interface.data(),
                   PETSC_COPY_VALUES, &isg_interface);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_rigid.size(), idx_rigid.data(),
+                  PETSC_COPY_VALUES, &isg_rigid);
 
   Vec _rhs, _x;
   VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
@@ -1017,4 +1017,5 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   ISDestroy(&isg_neighbor);
   ISDestroy(&isg_global);
   ISDestroy(&isg_interface);
+  ISDestroy(&isg_rigid);
 }
