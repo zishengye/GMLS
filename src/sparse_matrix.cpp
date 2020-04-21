@@ -945,6 +945,13 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, x.size(), PETSC_DECIDE, x.data(),
                         &_x);
 
+  Mat ff, nn, gg;
+
+  MatCreateSubMatrix(__mat, isg_field, isg_field, MAT_INITIAL_MATRIX, &ff);
+  MatCreateSubMatrix(__mat, isg_neighbor, isg_neighbor, MAT_INITIAL_MATRIX,
+                     &nn);
+  MatCreateSubMatrix(__mat, isg_global, isg_global, MAT_INITIAL_MATRIX, &gg);
+
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
   KSPSetOperators(_ksp, __mat, __mat);
@@ -953,15 +960,15 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PC _pc;
 
   KSPGetPC(_ksp, &_pc);
-  PCSetType(_pc, PCFIELDSPLIT);
+  PCSetType(_pc, PCSHELL);
 
-  PCFieldSplitSetIS(_pc, "0", isg_field);
-  PCFieldSplitSetIS(_pc, "1", isg_neighbor);
-  PCFieldSplitSetIS(_pc, "2", isg_global);
-  // PCFieldSplitSetIS(_pc, "3", isg_field);
+  HypreLUShellPC *shell_ctx;
+  HypreLUShellPCCreate(&shell_ctx);
+  PCShellSetApply(_pc, HypreLUShellPCApply);
+  PCShellSetContext(_pc, shell_ctx);
+  PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-  PCSetFromOptions(_pc);
-  PCSetUp(_pc);
+  HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
 
@@ -985,4 +992,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   ISDestroy(&isg_field);
   ISDestroy(&isg_neighbor);
   ISDestroy(&isg_global);
+
+  MatDestroy(&ff);
+  MatDestroy(&nn);
+  MatDestroy(&gg);
 }
