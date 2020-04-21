@@ -8,6 +8,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
                                                           int num_rigid_body,
                                                           int dimension) {
   static auto &coord = __field.vector.GetHandle("coord");
+  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
   static auto &background_coord = __background.vector.GetHandle("source coord");
   static auto &background_index = __background.index.GetHandle("source index");
 
@@ -51,8 +52,15 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   Kokkos::View<double **>::HostMirror old_source_coords =
       Kokkos::create_mirror_view(old_source_coords_device);
 
+  int actual_new_target = 0;
+  vector<int> new_to_actual_index(coord.size());
+  for (int i = 0; i < coord.size(); i++) {
+    new_to_actual_index[i] = actual_new_target;
+    if (adaptive_level[i] == __adaptive_step) actual_new_target++;
+  }
+
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-      new_target_coords_device("new target coordinates", coord.size(), 3);
+      new_target_coords_device("new target coordinates", actual_new_target, 3);
   Kokkos::View<double **>::HostMirror new_target_coords =
       Kokkos::create_mirror_view(new_target_coords_device);
 
@@ -80,9 +88,15 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   }
 
   // copy new target coords
+  int counter = 0;
   for (int i = 0; i < coord.size(); i++) {
-    for (int j = 0; j < dimension; j++)
-      new_target_coords(i, j) = coord[i][j];
+    if (adaptive_level[i] == __adaptive_step) {
+      for (int j = 0; j < dimension; j++) {
+        new_target_coords(counter, j) = coord[i][j];
+      }
+
+      counter++;
+    }
   }
 
   Kokkos::deep_copy(old_source_coords_device, old_source_coords);
@@ -106,7 +120,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
       Kokkos::create_mirror_view(new_to_old_neighbor_lists_device);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-      old_to_new_neighbor_lists_device("neighbor lists", coord.size(),
+      old_to_new_neighbor_lists_device("neighbor lists", actual_new_target,
                                        estimatedUpperBoundNumberNeighbors);
   Kokkos::View<int **>::HostMirror old_to_new_neighbor_lists =
       Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
@@ -117,7 +131,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
       Kokkos::create_mirror_view(new_epsilon_device);
 
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> old_epsilon_device(
-      "h supports", coord.size());
+      "h supports", actual_new_target);
   Kokkos::View<double *>::HostMirror old_epsilon =
       Kokkos::create_mirror_view(old_epsilon_device);
 
@@ -148,23 +162,6 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
       new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 2,
                dimension, "SVD", "STANDARD");
 
-  // new to old pressure field transition
-  new_to_old_pressusre_basis->setProblemData(
-      new_to_old_neighbor_lists_device, new_source_coords_device,
-      old_target_coords_device, new_epsilon);
-
-  new_to_old_pressusre_basis->addTargets(ScalarPointEvaluation);
-
-  new_to_old_pressusre_basis->setWeightingType(WeightingFunctionType::Power);
-  new_to_old_pressusre_basis->setWeightingPower(__weightFuncOrder);
-  new_to_old_pressusre_basis->setOrderOfQuadraturePoints(2);
-  new_to_old_pressusre_basis->setDimensionOfQuadraturePoints(1);
-  new_to_old_pressusre_basis->setQuadratureType("LINE");
-
-  new_to_old_pressusre_basis->generateAlphas(20);
-
-  auto new_to_old_pressure_alphas = new_to_old_pressusre_basis->getAlphas();
-
   // old to new pressure field transition
   old_to_new_pressusre_basis->setProblemData(
       old_to_new_neighbor_lists_device, old_source_coords_device,
@@ -182,17 +179,6 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
   auto old_to_new_pressure_alphas = old_to_new_pressusre_basis->getAlphas();
 
-  // new to old velocity field transition
-  new_to_old_velocity_basis->setProblemData(
-      new_to_old_neighbor_lists_device, new_source_coords_device,
-      old_target_coords_device, new_epsilon);
-
-  new_to_old_velocity_basis->addTargets(VectorPointEvaluation);
-
-  new_to_old_velocity_basis->generateAlphas(20);
-
-  auto new_to_old_velocity_alphas = new_to_old_velocity_basis->getAlphas();
-
   // old to new velocity field transition
   old_to_new_velocity_basis->setProblemData(
       old_to_new_neighbor_lists_device, old_source_coords_device,
@@ -209,30 +195,40 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   // compute matrix graph
   for (int i = 0; i < new_local_particle_num; i++) {
     vector<PetscInt> index;
+    if (adaptive_level[i] == __adaptive_step) {
+      // velocity interpolation
+      index.resize(old_to_new_neighbor_lists(new_to_actual_index[i], 0) *
+                   velocity_dof);
+      for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
+           j++) {
+        for (int k = 0; k < velocity_dof; k++) {
+          index[j * velocity_dof + k] =
+              field_dof * old_background_index[old_to_new_neighbor_lists(
+                              new_to_actual_index[i], j + 1)] +
+              k;
+        }
+      }
 
-    // velocity interpolation
-    index.resize(old_to_new_neighbor_lists(i, 0) * velocity_dof);
-    for (int j = 0; j < old_to_new_neighbor_lists(i, 0); j++) {
       for (int k = 0; k < velocity_dof; k++) {
-        index[j * velocity_dof + k] =
-            field_dof *
-                old_background_index[old_to_new_neighbor_lists(i, j + 1)] +
-            k;
+        I.setColIndex(field_dof * i + k, index);
+      }
+
+      // pressure interpolation
+      index.resize(old_to_new_neighbor_lists(new_to_actual_index[i], 0));
+      for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
+           j++) {
+        index[j] = field_dof * old_background_index[old_to_new_neighbor_lists(
+                                   new_to_actual_index[i], j + 1)] +
+                   velocity_dof;
+      }
+      I.setColIndex(field_dof * i + velocity_dof, index);
+    } else {
+      index.resize(1);
+      for (int j = 0; j < field_dof; j++) {
+        index[0] = field_dof * old_background_index[i] + j;
+        I.setColIndex(field_dof * i + j, index);
       }
     }
-
-    for (int k = 0; k < velocity_dof; k++) {
-      I.setColIndex(field_dof * i + k, index);
-    }
-
-    // pressure interpolation
-    index.resize(old_to_new_neighbor_lists(i, 0));
-    for (int j = 0; j < old_to_new_neighbor_lists(i, 0); j++) {
-      index[j] = field_dof *
-                     old_background_index[old_to_new_neighbor_lists(i, j + 1)] +
-                 velocity_dof;
-    }
-    I.setColIndex(field_dof * i + velocity_dof, index);
   }
 
   // compute matrix entity
@@ -247,27 +243,37 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
                                                           axes1, 0, axes2, 0);
 
   for (int i = 0; i < new_local_particle_num; i++) {
-    for (int j = 0; j < old_to_new_neighbor_lists(i, 0); j++) {
-      for (int axes1 = 0; axes1 < dimension; axes1++)
-        for (int axes2 = 0; axes2 < dimension; axes2++)
-          I.increment(
-              field_dof * i + axes1,
-              field_dof * old_background_index[old_to_new_neighbor_lists(
-                              i, j + 1)] +
-                  axes2,
-              old_to_new_velocity_alphas(
-                  i,
-                  velocity_old_to_new_alphas_index[axes1 * dimension + axes2],
-                  j));
-    }
+    if (adaptive_level[i] == __adaptive_step) {
+      for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
+           j++) {
+        for (int axes1 = 0; axes1 < dimension; axes1++)
+          for (int axes2 = 0; axes2 < dimension; axes2++)
+            I.increment(
+                field_dof * i + axes1,
+                field_dof * old_background_index[old_to_new_neighbor_lists(
+                                new_to_actual_index[i], j + 1)] +
+                    axes2,
+                old_to_new_velocity_alphas(
+                    new_to_actual_index[i],
+                    velocity_old_to_new_alphas_index[axes1 * dimension + axes2],
+                    j));
+      }
 
-    for (int j = 0; j < old_to_new_neighbor_lists(i, 0); j++) {
-      I.increment(
-          field_dof * i + velocity_dof,
-          field_dof *
-                  old_background_index[old_to_new_neighbor_lists(i, j + 1)] +
-              velocity_dof,
-          old_to_new_pressure_alphas(i, pressure_old_to_new_alphas_index, j));
+      for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
+           j++) {
+        I.increment(
+            field_dof * i + velocity_dof,
+            field_dof * old_background_index[old_to_new_neighbor_lists(
+                            new_to_actual_index[i], j + 1)] +
+                velocity_dof,
+            old_to_new_pressure_alphas(new_to_actual_index[i],
+                                       pressure_old_to_new_alphas_index, j));
+      }
+    } else {
+      for (int j = 0; j < field_dof; j++) {
+        I.increment(field_dof * i + j, field_dof * old_background_index[i] + j,
+                    1.0);
+      }
     }
   }
 

@@ -96,8 +96,8 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
           if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
               pos[1] >= __domain[0][1] && pos[1] < __domain[1][1] &&
               pos[2] >= __domain[0][2] && pos[2] < __domain[1][2])
-            InsertParticle(pos, 4, particleSize, normal, localIndex, vol, true,
-                           n, pCoord);
+            InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
         }
       }
     }
@@ -110,8 +110,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
     for (size_t n = 0; n < rigidBodyCoord.size(); n++) {
       double r = rigidBodySize[n];
       int M_theta = round(2 * M_PI * r / h);
-      if (M_theta % 2 == 1)
-        M_theta++;
+      if (M_theta % 2 == 1) M_theta++;
       double d_theta = 2 * M_PI * r / M_theta;
 
       vec3 particleSize = vec3(d_theta, 0, 0);
@@ -123,8 +122,8 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
         vec3 pos = normal * r + rigidBodyCoord[n];
         if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
             pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
-          InsertParticle(pos, 4, particleSize, normal, localIndex, vol, true, n,
-                         pCoord);
+          InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol, true,
+                         n, pCoord);
       }
     }
   }
@@ -179,7 +178,8 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
             double vol = volume[tag];
             InsertParticle(
                 newPos, particleType[tag], particleSize[tag], newNormal,
-                localIndex, vol, true, attachedRigidBodyIndex[tag],
+                localIndex, __adaptive_step, vol, true,
+                attachedRigidBodyIndex[tag],
                 vec3(theta + i * thetaDelta, phi + j * phiDelta, 0.0));
           }
         }
@@ -213,7 +213,8 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
                rigidBodyCoord[attachedRigidBodyIndex[tag]];
 
       InsertParticle(newPos, particleType[tag], particleSize[tag], newNormal,
-                     localIndex, volume[tag], true, attachedRigidBodyIndex[tag],
+                     localIndex, __adaptive_step, volume[tag], true,
+                     attachedRigidBodyIndex[tag],
                      vec3(theta - thetaDelta, 0.0, 0.0));
     }
   }

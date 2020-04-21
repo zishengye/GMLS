@@ -157,6 +157,7 @@ void GMLS_Solver::InitParticle() {
   __field.scalar.Register("error");
   __field.index.Register("particle type");
   __field.index.Register("global index");
+  __field.index.Register("adaptive level");
   __field.index.Register("attached rigid body index");
   __field.index.Register("particle number");
 
@@ -165,6 +166,7 @@ void GMLS_Solver::InitParticle() {
   __gap.vector.Register("size");
   __gap.vector.Register("volume");
   __gap.index.Register("particle type");
+  __gap.index.Register("adaptive level");
 }
 
 void GMLS_Solver::ClearParticle() {
@@ -307,7 +309,7 @@ void GMLS_Solver::InitFieldParticle() {
       xPos = __domain[0][0] + __particleSize0[0] / 2.0;
       for (int i = 0; i < __domainCount[0]; i++) {
         vec3 pos = vec3(xPos, yPos, zPos);
-        InsertParticle(pos, 0, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 0, __particleSize0, normal, localIndex, 0, vol);
         xPos += __particleSize0[0];
       }
       yPos += __particleSize0[1];
@@ -323,7 +325,7 @@ void GMLS_Solver::InitFieldParticle() {
         double xPos = __domain[0][0] + __particleSize0[0] / 2.0;
         for (int i = 0; i < __domainCount[0]; i++) {
           vec3 pos = vec3(xPos, yPos, zPos);
-          InsertParticle(pos, 0, __particleSize0, normal, localIndex, vol);
+          InsertParticle(pos, 0, __particleSize0, normal, localIndex, 0, vol);
           xPos += __particleSize0[0];
         }
         yPos += __particleSize0[1];
@@ -349,14 +351,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[3] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
       }
       xPos += 0.5 * __particleSize0[0];
 
       while (xPos < __domain[1][0] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(0.0, 1.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         xPos += __particleSize0[0];
       }
     }
@@ -368,14 +370,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[0] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
       }
       yPos += 0.5 * __particleSize0[1];
 
       while (yPos < __domain[1][1] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-1.0, 0.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         yPos += __particleSize0[1];
       }
     }
@@ -387,14 +389,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[1] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
       }
       xPos -= 0.5 * __particleSize0[0];
 
       while (xPos > __domain[0][0] + 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(0.0, -1.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         xPos -= __particleSize0[0];
       }
     }
@@ -406,18 +408,18 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[2] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
-        InsertParticle(pos, 1, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
       }
       yPos -= 0.5 * __particleSize0[1];
 
       while (yPos > __domain[0][1] + 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(1.0, 0.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         yPos -= __particleSize0[1];
       }
     }
-  } // end of 2d construction
+  }  // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = coord.size();
@@ -523,14 +525,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[2] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(3.0) / 3.0, sqrt(3.0) / 3.0, sqrt(3.0) / 3.0);
-        InsertParticle(pos, 3, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
       }
       xPos += 0.5 * __particleSize0[0];
 
       while (xPos < __domain[1][0] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(0.0, sqrt(2.0) / 2.0, sqrt(2.0) / 2.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         xPos += __particleSize0[0];
       }
     }
@@ -542,14 +544,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[4] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(3.0) / 3.0, sqrt(3.0) / 3.0, sqrt(3.0) / 3.0);
-        InsertParticle(pos, 3, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
       }
       yPos += 0.5 * __particleSize0[1];
 
       while (yPos < __domain[1][1] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(2.0) / 2.0, 0.0, sqrt(2.0) / 2.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         yPos += __particleSize0[1];
       }
     }
@@ -561,14 +563,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[0] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0, sqrt(3.0) / 3.0);
-        InsertParticle(pos, 3, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
       }
       xPos -= 0.5 * __particleSize0[0];
 
       while (xPos > __domain[0][0] + 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(0.0, -sqrt(2.0) / 2.0, sqrt(2.0) / 2.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         xPos -= __particleSize0[0];
       }
     }
@@ -580,14 +582,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[1] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0, sqrt(3.0) / 3.0);
-        InsertParticle(pos, 3, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
       }
       yPos -= 0.5 * __particleSize0[1];
 
       while (yPos > __domain[0][1] + 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(2.0) / 2.0, 0.0, sqrt(2.0) / 2.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         yPos -= __particleSize0[1];
       }
     }
@@ -600,14 +602,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[2] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(3.0) / 3.0, sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0);
-        InsertParticle(pos, 3, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
       }
       xPos += 0.5 * __particleSize0[0];
 
       while (xPos < __domain[1][0] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(0.0, sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         xPos += __particleSize0[0];
       }
     }
@@ -619,14 +621,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[4] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(3.0) / 3.0, sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0);
-        InsertParticle(pos, 3, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
       }
       yPos += 0.5 * __particleSize0[1];
 
       while (yPos < __domain[1][1] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(2.0) / 2.0, 0.0, -sqrt(2.0) / 2.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         yPos += __particleSize0[1];
       }
     }
@@ -638,14 +640,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[0] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0);
-        InsertParticle(pos, 3, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
       }
       xPos -= 0.5 * __particleSize0[0];
 
       while (xPos > __domain[0][0] + 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(0.0, -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         xPos -= __particleSize0[0];
       }
     }
@@ -657,14 +659,14 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       if (__domainBoundaryType[1] != 0) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0, -sqrt(3.0) / 3.0);
-        InsertParticle(pos, 3, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
       }
       yPos -= 0.5 * __particleSize0[1];
 
       while (yPos > __domain[0][1] + 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(2.0) / 2.0, 0.0, -sqrt(2.0) / 2.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         yPos -= __particleSize0[1];
       }
     }
@@ -677,7 +679,7 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       while (zPos < __domain[1][2] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         zPos += __particleSize0[2];
       }
     }
@@ -689,7 +691,7 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       while (zPos < __domain[1][2] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         zPos += __particleSize0[2];
       }
     }
@@ -701,7 +703,7 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       while (zPos < __domain[1][2] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         zPos += __particleSize0[2];
       }
     }
@@ -713,7 +715,7 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
       while (zPos < __domain[1][2] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         normal = vec3(-sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
-        InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
         zPos += __particleSize0[2];
       }
     }
@@ -880,6 +882,7 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
   static auto &normal = __field.vector.GetHandle("normal");
   static auto &particleSize = __field.vector.GetHandle("size");
   static auto &globalIndex = __field.index.GetHandle("global index");
+  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
   static auto &particleType = __field.index.GetHandle("particle type");
   static auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
@@ -908,6 +911,7 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
             int idx = IsInRigidBody(newPos, xDelta);
             if (idx == -2) {
               coord[tag] = newPos;
+              adaptive_level[tag] = __adaptive_step;
 
               insert = true;
             } else if (idx > -1) {
@@ -919,7 +923,7 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
           } else {
             double vol = volume[tag];
             InsertParticle(newPos, particleType[tag], particleSize[tag],
-                           normal[tag], localIndex, vol);
+                           normal[tag], localIndex, __adaptive_step, vol);
           }
         }
       }
@@ -944,13 +948,14 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
                 particleSize[tag][1] /= 2.0;
                 particleSize[tag][2] /= 2.0;
                 volume[tag] /= 8.0;
+                adaptive_level[tag] = __adaptive_step;
 
                 insert = true;
               }
             } else {
               double vol = volume[tag];
               InsertParticle(newPos, particleType[tag], particleSize[tag],
-                             normal[tag], localIndex, vol);
+                             normal[tag], localIndex, __adaptive_step, vol);
             }
           }
         }
@@ -965,6 +970,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
   static auto &particleSize = __field.vector.GetHandle("size");
   static auto &pCoord = __field.vector.GetHandle("parameter coordinate");
   static auto &globalIndex = __field.index.GetHandle("global index");
+  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
   static auto &particleType = __field.index.GetHandle("particle type");
   static auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
@@ -983,6 +989,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
         particleSize[tag][0] /= 2.0;
         particleSize[tag][1] /= 2.0;
         volume[tag] /= 4.0;
+        adaptive_level[tag] = __adaptive_step;
 
         double theta = pCoord[tag][0];
 
@@ -1000,7 +1007,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
           } else {
             double vol = volume[tag];
             InitWallFaceParticle(newPos, particleType[tag], particleSize[tag],
-                                 normal[tag], localIndex, vol);
+                                 normal[tag], localIndex, __adaptive_step, vol);
           }
         }
       }
@@ -1020,6 +1027,8 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
   static auto &_gapNormal = __gap.vector.GetHandle("normal");
   static auto &_gapParticleSize = __gap.vector.GetHandle("size");
   static auto &_gapParticleType = __gap.index.GetHandle("particle type");
+  static auto &_gap_particle_adaptive_level =
+      __gap.index.GetHandle("adaptive level");
 
   auto oldGapCoord = move(_gapCoord);
   auto oldGapNormal = move(_gapNormal);
@@ -1030,6 +1039,7 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
   _gapNormal.clear();
   _gapParticleType.clear();
   _gapParticleSize.clear();
+  _gap_particle_adaptive_level.clear();
 
   // gap particles
   if (__dim == 3) {
@@ -1047,7 +1057,7 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
                          oldGapParticleSize[tag][1] *
                          oldGapParticleSize[tag][2] / 8.0;
             InsertParticle(newPos, oldGapParticleType[tag], newParticleSize,
-                           oldGapNormal[tag], localIndex, vol);
+                           oldGapNormal[tag], localIndex, __adaptive_step, vol);
           }
         }
       }
@@ -1059,6 +1069,7 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
       if (splitTag[tag] == 0) {
         InsertParticle(oldGapCoord[tag], oldGapParticleType[tag],
                        oldGapParticleSize[tag], oldGapNormal[tag], localIndex,
+                       __adaptive_step,
                        oldGapParticleSize[tag][0] * oldGapParticleSize[tag][1]);
       } else {
         vec3 origin = oldGapCoord[tag];
@@ -1070,7 +1081,7 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
             vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
             double vol = newParticleSize[0] * newParticleSize[1];
             InsertParticle(newPos, oldGapParticleType[tag], newParticleSize,
-                           oldGapNormal[tag], localIndex, vol);
+                           oldGapNormal[tag], localIndex, __adaptive_step, vol);
           }
         }
       }
@@ -1079,6 +1090,7 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
     for (int tag = splitTag.size(); tag < oldGapCoord.size(); tag++) {
       InsertParticle(oldGapCoord[tag], oldGapParticleType[tag],
                      oldGapParticleSize[tag], oldGapNormal[tag], localIndex,
+                     __adaptive_step,
                      oldGapParticleSize[tag][0] * oldGapParticleSize[tag][1]);
     }
   }

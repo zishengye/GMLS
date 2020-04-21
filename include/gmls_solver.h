@@ -26,7 +26,7 @@ int SearchCommand(int argc, char **argv, const std::string &commandName,
                   T &res);
 
 class GMLS_Solver {
-private:
+ private:
   // MPI setting
   int __myID;
   int __MPISize;
@@ -108,7 +108,7 @@ private:
     vec3 oldPos = startPos;
     while (conY(pos, endPos)) {
       while (conX(pos, endPos)) {
-        InsertParticle(pos, 1, __particleSize0, normal, globalIndex, vol);
+        InsertParticle(pos, 1, __particleSize0, normal, globalIndex, 0, vol);
         incX(pos);
       }
       pos = oldPos;
@@ -118,8 +118,8 @@ private:
   }
 
   void InitWallFaceParticle(vec3 &X, int particleType, vec3 &particleSize,
-                            vec3 &normal, int &globalIndex, double vol,
-                            bool rigidBodyParticle = false,
+                            vec3 &normal, int &globalIndex, int adaptive_level,
+                            double vol, bool rigidBodyParticle = false,
                             int rigidBodyIndex = -1,
                             vec3 pCoord = vec3(0.0, 0.0, 0.0)) {
     static std::vector<vec3> &_coord = __field.vector.GetHandle("coord");
@@ -130,6 +130,7 @@ private:
     static auto &_volume = __field.scalar.GetHandle("volume");
     static std::vector<int> &_globalIndex =
         __field.index.GetHandle("global index");
+    static auto &_adaptive_level = __field.index.GetHandle("adaptive level");
     static std::vector<int> &_particleType =
         __field.index.GetHandle("particle type");
     static std::vector<int> &_attachedRigidBodyIndex =
@@ -140,14 +141,16 @@ private:
     _particleSize.push_back(particleSize);
     _normal.push_back(normal);
     _globalIndex.push_back(globalIndex++);
+    _adaptive_level.push_back(adaptive_level);
     _attachedRigidBodyIndex.push_back(rigidBodyIndex);
     _pCoord.push_back(pCoord);
     _volume.push_back(vol);
   }
 
   void InsertParticle(const vec3 &X, int particleType, const vec3 &particleSize,
-                      const vec3 &normal, int &globalIndex, double vol,
-                      bool rigidBodyParticle = false, int rigidBodyIndex = -1,
+                      const vec3 &normal, int &globalIndex, int adaptive_level,
+                      double vol, bool rigidBodyParticle = false,
+                      int rigidBodyIndex = -1,
                       vec3 pCoord = vec3(0.0, 0.0, 0.0)) {
     static auto &_coord = __field.vector.GetHandle("coord");
     static auto &_normal = __field.vector.GetHandle("normal");
@@ -155,6 +158,7 @@ private:
     static auto &_pCoord = __field.vector.GetHandle("parameter coordinate");
     static auto &_volume = __field.scalar.GetHandle("volume");
     static auto &_globalIndex = __field.index.GetHandle("global index");
+    static auto &_adaptive_level = __field.index.GetHandle("adaptive level");
     static auto &_particleType = __field.index.GetHandle("particle type");
     static auto &_attachedRigidBodyIndex =
         __field.index.GetHandle("attached rigid body index");
@@ -163,6 +167,8 @@ private:
     static auto &_gapNormal = __gap.vector.GetHandle("normal");
     static auto &_gapParticleSize = __gap.vector.GetHandle("size");
     static auto &_gapParticleType = __gap.index.GetHandle("particle type");
+    static auto &_gap_particle_adaptive_level =
+        __gap.index.GetHandle("adaptive level");
 
     int idx = IsInRigidBody(X, particleSize[0]);
 
@@ -173,6 +179,7 @@ private:
       _normal.push_back(normal);
       _volume.push_back(vol);
       _globalIndex.push_back(globalIndex++);
+      _adaptive_level.push_back(adaptive_level);
       _attachedRigidBodyIndex.push_back(rigidBodyIndex);
       _pCoord.push_back(pCoord);
     } else if (idx > -1) {
@@ -180,6 +187,7 @@ private:
       _gapNormal.push_back(normal);
       _gapParticleSize.push_back(particleSize);
       _gapParticleType.push_back(particleType);
+      _gap_particle_adaptive_level.push_back(adaptive_level);
     }
   }
 
@@ -307,7 +315,8 @@ private:
   void RungeKuttaIntegration();
 
   // operator
-  template <typename Func> void SerialOperation(Func operation) {
+  template <typename Func>
+  void SerialOperation(Func operation) {
     for (int i = 0; i < __MPISize; i++) {
       if (i == __myID) {
         operation();
@@ -316,7 +325,8 @@ private:
     }
   }
 
-  template <typename Func> void MasterOperation(int master, Func operation) {
+  template <typename Func>
+  void MasterOperation(int master, Func operation) {
     if (master == __myID) {
       operation();
     }
@@ -330,7 +340,7 @@ private:
   void WriteDataAdaptiveStep();
   void WriteDataAdaptiveGeometry();
 
-public:
+ public:
   GMLS_Solver(int argc, char **argv);
 
   void TimeIntegration();

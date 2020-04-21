@@ -151,7 +151,7 @@ void GMLS_Solver::InitFieldParticleManifold() {
       zPos = dz * (j + 0.5);
       vec3 normal = vec3(yPos, -xPos, 0.0);
       vec3 pos = vec3(xPos, yPos, zPos);
-      InsertParticle(pos, 0, __particleSize0, normal, localIndex, 1.0);
+      InsertParticle(pos, 0, __particleSize0, normal, localIndex, 0, 1.0);
     }
   }
 }
@@ -171,7 +171,7 @@ void GMLS_Solver::InitFieldBoundaryParticleManifold() {
     if (__domainBoundaryType[3] != 0) {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
-      InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+      InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
       chartCoord.push_back(vec3(xPos, yPos, 0.0));
       xPos += __particleSize0[0];
     }
@@ -179,7 +179,7 @@ void GMLS_Solver::InitFieldBoundaryParticleManifold() {
     while (xPos < __domain[1][0] - 1e-5) {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
-      InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+      InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
       chartCoord.push_back(vec3(xPos, yPos, 0.0));
       xPos += __particleSize0[0];
     }
@@ -192,7 +192,7 @@ void GMLS_Solver::InitFieldBoundaryParticleManifold() {
     if (__domainBoundaryType[0] != 0) {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
-      InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+      InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
       chartCoord.push_back(vec3(xPos, yPos, 0.0));
       yPos += __particleSize0[1];
     }
@@ -200,7 +200,7 @@ void GMLS_Solver::InitFieldBoundaryParticleManifold() {
     while (yPos < __domain[1][1] - 1e-5) {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
-      InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+      InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
       chartCoord.push_back(vec3(xPos, yPos, 0.0));
       yPos += __particleSize0[1];
     }
@@ -213,7 +213,7 @@ void GMLS_Solver::InitFieldBoundaryParticleManifold() {
     if (__domainBoundaryType[1] != 0) {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
-      InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+      InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
       chartCoord.push_back(vec3(xPos, yPos, 0.0));
       xPos -= __particleSize0[0];
     }
@@ -221,7 +221,7 @@ void GMLS_Solver::InitFieldBoundaryParticleManifold() {
     while (xPos > __domain[0][0] + 1e-5) {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
-      InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+      InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
       chartCoord.push_back(vec3(xPos, yPos, 0.0));
       xPos -= __particleSize0[0];
     }
@@ -234,7 +234,7 @@ void GMLS_Solver::InitFieldBoundaryParticleManifold() {
     if (__domainBoundaryType[2] != 0) {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
-      InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+      InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
       chartCoord.push_back(vec3(xPos, yPos, 0.0));
       yPos -= __particleSize0[1];
     }
@@ -242,7 +242,7 @@ void GMLS_Solver::InitFieldBoundaryParticleManifold() {
     while (yPos > __domain[0][1] + 1e-5) {
       vec3 pos = Manifold(xPos, yPos);
       normal = ManifoldNorm(xPos, yPos);
-      InsertParticle(pos, 2, __particleSize0, normal, localIndex, vol);
+      InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
       chartCoord.push_back(vec3(xPos, yPos, 0.0));
       yPos -= __particleSize0[1];
     }
