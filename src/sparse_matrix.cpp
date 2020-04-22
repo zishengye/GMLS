@@ -320,6 +320,84 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
   return __nnz;
 }
 
+int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
+                                            int dimension, int num_rigid_body,
+                                            int local_rigid_body_offset,
+                                            int global_rigid_body_offset) {
+  int MPIsize, myId;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myId);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
+
+  vector<int> rigid_body_block_distribution(MPIsize + 1);
+
+  int rigid_body_average = num_rigid_body / MPIsize;
+  int rigid_body_residual = num_rigid_body % MPIsize;
+
+  rigid_body_block_distribution[0] = 0;
+  for (int i = 0; i < MPIsize; i++) {
+    if (i < rigid_body_residual)
+      rigid_body_block_distribution[i + 1] =
+          rigid_body_block_distribution[i] + rigid_body_average + 1;
+    else
+      rigid_body_block_distribution[i + 1] =
+          rigid_body_block_distribution[i] + rigid_body_average;
+  }
+
+  int rigid_body_dof = (dimension == 2) ? 3 : 6;
+
+  vector<int> neighborInclusion;
+  int neighborInclusionSize;
+
+  int localN1, localN2;
+  MatGetOwnershipRange(__mat, &localN1, &localN2);
+
+  for (int i = 0; i < MPIsize; i++) {
+    if (myId == MPIsize - 1) {
+      neighborInclusion.clear();
+      neighborInclusion.insert(
+          neighborInclusion.end(),
+          __j.begin() + __i[local_rigid_body_offset +
+                            rigid_body_block_distribution[i] * rigid_body_dof],
+          __j.begin() +
+              __i[local_rigid_body_offset +
+                  rigid_body_block_distribution[i + 1] * rigid_body_dof]);
+
+      for (int j = rigid_body_block_distribution[i] * rigid_body_dof;
+           j < rigid_body_block_distribution[i + 1] * rigid_body_dof; j++) {
+        neighborInclusion.push_back(global_rigid_body_offset + j);
+      }
+
+      sort(neighborInclusion.begin(), neighborInclusion.end());
+
+      auto it = unique(neighborInclusion.begin(), neighborInclusion.end());
+      neighborInclusion.resize(distance(neighborInclusion.begin(), it));
+
+      neighborInclusionSize = neighborInclusion.size();
+    }
+
+    if (i != MPIsize - 1) {
+      if (myId == MPIsize - 1) {
+        MPI_Send(&neighborInclusionSize, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+        MPI_Send(neighborInclusion.data(), neighborInclusionSize, MPI_INT, i, 1,
+                 MPI_COMM_WORLD);
+      }
+      if (myId == i) {
+        MPI_Status stat;
+        MPI_Recv(&neighborInclusionSize, 1, MPI_INT, MPIsize - 1, 0,
+                 MPI_COMM_WORLD, &stat);
+        idx_neighbor.resize(neighborInclusionSize);
+        MPI_Recv(idx_neighbor.data(), neighborInclusionSize, MPI_INT,
+                 MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
+      }
+    } else {
+      if (myId == MPIsize - 1)
+        idx_neighbor = move(neighborInclusion);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+}
+
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
   if (__isAssembled) {
     Vec _rhs, _x;
@@ -872,8 +950,7 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
 }
 
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
-                              vector<int> &neighborInclusion,
-                              vector<int> &interface_flag, int dimension,
+                              vector<int> &idx_neighbor, int dimension,
                               int numRigidBody, int adatptive_step,
                               PetscSparseMatrix &I, PetscSparseMatrix &R) {
   int fieldDof = dimension + 1;
@@ -920,13 +997,6 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     idx_global = idx_field;
 
     idx_field.push_back(localN1 + fieldDof * localParticleNum + velocityDof);
-  }
-
-  vector<PetscInt> idx_neighbor;
-  for (int i = 0; i < neighborInclusion.size(); i++) {
-    if (neighborInclusion[i] >= localN1 && neighborInclusion[i] < localN2) {
-      idx_neighbor.push_back(neighborInclusion[i]);
-    }
   }
 
   IS isg_field, isg_neighbor;

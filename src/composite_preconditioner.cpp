@@ -41,8 +41,16 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   PCSetUp(pcField);
 
   KSPGetPC(shell->nearField, &pcNearField);
-  PCSetType(pcNearField, PCLU);
+  PCSetType(pcNearField, PCBJACOBI);
   PCSetUp(pcNearField);
+  KSP *bjacobi_ksp;
+  PCBJacobiGetSubKSP(pcNearField, NULL, NULL, &bjacobi_ksp);
+  KSPSetType(bjacobi_ksp[0], KSPPREONLY);
+  PC bjacobi_pc;
+  KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
+  PCSetType(bjacobi_pc, PCLU);
+  PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
+  PCSetUp(bjacobi_pc);
 
   KSPGetPC(shell->globalSmoother, &pcGlobalSmoother);
   PCSetType(pcGlobalSmoother, PCBJACOBI);
@@ -53,9 +61,28 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   KSPSetUp(shell->nearField);
   KSPSetUp(shell->globalSmoother);
 
-  VecDuplicate(x, &shell->t);
   MatCreateVecs(*amat, &shell->z1, NULL);
   MatCreateVecs(*cmat, &shell->z2, NULL);
+  VecDuplicate(shell->z1, &shell->x1);
+  VecDuplicate(shell->z1, &shell->y1);
+  VecDuplicate(shell->z1, &shell->t1);
+  VecDuplicate(shell->z2, &shell->x2);
+  VecDuplicate(shell->z2, &shell->y2);
+  VecDuplicate(shell->z2, &shell->t2);
+
+  VecScatterCreate(x, *isg0, shell->z1, NULL, &shell->ctx_scatter1);
+  VecScatterCreate(x, *isg1, shell->z2, NULL, &shell->ctx_scatter2);
+
+  IS isg_col;
+  MatGetOwnershipIS(*a, &isg_col, NULL);
+
+  MatCreateSubMatrix(*a, *isg0, isg_col, MAT_INITIAL_MATRIX, &shell->stage1);
+  MatCreateSubMatrix(*a, *isg1, isg_col, MAT_INITIAL_MATRIX, &shell->stage2);
+
+  MatScale(shell->stage1, -1.0);
+  MatScale(shell->stage2, -1.0);
+
+  ISDestroy(&isg_col);
 
   return 0;
 }
@@ -64,34 +91,47 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
+  VecScatterBegin(shell->ctx_scatter1, x, shell->x1, INSERT_VALUES,
+                  SCATTER_FORWARD);
+  VecScatterEnd(shell->ctx_scatter1, x, shell->x1, INSERT_VALUES,
+                SCATTER_FORWARD);
+
+  VecScatterBegin(shell->ctx_scatter2, x, shell->x2, INSERT_VALUES,
+                  SCATTER_FORWARD);
+  VecScatterEnd(shell->ctx_scatter2, x, shell->x2, INSERT_VALUES,
+                SCATTER_FORWARD);
+
+  // stage 1
   VecSet(y, 0.0);
+  VecScatterBegin(shell->ctx_scatter1, y, shell->y1, INSERT_VALUES,
+                  SCATTER_FORWARD);
+  VecScatterEnd(shell->ctx_scatter1, y, shell->y1, INSERT_VALUES,
+                SCATTER_FORWARD);
 
-  MatMult(*shell->A, y, shell->t);
-  VecAXPY(shell->t, -1.0, x);
-  VecGetSubVector(shell->t, shell->isg0, &shell->t1);
-  KSPSolve(shell->field, shell->t1, shell->z1);
-  VecRestoreSubVector(shell->t, shell->isg0, &shell->t1);
-  VecGetSubVector(y, shell->isg0, &shell->y1);
-  VecAXPY(shell->y1, -1.0, shell->z1);
-  VecRestoreSubVector(y, shell->isg0, &shell->y1);
+  KSPSolve(shell->field, shell->x1, shell->y1);
 
-  MatMult(*shell->A, y, shell->t);
-  VecAXPY(shell->t, -1.0, x);
-  VecGetSubVector(y, shell->isg1, &shell->y2);
-  VecGetSubVector(shell->t, shell->isg1, &shell->t2);
+  VecScatterBegin(shell->ctx_scatter1, shell->y1, y, INSERT_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(shell->ctx_scatter1, shell->y1, y, INSERT_VALUES,
+                SCATTER_REVERSE);
+
+  // stage 2
+  MatMultAdd(shell->stage2, y, shell->x2, shell->t2);
+
   KSPSolve(shell->nearField, shell->t2, shell->z2);
-  VecAXPY(shell->y2, -1.0, shell->z2);
-  VecRestoreSubVector(shell->t, shell->isg1, &shell->t2);
-  VecRestoreSubVector(y, shell->isg1, &shell->y2);
 
-  MatMult(*shell->A, y, shell->t);
-  VecAXPY(shell->t, -1.0, x);
-  VecGetSubVector(shell->t, shell->isg0, &shell->t1);
+  VecScatterBegin(shell->ctx_scatter2, shell->z2, y, ADD_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(shell->ctx_scatter2, shell->z2, y, ADD_VALUES, SCATTER_REVERSE);
+
+  // stage 3
+  MatMultAdd(shell->stage1, y, shell->x1, shell->t1);
+
   KSPSolve(shell->globalSmoother, shell->t1, shell->z1);
-  VecRestoreSubVector(shell->t, shell->isg0, &shell->t1);
-  VecGetSubVector(y, shell->isg0, &shell->y1);
-  VecAXPY(shell->y1, -1.0, shell->z1);
-  VecRestoreSubVector(y, shell->isg0, &shell->y1);
+
+  VecScatterBegin(shell->ctx_scatter1, shell->z1, y, ADD_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(shell->ctx_scatter1, shell->z1, y, ADD_VALUES, SCATTER_REVERSE);
 
   return 0;
 }
@@ -104,12 +144,23 @@ PetscErrorCode HypreLUShellPCDestroy(PC pc) {
   KSPDestroy(&shell->nearField);
   KSPDestroy(&shell->globalSmoother);
 
+  VecScatterDestroy(&shell->ctx_scatter1);
+  VecScatterDestroy(&shell->ctx_scatter2);
+
   ISDestroy(&shell->isg0);
   ISDestroy(&shell->isg1);
 
-  VecDestroy(&shell->t);
   VecDestroy(&shell->z1);
   VecDestroy(&shell->z2);
+  VecDestroy(&shell->x1);
+  VecDestroy(&shell->x2);
+  VecDestroy(&shell->y1);
+  VecDestroy(&shell->y2);
+  VecDestroy(&shell->t1);
+  VecDestroy(&shell->t2);
+
+  MatDestroy(&shell->stage1);
+  MatDestroy(&shell->stage2);
 
   PetscFree(shell);
 

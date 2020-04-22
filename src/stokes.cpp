@@ -49,9 +49,12 @@ void GMLS_Solver::StokesEquation() {
   tStart = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
-  if (*all_pressure != nullptr) delete *all_pressure;
-  if (*neumann_pressure != nullptr) delete *neumann_pressure;
-  if (*all_velocity != nullptr) delete *all_velocity;
+  if (*all_pressure != nullptr)
+    delete *all_pressure;
+  if (*neumann_pressure != nullptr)
+    delete *neumann_pressure;
+  if (*all_velocity != nullptr)
+    delete *all_velocity;
 
   *all_pressure = new GMLS(VectorTaylorPolynomial, StaggeredEdgeIntegralSample,
                            StaggeredEdgeAnalyticGradientIntegralSample,
@@ -702,18 +705,18 @@ void GMLS_Solver::StokesEquation() {
 
             // torque balance
             for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-              A.outProcessIncrement(
-                  currentRigidBodyLocalOffset + translationDof + axes1,
-                  jVelocityGlobal,
-                  rci[(axes1 + 1) % translationDof] *
-                          f[(axes1 + 2) % translationDof] -
-                      rci[(axes1 + 2) % translationDof] *
-                          f[(axes1 + 1) % translationDof]);
+              A.outProcessIncrement(currentRigidBodyLocalOffset +
+                                        translationDof + axes1,
+                                    jVelocityGlobal,
+                                    rci[(axes1 + 1) % translationDof] *
+                                            f[(axes1 + 2) % translationDof] -
+                                        rci[(axes1 + 2) % translationDof] *
+                                            f[(axes1 + 1) % translationDof]);
             }
             delete[] f;
           }
         }
-      }  // end of particles on rigid body
+      } // end of particles on rigid body
     }
 
     // n \cdot grad p
@@ -742,7 +745,7 @@ void GMLS_Solver::StokesEquation() {
           A.increment(iPressureLocal, jVelocityGlobal, bi * gradient);
         }
       }
-    }  // end of velocity block
+    } // end of velocity block
 
     // pressure block
     if (particleType[i] == 0) {
@@ -798,7 +801,7 @@ void GMLS_Solver::StokesEquation() {
 
     A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal, 1.0);
     // end of pressure block
-  }  // end of fluid particle loop
+  } // end of fluid particle loop
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
@@ -811,7 +814,11 @@ void GMLS_Solver::StokesEquation() {
     }
   }
 
+  vector<int> idx_neighbor;
+
   A.FinalAssemble();
+  A.ExtractNeighborIndex(idx_neighbor, __dim, numRigidBody,
+                         localRigidBodyOffset, globalRigidBodyOffset);
 
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
@@ -830,60 +837,6 @@ void GMLS_Solver::StokesEquation() {
     PetscPrintf(PETSC_COMM_WORLD,
                 "Interpolation matrix building duration: %fs\n", tEnd - tStart);
   }
-
-  vector<int> neighborInclusion;
-  int neighborInclusionSize;
-  if (__myID == __MPISize - 1) {
-    neighborInclusion.insert(neighborInclusion.end(),
-                             A.__j.begin() + A.__i[localRigidBodyOffset],
-                             A.__j.end());
-
-    for (int i = 0; i < rigidBodyDof * numRigidBody; i++) {
-      neighborInclusion.push_back(globalRigidBodyOffset + i);
-    }
-    sort(neighborInclusion.begin(), neighborInclusion.end());
-
-    auto it = unique(neighborInclusion.begin(), neighborInclusion.end());
-    neighborInclusion.resize(distance(neighborInclusion.begin(), it));
-
-    neighborInclusionSize = neighborInclusion.size();
-  }
-  MPI_Bcast(&neighborInclusionSize, 1, MPI_INT, __MPISize - 1, MPI_COMM_WORLD);
-  if (__myID != __MPISize - 1) {
-    neighborInclusion.resize(neighborInclusionSize);
-  }
-  MPI_Bcast(neighborInclusion.data(), neighborInclusionSize, MPI_INT,
-            __MPISize - 1, MPI_COMM_WORLD);
-
-  // for (int i = 0; i < localParticleNum; i++) {
-  //   if (particleType[i] >= 4) {
-  //     for (int j = 0; j < fieldDof; j++)
-  //       neighborInclusion.push_back(fieldDof * backgroundSourceIndex[i] + j);
-  //   }
-  // }
-  // if (__myID == __MPISize - 1) {
-  //   for (int i = 0; i < numRigidBody; i++) {
-  //     for (int j = 0; j < rigidBodyDof; j++) {
-  //       neighborInclusion.push_back(globalRigidBodyOffset + i * rigidBodyDof
-  //       +
-  //                                   j);
-  //     }
-  //   }
-  // }
-
-  vector<int> interface_flag(globalParticleNum);
-  for (int i = 0; i < localParticleNum; i++) {
-    if (particleType[i] >= 4) {
-      for (int j = 0; j < neighborLists(i, 0); j++) {
-        interface_flag[backgroundSourceIndex[neighborLists(i, j + 1)]] = 1;
-      }
-    }
-  }
-
-  MPI_Allreduce(MPI_IN_PLACE, interface_flag.data(), globalParticleNum, MPI_INT,
-                MPI_SUM, MPI_COMM_WORLD);
-
-  PetscPrintf(PETSC_COMM_WORLD, "\nStokes Matrix Assembled\n");
 
   vector<double> &rhs = __field.scalar.GetHandle("rhs");
   vector<double> &res = __field.scalar.GetHandle("res");
@@ -1017,9 +970,9 @@ void GMLS_Solver::StokesEquation() {
     // A.Solve(rhs, res, __dim);
     A.Solve(rhs, res);
   } else {
-    if (__adaptive_step != 0) InitialGuessFromPreviousAdaptiveStep(I, res);
-    A.Solve(rhs, res, neighborInclusion, interface_flag, __dim, numRigidBody,
-            __adaptive_step, I, R);
+    if (__adaptive_step != 0)
+      InitialGuessFromPreviousAdaptiveStep(I, res);
+    A.Solve(rhs, res, idx_neighbor, __dim, numRigidBody, __adaptive_step, I, R);
   }
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();

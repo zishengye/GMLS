@@ -29,7 +29,7 @@ private:
       __out_process_reduction;
 
 public:
-  Mat __mat, __diag_block;
+  Mat __mat, __diag_block, __neighbor_block;
 
   std::vector<PetscInt> __i;
   std::vector<PetscInt> __j;
@@ -100,6 +100,10 @@ public:
   int FinalAssemble(int dimesion, int globalParticleNum,
                     std::vector<int> &backgroundIndex);
 
+  int ExtractNeighborIndex(std::vector<int> &idx_neighbor, int dimension,
+                           int num_rigid_body, int local_rigid_body_offset,
+                           int global_rigid_body_offset);
+
   // (*this) * x = rhs
   void Solve(std::vector<double> &rhs,
              std::vector<double> &x); // simple solver
@@ -108,8 +112,7 @@ public:
   void Solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
              int numRigidBody);
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
-             std::vector<int> &neighborInclusion,
-             std::vector<int> &interface_flag, int dimension, int numRigidBody,
+             std::vector<int> &idx_neighbor, int dimension, int numRigidBody,
              int adaptive_step, PetscSparseMatrix &I, PetscSparseMatrix &R);
   // two field solver with rigid body inclusion
 

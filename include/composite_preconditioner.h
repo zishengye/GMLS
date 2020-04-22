@@ -11,7 +11,11 @@ struct HypreLUShellPC {
 
   Mat *A;
 
+  Mat stage1, stage2;
+
   Vec x1, x2, y1, y2, z, z1, z2, t, t1, t2;
+
+  VecScatter ctx_scatter1, ctx_scatter2;
 };
 
 PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell);
