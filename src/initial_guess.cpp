@@ -66,9 +66,19 @@ void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
   MPI_Allreduce(&new_local_particle_num, &new_global_particle_num, 1, MPI_INT,
                 MPI_SUM, MPI_COMM_WORLD);
 
+  double lagrange_multiplier;
+
   if (__myID == __MPISize - 1) {
     initial_guess[new_local_particle_num * field_dof + velocity_dof] =
         -pressure_sum / new_global_particle_num;
+    lagrange_multiplier = -pressure_sum / new_global_particle_num;
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Bcast(&lagrange_multiplier, 1, MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
+
+  for (int i = 0; i < new_local_particle_num; i++) {
+    initial_guess[i * field_dof + velocity_dof] -= lagrange_multiplier;
   }
 
   // set initial value for rigid body dofs

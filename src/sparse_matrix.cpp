@@ -450,7 +450,10 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
                               int dimension) {
   int fieldDof = dimension + 1;
+  int velocity_dof = dimension;
+  int pressure_dof = 1;
 
+  vector<int> idx_velocity, idx_pressure;
   vector<int> idx_field;
   vector<int> idx_global;
 
@@ -465,21 +468,38 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   if (myId != MPIsize - 1) {
     localParticleNum = (localN2 - localN1) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
+    idx_velocity.resize(velocity_dof * localParticleNum);
+    idx_pressure.resize(localParticleNum);
 
     for (int i = 0; i < localParticleNum; i++) {
       for (int j = 0; j < fieldDof; j++) {
         idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
       }
+
+      for (int j = 0; j < velocity_dof; j++) {
+        idx_velocity[velocity_dof * i + j] = localN1 + fieldDof * i + j;
+      }
+      idx_pressure[i] = localN1 + fieldDof * i + velocity_dof;
     }
   } else {
     localParticleNum = (localN2 - localN1 - fieldDof) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
+    idx_velocity.resize(velocity_dof * localParticleNum);
+    idx_pressure.resize(localParticleNum + 1);
 
     for (int i = 0; i < localParticleNum; i++) {
       for (int j = 0; j < fieldDof; j++) {
         idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
       }
+
+      for (int j = 0; j < velocity_dof; j++) {
+        idx_velocity[velocity_dof * i + j] = localN1 + fieldDof * i + j;
+      }
+      idx_pressure[i] = localN1 + fieldDof * i + velocity_dof;
     }
+
+    idx_pressure[localParticleNum] =
+        localN1 + fieldDof * localParticleNum + velocity_dof;
   }
 
   idx_global = idx_field;
@@ -487,11 +507,17 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     idx_global.push_back(localN1 + fieldDof * localParticleNum + fieldDof - 1);
 
   IS isg_field, isg_global;
+  IS isg_velocity, isg_pressure;
 
   ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
                   PETSC_COPY_VALUES, &isg_field);
   ISCreateGeneral(MPI_COMM_WORLD, idx_global.size(), idx_global.data(),
                   PETSC_COPY_VALUES, &isg_global);
+
+  ISCreateGeneral(MPI_COMM_WORLD, idx_velocity.size(), idx_velocity.data(),
+                  PETSC_COPY_VALUES, &isg_velocity);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_pressure.size(), idx_pressure.data(),
+                  PETSC_COPY_VALUES, &isg_pressure);
 
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
@@ -501,8 +527,9 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PC _pc;
 
   KSPGetPC(_ksp, &_pc);
-  PCFieldSplitSetIS(_pc, "0", isg_field);
-  PCFieldSplitSetIS(_pc, "1", isg_global);
+  PCFieldSplitSetIS(_pc, "0", isg_velocity);
+  PCFieldSplitSetIS(_pc, "1", isg_pressure);
+  // PCFieldSplitSetIS(_pc, "2", isg_global);
   PCSetFromOptions(_pc);
   PCSetUp(_pc);
 
@@ -1065,17 +1092,15 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   // if (adatptive_step > 0) {
   //   KSP smoother_ksp;
   //   KSPCreate(PETSC_COMM_WORLD, &smoother_ksp);
-  //   KSPSetOperators(smoother_ksp, __mat, __mat);
+  //   KSPSetOperators(smoother_ksp, ff, ff);
   //   KSPSetFromOptions(smoother_ksp);
 
   //   PC smoother_pc;
   //   KSPGetPC(smoother_ksp, &smoother_pc);
-  //   PCSetType(smoother_pc, PCJACOBI);
+  //   PCSetType(smoother_pc, PCLU);
 
   //   PCSetUp(smoother_pc);
   //   KSPSetUp(smoother_ksp);
-
-  //   KSPSetInitialGuessNonzero(smoother_ksp, PETSC_TRUE);
 
   //   Vec r, delta_x;
   //   VecDuplicate(_x, &r);
@@ -1083,17 +1108,17 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   //   MatMult(__mat, _x, r);
   //   VecAXPY(r, -1.0, _rhs);
 
-  //   KSPSolve(smoother_ksp, r, delta_x);
-  //   VecAXPY(_x, -1.0, delta_x);
+  //   // KSPSolve(smoother_ksp, r, delta_x);
+  //   // VecAXPY(_x, -1.0, delta_x);
 
-  //   // Vec r_f, x_f, delta_x_f;
-  //   // VecGetSubVector(r, isg_field, &r_f);
-  //   // VecGetSubVector(_x, isg_field, &x_f);
-  //   // VecDuplicate(x_f, &delta_x_f);
-  //   // KSPSolve(smoother_ksp, r_f, delta_x_f);
-  //   // VecAXPY(x_f, -1.0, delta_x_f);
-  //   // VecRestoreSubVector(_rhs, isg_field, &r_f);
-  //   // VecRestoreSubVector(_x, isg_field, &x_f);
+  //   Vec r_f, x_f, delta_x_f;
+  //   VecGetSubVector(r, isg_field, &r_f);
+  //   VecGetSubVector(_x, isg_field, &x_f);
+  //   VecDuplicate(x_f, &delta_x_f);
+  //   KSPSolve(smoother_ksp, r_f, delta_x_f);
+  //   VecAXPY(x_f, -1.0, delta_x_f);
+  //   VecRestoreSubVector(_rhs, isg_field, &r_f);
+  //   VecRestoreSubVector(_x, isg_field, &x_f);
   // }
 
   Vec x_initial;

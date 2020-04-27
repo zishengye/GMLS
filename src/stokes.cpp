@@ -856,8 +856,8 @@ void GMLS_Solver::StokesEquation() {
         double x = coord[i][0];
         double y = coord[i][1];
 
-        // rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
-        // rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
+        rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
+        rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
 
         // const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
         // const double bi =
@@ -962,8 +962,8 @@ void GMLS_Solver::StokesEquation() {
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
   if (numRigidBody == 0) {
-    // A.Solve(rhs, res, __dim);
-    A.Solve(rhs, res);
+    A.Solve(rhs, res, __dim);
+    // A.Solve(rhs, res);
   } else {
     if (__adaptive_step != 0) InitialGuessFromPreviousAdaptiveStep(I, res);
     A.Solve(rhs, res, idx_neighbor, __dim, numRigidBody, __adaptive_step, I, R);
