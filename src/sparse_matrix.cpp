@@ -351,6 +351,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
   int localN1, localN2;
   MatGetOwnershipRange(__mat, &localN1, &localN2);
 
+  int field_dof = dimension + 1;
+
   for (int i = 0; i < MPIsize; i++) {
     if (myId == MPIsize - 1) {
       neighborInclusion.clear();
@@ -361,6 +363,25 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
           __j.begin() +
               __i[local_rigid_body_offset +
                   rigid_body_block_distribution[i + 1] * rigid_body_dof]);
+
+      sort(neighborInclusion.begin(), neighborInclusion.end());
+
+      neighborInclusion.resize(
+          distance(neighborInclusion.begin(),
+                   unique(neighborInclusion.begin(), neighborInclusion.end())));
+
+      auto neighborInclusionTemp = move(neighborInclusion);
+
+      neighborInclusion.clear();
+
+      for (auto neighbor : neighborInclusionTemp) {
+        if (neighbor % field_dof == 0) {
+          int neighbor_index = neighbor / field_dof;
+          for (int i = 0; i < field_dof; i++) {
+            neighborInclusion.push_back(neighbor_index * field_dof + i);
+          }
+        }
+      }
 
       for (int j = rigid_body_block_distribution[i] * rigid_body_dof;
            j < rigid_body_block_distribution[i + 1] * rigid_body_dof; j++) {
@@ -390,8 +411,7 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
                  MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
       }
     } else {
-      if (myId == MPIsize - 1)
-        idx_neighbor = move(neighborInclusion);
+      if (myId == MPIsize - 1) idx_neighbor = move(neighborInclusion);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -1042,10 +1062,55 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
 
+  // if (adatptive_step > 0) {
+  //   KSP smoother_ksp;
+  //   KSPCreate(PETSC_COMM_WORLD, &smoother_ksp);
+  //   KSPSetOperators(smoother_ksp, __mat, __mat);
+  //   KSPSetFromOptions(smoother_ksp);
+
+  //   PC smoother_pc;
+  //   KSPGetPC(smoother_ksp, &smoother_pc);
+  //   PCSetType(smoother_pc, PCJACOBI);
+
+  //   PCSetUp(smoother_pc);
+  //   KSPSetUp(smoother_ksp);
+
+  //   KSPSetInitialGuessNonzero(smoother_ksp, PETSC_TRUE);
+
+  //   Vec r, delta_x;
+  //   VecDuplicate(_x, &r);
+  //   VecDuplicate(_x, &delta_x);
+  //   MatMult(__mat, _x, r);
+  //   VecAXPY(r, -1.0, _rhs);
+
+  //   KSPSolve(smoother_ksp, r, delta_x);
+  //   VecAXPY(_x, -1.0, delta_x);
+
+  //   // Vec r_f, x_f, delta_x_f;
+  //   // VecGetSubVector(r, isg_field, &r_f);
+  //   // VecGetSubVector(_x, isg_field, &x_f);
+  //   // VecDuplicate(x_f, &delta_x_f);
+  //   // KSPSolve(smoother_ksp, r_f, delta_x_f);
+  //   // VecAXPY(x_f, -1.0, delta_x_f);
+  //   // VecRestoreSubVector(_rhs, isg_field, &r_f);
+  //   // VecRestoreSubVector(_x, isg_field, &x_f);
+  // }
+
+  Vec x_initial;
+  if (adatptive_step > 0) {
+    VecDuplicate(_x, &x_initial);
+    VecCopy(_x, x_initial);
+  }
+
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   KSPSolve(_ksp, _rhs, _x);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
+
+  // if (adatptive_step > 0) {
+  //   VecAXPY(_x, -1.0, x_initial);
+  //   VecAbs(_x);
+  // }
 
   KSPDestroy(&_ksp);
 

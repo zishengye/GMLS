@@ -135,6 +135,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
   static auto &particleSize = __field.vector.GetHandle("size");
   static auto &pCoord = __field.vector.GetHandle("parameter coordinate");
   static auto &globalIndex = __field.index.GetHandle("global index");
+  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
   static auto &particleType = __field.index.GetHandle("particle type");
   static auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
@@ -205,6 +206,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
       volume[tag] /= 4.0;
       normal[tag] = newNormal;
       pCoord[tag] = vec3(theta + thetaDelta, 0.0, 0.0);
+      adaptive_level[tag] = __adaptive_step;
 
       newNormal = vec3(
           cos(theta) * cos(-thetaDelta) - sin(theta) * sin(-thetaDelta),

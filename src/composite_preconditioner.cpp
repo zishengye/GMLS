@@ -36,8 +36,8 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   PC pcGlobalSmoother;
 
   KSPGetPC(shell->field, &pcField);
-  PCSetType(pcField, PCHYPRE);
-  PCSetFromOptions(pcField);
+  PCSetType(pcField, PCLU);
+  // PCSetFromOptions(pcField);
   PCSetUp(pcField);
 
   KSPGetPC(shell->nearField, &pcNearField);
