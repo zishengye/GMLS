@@ -519,6 +519,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   ISCreateGeneral(MPI_COMM_WORLD, idx_pressure.size(), idx_pressure.data(),
                   PETSC_COPY_VALUES, &isg_pressure);
 
+  MatSetBlockSize(__mat, fieldDof);
+
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
   KSPSetOperators(_ksp, __mat, __mat);
@@ -527,11 +529,25 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PC _pc;
 
   KSPGetPC(_ksp, &_pc);
-  PCFieldSplitSetIS(_pc, "0", isg_velocity);
-  PCFieldSplitSetIS(_pc, "1", isg_pressure);
-  // PCFieldSplitSetIS(_pc, "2", isg_global);
-  PCSetFromOptions(_pc);
+
+  PCSetType(_pc, PCCOMPOSITE);
+  PCCompositeAddPC(_pc, PCFIELDSPLIT);
+  PCCompositeAddPC(_pc, PCPBJACOBI);
+  PCCompositeSetType(_pc, PC_COMPOSITE_MULTIPLICATIVE);
   PCSetUp(_pc);
+
+  PC _sub_pc_fieldsplit;
+  PC _sub_pc_pbjacobi;
+
+  PCCompositeGetPC(_pc, 0, &_sub_pc_fieldsplit);
+  PCFieldSplitSetIS(_sub_pc_fieldsplit, "0", isg_velocity);
+  PCFieldSplitSetIS(_sub_pc_fieldsplit, "1", isg_pressure);
+  PCSetFromOptions(_sub_pc_fieldsplit);
+  PCSetUp(_sub_pc_fieldsplit);
+
+  PCCompositeGetPC(_pc, 1, &_sub_pc_pbjacobi);
+  PCSetFromOptions(_sub_pc_pbjacobi);
+  PCSetUp(_sub_pc_pbjacobi);
 
   KSPSetUp(_ksp);
 
