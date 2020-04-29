@@ -411,7 +411,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
                  MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
       }
     } else {
-      if (myId == MPIsize - 1) idx_neighbor = move(neighborInclusion);
+      if (myId == MPIsize - 1)
+        idx_neighbor = move(neighborInclusion);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -1113,7 +1114,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   //   PC smoother_pc;
   //   KSPGetPC(smoother_ksp, &smoother_pc);
-  //   PCSetType(smoother_pc, PCLU);
+  //   PCSetType(smoother_pc, PCHYPRE);
+  //   PCSetFromOptions(smoother_pc);
 
   //   PCSetUp(smoother_pc);
   //   KSPSetUp(smoother_ksp);
