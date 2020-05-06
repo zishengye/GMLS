@@ -23,6 +23,13 @@ PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell);
 PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
                                    IS *isg0, IS *isg1, Vec x);
 
+PetscErrorCode HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *cmat,
+                                           IS *isg0, IS *isg1, Vec x);
+
 PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y);
 
+PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y);
+
 PetscErrorCode HypreLUShellPCDestroy(PC pc);
+
+PetscErrorCode HypreLUShellPCDestroyAdaptive(PC pc);

@@ -1047,7 +1047,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     idx_global = idx_field;
   } else {
     int localParticleNum =
-        (localN2 - localN1 - 1 - numRigidBody * rigidBodyDof) / fieldDof;
+        (localN2 - localN1 - 1 - numRigidBody * rigidBodyDof) / fieldDof + 1;
     idx_field.resize(fieldDof * localParticleNum);
 
     for (int i = 0; i < localParticleNum; i++) {
@@ -1060,7 +1060,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
     idx_global = idx_field;
 
-    idx_field.push_back(localN1 + fieldDof * localParticleNum + velocityDof);
+    // idx_field.push_back(localN1 + fieldDof * localParticleNum + velocityDof);
   }
 
   IS isg_field, isg_neighbor;
@@ -1086,6 +1086,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
                      &nn);
   MatCreateSubMatrix(__mat, isg_global, isg_global, MAT_INITIAL_MATRIX, &gg);
 
+  MatSetBlockSize(ff, fieldDof);
+
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
   KSPSetOperators(_ksp, __mat, __mat);
@@ -1098,52 +1100,60 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   HypreLUShellPC *shell_ctx;
   HypreLUShellPCCreate(&shell_ctx);
-  PCShellSetApply(_pc, HypreLUShellPCApply);
-  PCShellSetContext(_pc, shell_ctx);
-  PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+  if (adatptive_step == 0) {
+    PCShellSetApply(_pc, HypreLUShellPCApply);
+    PCShellSetContext(_pc, shell_ctx);
+    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-  HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
+    HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
+  } else {
+    PCShellSetApply(_pc, HypreLUShellPCApply);
+    PCShellSetContext(_pc, shell_ctx);
+    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-  KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
+    HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
+  }
 
-  // if (adatptive_step > 0) {
-  //   KSP smoother_ksp;
-  //   KSPCreate(PETSC_COMM_WORLD, &smoother_ksp);
-  //   KSPSetOperators(smoother_ksp, ff, ff);
-  //   KSPSetFromOptions(smoother_ksp);
+  if (adatptive_step > 0) {
+    KSP smoother_ksp;
+    KSPCreate(PETSC_COMM_WORLD, &smoother_ksp);
+    KSPSetOperators(smoother_ksp, ff, ff);
+    KSPSetType(smoother_ksp, KSPPREONLY);
 
-  //   PC smoother_pc;
-  //   KSPGetPC(smoother_ksp, &smoother_pc);
-  //   PCSetType(smoother_pc, PCHYPRE);
-  //   PCSetFromOptions(smoother_pc);
+    PC smoother_pc;
+    KSPGetPC(smoother_ksp, &smoother_pc);
+    PCSetType(smoother_pc, PCPBJACOBI);
+    PCSetFromOptions(smoother_pc);
 
-  //   PCSetUp(smoother_pc);
-  //   KSPSetUp(smoother_ksp);
+    PCSetUp(smoother_pc);
+    KSPSetUp(smoother_ksp);
 
-  //   Vec r, delta_x;
-  //   VecDuplicate(_x, &r);
-  //   VecDuplicate(_x, &delta_x);
-  //   MatMult(__mat, _x, r);
-  //   VecAXPY(r, -1.0, _rhs);
+    Vec r, delta_x;
+    VecDuplicate(_x, &r);
+    VecDuplicate(_x, &delta_x);
+    MatMult(__mat, _x, r);
+    VecAXPY(r, -1.0, _rhs);
 
-  //   // KSPSolve(smoother_ksp, r, delta_x);
-  //   // VecAXPY(_x, -1.0, delta_x);
+    // KSPSolve(smoother_ksp, r, delta_x);
+    // VecAXPY(_x, -1.0, delta_x);
 
-  //   Vec r_f, x_f, delta_x_f;
-  //   VecGetSubVector(r, isg_field, &r_f);
-  //   VecGetSubVector(_x, isg_field, &x_f);
-  //   VecDuplicate(x_f, &delta_x_f);
-  //   KSPSolve(smoother_ksp, r_f, delta_x_f);
-  //   VecAXPY(x_f, -1.0, delta_x_f);
-  //   VecRestoreSubVector(_rhs, isg_field, &r_f);
-  //   VecRestoreSubVector(_x, isg_field, &x_f);
-  // }
+    Vec r_f, x_f, delta_x_f;
+    VecGetSubVector(r, isg_field, &r_f);
+    VecGetSubVector(_x, isg_field, &x_f);
+    VecDuplicate(x_f, &delta_x_f);
+    KSPSolve(smoother_ksp, r_f, delta_x_f);
+    VecAXPY(x_f, -1.0, delta_x_f);
+    VecRestoreSubVector(_rhs, isg_field, &r_f);
+    VecRestoreSubVector(_x, isg_field, &x_f);
+  }
 
   Vec x_initial;
   if (adatptive_step > 0) {
     VecDuplicate(_x, &x_initial);
     VecCopy(_x, x_initial);
   }
+
+  KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
 
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
