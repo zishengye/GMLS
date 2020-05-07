@@ -13,7 +13,7 @@ private:
 public:
   multilevel() {}
 
-  ~multilevel() { clear(); }
+  ~multilevel() {}
 
   PetscSparseMatrix &getA(int num_level) { return A_list[num_level]; }
   PetscSparseMatrix &getI(int num_level) { return I_list[num_level]; }
