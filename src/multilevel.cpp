@@ -1,4 +1,8 @@
+#include "multilevel.h"
 #include "gmls_solver.h"
+
+#include <algorithm>
+#include <iostream>
 
 using namespace std;
 using namespace Compadre;
@@ -56,7 +60,8 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   vector<int> new_to_actual_index(coord.size());
   for (int i = 0; i < coord.size(); i++) {
     new_to_actual_index[i] = actual_new_target;
-    if (adaptive_level[i] == __adaptive_step) actual_new_target++;
+    if (adaptive_level[i] == __adaptive_step)
+      actual_new_target++;
   }
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
@@ -191,6 +196,8 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   auto old_to_new_velocity_alphas = old_to_new_velocity_basis->getAlphas();
 
   // old to new interpolation matrix
+  PetscPrintf(PETSC_COMM_WORLD, "new local dof: %d, old global dof: %d\n",
+              new_local_dof, old_global_dof);
   I.resize(new_local_dof, old_local_dof, old_global_dof);
   // compute matrix graph
   for (int i = 0; i < new_local_particle_num; i++) {
@@ -261,13 +268,13 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
       for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
            j++) {
-        I.increment(
-            field_dof * i + velocity_dof,
-            field_dof * old_background_index[old_to_new_neighbor_lists(
-                            new_to_actual_index[i], j + 1)] +
-                velocity_dof,
-            old_to_new_pressure_alphas(new_to_actual_index[i],
-                                       pressure_old_to_new_alphas_index, j));
+        I.increment(field_dof * i + velocity_dof,
+                    field_dof * old_background_index[old_to_new_neighbor_lists(
+                                    new_to_actual_index[i], j + 1)] +
+                        velocity_dof,
+                    old_to_new_pressure_alphas(new_to_actual_index[i],
+                                               pressure_old_to_new_alphas_index,
+                                               j));
       }
     } else {
       for (int j = 0; j < field_dof; j++) {

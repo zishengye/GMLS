@@ -53,6 +53,8 @@ void GMLS_Solver::TimeIntegration() {
   if (__timeIntegrationMethod == "RK4") {
     RungeKuttaIntegration();
   }
+
+  Clear();
 }
 
 void GMLS_Solver::ForwardEulerIntegration() {
@@ -84,6 +86,7 @@ void GMLS_Solver::ForwardEulerIntegration() {
     //   InitialCondition();
     // }
 
+    __adaptive_step = 0;
     do {
       if (__writeData)
         WriteDataAdaptiveGeometry();

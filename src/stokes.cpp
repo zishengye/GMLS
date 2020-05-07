@@ -49,9 +49,12 @@ void GMLS_Solver::StokesEquation() {
   tStart = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
-  if (*all_pressure != nullptr) delete *all_pressure;
-  if (*neumann_pressure != nullptr) delete *neumann_pressure;
-  if (*all_velocity != nullptr) delete *all_velocity;
+  if (*all_pressure != nullptr)
+    delete *all_pressure;
+  if (*neumann_pressure != nullptr)
+    delete *neumann_pressure;
+  if (*all_velocity != nullptr)
+    delete *all_velocity;
 
   *all_pressure = new GMLS(VectorTaylorPolynomial, StaggeredEdgeIntegralSample,
                            StaggeredEdgeAnalyticGradientIntegralSample,
@@ -425,8 +428,13 @@ void GMLS_Solver::StokesEquation() {
 
   int outProcessRow = rigidBodyDof * numRigidBody + fieldDof;
 
-  PetscSparseMatrix A(localDof, localDof, globalDof, outProcessRow,
-                      localOutProcessOffset);
+  if (__adaptive_step == 0)
+    _multi.clear();
+
+  _multi.add_new_level();
+
+  PetscSparseMatrix &A = _multi.getA(__adaptive_step);
+  A.resize(localDof, localDof, globalDof, outProcessRow, localOutProcessOffset);
 
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
@@ -702,18 +710,18 @@ void GMLS_Solver::StokesEquation() {
 
             // torque balance
             for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-              A.outProcessIncrement(
-                  currentRigidBodyLocalOffset + translationDof + axes1,
-                  jVelocityGlobal,
-                  rci[(axes1 + 1) % translationDof] *
-                          f[(axes1 + 2) % translationDof] -
-                      rci[(axes1 + 2) % translationDof] *
-                          f[(axes1 + 1) % translationDof]);
+              A.outProcessIncrement(currentRigidBodyLocalOffset +
+                                        translationDof + axes1,
+                                    jVelocityGlobal,
+                                    rci[(axes1 + 1) % translationDof] *
+                                            f[(axes1 + 2) % translationDof] -
+                                        rci[(axes1 + 2) % translationDof] *
+                                            f[(axes1 + 1) % translationDof]);
             }
             delete[] f;
           }
         }
-      }  // end of particles on rigid body
+      } // end of particles on rigid body
     }
 
     // n \cdot grad p
@@ -742,7 +750,7 @@ void GMLS_Solver::StokesEquation() {
           A.increment(iPressureLocal, jVelocityGlobal, bi * gradient);
         }
       }
-    }  // end of velocity block
+    } // end of velocity block
 
     // pressure block
     if (particleType[i] == 0) {
@@ -798,7 +806,7 @@ void GMLS_Solver::StokesEquation() {
 
     A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal, 1.0);
     // end of pressure block
-  }  // end of fluid particle loop
+  } // end of fluid particle loop
 
   if (__myID == __MPISize - 1) {
     // Lagrangian multiplier for pressure
@@ -823,7 +831,8 @@ void GMLS_Solver::StokesEquation() {
               tEnd - tStart);
 
   // Interpolation Matrix
-  PetscSparseMatrix I, R;
+  PetscSparseMatrix &I = _multi.getI(__adaptive_step);
+  PetscSparseMatrix R;
 
   if (numRigidBody != 0 && __adaptive_step != 0) {
     tStart = MPI_Wtime();
@@ -962,7 +971,8 @@ void GMLS_Solver::StokesEquation() {
     A.Solve(rhs, res, __dim);
     // A.Solve(rhs, res);
   } else {
-    if (__adaptive_step != 0) InitialGuessFromPreviousAdaptiveStep(I, res);
+    if (__adaptive_step != 0)
+      InitialGuessFromPreviousAdaptiveStep(I, res);
     A.Solve(rhs, res, idx_neighbor, __dim, numRigidBody, __adaptive_step, I, R);
   }
   MPI_Barrier(MPI_COMM_WORLD);

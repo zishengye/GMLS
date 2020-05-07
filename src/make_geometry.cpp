@@ -182,6 +182,7 @@ void GMLS_Solver::ClearParticle() {
   static auto &volume = __field.scalar.GetHandle("volume");
   static auto &particleType = __field.index.GetHandle("particle type");
   static auto &globalIndex = __field.index.GetHandle("global index");
+  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
   static auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
   static auto &particleNum = __field.index.GetHandle("particle number");
@@ -203,6 +204,7 @@ void GMLS_Solver::ClearParticle() {
   volume.clear();
   particleType.clear();
   globalIndex.clear();
+  adaptive_level.clear();
   attachedRigidBodyIndex.clear();
   particleNum.clear();
 
@@ -419,7 +421,7 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
         yPos -= __particleSize0[1];
       }
     }
-  }  // end of 2d construction
+  } // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = coord.size();

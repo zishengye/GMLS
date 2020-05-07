@@ -35,7 +35,9 @@ public:
   std::vector<PetscInt> __j;
   std::vector<PetscReal> __val;
 
-  PetscSparseMatrix() : __isAssembled(false), __row(0), __col(0), __Col(0) {}
+  PetscSparseMatrix()
+      : __isAssembled(false), __row(0), __col(0), __Col(0),
+        __out_process_row(0), __out_process_reduction(0) {}
 
   // only for square matrix
   PetscSparseMatrix(PetscInt m /* local # of rows */,
@@ -61,6 +63,13 @@ public:
     __out_process_matrix.resize(out_process_row);
   }
 
+  PetscSparseMatrix(const PetscSparseMatrix &mat)
+      : __isAssembled(false), __row(mat.__row), __col(mat.__col),
+        __Col(mat.__Col), __out_process_row(mat.__out_process_row),
+        __out_process_reduction(mat.__out_process_reduction) {
+    resize(__row, __col, __Col, __out_process_row, __out_process_reduction);
+  }
+
   ~PetscSparseMatrix() {
     if (__isAssembled)
       MatDestroy(&__mat);
@@ -76,14 +85,16 @@ public:
     __out_process_reduction = 0;
   }
 
-  void resize(PetscInt m, PetscInt n, PetscInt N) {
+  void resize(PetscInt m, PetscInt n, PetscInt N, PetscInt out_process_row = 0,
+              PetscInt out_process_row_reduction = 0) {
     __row = m;
     __col = n;
     __Col = N;
     __matrix.resize(m);
 
-    __out_process_row = 0;
-    __out_process_reduction = 0;
+    __out_process_row = out_process_row;
+    __out_process_reduction = out_process_row_reduction;
+    __out_process_matrix.resize(out_process_row);
   }
 
   inline void setColIndex(const PetscInt row, std::vector<PetscInt> &index);

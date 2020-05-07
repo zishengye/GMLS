@@ -1117,12 +1117,12 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   if (adatptive_step > 0) {
     KSP smoother_ksp;
     KSPCreate(PETSC_COMM_WORLD, &smoother_ksp);
-    KSPSetOperators(smoother_ksp, ff, ff);
+    KSPSetOperators(smoother_ksp, nn, nn);
     KSPSetType(smoother_ksp, KSPPREONLY);
 
     PC smoother_pc;
     KSPGetPC(smoother_ksp, &smoother_pc);
-    PCSetType(smoother_pc, PCPBJACOBI);
+    PCSetType(smoother_pc, PCLU);
     PCSetFromOptions(smoother_pc);
 
     PCSetUp(smoother_pc);
@@ -1137,14 +1137,16 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     // KSPSolve(smoother_ksp, r, delta_x);
     // VecAXPY(_x, -1.0, delta_x);
 
+    // KSPSetInitialGuessNonzero(smoother_ksp, PETSC_TRUE);
+
     Vec r_f, x_f, delta_x_f;
-    VecGetSubVector(r, isg_field, &r_f);
-    VecGetSubVector(_x, isg_field, &x_f);
+    VecGetSubVector(r, isg_neighbor, &r_f);
+    VecGetSubVector(_x, isg_neighbor, &x_f);
     VecDuplicate(x_f, &delta_x_f);
     KSPSolve(smoother_ksp, r_f, delta_x_f);
     VecAXPY(x_f, -1.0, delta_x_f);
-    VecRestoreSubVector(_rhs, isg_field, &r_f);
-    VecRestoreSubVector(_x, isg_field, &x_f);
+    VecRestoreSubVector(_rhs, isg_neighbor, &r_f);
+    VecRestoreSubVector(_x, isg_neighbor, &x_f);
   }
 
   Vec x_initial;

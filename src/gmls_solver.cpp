@@ -193,3 +193,5 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
 
   __successInitialized = true;
 }
+
+void GMLS_Solver::Clear() { _multi.clear(); }
