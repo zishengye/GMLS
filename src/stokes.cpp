@@ -300,7 +300,7 @@ void GMLS_Solver::StokesEquation() {
   pressureBasis.setDimensionOfQuadraturePoints(1);
   pressureBasis.setQuadratureType("LINE");
 
-  pressureBasis.generateAlphas(1);
+  pressureBasis.generateAlphas(number_of_batches);
 
   auto pressureAlphas = pressureBasis.getAlphas();
 
@@ -334,7 +334,7 @@ void GMLS_Solver::StokesEquation() {
   pressureNeumannBoundaryBasis.setDimensionOfQuadraturePoints(1);
   pressureNeumannBoundaryBasis.setQuadratureType("LINE");
 
-  pressureNeumannBoundaryBasis.generateAlphas(1);
+  pressureNeumannBoundaryBasis.generateAlphas(number_of_batches);
 
   auto pressureNeumannBoundaryAlphas = pressureNeumannBoundaryBasis.getAlphas();
 
