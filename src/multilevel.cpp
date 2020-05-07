@@ -1,4 +1,5 @@
 #include "multilevel.h"
+#include "composite_preconditioner.h"
 #include "gmls_solver.h"
 
 #include <algorithm>
@@ -196,8 +197,6 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   auto old_to_new_velocity_alphas = old_to_new_velocity_basis->getAlphas();
 
   // old to new interpolation matrix
-  PetscPrintf(PETSC_COMM_WORLD, "new local dof: %d, old global dof: %d\n",
-              new_local_dof, old_global_dof);
   I.resize(new_local_dof, old_local_dof, old_global_dof);
   // compute matrix graph
   for (int i = 0; i < new_local_particle_num; i++) {
@@ -289,4 +288,179 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
   // new to old relaxation matrix
   R.resize(old_local_dof, new_local_dof, new_global_dof);
+}
+
+void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
+                       std::vector<int> &idx_neighbor) {
+  int adaptive_step = A_list.size() - 1;
+
+  int fieldDof = dimension + 1;
+  int velocityDof = dimension;
+  int pressureDof = 1;
+  int rigidBodyDof = (dimension == 3) ? 6 : 3;
+
+  vector<int> idx_field;
+  vector<int> idx_global;
+
+  int MPIsize, myId;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myId);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
+
+  PetscInt localN1, localN2;
+  Mat &mat = (A_list.end() - 1)->__mat;
+  MatGetOwnershipRange(mat, &localN1, &localN2);
+
+  if (myId != MPIsize - 1) {
+    int localParticleNum = (localN2 - localN1) / fieldDof;
+    idx_field.resize(fieldDof * localParticleNum);
+
+    for (int i = 0; i < localParticleNum; i++) {
+      for (int j = 0; j < dimension; j++) {
+        idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
+      }
+      idx_field[fieldDof * i + velocityDof] =
+          localN1 + fieldDof * i + velocityDof;
+    }
+
+    idx_global = idx_field;
+  } else {
+    int localParticleNum =
+        (localN2 - localN1 - 1 - num_rigid_body * rigidBodyDof) / fieldDof + 1;
+    idx_field.resize(fieldDof * localParticleNum);
+
+    for (int i = 0; i < localParticleNum; i++) {
+      for (int j = 0; j < dimension; j++) {
+        idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
+      }
+      idx_field[fieldDof * i + velocityDof] =
+          localN1 + fieldDof * i + velocityDof;
+    }
+
+    idx_global = idx_field;
+
+    // idx_field.push_back(localN1 + fieldDof * localParticleNum + velocityDof);
+  }
+
+  IS isg_field, isg_neighbor;
+  IS isg_global;
+
+  ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
+                  PETSC_COPY_VALUES, &isg_field);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_neighbor.size(), idx_neighbor.data(),
+                  PETSC_COPY_VALUES, &isg_neighbor);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_global.size(), idx_global.data(),
+                  PETSC_COPY_VALUES, &isg_global);
+
+  Vec _rhs, _x;
+  VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
+                        rhs.data(), &_rhs);
+  VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, x.size(), PETSC_DECIDE, x.data(),
+                        &_x);
+
+  Mat ff, nn, gg;
+
+  MatCreateSubMatrix(mat, isg_field, isg_field, MAT_INITIAL_MATRIX, &ff);
+  MatCreateSubMatrix(mat, isg_neighbor, isg_neighbor, MAT_INITIAL_MATRIX, &nn);
+  MatCreateSubMatrix(mat, isg_global, isg_global, MAT_INITIAL_MATRIX, &gg);
+
+  MatSetBlockSize(ff, fieldDof);
+
+  KSP _ksp;
+  KSPCreate(PETSC_COMM_WORLD, &_ksp);
+  KSPSetOperators(_ksp, mat, mat);
+  KSPSetFromOptions(_ksp);
+
+  PC _pc;
+
+  KSPGetPC(_ksp, &_pc);
+  PCSetType(_pc, PCSHELL);
+
+  HypreLUShellPC *shell_ctx;
+  HypreLUShellPCCreate(&shell_ctx);
+  if (A_list.size() == 1) {
+    PCShellSetApply(_pc, HypreLUShellPCApply);
+    PCShellSetContext(_pc, shell_ctx);
+    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+
+    HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
+  } else {
+    PCShellSetApply(_pc, HypreLUShellPCApply);
+    PCShellSetContext(_pc, shell_ctx);
+    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+
+    HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
+  }
+
+  if (A_list.size() > 1) {
+    KSP smoother_ksp;
+    KSPCreate(PETSC_COMM_WORLD, &smoother_ksp);
+    KSPSetOperators(smoother_ksp, nn, nn);
+    KSPSetType(smoother_ksp, KSPPREONLY);
+
+    PC smoother_pc;
+    KSPGetPC(smoother_ksp, &smoother_pc);
+    PCSetType(smoother_pc, PCLU);
+    PCSetFromOptions(smoother_pc);
+
+    PCSetUp(smoother_pc);
+    KSPSetUp(smoother_ksp);
+
+    Vec r, delta_x;
+    VecDuplicate(_x, &r);
+    VecDuplicate(_x, &delta_x);
+    MatMult(mat, _x, r);
+    VecAXPY(r, -1.0, _rhs);
+
+    // KSPSolve(smoother_ksp, r, delta_x);
+    // VecAXPY(_x, -1.0, delta_x);
+
+    // KSPSetInitialGuessNonzero(smoother_ksp, PETSC_TRUE);
+
+    Vec r_f, x_f, delta_x_f;
+    VecGetSubVector(r, isg_neighbor, &r_f);
+    VecGetSubVector(_x, isg_neighbor, &x_f);
+    VecDuplicate(x_f, &delta_x_f);
+    KSPSolve(smoother_ksp, r_f, delta_x_f);
+    VecAXPY(x_f, -1.0, delta_x_f);
+    VecRestoreSubVector(_rhs, isg_neighbor, &r_f);
+    VecRestoreSubVector(_x, isg_neighbor, &x_f);
+  }
+
+  Vec x_initial;
+  if (A_list.size() > 1) {
+    VecDuplicate(_x, &x_initial);
+    VecCopy(_x, x_initial);
+  }
+
+  KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
+  KSPSolve(_ksp, _rhs, _x);
+  PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
+
+  // if (adatptive_step > 0) {
+  //   VecAXPY(_x, -1.0, x_initial);
+  //   VecAbs(_x);
+  // }
+
+  KSPDestroy(&_ksp);
+
+  PetscScalar *a;
+  VecGetArray(_x, &a);
+  for (size_t i = 0; i < rhs.size(); i++) {
+    x[i] = a[i];
+  }
+  VecRestoreArray(_x, &a);
+
+  VecDestroy(&_rhs);
+  VecDestroy(&_x);
+
+  ISDestroy(&isg_field);
+  ISDestroy(&isg_neighbor);
+  ISDestroy(&isg_global);
+
+  MatDestroy(&ff);
+  MatDestroy(&nn);
+  MatDestroy(&gg);
 }

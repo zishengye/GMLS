@@ -6,6 +6,8 @@ using namespace Compadre;
 void GMLS_Solver::TimeIntegration() {
   InitParticle();
 
+  _multi.init(__dim);
+
   if (__manifoldOrder == 0) {
     SetBoundingBox();
     SetBoundingBoxBoundary();

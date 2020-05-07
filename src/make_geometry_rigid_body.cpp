@@ -40,6 +40,8 @@ void GMLS_Solver::InitRigidBody() {
       rigidBodyAngularVelocity.push_back(vec3(0.0, 0.0, 0.0));
     }
 
+    _multi.set_num_rigid_body(rigidBodyPosition.size());
+
     MPI_Barrier(MPI_COMM_WORLD);
     PetscPrintf(PETSC_COMM_WORLD, "==> Number of rigid body: %d\n",
                 rigidBodyPosition.size());
@@ -110,7 +112,8 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
     for (size_t n = 0; n < rigidBodyCoord.size(); n++) {
       double r = rigidBodySize[n];
       int M_theta = round(2 * M_PI * r / h);
-      if (M_theta % 2 == 1) M_theta++;
+      if (M_theta % 2 == 1)
+        M_theta++;
       double d_theta = 2 * M_PI * r / M_theta;
 
       vec3 particleSize = vec3(d_theta, 0, 0);

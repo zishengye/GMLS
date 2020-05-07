@@ -973,7 +973,9 @@ void GMLS_Solver::StokesEquation() {
   } else {
     if (__adaptive_step != 0)
       InitialGuessFromPreviousAdaptiveStep(I, res);
-    A.Solve(rhs, res, idx_neighbor, __dim, numRigidBody, __adaptive_step, I, R);
+    // A.Solve(rhs, res, idx_neighbor, __dim, numRigidBody, __adaptive_step, I,
+    // R);
+    _multi.Solve(rhs, res, idx_neighbor);
   }
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
