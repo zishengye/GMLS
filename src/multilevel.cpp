@@ -302,15 +302,11 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   vector<int> idx_field;
   vector<int> idx_global;
 
-  int MPIsize, myId;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myId);
-  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
-
   PetscInt localN1, localN2;
   Mat &mat = (A_list.end() - 1)->__mat;
   MatGetOwnershipRange(mat, &localN1, &localN2);
 
-  if (myId != MPIsize - 1) {
+  if (myid != mpi_size - 1) {
     int localParticleNum = (localN2 - localN1) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
 
