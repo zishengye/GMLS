@@ -396,16 +396,7 @@ bool GMLS_Solver::NeedRefinement() {
       return false;
 
     // mark stage
-    double alpha;
-    switch (__adaptive_step) {
-    case 0:
-      alpha = 0.99;
-      break;
-
-    default:
-      alpha = 0.99;
-      break;
-    }
+    double alpha = 1.0 - 0.01 * (__adaptive_step + 1);
 
     vector<pair<int, double>> chopper;
     pair<int, double> toAdd;
