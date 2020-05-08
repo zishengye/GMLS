@@ -392,25 +392,19 @@ bool GMLS_Solver::NeedRefinement() {
         "Total error for gradient of velocity: %f, with tolerance: %f\n",
         globalError, __adaptiveRefinementTolerance);
 
-    if (globalError < __adaptiveRefinementTolerance) return false;
+    if (globalError < __adaptiveRefinementTolerance)
+      return false;
 
     // mark stage
     double alpha;
     switch (__adaptive_step) {
-      case 0:
-        alpha = 0.99;
-        break;
+    case 0:
+      alpha = 0.99;
+      break;
 
-      case 1:
-        alpha = 0.95;
-        break;
-
-      case 2:
-        alpha = 0.90;
-
-      default:
-        alpha = 0.80;
-        break;
+    default:
+      alpha = 0.99;
+      break;
     }
 
     vector<pair<int, double>> chopper;
@@ -461,7 +455,8 @@ bool GMLS_Solver::NeedRefinement() {
       error[i] = sqrt(error[i]);
     }
 
-    if (__writeData) WriteDataAdaptiveStep();
+    if (__writeData)
+      WriteDataAdaptiveStep();
 
     int localSplitParticleNum = splitTag.size();
     int globalSplitParticleNum;
