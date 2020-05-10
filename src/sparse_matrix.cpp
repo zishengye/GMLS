@@ -433,6 +433,11 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
 
     KSPSetUp(_ksp);
 
+    PC _pc;
+    KSPGetPC(_ksp, &_pc);
+    PCSetFromOptions(_pc);
+    PCSetUp(_pc);
+
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
     KSPSolve(_ksp, _rhs, _x);
     PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
