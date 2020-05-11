@@ -1,0 +1,19 @@
+# problem domain setup
+-Dim 2 -Mx 100 -My 100 -PolynomialOrder 2 -BatchSize 1
+-WriteData 0 -AdaptiveRefinement 1 -AdaptiveRefinementTolerance 1e-1 -AdaptiveBaseField Velocity
+
+# problem parameter setup
+-ft 0.005 -dt 0.01 -eta 1.0 -rho 1.0
+
+# problem type
+-EquationType Stokes -TimeIntegration ForwardEuler
+
+# linear solver setup
+-ksp_type gmres -ksp_converged_reason -ksp_gmres_modifiedgramschmidt 1 -ksp_gmres_restart 50 -ksp_gmres_cgs_refinement_type refine_always -ksp_divtol 1e10
+
+-pc_hypre_type boomeramg -pc_hypre_boomeramg_interp_type standard -pc_hypre_boomeramg_coarsen_type HMIS -pc_hypre_boomeramg_numfunctions 3 -pc_hypre_boomeramg_nodal_coarsen 0 -pc_hypre_boomeramg_agg_nl 0
+
+-sub_pc_type sor -sub_pc_sor_symmetric 1
+
+# rigid body inclusion
+-rigid_body_input benchmark/2d_rigid_body_25.in

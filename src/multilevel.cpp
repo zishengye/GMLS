@@ -337,15 +337,13 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     // idx_field.push_back(localN1 + fieldDof * localParticleNum + velocityDof);
   }
 
-  IS isg_field, isg_neighbor;
-  IS isg_global;
+  IS &isg_field_lag = *isg_field_lag_list[adaptive_step];
+  IS &isg_neighbor = *isg_neighbor_list[adaptive_step];
 
   ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
-                  PETSC_COPY_VALUES, &isg_field);
+                  PETSC_COPY_VALUES, &isg_field_lag);
   ISCreateGeneral(MPI_COMM_WORLD, idx_neighbor.size(), idx_neighbor.data(),
                   PETSC_COPY_VALUES, &isg_neighbor);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_global.size(), idx_global.data(),
-                  PETSC_COPY_VALUES, &isg_global);
 
   Vec _rhs, _x;
   VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
@@ -355,13 +353,13 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   Mat ff, nn, gg;
 
-  MatCreateSubMatrix(mat, isg_field, isg_field, MAT_INITIAL_MATRIX, &ff);
+  MatCreateSubMatrix(mat, isg_field_lag, isg_field_lag, MAT_INITIAL_MATRIX,
+                     &ff);
   MatCreateSubMatrix(mat, isg_neighbor, isg_neighbor, MAT_INITIAL_MATRIX, &nn);
-  MatCreateSubMatrix(mat, isg_global, isg_global, MAT_INITIAL_MATRIX, &gg);
 
   MatSetBlockSize(ff, fieldDof);
 
-  KSP _ksp;
+  KSP &_ksp = getKsp(adaptive_step);
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
   KSPSetOperators(_ksp, mat, mat);
   KSPSetFromOptions(_ksp);
@@ -378,13 +376,13 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
+    HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field_lag, &isg_neighbor, _x);
   } else {
     PCShellSetApply(_pc, HypreLUShellPCApply);
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
+    HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field_lag, &isg_neighbor, _x);
   }
 
   if (A_list.size() > 1) {
@@ -440,8 +438,6 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   //   VecAbs(_x);
   // }
 
-  KSPDestroy(&_ksp);
-
   PetscScalar *a;
   VecGetArray(_x, &a);
   for (size_t i = 0; i < rhs.size(); i++) {
@@ -451,12 +447,4 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   VecDestroy(&_rhs);
   VecDestroy(&_x);
-
-  ISDestroy(&isg_field);
-  ISDestroy(&isg_neighbor);
-  ISDestroy(&isg_global);
-
-  MatDestroy(&ff);
-  MatDestroy(&nn);
-  MatDestroy(&gg);
 }
