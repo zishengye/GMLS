@@ -131,7 +131,7 @@ PetscErrorCode HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *cmat,
   PCSetUp(bjacobi_pc);
 
   KSPGetPC(shell->globalSmoother, &pcGlobalSmoother);
-  PCSetType(pcGlobalSmoother, PCJACOBI);
+  PCSetType(pcGlobalSmoother, PCPBJACOBI);
   PCSetFromOptions(pcGlobalSmoother);
   PCSetUp(pcGlobalSmoother);
 
@@ -243,6 +243,15 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                 SCATTER_REVERSE);
 
   // stage 2
+  MatMultAdd(shell->stage2, y, shell->x2, shell->t2);
+
+  KSPSolve(shell->nearField, shell->t2, shell->z2);
+
+  VecScatterBegin(shell->ctx_scatter2, shell->z2, y, ADD_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(shell->ctx_scatter2, shell->z2, y, ADD_VALUES, SCATTER_REVERSE);
+
+  // stage 3
   MatMultAdd(shell->stage1, y, shell->x1, shell->t1);
 
   KSPSolve(shell->globalSmoother, shell->t1, shell->z1);

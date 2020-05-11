@@ -378,46 +378,12 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
     HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field_lag, &isg_neighbor, _x);
   } else {
-    PCShellSetApply(_pc, HypreLUShellPCApply);
+    PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field_lag, &isg_neighbor, _x);
-  }
-
-  if (A_list.size() > 1) {
-    KSP smoother_ksp;
-    KSPCreate(PETSC_COMM_WORLD, &smoother_ksp);
-    KSPSetOperators(smoother_ksp, nn, nn);
-    KSPSetType(smoother_ksp, KSPPREONLY);
-
-    PC smoother_pc;
-    KSPGetPC(smoother_ksp, &smoother_pc);
-    PCSetType(smoother_pc, PCLU);
-    PCSetFromOptions(smoother_pc);
-
-    PCSetUp(smoother_pc);
-    KSPSetUp(smoother_ksp);
-
-    Vec r, delta_x;
-    VecDuplicate(_x, &r);
-    VecDuplicate(_x, &delta_x);
-    MatMult(mat, _x, r);
-    VecAXPY(r, -1.0, _rhs);
-
-    // KSPSolve(smoother_ksp, r, delta_x);
-    // VecAXPY(_x, -1.0, delta_x);
-
-    // KSPSetInitialGuessNonzero(smoother_ksp, PETSC_TRUE);
-
-    Vec r_f, x_f, delta_x_f;
-    VecGetSubVector(r, isg_neighbor, &r_f);
-    VecGetSubVector(_x, isg_neighbor, &x_f);
-    VecDuplicate(x_f, &delta_x_f);
-    KSPSolve(smoother_ksp, r_f, delta_x_f);
-    VecAXPY(x_f, -1.0, delta_x_f);
-    VecRestoreSubVector(_rhs, isg_neighbor, &r_f);
-    VecRestoreSubVector(_x, isg_neighbor, &x_f);
+    HypreLUShellPCSetUpAdaptive(_pc, &mat, &ff, &nn, &isg_field_lag,
+                                &isg_neighbor, _x);
   }
 
   Vec x_initial;
