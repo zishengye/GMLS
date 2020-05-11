@@ -1,5 +1,7 @@
 #include "composite_preconditioner.h"
 
+using namespace std;
+
 PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell) {
   HypreLUShellPC *newctx;
 
@@ -87,8 +89,10 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   return 0;
 }
 
-PetscErrorCode HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *cmat,
-                                           IS *isg0, IS *isg1, Vec x) {
+PetscErrorCode HypreLUShellPCSetUpAdaptive(
+    PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat, IS *isg0, IS *isg1,
+    vector<PetscSparseMatrix> *interpolation,
+    vector<PetscSparseMatrix> *relaxation, Vec x) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -97,7 +101,7 @@ PetscErrorCode HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *cmat,
   KSPCreate(PETSC_COMM_WORLD, &shell->field);
   KSPCreate(PETSC_COMM_WORLD, &shell->nearField);
   KSPCreate(PETSC_COMM_WORLD, &shell->globalSmoother);
-  KSPSetOperators(shell->field, *amat, *amat);
+  KSPSetOperators(shell->field, *amat_base, *amat_base);
   KSPSetOperators(shell->nearField, *cmat, *cmat);
   KSPSetOperators(shell->globalSmoother, *amat, *amat);
   ISDuplicate(*isg0, &shell->isg0);
@@ -108,6 +112,9 @@ PetscErrorCode HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *cmat,
   KSPSetTolerances(shell->nearField, 1e-6, 1e-50, 1e5, 1);
   KSPSetType(shell->globalSmoother, KSPPREONLY);
   KSPSetTolerances(shell->globalSmoother, 1e-3, 1e-50, 1e5, 1);
+
+  shell->interpolation = interpolation;
+  shell->relaxation = relaxation;
 
   PC pcField;
   PC pcNearField;
@@ -161,6 +168,14 @@ PetscErrorCode HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *cmat,
   MatScale(shell->stage2, -1.0);
 
   ISDestroy(&isg_col);
+
+  shell->level_vec.push_back(new Vec);
+  VecDuplicate(shell->x1, shell->level_vec[0]);
+  for (int i = interpolation->size() - 1; i > 0; i--) {
+    shell->level_vec.push_back(new Vec);
+    MatCreateVecs((*interpolation)[i].__mat,
+                  shell->level_vec[interpolation->size() - i], NULL);
+  }
 
   return 0;
 }
@@ -235,7 +250,30 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   VecScatterEnd(shell->ctx_scatter1, y, shell->y1, INSERT_VALUES,
                 SCATTER_FORWARD);
 
-  KSPSolve(shell->field, shell->x1, shell->y1);
+  KSPSolve(shell->globalSmoother, shell->x1, *shell->level_vec[0]);
+  for (int i = 1; i < shell->interpolation->size(); i++) {
+    Mat &R = (*shell->relaxation)[i].__mat;
+    Vec &v1 = *shell->level_vec[i - 1];
+    Vec &v2 = *shell->level_vec[i];
+    MatMult(R, v1, v2);
+  }
+
+  Vec &x_base = *shell->level_vec[shell->interpolation->size() - 1];
+  Vec y_base;
+  VecDuplicate(x_base, &y_base);
+  KSPSolve(shell->field, x_base, y_base);
+
+  VecCopy(y_base, *shell->level_vec[shell->interpolation->size() - 1]);
+
+  for (int i = shell->interpolation->size() - 1; i > 0; i--) {
+    Mat &I = (*shell->interpolation)[i].__mat;
+    Vec &v1 = *shell->level_vec[i - 1];
+    Vec &v2 = *shell->level_vec[i];
+    MatMult(I, v2, v1);
+  }
+  KSPSolve(shell->globalSmoother, *shell->level_vec[0], shell->y1);
+
+  // KSPSolve(shell->field, shell->x1, shell->y1);
 
   VecScatterBegin(shell->ctx_scatter1, shell->y1, y, INSERT_VALUES,
                   SCATTER_REVERSE);

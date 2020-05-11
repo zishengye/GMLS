@@ -298,7 +298,8 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   if (__myID == __MPISize - 1) {
     for (int j = 0; j < field_dof; j++) {
       I.increment(field_dof * new_local_particle_num + j,
-                  field_dof * old_global_particle_num + j, 1.0);
+                  field_dof * old_global_particle_num + j,
+                  old_global_particle_num / new_global_particle_num);
     }
   }
 
@@ -306,7 +307,115 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   I.FinalAssemble();
 
   // new to old relaxation matrix
+  // new to old pressure field transition
+  new_to_old_pressusre_basis->setProblemData(
+      new_to_old_neighbor_lists_device, new_source_coords_device,
+      old_target_coords_device, new_epsilon);
+
+  new_to_old_pressusre_basis->addTargets(ScalarPointEvaluation);
+
+  new_to_old_pressusre_basis->setWeightingType(WeightingFunctionType::Power);
+  new_to_old_pressusre_basis->setWeightingPower(__weightFuncOrder);
+  new_to_old_pressusre_basis->setOrderOfQuadraturePoints(2);
+  new_to_old_pressusre_basis->setDimensionOfQuadraturePoints(1);
+  new_to_old_pressusre_basis->setQuadratureType("LINE");
+
+  new_to_old_pressusre_basis->generateAlphas(20);
+
+  auto new_to_old_pressure_alphas = new_to_old_pressusre_basis->getAlphas();
+
+  // new to old velocity field transition
+  new_to_old_velocity_basis->setProblemData(
+      new_to_old_neighbor_lists_device, new_source_coords_device,
+      old_target_coords_device, new_epsilon);
+
+  new_to_old_velocity_basis->addTargets(VectorPointEvaluation);
+
+  new_to_old_velocity_basis->generateAlphas(20);
+
+  auto new_to_old_velocity_alphas = new_to_old_velocity_basis->getAlphas();
+
+  // new to old relaxation matrix
   R.resize(old_local_dof, new_local_dof, new_global_dof);
+
+  for (int i = 0; i < old_local_particle_num; i++) {
+    // velocity interpolation
+    index.resize(new_to_old_neighbor_lists(i, 0) * velocity_dof);
+    for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
+      for (int k = 0; k < velocity_dof; k++) {
+        index[j * velocity_dof + k] =
+            field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)] +
+            k;
+      }
+    }
+
+    for (int k = 0; k < velocity_dof; k++) {
+      R.setColIndex(field_dof * i + k, index);
+    }
+
+    // pressure interpolation
+    index.resize(new_to_old_neighbor_lists(i, 0));
+    for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
+      index[j] =
+          field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)] +
+          velocity_dof;
+    }
+    R.setColIndex(field_dof * i + velocity_dof, index);
+  }
+
+  // lagrange multiplier
+  if (__myID == __MPISize - 1) {
+    index.resize(1);
+    for (int j = 0; j < field_dof; j++) {
+      index[0] = field_dof * new_global_particle_num + j;
+      R.setColIndex(field_dof * old_local_particle_num + j, index);
+    }
+  }
+
+  const auto pressure_new_to_old_alphas_index =
+      new_to_old_pressusre_basis->getAlphaColumnOffset(ScalarPointEvaluation, 0,
+                                                       0, 0, 0);
+  vector<int> velocity_new_to_old_alphas_index(pow(dimension, 2));
+  for (int axes1 = 0; axes1 < dimension; axes1++)
+    for (int axes2 = 0; axes2 < dimension; axes2++)
+      velocity_new_to_old_alphas_index[axes1 * dimension + axes2] =
+          new_to_old_velocity_basis->getAlphaColumnOffset(VectorPointEvaluation,
+                                                          axes1, 0, axes2, 0);
+
+  for (int i = 0; i < old_local_particle_num; i++) {
+    for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
+      for (int axes1 = 0; axes1 < dimension; axes1++)
+        for (int axes2 = 0; axes2 < dimension; axes2++)
+          R.increment(
+              field_dof * i + axes1,
+              field_dof *
+                      background_index[new_to_old_neighbor_lists(i, j + 1)] +
+                  axes2,
+              new_to_old_velocity_alphas(
+                  i,
+                  velocity_new_to_old_alphas_index[axes1 * dimension + axes2],
+                  j));
+    }
+
+    for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
+      R.increment(
+          field_dof * i + velocity_dof,
+          field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)] +
+              velocity_dof,
+          new_to_old_pressure_alphas(i, pressure_new_to_old_alphas_index, j));
+    }
+  }
+
+  if (__myID == __MPISize - 1) {
+    for (int j = 0; j < field_dof; j++) {
+      R.increment(field_dof * old_local_particle_num + j,
+                  field_dof * new_global_particle_num + j,
+                  new_global_particle_num / old_global_particle_num);
+    }
+  }
+
+  PetscPrintf(MPI_COMM_WORLD, "start of relaxation matrix assembly\n");
+  R.FinalAssemble();
 }
 
 void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
@@ -370,7 +479,8 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, x.size(), PETSC_DECIDE, x.data(),
                         &_x);
 
-  Mat ff, nn, gg;
+  Mat &ff = *ff_lag_list[adaptive_step];
+  Mat &nn = *nn_list[adaptive_step];
 
   MatCreateSubMatrix(mat, isg_field_lag, isg_field_lag, MAT_INITIAL_MATRIX,
                      &ff);
@@ -401,8 +511,9 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUpAdaptive(_pc, &mat, &ff, &nn, &isg_field_lag,
-                                &isg_neighbor, _x);
+    HypreLUShellPCSetUpAdaptive(_pc, &mat, &ff, ff_lag_list[0], &nn,
+                                &isg_field_lag, &isg_neighbor, &I_list, &R_list,
+                                _x);
   }
 
   Vec x_initial;
