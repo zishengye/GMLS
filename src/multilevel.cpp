@@ -40,10 +40,14 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   MPI_Allreduce(&new_local_particle_num, &new_global_particle_num, 1, MPI_INT,
                 MPI_SUM, MPI_COMM_WORLD);
 
-  int old_local_dof = field_dof * old_local_particle_num;
-  int old_global_dof = field_dof * old_global_particle_num;
-  int new_local_dof = field_dof * new_local_particle_num;
-  int new_global_dof = field_dof * new_global_particle_num;
+  int old_local_dof = (__myID == __MPISize - 1)
+                          ? field_dof * (old_local_particle_num + 1)
+                          : field_dof * old_local_particle_num;
+  int old_global_dof = field_dof * (old_global_particle_num + 1);
+  int new_local_dof = (__myID == __MPISize - 1)
+                          ? field_dof * (new_local_particle_num + 1)
+                          : field_dof * new_local_particle_num;
+  int new_global_dof = field_dof * (new_global_particle_num + 1);
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
       new_source_coords_device("new source coordinates",
@@ -61,8 +65,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   vector<int> new_to_actual_index(coord.size());
   for (int i = 0; i < coord.size(); i++) {
     new_to_actual_index[i] = actual_new_target;
-    if (adaptive_level[i] == __adaptive_step)
-      actual_new_target++;
+    if (adaptive_level[i] == __adaptive_step) actual_new_target++;
   }
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
@@ -199,8 +202,8 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   // old to new interpolation matrix
   I.resize(new_local_dof, old_local_dof, old_global_dof);
   // compute matrix graph
+  vector<PetscInt> index;
   for (int i = 0; i < new_local_particle_num; i++) {
-    vector<PetscInt> index;
     if (adaptive_level[i] == __adaptive_step) {
       // velocity interpolation
       index.resize(old_to_new_neighbor_lists(new_to_actual_index[i], 0) *
@@ -237,6 +240,15 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
     }
   }
 
+  // lagrange multiplier
+  if (__myID == __MPISize - 1) {
+    index.resize(1);
+    for (int j = 0; j < field_dof; j++) {
+      index[0] = field_dof * old_global_particle_num + j;
+      I.setColIndex(field_dof * new_local_particle_num + j, index);
+    }
+  }
+
   // compute matrix entity
   const auto pressure_old_to_new_alphas_index =
       old_to_new_pressusre_basis->getAlphaColumnOffset(ScalarPointEvaluation, 0,
@@ -267,19 +279,26 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
       for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
            j++) {
-        I.increment(field_dof * i + velocity_dof,
-                    field_dof * old_background_index[old_to_new_neighbor_lists(
-                                    new_to_actual_index[i], j + 1)] +
-                        velocity_dof,
-                    old_to_new_pressure_alphas(new_to_actual_index[i],
-                                               pressure_old_to_new_alphas_index,
-                                               j));
+        I.increment(
+            field_dof * i + velocity_dof,
+            field_dof * old_background_index[old_to_new_neighbor_lists(
+                            new_to_actual_index[i], j + 1)] +
+                velocity_dof,
+            old_to_new_pressure_alphas(new_to_actual_index[i],
+                                       pressure_old_to_new_alphas_index, j));
       }
     } else {
       for (int j = 0; j < field_dof; j++) {
         I.increment(field_dof * i + j, field_dof * old_background_index[i] + j,
                     1.0);
       }
+    }
+  }
+
+  if (__myID == __MPISize - 1) {
+    for (int j = 0; j < field_dof; j++) {
+      I.increment(field_dof * new_local_particle_num + j,
+                  field_dof * old_global_particle_num + j, 1.0);
     }
   }
 

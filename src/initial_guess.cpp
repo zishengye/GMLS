@@ -19,7 +19,10 @@ void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
   int old_local_particle_num = pressure.size();
   int new_local_particle_num = coord.size();
 
-  previous_result.resize(field_dof * old_local_particle_num);
+  if (__myID == __MPISize - 1)
+    previous_result.resize(field_dof * (old_local_particle_num + 1));
+  else
+    previous_result.resize(field_dof * old_local_particle_num);
 
   for (int i = 0; i < old_local_particle_num; i++) {
     for (int j = 0; j < velocity_dof; j++) {
@@ -42,44 +45,29 @@ void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
 
   double *ptr;
   VecGetArray(initial_guess_vec, &ptr);
-  for (int i = 0; i < new_local_particle_num; i++) {
-    for (int j = 0; j < velocity_dof; j++) {
-      initial_guess[i * field_dof + j] = ptr[i * field_dof + j];
-    }
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i <= new_local_particle_num; i++) {
+      for (int j = 0; j < velocity_dof; j++) {
+        initial_guess[i * field_dof + j] = ptr[i * field_dof + j];
+      }
 
-    initial_guess[i * field_dof + velocity_dof] =
-        ptr[i * field_dof + velocity_dof];
+      initial_guess[i * field_dof + velocity_dof] =
+          ptr[i * field_dof + velocity_dof];
+    }
+  } else {
+    for (int i = 0; i < new_local_particle_num; i++) {
+      for (int j = 0; j < velocity_dof; j++) {
+        initial_guess[i * field_dof + j] = ptr[i * field_dof + j];
+      }
+
+      initial_guess[i * field_dof + velocity_dof] =
+          ptr[i * field_dof + velocity_dof];
+    }
   }
   VecRestoreArray(initial_guess_vec, &ptr);
 
   VecDestroy(&initial_guess_vec);
   VecDestroy(&previous_result_vec);
-
-  // set initial value for lagrange multiplier
-  double pressure_sum = 0.0;
-  for (int i = 0; i < new_local_particle_num; i++)
-    pressure_sum += initial_guess[i * field_dof + velocity_dof];
-  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
-
-  int new_global_particle_num;
-  MPI_Allreduce(&new_local_particle_num, &new_global_particle_num, 1, MPI_INT,
-                MPI_SUM, MPI_COMM_WORLD);
-
-  double lagrange_multiplier;
-
-  if (__myID == __MPISize - 1) {
-    initial_guess[new_local_particle_num * field_dof + velocity_dof] =
-        -pressure_sum / new_global_particle_num;
-    lagrange_multiplier = -pressure_sum / new_global_particle_num;
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Bcast(&lagrange_multiplier, 1, MPI_DOUBLE, __MPISize - 1, MPI_COMM_WORLD);
-
-  for (int i = 0; i < new_local_particle_num; i++) {
-    initial_guess[i * field_dof + velocity_dof] -= lagrange_multiplier;
-  }
 
   // set initial value for rigid body dofs
   if (__myID == __MPISize - 1) {
