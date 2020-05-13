@@ -576,7 +576,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   MatGetSubMatrix(__mat, isg_velocity, isg_velocity, MAT_INITIAL_MATRIX, &vv);
   Vec rhs_sub, x_sub;
   VecGetSubVector(_rhs, isg_velocity, &rhs_sub);
-  VecDuplicate(_rhs, &rhs_sub);
+  VecDuplicate(rhs_sub, &x_sub);
   for (int i = 0; i < 1000; i++) {
     MatMult(vv, rhs_sub, x_sub);
   }
