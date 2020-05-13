@@ -14,6 +14,7 @@ struct HypreLUShellPC {
   IS isg0, isg1;
 
   Mat *A;
+  Mat *a;
 
   Mat *A_base;
 
@@ -24,7 +25,7 @@ struct HypreLUShellPC {
   VecScatter ctx_scatter1, ctx_scatter2;
 
   std::vector<PetscSparseMatrix> *interpolation;
-  std::vector<PetscSparseMatrix> *relaxation;
+  std::vector<PetscSparseMatrix> *restriction;
   std::vector<Vec *> level_vec;
 };
 
@@ -36,7 +37,7 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
 PetscErrorCode HypreLUShellPCSetUpAdaptive(
     PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat, IS *isg0, IS *isg1,
     std::vector<PetscSparseMatrix> *interpolation,
-    std::vector<PetscSparseMatrix> *relaxation, Vec x);
+    std::vector<PetscSparseMatrix> *restriction, Vec x);
 
 PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y);
 

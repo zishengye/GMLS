@@ -55,7 +55,7 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   PCSetUp(bjacobi_pc);
 
   KSPGetPC(shell->globalSmoother, &pcGlobalSmoother);
-  PCSetType(pcGlobalSmoother, PCPBJACOBI);
+  PCSetType(pcGlobalSmoother, PCSOR);
   PCSetFromOptions(pcGlobalSmoother);
   PCSetUp(pcGlobalSmoother);
 
@@ -89,14 +89,16 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   return 0;
 }
 
-PetscErrorCode HypreLUShellPCSetUpAdaptive(
-    PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat, IS *isg0, IS *isg1,
-    vector<PetscSparseMatrix> *interpolation,
-    vector<PetscSparseMatrix> *relaxation, Vec x) {
+PetscErrorCode
+HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat,
+                            IS *isg0, IS *isg1,
+                            vector<PetscSparseMatrix> *interpolation,
+                            vector<PetscSparseMatrix> *restriction, Vec x) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
   shell->A = a;
+  shell->a = amat;
 
   KSPCreate(PETSC_COMM_WORLD, &shell->field);
   KSPCreate(PETSC_COMM_WORLD, &shell->nearField);
@@ -114,7 +116,7 @@ PetscErrorCode HypreLUShellPCSetUpAdaptive(
   KSPSetTolerances(shell->globalSmoother, 1e-3, 1e-50, 1e5, 1);
 
   shell->interpolation = interpolation;
-  shell->relaxation = relaxation;
+  shell->restriction = restriction;
 
   PC pcField;
   PC pcNearField;
@@ -138,8 +140,7 @@ PetscErrorCode HypreLUShellPCSetUpAdaptive(
   PCSetUp(bjacobi_pc);
 
   KSPGetPC(shell->globalSmoother, &pcGlobalSmoother);
-  PCSetType(pcGlobalSmoother, PCPBJACOBI);
-  PCSetFromOptions(pcGlobalSmoother);
+  PCSetType(pcGlobalSmoother, PCSOR);
   PCSetUp(pcGlobalSmoother);
 
   KSPSetUp(shell->field);
@@ -250,30 +251,36 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   VecScatterEnd(shell->ctx_scatter1, y, shell->y1, INSERT_VALUES,
                 SCATTER_FORWARD);
 
-  KSPSolve(shell->globalSmoother, shell->x1, *shell->level_vec[0]);
+  // pre-smooth
+  KSPSolve(shell->globalSmoother, shell->x1, shell->y1);
+  MatMult(*shell->a, shell->y1, *shell->level_vec[0]);
+  VecAXPY(*shell->level_vec[0], -1.0, shell->x1);
+
+  // sweep down
   for (int i = 1; i < shell->interpolation->size(); i++) {
-    Mat &R = (*shell->relaxation)[i].__mat;
-    Vec &v1 = *shell->level_vec[i - 1];
-    Vec &v2 = *shell->level_vec[i];
-    MatMult(R, v1, v2);
+    Mat *R = &(*shell->restriction)[i].__mat;
+    Vec *v1 = shell->level_vec[i - 1];
+    Vec *v2 = shell->level_vec[i];
+    MatMult(*R, *v1, *v2);
   }
 
-  Vec &x_base = *shell->level_vec[shell->interpolation->size() - 1];
+  // solve on coarest-level
+  Vec *x_base = shell->level_vec[shell->interpolation->size() - 1];
   Vec y_base;
-  VecDuplicate(x_base, &y_base);
-  KSPSolve(shell->field, x_base, y_base);
-
+  VecDuplicate(*x_base, &y_base);
+  KSPSolve(shell->field, *x_base, y_base);
   VecCopy(y_base, *shell->level_vec[shell->interpolation->size() - 1]);
 
+  // sweep up
   for (int i = shell->interpolation->size() - 1; i > 0; i--) {
-    Mat &I = (*shell->interpolation)[i].__mat;
-    Vec &v1 = *shell->level_vec[i - 1];
-    Vec &v2 = *shell->level_vec[i];
-    MatMult(I, v2, v1);
+    Mat *I = &(*shell->interpolation)[i].__mat;
+    Vec *v1 = shell->level_vec[i - 1];
+    Vec *v2 = shell->level_vec[i];
+    MatMult(*I, *v2, *v1);
   }
-  KSPSolve(shell->globalSmoother, *shell->level_vec[0], shell->y1);
+  VecAXPY(shell->y1, -1.0, *shell->level_vec[0]);
 
-  // KSPSolve(shell->field, shell->x1, shell->y1);
+  // KSPSolve(shell->globalSmoother, shell->x1, shell->y1);
 
   VecScatterBegin(shell->ctx_scatter1, shell->y1, y, INSERT_VALUES,
                   SCATTER_REVERSE);

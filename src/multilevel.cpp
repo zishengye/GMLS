@@ -65,7 +65,8 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   vector<int> new_to_actual_index(coord.size());
   for (int i = 0; i < coord.size(); i++) {
     new_to_actual_index[i] = actual_new_target;
-    if (adaptive_level[i] == __adaptive_step) actual_new_target++;
+    if (adaptive_level[i] == __adaptive_step)
+      actual_new_target++;
   }
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
@@ -161,12 +162,12 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   Kokkos::deep_copy(old_epsilon_device, old_epsilon);
 
   auto new_to_old_pressusre_basis = new GMLS(
-      ScalarTaylorPolynomial, PointSample, 2, dimension, "SVD", "STANDARD");
+      ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
   auto new_to_old_velocity_basis =
       new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 2,
                dimension, "SVD", "STANDARD");
   auto old_to_new_pressusre_basis = new GMLS(
-      ScalarTaylorPolynomial, PointSample, 2, dimension, "SVD", "STANDARD");
+      ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
   auto old_to_new_velocity_basis =
       new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 2,
                dimension, "SVD", "STANDARD");
@@ -279,13 +280,13 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
       for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
            j++) {
-        I.increment(
-            field_dof * i + velocity_dof,
-            field_dof * old_background_index[old_to_new_neighbor_lists(
-                            new_to_actual_index[i], j + 1)] +
-                velocity_dof,
-            old_to_new_pressure_alphas(new_to_actual_index[i],
-                                       pressure_old_to_new_alphas_index, j));
+        I.increment(field_dof * i + velocity_dof,
+                    field_dof * old_background_index[old_to_new_neighbor_lists(
+                                    new_to_actual_index[i], j + 1)] +
+                        velocity_dof,
+                    old_to_new_pressure_alphas(new_to_actual_index[i],
+                                               pressure_old_to_new_alphas_index,
+                                               j));
       }
     } else {
       for (int j = 0; j < field_dof; j++) {
@@ -340,27 +341,29 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
   for (int i = 0; i < old_local_particle_num; i++) {
     // velocity interpolation
-    index.resize(new_to_old_neighbor_lists(i, 0) * velocity_dof);
-    for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
-      for (int k = 0; k < velocity_dof; k++) {
-        index[j * velocity_dof + k] =
-            field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)] +
-            k;
-      }
-    }
+    // index.resize(new_to_old_neighbor_lists(i, 0) * velocity_dof);
+    // for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
+    //   for (int k = 0; k < velocity_dof; k++) {
+    //     index[j * velocity_dof + k] =
+    //         field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)]
+    //         + k;
+    //   }
+    // }
 
-    for (int k = 0; k < velocity_dof; k++) {
-      R.setColIndex(field_dof * i + k, index);
-    }
+    // for (int k = 0; k < velocity_dof; k++) {
+    //   R.setColIndex(field_dof * i + k, index);
+    // }
 
     // pressure interpolation
     index.resize(new_to_old_neighbor_lists(i, 0));
-    for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
-      index[j] =
-          field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)] +
-          velocity_dof;
+    for (int k = 0; k < field_dof; k++) {
+      for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
+        index[j] =
+            field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)] +
+            k;
+      }
+      R.setColIndex(field_dof * i + k, index);
     }
-    R.setColIndex(field_dof * i + velocity_dof, index);
   }
 
   // lagrange multiplier
@@ -383,26 +386,27 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
                                                           axes1, 0, axes2, 0);
 
   for (int i = 0; i < old_local_particle_num; i++) {
-    for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
-      for (int axes1 = 0; axes1 < dimension; axes1++)
-        for (int axes2 = 0; axes2 < dimension; axes2++)
-          R.increment(
-              field_dof * i + axes1,
-              field_dof *
-                      background_index[new_to_old_neighbor_lists(i, j + 1)] +
-                  axes2,
-              new_to_old_velocity_alphas(
-                  i,
-                  velocity_new_to_old_alphas_index[axes1 * dimension + axes2],
-                  j));
-    }
+    // for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
+    //   for (int axes1 = 0; axes1 < dimension; axes1++)
+    //     for (int axes2 = 0; axes2 < dimension; axes2++)
+    //       R.increment(
+    //           field_dof * i + axes1,
+    //           field_dof *
+    //                   background_index[new_to_old_neighbor_lists(i, j + 1)] +
+    //               axes2,
+    //           new_to_old_velocity_alphas(
+    //               i,
+    //               velocity_new_to_old_alphas_index[axes1 * dimension +
+    //               axes2], j));
+    // }
 
     for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
-      R.increment(
-          field_dof * i + velocity_dof,
-          field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)] +
-              velocity_dof,
-          new_to_old_pressure_alphas(i, pressure_new_to_old_alphas_index, j));
+      for (int k = 0; k < field_dof; k++)
+        R.increment(
+            field_dof * i + k,
+            field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)] +
+                k,
+            new_to_old_pressure_alphas(i, pressure_new_to_old_alphas_index, j));
     }
   }
 
@@ -520,6 +524,10 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   if (A_list.size() > 1) {
     VecDuplicate(_x, &x_initial);
     VecCopy(_x, x_initial);
+  }
+
+  if (adaptive_step > 0) {
+    // KSPSetTolerances(_ksp, 1e-5, 1e-50, 1e5, 2);
   }
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
