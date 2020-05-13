@@ -219,7 +219,7 @@ void GMLS_Solver::StokesEquation() {
   Kokkos::deep_copy(backgroundEpsilonKokkosDevice, backgroundEpsilonKokkos);
 
   pointCloudSearch.generateNeighborListsFromKNNSearch(
-      false, targetCoords, neighborLists, epsilon, 10, 1.0);
+      false, targetCoords, neighborLists, epsilon, 10, 1.5);
 
   // pointCloudSearch.generateSymmetricNeighborListsFromRadiusSearch(
   //     false, targetCoords, neighborLists, backgroundEpsilonKokkos, 0.0,
