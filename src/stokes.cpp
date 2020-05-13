@@ -218,12 +218,12 @@ void GMLS_Solver::StokesEquation() {
 
   Kokkos::deep_copy(backgroundEpsilonKokkosDevice, backgroundEpsilonKokkos);
 
-  pointCloudSearch.generateNeighborListsFromKNNSearch(
-      false, targetCoords, neighborLists, epsilon, 10, 1.05);
+  // pointCloudSearch.generateNeighborListsFromKNNSearch(
+  //     false, targetCoords, neighborLists, epsilon, 10, 1.05);
 
-  // pointCloudSearch.generateSymmetricNeighborListsFromRadiusSearch(
-  //     false, targetCoords, neighborLists, backgroundEpsilonKokkos, 0.0,
-  //     maxEpsilon);
+  pointCloudSearch.generateSymmetricNeighborListsFromRadiusSearch(
+      false, targetCoords, neighborLists, backgroundEpsilonKokkos, 0.0,
+      maxEpsilon);
 
   for (int i = 0; i < localParticleNum; i++) {
     if (particleType[i] != 0) {
