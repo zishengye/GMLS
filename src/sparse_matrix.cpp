@@ -565,14 +565,14 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   VecDuplicate(_rhs, &_x);
 
   Mat vv;
-  MatGetSubMatrix(__mat, isg_velocity, isg_velocity, MAT_INITIAL_MATRIX, &vv);
+  MatGetSubMatrix(__mat, isg_field, isg_field, MAT_INITIAL_MATRIX, &vv);
   Vec rhs_sub, x_sub;
-  VecGetSubVector(_rhs, isg_velocity, &rhs_sub);
+  VecGetSubVector(_rhs, isg_field, &rhs_sub);
   VecDuplicate(rhs_sub, &x_sub);
   for (int i = 0; i < 1000; i++) {
     MatMult(vv, rhs_sub, x_sub);
   }
-  VecRestoreSubVector(_rhs, isg_velocity, &rhs_sub);
+  VecRestoreSubVector(_rhs, isg_field, &rhs_sub);
 
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   // KSPSolve(_ksp, _rhs, _x);
