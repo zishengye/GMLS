@@ -968,8 +968,8 @@ void GMLS_Solver::StokesEquation() {
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
   if (numRigidBody == 0) {
-    A.Solve(rhs, res, __dim);
-    // A.Solve(rhs, res);
+    // A.Solve(rhs, res, __dim);
+    A.Solve(rhs, res);
   } else {
     if (__adaptive_step != 0)
       InitialGuessFromPreviousAdaptiveStep(I, res);

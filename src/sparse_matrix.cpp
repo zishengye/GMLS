@@ -439,16 +439,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
     PCSetUp(_pc);
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-    // KSPSolve(_ksp, _rhs, _x);
+    KSPSolve(_ksp, _rhs, _x);
     MPI_Barrier(MPI_COMM_WORLD);
-    double tStart = MPI_Wtime();
-    for (int i = 0; i < 100; i++) {
-      MatMult(__mat, _rhs, _x);
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-    double tEnd = MPI_Wtime();
-    cout << tEnd - tStart << endl;
-    PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
     KSPDestroy(&_ksp);
 
