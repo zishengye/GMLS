@@ -111,8 +111,8 @@ PetscErrorCode HypreLUShellPCSetUpAdaptive(
   KSPSetTolerances(shell->field, 1e-3, 1e-50, 1e5, 1);
   KSPSetType(shell->nearField, KSPPREONLY);
   KSPSetTolerances(shell->nearField, 1e-6, 1e-50, 1e5, 1);
-  KSPSetType(shell->globalSmoother, KSPPREONLY);
-  KSPSetTolerances(shell->globalSmoother, 1e-3, 1e-50, 1e5, 1);
+  KSPSetType(shell->globalSmoother, KSPRICHARDSON);
+  KSPSetTolerances(shell->globalSmoother, 1e-3, 1e-50, 1e5, 3);
 
   shell->interpolation = interpolation;
   shell->restriction = restriction;
@@ -218,13 +218,14 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecScatterEnd(shell->ctx_scatter2, shell->z2, y, ADD_VALUES, SCATTER_REVERSE);
 
   // stage 3
-  MatMultAdd(shell->stage1, y, shell->x1, shell->t1);
+  // MatMultAdd(shell->stage1, y, shell->x1, shell->t1);
 
-  KSPSolve(shell->globalSmoother, shell->t1, shell->z1);
+  // KSPSolve(shell->globalSmoother, shell->t1, shell->z1);
 
-  VecScatterBegin(shell->ctx_scatter1, shell->z1, y, ADD_VALUES,
-                  SCATTER_REVERSE);
-  VecScatterEnd(shell->ctx_scatter1, shell->z1, y, ADD_VALUES, SCATTER_REVERSE);
+  // VecScatterBegin(shell->ctx_scatter1, shell->z1, y, ADD_VALUES,
+  //                 SCATTER_REVERSE);
+  // VecScatterEnd(shell->ctx_scatter1, shell->z1, y, ADD_VALUES,
+  // SCATTER_REVERSE);
 
   return 0;
 }
@@ -279,7 +280,11 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   }
   VecAXPY(shell->y1, -1.0, *shell->level_vec[0]);
 
-  // KSPSolve(shell->globalSmoother, shell->x1, shell->y1);
+  // post-smooth
+  MatMult(*shell->a, shell->y1, *shell->level_vec[0]);
+  VecAXPY(*shell->level_vec[0], -1.0, shell->x1);
+  KSPSolve(shell->globalSmoother, *shell->level_vec[0], shell->t1);
+  VecAXPY(shell->y1, -1.0, shell->t1);
 
   VecScatterBegin(shell->ctx_scatter1, shell->y1, y, INSERT_VALUES,
                   SCATTER_REVERSE);
@@ -296,13 +301,14 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   VecScatterEnd(shell->ctx_scatter2, shell->z2, y, ADD_VALUES, SCATTER_REVERSE);
 
   // stage 3
-  MatMultAdd(shell->stage1, y, shell->x1, shell->t1);
+  // MatMultAdd(shell->stage1, y, shell->x1, shell->t1);
 
-  KSPSolve(shell->globalSmoother, shell->t1, shell->z1);
+  // KSPSolve(shell->globalSmoother, shell->t1, shell->z1);
 
-  VecScatterBegin(shell->ctx_scatter1, shell->z1, y, ADD_VALUES,
-                  SCATTER_REVERSE);
-  VecScatterEnd(shell->ctx_scatter1, shell->z1, y, ADD_VALUES, SCATTER_REVERSE);
+  // VecScatterBegin(shell->ctx_scatter1, shell->z1, y, ADD_VALUES,
+  //                 SCATTER_REVERSE);
+  // VecScatterEnd(shell->ctx_scatter1, shell->z1, y, ADD_VALUES,
+  // SCATTER_REVERSE);
 
   return 0;
 }
