@@ -83,7 +83,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
       Kokkos::create_mirror_view(new_target_coords_device);
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-      old_target_coords_device("old target coordinates", old_coord.size(), 3);
+      old_target_coords_device("old target coordinates", actual_old_target, 3);
   Kokkos::View<double **>::HostMirror old_target_coords =
       Kokkos::create_mirror_view(old_target_coords_device);
 
@@ -104,10 +104,10 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   for (int i = 0; i < old_coord.size(); i++) {
     if (fieldParticleSplitTag[i]) {
       for (int j = 0; j < dimension; j++)
-        old_target_coords(i, j) = old_coord[i][j];
-    }
+        old_target_coords(counter, j) = old_coord[i][j];
 
-    counter++;
+      counter++;
+    }
   }
 
   // copy new target coords
@@ -137,19 +137,21 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
       pow(2, dimension) * pow(2 * 2.5, dimension);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-      new_to_old_neighbor_lists_device("neighbor lists", old_coord.size(),
+      new_to_old_neighbor_lists_device("new to old neighbor lists",
+                                       actual_old_target,
                                        estimatedUpperBoundNumberNeighbors);
   Kokkos::View<int **>::HostMirror new_to_old_neighbor_lists =
       Kokkos::create_mirror_view(new_to_old_neighbor_lists_device);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-      old_to_new_neighbor_lists_device("neighbor lists", actual_new_target,
+      old_to_new_neighbor_lists_device("old to new neighbor lists",
+                                       actual_new_target,
                                        estimatedUpperBoundNumberNeighbors);
   Kokkos::View<int **>::HostMirror old_to_new_neighbor_lists =
       Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
 
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> new_epsilon_device(
-      "h supports", old_coord.size());
+      "h supports", actual_old_target);
   Kokkos::View<double *>::HostMirror new_epsilon =
       Kokkos::create_mirror_view(new_epsilon_device);
 
@@ -368,14 +370,23 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
     // }
 
     // pressure interpolation
-    index.resize(new_to_old_neighbor_lists(i, 0));
-    for (int k = 0; k < field_dof; k++) {
-      for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
-        index[j] =
-            field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)] +
-            k;
+    if (fieldParticleSplitTag[i]) {
+      index.resize(new_to_old_neighbor_lists(i, 0));
+      for (int k = 0; k < field_dof; k++) {
+        for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
+             j++) {
+          index[j] = field_dof * background_index[new_to_old_neighbor_lists(
+                                     old_actual_index[i], j + 1)] +
+                     k;
+        }
+        R.setColIndex(field_dof * i + k, index);
       }
-      R.setColIndex(field_dof * i + k, index);
+    } else {
+      index.resize(1);
+      for (int k = 0; k < field_dof; k++) {
+        index[0] = field_dof * background_index[i] + k;
+        R.setColIndex(field_dof * i + k, index);
+      }
     }
   }
 
@@ -413,13 +424,22 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
     //               axes2], j));
     // }
 
-    for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
-      for (int k = 0; k < field_dof; k++)
-        R.increment(
-            field_dof * i + k,
-            field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)] +
-                k,
-            new_to_old_pressure_alphas(i, pressure_new_to_old_alphas_index, j));
+    if (fieldParticleSplitTag[i]) {
+      for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
+        for (int k = 0; k < field_dof; k++)
+          R.increment(
+              field_dof * i + k,
+              field_dof * background_index[new_to_old_neighbor_lists(
+                              old_actual_index[i], j + 1)] +
+                  k,
+              new_to_old_pressure_alphas(old_actual_index[i],
+                                         pressure_new_to_old_alphas_index, j));
+      }
+    } else {
+      for (int k = 0; k < field_dof; k++) {
+        R.increment(field_dof * i + k, field_dof * background_index[i] + k,
+                    1.0);
+      }
     }
   }
 
