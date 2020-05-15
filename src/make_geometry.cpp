@@ -803,7 +803,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   static vector<int> &particleNum = __field.index.GetHandle("particle number");
   int &localParticleNum = particleNum[0];
 
-  vector<int> fieldParticleSplitTag(localParticleNum);
+  fieldParticleSplitTag.resize(localParticleNum);
 
   for (int i = 0; i < localParticleNum; i++) {
     fieldParticleSplitTag[i] = 0;

@@ -280,6 +280,8 @@ private:
   // adaptive refinement
   void SplitParticle(std::vector<int> &splitTag);
 
+  std::vector<int> fieldParticleSplitTag;
+
   void SplitFieldParticle(std::vector<int> &splitTag);
   void SplitFieldBoundaryParticle(std::vector<int> &splitTag);
   void SplitRigidBodySurfaceParticle(std::vector<int> &splitTag);

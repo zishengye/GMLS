@@ -62,11 +62,20 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
       Kokkos::create_mirror_view(old_source_coords_device);
 
   int actual_new_target = 0;
-  vector<int> new_to_actual_index(coord.size());
+  vector<int> new_actual_index(coord.size());
   for (int i = 0; i < coord.size(); i++) {
-    new_to_actual_index[i] = actual_new_target;
+    new_actual_index[i] = actual_new_target;
     if (adaptive_level[i] == __adaptive_step)
       actual_new_target++;
+  }
+
+  int actual_old_target = 0;
+  vector<int> old_actual_index(old_coord.size());
+  for (int i = 0;i < old_coord.size(); i++) {
+    old_actual_index[i] = actual_old_target;
+    if (fieldParticleSplitTag[i]) {
+      actual_old_target++;
+    }
   }
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
@@ -92,13 +101,13 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   }
 
   // copy old target coords
+  int counter = 0;
   for (int i = 0; i < old_coord.size(); i++) {
-    for (int j = 0; j < dimension; j++)
-      old_target_coords(i, j) = old_coord[i][j];
+    if (fieldParticleSplitTag[i]){for (int j = 0; j < dimension; j++)
+      old_target_coords(i, j) = old_coord[i][j];}
   }
 
   // copy new target coords
-  int counter = 0;
   for (int i = 0; i < coord.size(); i++) {
     if (adaptive_level[i] == __adaptive_step) {
       for (int j = 0; j < dimension; j++) {
@@ -207,14 +216,14 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   for (int i = 0; i < new_local_particle_num; i++) {
     if (adaptive_level[i] == __adaptive_step) {
       // velocity interpolation
-      index.resize(old_to_new_neighbor_lists(new_to_actual_index[i], 0) *
+      index.resize(old_to_new_neighbor_lists(new_actual_index[i], 0) *
                    velocity_dof);
-      for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
+      for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
            j++) {
         for (int k = 0; k < velocity_dof; k++) {
           index[j * velocity_dof + k] =
               field_dof * old_background_index[old_to_new_neighbor_lists(
-                              new_to_actual_index[i], j + 1)] +
+                              new_actual_index[i], j + 1)] +
               k;
         }
       }
@@ -224,11 +233,11 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
       }
 
       // pressure interpolation
-      index.resize(old_to_new_neighbor_lists(new_to_actual_index[i], 0));
-      for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
+      index.resize(old_to_new_neighbor_lists(new_actual_index[i], 0));
+      for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
            j++) {
         index[j] = field_dof * old_background_index[old_to_new_neighbor_lists(
-                                   new_to_actual_index[i], j + 1)] +
+                                   new_actual_index[i], j + 1)] +
                    velocity_dof;
       }
       I.setColIndex(field_dof * i + velocity_dof, index);
@@ -263,28 +272,28 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
   for (int i = 0; i < new_local_particle_num; i++) {
     if (adaptive_level[i] == __adaptive_step) {
-      for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
+      for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
            j++) {
         for (int axes1 = 0; axes1 < dimension; axes1++)
           for (int axes2 = 0; axes2 < dimension; axes2++)
             I.increment(
                 field_dof * i + axes1,
                 field_dof * old_background_index[old_to_new_neighbor_lists(
-                                new_to_actual_index[i], j + 1)] +
+                                new_actual_index[i], j + 1)] +
                     axes2,
                 old_to_new_velocity_alphas(
-                    new_to_actual_index[i],
+                    new_actual_index[i],
                     velocity_old_to_new_alphas_index[axes1 * dimension + axes2],
                     j));
       }
 
-      for (int j = 0; j < old_to_new_neighbor_lists(new_to_actual_index[i], 0);
+      for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
            j++) {
         I.increment(field_dof * i + velocity_dof,
                     field_dof * old_background_index[old_to_new_neighbor_lists(
-                                    new_to_actual_index[i], j + 1)] +
+                                    new_actual_index[i], j + 1)] +
                         velocity_dof,
-                    old_to_new_pressure_alphas(new_to_actual_index[i],
+                    old_to_new_pressure_alphas(new_actual_index[i],
                                                pressure_old_to_new_alphas_index,
                                                j));
       }
@@ -525,6 +534,41 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     VecDuplicate(_x, &x_initial);
     VecCopy(_x, x_initial);
   }
+
+  // if (adaptive_step > 0) {
+  //   KSP smoother_ksp;
+  //   KSPCreate(PETSC_COMM_WORLD, &smoother_ksp);
+  //   KSPSetOperators(smoother_ksp, ff, ff);
+  //   KSPSetType(smoother_ksp, KSPPREONLY);
+
+  //   PC smoother_pc;
+  //   KSPGetPC(smoother_ksp, &smoother_pc);
+  //   PCSetType(smoother_pc, PCJACOBI);
+  //   PCSetFromOptions(smoother_pc);
+
+  //   PCSetUp(smoother_pc);
+  //   KSPSetUp(smoother_ksp);
+
+  //   Vec r, delta_x;
+  //   VecDuplicate(_x, &r);
+  //   VecDuplicate(_x, &delta_x);
+  //   MatMult(mat, _x, r);
+  //   VecAXPY(r, -1.0, _rhs);
+
+  //   // KSPSolve(smoother_ksp, r, delta_x);
+  //   // VecAXPY(_x, -1.0, delta_x);
+
+  //   // KSPSetInitialGuessNonzero(smoother_ksp, PETSC_TRUE);
+
+  //   Vec r_f, x_f, delta_x_f;
+  //   VecGetSubVector(r, isg_field_lag, &r_f);
+  //   VecGetSubVector(_x, isg_field_lag, &x_f);
+  //   VecDuplicate(x_f, &delta_x_f);
+  //   KSPSolve(smoother_ksp, r_f, delta_x_f);
+  //   VecAXPY(x_f, -1.0, delta_x_f);
+  //   VecRestoreSubVector(_rhs, isg_field_lag, &r_f);
+  //   VecRestoreSubVector(_x, isg_field_lag, &x_f);
+  // }
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
 
