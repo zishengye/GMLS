@@ -321,7 +321,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   new_to_old_pressusre_basis->setDimensionOfQuadraturePoints(1);
   new_to_old_pressusre_basis->setQuadratureType("LINE");
 
-  new_to_old_pressusre_basis->generateAlphas(20);
+  new_to_old_pressusre_basis->generateAlphas(1);
 
   auto new_to_old_pressure_alphas = new_to_old_pressusre_basis->getAlphas();
 
@@ -332,7 +332,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
   new_to_old_velocity_basis->addTargets(VectorPointEvaluation);
 
-  new_to_old_velocity_basis->generateAlphas(20);
+  new_to_old_velocity_basis->generateAlphas(1);
 
   auto new_to_old_velocity_alphas = new_to_old_velocity_basis->getAlphas();
 
@@ -524,10 +524,6 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   if (A_list.size() > 1) {
     VecDuplicate(_x, &x_initial);
     VecCopy(_x, x_initial);
-  }
-
-  if (adaptive_step > 0) {
-    // KSPSetTolerances(_ksp, 1e-5, 1e-50, 1e5, 2);
   }
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
