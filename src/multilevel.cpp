@@ -65,13 +65,12 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   vector<int> new_actual_index(coord.size());
   for (int i = 0; i < coord.size(); i++) {
     new_actual_index[i] = actual_new_target;
-    if (adaptive_level[i] == __adaptive_step)
-      actual_new_target++;
+    if (adaptive_level[i] == __adaptive_step) actual_new_target++;
   }
 
   int actual_old_target = 0;
   vector<int> old_actual_index(old_coord.size());
-  for (int i = 0;i < old_coord.size(); i++) {
+  for (int i = 0; i < old_coord.size(); i++) {
     old_actual_index[i] = actual_old_target;
     if (fieldParticleSplitTag[i]) {
       actual_old_target++;
@@ -103,11 +102,16 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   // copy old target coords
   int counter = 0;
   for (int i = 0; i < old_coord.size(); i++) {
-    if (fieldParticleSplitTag[i]){for (int j = 0; j < dimension; j++)
-      old_target_coords(i, j) = old_coord[i][j];}
+    if (fieldParticleSplitTag[i]) {
+      for (int j = 0; j < dimension; j++)
+        old_target_coords(i, j) = old_coord[i][j];
+    }
+
+    counter++;
   }
 
   // copy new target coords
+  counter = 0;
   for (int i = 0; i < coord.size(); i++) {
     if (adaptive_level[i] == __adaptive_step) {
       for (int j = 0; j < dimension; j++) {
@@ -289,13 +293,13 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
       for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
            j++) {
-        I.increment(field_dof * i + velocity_dof,
-                    field_dof * old_background_index[old_to_new_neighbor_lists(
-                                    new_actual_index[i], j + 1)] +
-                        velocity_dof,
-                    old_to_new_pressure_alphas(new_actual_index[i],
-                                               pressure_old_to_new_alphas_index,
-                                               j));
+        I.increment(
+            field_dof * i + velocity_dof,
+            field_dof * old_background_index[old_to_new_neighbor_lists(
+                            new_actual_index[i], j + 1)] +
+                velocity_dof,
+            old_to_new_pressure_alphas(new_actual_index[i],
+                                       pressure_old_to_new_alphas_index, j));
       }
     } else {
       for (int j = 0; j < field_dof; j++) {
