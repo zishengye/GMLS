@@ -451,7 +451,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
     }
   }
 
-  PetscPrintf(MPI_COMM_WORLD, "start of relaxation matrix assembly\n");
+  PetscPrintf(MPI_COMM_WORLD, "start of restriction matrix assembly\n");
   R.FinalAssemble();
 }
 
