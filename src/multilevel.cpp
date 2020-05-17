@@ -16,12 +16,16 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   static auto &adaptive_level = __field.index.GetHandle("adaptive level");
   static auto &background_coord = __background.vector.GetHandle("source coord");
   static auto &background_index = __background.index.GetHandle("source index");
+  static auto &particleType = __field.index.GetHandle("particle type");
 
   static auto &old_coord = __field.vector.GetHandle("old coord");
   static auto &old_background_coord =
       __background.vector.GetHandle("old source coord");
   static auto &old_background_index =
       __background.index.GetHandle("old source index");
+
+  vector<int> recvParticleType;
+  DataSwapAmongNeighbor(particleType, recvParticleType);
 
   int field_dof = dimension + 1;
   int velocity_dof = dimension;
@@ -200,7 +204,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   old_to_new_pressusre_basis->setDimensionOfQuadraturePoints(1);
   old_to_new_pressusre_basis->setQuadratureType("LINE");
 
-  old_to_new_pressusre_basis->generateAlphas(20);
+  old_to_new_pressusre_basis->generateAlphas(1);
 
   auto old_to_new_pressure_alphas = old_to_new_pressusre_basis->getAlphas();
 
@@ -211,7 +215,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
   old_to_new_velocity_basis->addTargets(VectorPointEvaluation);
 
-  old_to_new_velocity_basis->generateAlphas(20);
+  old_to_new_velocity_basis->generateAlphas(1);
 
   auto old_to_new_velocity_alphas = old_to_new_velocity_basis->getAlphas();
 
@@ -319,7 +323,6 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
     }
   }
 
-  PetscPrintf(MPI_COMM_WORLD, "start of interpolation matrix assembly\n");
   I.FinalAssemble();
 
   // new to old relaxation matrix
@@ -451,12 +454,14 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
     }
   }
 
-  PetscPrintf(MPI_COMM_WORLD, "start of restriction matrix assembly\n");
   R.FinalAssemble();
 }
 
 void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
                        std::vector<int> &idx_neighbor) {
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "\nstart of linear system solving setup\n");
+
   int adaptive_step = A_list.size() - 1;
 
   int fieldDof = dimension + 1;
@@ -544,6 +549,9 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
     HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field_lag, &isg_neighbor, _x);
   } else {
+    MPI_Barrier(MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "start of multilevel preconditioner setup\n");
+
     PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
@@ -558,41 +566,6 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     VecDuplicate(_x, &x_initial);
     VecCopy(_x, x_initial);
   }
-
-  // if (adaptive_step > 0) {
-  //   KSP smoother_ksp;
-  //   KSPCreate(PETSC_COMM_WORLD, &smoother_ksp);
-  //   KSPSetOperators(smoother_ksp, ff, ff);
-  //   KSPSetType(smoother_ksp, KSPPREONLY);
-
-  //   PC smoother_pc;
-  //   KSPGetPC(smoother_ksp, &smoother_pc);
-  //   PCSetType(smoother_pc, PCJACOBI);
-  //   PCSetFromOptions(smoother_pc);
-
-  //   PCSetUp(smoother_pc);
-  //   KSPSetUp(smoother_ksp);
-
-  //   Vec r, delta_x;
-  //   VecDuplicate(_x, &r);
-  //   VecDuplicate(_x, &delta_x);
-  //   MatMult(mat, _x, r);
-  //   VecAXPY(r, -1.0, _rhs);
-
-  //   // KSPSolve(smoother_ksp, r, delta_x);
-  //   // VecAXPY(_x, -1.0, delta_x);
-
-  //   // KSPSetInitialGuessNonzero(smoother_ksp, PETSC_TRUE);
-
-  //   Vec r_f, x_f, delta_x_f;
-  //   VecGetSubVector(r, isg_field_lag, &r_f);
-  //   VecGetSubVector(_x, isg_field_lag, &x_f);
-  //   VecDuplicate(x_f, &delta_x_f);
-  //   KSPSolve(smoother_ksp, r_f, delta_x_f);
-  //   VecAXPY(x_f, -1.0, delta_x_f);
-  //   VecRestoreSubVector(_rhs, isg_field_lag, &r_f);
-  //   VecRestoreSubVector(_x, isg_field_lag, &x_f);
-  // }
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
 
