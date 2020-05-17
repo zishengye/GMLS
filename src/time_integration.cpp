@@ -18,6 +18,7 @@ void GMLS_Solver::TimeIntegration() {
 
     if (__adaptiveRefinement) {
       __field.vector.Register("old coord");
+      __field.index.Register("old particle type");
       __background.vector.Register("old source coord");
       __background.index.Register("old source index");
     }

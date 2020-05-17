@@ -1142,11 +1142,13 @@ void GMLS_Solver::StokesEquation() {
 
   if (__adaptiveRefinement) {
     static auto &old_coord = __field.vector.GetHandle("old coord");
+    static auto &old_particle_type = __field.index.GetHandle("old particle type");
     static auto &old_background_coord =
         __background.vector.GetHandle("old source coord");
     static auto &old_background_index =
         __background.index.GetHandle("old source index");
     old_coord = coord;
+    old_particle_type = particleType;
     old_background_coord = backgroundSourceCoord;
     old_background_index = backgroundSourceIndex;
   }

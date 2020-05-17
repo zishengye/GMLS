@@ -19,6 +19,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   static auto &particleType = __field.index.GetHandle("particle type");
 
   static auto &old_coord = __field.vector.GetHandle("old coord");
+  static auto &old_particle_type = __field.index.GetHandle("old particle type");
   static auto &old_background_coord =
       __background.vector.GetHandle("old source coord");
   static auto &old_background_index =
@@ -69,7 +70,8 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
   vector<int> new_actual_index(coord.size());
   for (int i = 0; i < coord.size(); i++) {
     new_actual_index[i] = actual_new_target;
-    if (adaptive_level[i] == __adaptive_step) actual_new_target++;
+    if (adaptive_level[i] == __adaptive_step)
+      actual_new_target++;
   }
 
   int actual_old_target = 0;
@@ -299,13 +301,13 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
       for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
            j++) {
-        I.increment(
-            field_dof * i + velocity_dof,
-            field_dof * old_background_index[old_to_new_neighbor_lists(
-                            new_actual_index[i], j + 1)] +
-                velocity_dof,
-            old_to_new_pressure_alphas(new_actual_index[i],
-                                       pressure_old_to_new_alphas_index, j));
+        I.increment(field_dof * i + velocity_dof,
+                    field_dof * old_background_index[old_to_new_neighbor_lists(
+                                    new_actual_index[i], j + 1)] +
+                        velocity_dof,
+                    old_to_new_pressure_alphas(new_actual_index[i],
+                                               pressure_old_to_new_alphas_index,
+                                               j));
       }
     } else {
       for (int j = 0; j < field_dof; j++) {
@@ -374,7 +376,7 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
 
     // pressure interpolation
     if (fieldParticleSplitTag[i]) {
-      index.resize(new_to_old_neighbor_lists(i, 0));
+      index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
       for (int k = 0; k < field_dof; k++) {
         for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
              j++) {
@@ -428,7 +430,8 @@ void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
     // }
 
     if (fieldParticleSplitTag[i]) {
-      for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
+      for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
+           j++) {
         for (int k = 0; k < field_dof; k++)
           R.increment(
               field_dof * i + k,
