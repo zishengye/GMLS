@@ -170,15 +170,25 @@ HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat,
 
   ISDestroy(&isg_col);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "flag\n");
-
+  shell->level_vec.clear();
   shell->level_vec.push_back(new Vec);
   VecDuplicate(shell->x1, shell->level_vec[0]);
   for (int i = interpolation->size() - 1; i > 0; i--) {
     shell->level_vec.push_back(new Vec);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "flag\n");
+    PetscInt row, col;
+    MatGetSize((*interpolation)[i].__mat, &row, &col);
+    PetscPrintf(PETSC_COMM_WORLD, "row: %d, col: %d\n", row, col);
+    PetscPrintf(PETSC_COMM_WORLD,
+                "level_vec size: %d, interpolation size = %d\n",
+                shell->level_vec.size(), interpolation->size());
     MatCreateVecs((*interpolation)[i].__mat,
-                  shell->level_vec[interpolation->size() - i], NULL);
+                  shell->level_vec[shell->level_vec.size() - 1], NULL);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "flag\n");
   }
 
   return 0;

@@ -78,7 +78,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   vector<int> old_actual_index(old_coord.size());
   for (int i = 0; i < old_coord.size(); i++) {
     old_actual_index[i] = actual_old_target;
-    if (fieldParticleSplitTag[i] && old_particle_type[i] == 0) {
+    if (fieldParticleSplitTag[i]) {
       actual_old_target++;
     }
   }
@@ -108,7 +108,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // copy old target coords
   int counter = 0;
   for (int i = 0; i < old_coord.size(); i++) {
-    if (fieldParticleSplitTag[i] && old_particle_type[i] == 0) {
+    if (fieldParticleSplitTag[i]) {
       for (int j = 0; j < dimension; j++)
         old_target_coords(counter, j) = old_coord[i][j];
 
@@ -375,16 +375,27 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     // }
 
     // pressure interpolation
-    if (fieldParticleSplitTag[i] && old_particle_type[i] == 0) {
-      index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
-      for (int k = 0; k < field_dof; k++) {
+    if (fieldParticleSplitTag[i]) {
+      if (old_particle_type[i] == 0) {
+        index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
+        for (int k = 0; k < field_dof; k++) {
+          for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
+               j++) {
+            index[j] = field_dof * background_index[new_to_old_neighbor_lists(
+                                       old_actual_index[i], j + 1)] +
+                       k;
+          }
+          R.setColIndex(field_dof * i + k, index);
+        }
+      } else {
+        index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
         for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
              j++) {
           index[j] = field_dof * background_index[new_to_old_neighbor_lists(
                                      old_actual_index[i], j + 1)] +
-                     k;
+                     velocity_dof;
         }
-        R.setColIndex(field_dof * i + k, index);
+        R.setColIndex(field_dof * i + velocity_dof, index);
       }
     } else {
       index.resize(1);
@@ -429,17 +440,30 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     //               axes2], j));
     // }
 
-    if (fieldParticleSplitTag[i] && old_particle_type[i] == 0) {
-      for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
-           j++) {
-        for (int k = 0; k < field_dof; k++)
+    if (fieldParticleSplitTag[i]) {
+      if (old_particle_type[i] == 0) {
+        for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
+             j++) {
+          for (int k = 0; k < field_dof; k++)
+            R.increment(
+                field_dof * i + k,
+                field_dof * background_index[new_to_old_neighbor_lists(
+                                old_actual_index[i], j + 1)] +
+                    k,
+                new_to_old_pressure_alphas(
+                    old_actual_index[i], pressure_new_to_old_alphas_index, j));
+        }
+      } else {
+        for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
+             j++) {
           R.increment(
-              field_dof * i + k,
+              field_dof * i + velocity_dof,
               field_dof * background_index[new_to_old_neighbor_lists(
                               old_actual_index[i], j + 1)] +
-                  k,
+                  velocity_dof,
               new_to_old_pressure_alphas(old_actual_index[i],
                                          pressure_new_to_old_alphas_index, j));
+        }
       }
     } else {
       for (int k = 0; k < field_dof; k++) {
@@ -507,7 +531,8 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
     idx_global = idx_field;
 
-    // idx_field.push_back(localN1 + fieldDof * localParticleNum + velocityDof);
+    // idx_field.push_back(localN1 + fieldDof * localParticleNum +
+    // velocityDof);
   }
 
   IS &isg_field_lag = *isg_field_lag_list[adaptive_step];
