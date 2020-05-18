@@ -2,7 +2,8 @@
 
 using namespace std;
 
-PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell) {
+PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell)
+{
   HypreLUShellPC *newctx;
 
   PetscNew(&newctx);
@@ -12,7 +13,8 @@ PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell) {
 }
 
 PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
-                                   IS *isg0, IS *isg1, Vec x) {
+                                   IS *isg0, IS *isg1, Vec x)
+{
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -92,8 +94,9 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
 PetscErrorCode
 HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat,
                             IS *isg0, IS *isg1,
-                            vector<PetscSparseMatrix> *interpolation,
-                            vector<PetscSparseMatrix> *restriction, Vec x) {
+                            vector<PetscSparseMatrix *> *interpolation,
+                            vector<PetscSparseMatrix *> *restriction, Vec x)
+{
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -173,18 +176,19 @@ HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat,
   shell->level_vec.clear();
   shell->level_vec.push_back(new Vec);
   VecDuplicate(shell->x1, shell->level_vec[0]);
-  for (int i = interpolation->size() - 1; i > 0; i--) {
+  for (int i = interpolation->size() - 1; i > 0; i--)
+  {
     shell->level_vec.push_back(new Vec);
 
     MPI_Barrier(MPI_COMM_WORLD);
     PetscPrintf(PETSC_COMM_WORLD, "flag\n");
     PetscInt row, col;
-    MatGetSize((*interpolation)[i].__mat, &row, &col);
+    MatGetSize((*interpolation)[i]->__mat, &row, &col);
     PetscPrintf(PETSC_COMM_WORLD, "row: %d, col: %d\n", row, col);
     PetscPrintf(PETSC_COMM_WORLD,
                 "level_vec size: %d, interpolation size = %d\n",
                 shell->level_vec.size(), interpolation->size());
-    MatCreateVecs((*interpolation)[i].__mat,
+    MatCreateVecs((*interpolation)[i]->__mat,
                   shell->level_vec[shell->level_vec.size() - 1], NULL);
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -194,7 +198,8 @@ HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat,
   return 0;
 }
 
-PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
+PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y)
+{
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -244,7 +249,8 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   return 0;
 }
 
-PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
+PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y)
+{
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -271,8 +277,9 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   VecAXPY(*shell->level_vec[0], -1.0, shell->x1);
 
   // sweep down
-  for (int i = 1; i < shell->interpolation->size(); i++) {
-    Mat *R = &(*shell->restriction)[i].__mat;
+  for (int i = 1; i < shell->interpolation->size(); i++)
+  {
+    Mat *R = &(*shell->restriction)[i]->__mat;
     Vec *v1 = shell->level_vec[i - 1];
     Vec *v2 = shell->level_vec[i];
     MatMult(*R, *v1, *v2);
@@ -286,8 +293,9 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   VecCopy(y_base, *shell->level_vec[shell->interpolation->size() - 1]);
 
   // sweep up
-  for (int i = shell->interpolation->size() - 1; i > 0; i--) {
-    Mat *I = &(*shell->interpolation)[i].__mat;
+  for (int i = shell->interpolation->size() - 1; i > 0; i--)
+  {
+    Mat *I = &(*shell->interpolation)[i]->__mat;
     Vec *v1 = shell->level_vec[i - 1];
     Vec *v2 = shell->level_vec[i];
     MatMult(*I, *v2, *v1);
@@ -327,7 +335,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   return 0;
 }
 
-PetscErrorCode HypreLUShellPCDestroy(PC pc) {
+PetscErrorCode HypreLUShellPCDestroy(PC pc)
+{
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 

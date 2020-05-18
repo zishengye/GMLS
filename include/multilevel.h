@@ -5,15 +5,16 @@
 
 #include "sparse_matrix.h"
 
-class multilevel {
+class multilevel
+{
 private:
-  std::vector<PetscSparseMatrix> A_list; // coefficient matrix list
-  std::vector<PetscSparseMatrix> I_list; // interpolation matrix list
-  std::vector<PetscSparseMatrix> R_list; // restriction matrix list
+  std::vector<PetscSparseMatrix *> A_list; // coefficient matrix list
+  std::vector<PetscSparseMatrix *> I_list; // interpolation matrix list
+  std::vector<PetscSparseMatrix *> R_list; // restriction matrix list
   std::vector<Mat *>
       ff_lag_list; // field with lagrange multiplier sub-matrix list
   std::vector<Mat *>
-      ff_list; // field without lagrange multiplier sub-matrix list
+      ff_list;                                // field without lagrange multiplier sub-matrix list
   std::vector<Mat *> nn_list;                 // nearfield sub-matrix list
   std::vector<KSP *> ksp_list;                // main ksp list
   std::vector<KSP *> field_smoother_ksp_list; // field value smoother ksp list
@@ -34,7 +35,8 @@ public:
 
   ~multilevel() {}
 
-  void init(int _dimension) {
+  void init(int _dimension)
+  {
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
@@ -43,22 +45,25 @@ public:
 
   inline void set_dimension(int _dimension) { dimension = _dimension; }
 
-  inline void set_num_rigid_body(int _num_rigid_body) {
+  inline void set_num_rigid_body(int _num_rigid_body)
+  {
     num_rigid_body = _num_rigid_body;
   }
 
-  PetscSparseMatrix &getA(int num_level) { return A_list[num_level]; }
-  PetscSparseMatrix &getI(int num_level) { return I_list[num_level]; }
-  PetscSparseMatrix &getR(int num_level) { return R_list[num_level]; }
+  PetscSparseMatrix &getA(int num_level) { return *A_list[num_level]; }
+  PetscSparseMatrix &getI(int num_level) { return *I_list[num_level]; }
+  PetscSparseMatrix &getR(int num_level) { return *R_list[num_level]; }
   KSP &getKsp(int num_level) { return *ksp_list[num_level]; }
-  KSP &getSmootherKsp(int num_level) {
+  KSP &getSmootherKsp(int num_level)
+  {
     return *field_smoother_ksp_list[num_level];
   }
 
-  void add_new_level() {
-    A_list.push_back(std::move(PetscSparseMatrix()));
-    I_list.push_back(std::move(PetscSparseMatrix()));
-    R_list.push_back(std::move(PetscSparseMatrix()));
+  void add_new_level()
+  {
+    A_list.push_back(new PetscSparseMatrix());
+    I_list.push_back(new PetscSparseMatrix());
+    R_list.push_back(new PetscSparseMatrix());
 
     ksp_list.push_back(new KSP);
     field_smoother_ksp_list.push_back(new KSP);
@@ -72,13 +77,15 @@ public:
     nn_list.push_back(new Mat);
   }
 
-  void clear() {
+  void clear()
+  {
     MPI_Barrier(MPI_COMM_WORLD);
     A_list.clear();
     I_list.clear();
     R_list.clear();
 
-    for (int i = 1; i < ksp_list.size(); i++) {
+    for (int i = 1; i < ksp_list.size(); i++)
+    {
       KSPDestroy(ksp_list[i]);
     }
 
