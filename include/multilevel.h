@@ -9,7 +9,7 @@ class multilevel {
 private:
   std::vector<PetscSparseMatrix> A_list; // coefficient matrix list
   std::vector<PetscSparseMatrix> I_list; // interpolation matrix list
-  std::vector<PetscSparseMatrix> R_list; // relaxation matrix list
+  std::vector<PetscSparseMatrix> R_list; // restriction matrix list
   std::vector<Mat *>
       ff_lag_list; // field with lagrange multiplier sub-matrix list
   std::vector<Mat *>
