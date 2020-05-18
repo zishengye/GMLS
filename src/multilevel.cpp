@@ -8,10 +8,10 @@
 using namespace std;
 using namespace Compadre;
 
-void GMLS_Solver::BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
-                                                          PetscSparseMatrix &R,
-                                                          int num_rigid_body,
-                                                          int dimension) {
+void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
+                                                           PetscSparseMatrix &R,
+                                                           int num_rigid_body,
+                                                           int dimension) {
   static auto &coord = __field.vector.GetHandle("coord");
   static auto &adaptive_level = __field.index.GetHandle("adaptive level");
   static auto &background_coord = __background.vector.GetHandle("source coord");

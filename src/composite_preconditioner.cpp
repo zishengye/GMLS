@@ -89,10 +89,11 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   return 0;
 }
 
-PetscErrorCode HypreLUShellPCSetUpAdaptive(
-    PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat, IS *isg0, IS *isg1,
-    vector<PetscSparseMatrix> *interpolation,
-    vector<PetscSparseMatrix> *restriction, Vec x) {
+PetscErrorCode
+HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat,
+                            IS *isg0, IS *isg1,
+                            vector<PetscSparseMatrix> *interpolation,
+                            vector<PetscSparseMatrix> *restriction, Vec x) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -168,6 +169,9 @@ PetscErrorCode HypreLUShellPCSetUpAdaptive(
   MatScale(shell->stage2, -1.0);
 
   ISDestroy(&isg_col);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "flag\n");
 
   shell->level_vec.push_back(new Vec);
   VecDuplicate(shell->x1, shell->level_vec[0]);

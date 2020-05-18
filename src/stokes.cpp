@@ -837,7 +837,7 @@ void GMLS_Solver::StokesEquation() {
   if (numRigidBody != 0 && __adaptive_step != 0) {
     tStart = MPI_Wtime();
 
-    BuildInterpolationAndRelaxationMatrices(I, R, numRigidBody, __dim);
+    BuildInterpolationAndRestrictionMatrices(I, R, numRigidBody, __dim);
 
     tEnd = MPI_Wtime();
     PetscPrintf(PETSC_COMM_WORLD,
@@ -1142,7 +1142,8 @@ void GMLS_Solver::StokesEquation() {
 
   if (__adaptiveRefinement) {
     static auto &old_coord = __field.vector.GetHandle("old coord");
-    static auto &old_particle_type = __field.index.GetHandle("old particle type");
+    static auto &old_particle_type =
+        __field.index.GetHandle("old particle type");
     static auto &old_background_coord =
         __background.vector.GetHandle("old source coord");
     static auto &old_background_index =

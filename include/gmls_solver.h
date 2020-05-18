@@ -302,10 +302,10 @@ private:
   void NavierStokesEquation();
 
   // equation multigrid solving
-  void BuildInterpolationAndRelaxationMatrices(PetscSparseMatrix &I,
-                                               PetscSparseMatrix &R,
-                                               int num_rigid_body,
-                                               int dimension);
+  void BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
+                                                PetscSparseMatrix &R,
+                                                int num_rigid_body,
+                                                int dimension);
   void InitialGuessFromPreviousAdaptiveStep(PetscSparseMatrix &I,
                                             std::vector<double> &initial_guess);
 
