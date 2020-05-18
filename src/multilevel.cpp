@@ -667,6 +667,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
+  // if (adaptive_step < 2)
   KSPSolve(_ksp, _rhs, _x);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 

@@ -174,25 +174,18 @@ HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat,
   ISDestroy(&isg_col);
 
   shell->level_vec.clear();
-  shell->level_vec.push_back(new Vec);
-  VecDuplicate(shell->x1, shell->level_vec[0]);
-  for (int i = interpolation->size() - 1; i > 0; i--)
+  for (int i = 0; i < interpolation->size(); i++)
   {
     shell->level_vec.push_back(new Vec);
+  }
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD, "flag\n");
-    PetscInt row, col;
-    MatGetSize((*interpolation)[i]->__mat, &row, &col);
-    PetscPrintf(PETSC_COMM_WORLD, "row: %d, col: %d\n", row, col);
-    PetscPrintf(PETSC_COMM_WORLD,
-                "level_vec size: %d, interpolation size = %d\n",
-                shell->level_vec.size(), interpolation->size());
+  VecDuplicate(shell->x1, shell->level_vec[0]);
+  int counter = 1;
+  for (int i = interpolation->size() - 1; i > 0; i--)
+  {
     MatCreateVecs((*interpolation)[i]->__mat,
-                  shell->level_vec[shell->level_vec.size() - 1], NULL);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD, "flag\n");
+                  shell->level_vec[counter], NULL);
+    counter++;
   }
 
   return 0;
@@ -277,12 +270,15 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y)
   VecAXPY(*shell->level_vec[0], -1.0, shell->x1);
 
   // sweep down
-  for (int i = 1; i < shell->interpolation->size(); i++)
+  int counter = 1;
+  for (int i = shell->interpolation->size() - 1; i > 0; i--)
   {
     Mat *R = &(*shell->restriction)[i]->__mat;
-    Vec *v1 = shell->level_vec[i - 1];
-    Vec *v2 = shell->level_vec[i];
+    Vec *v1 = shell->level_vec[counter - 1];
+    Vec *v2 = shell->level_vec[counter];
     MatMult(*R, *v1, *v2);
+
+    counter++;
   }
 
   // solve on coarest-level
@@ -293,12 +289,14 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y)
   VecCopy(y_base, *shell->level_vec[shell->interpolation->size() - 1]);
 
   // sweep up
-  for (int i = shell->interpolation->size() - 1; i > 0; i--)
+  counter = shell->interpolation->size() - 1;
+  for (int i = 1; i < shell->interpolation->size(); i++)
   {
     Mat *I = &(*shell->interpolation)[i]->__mat;
-    Vec *v1 = shell->level_vec[i - 1];
-    Vec *v2 = shell->level_vec[i];
+    Vec *v1 = shell->level_vec[counter - 1];
+    Vec *v2 = shell->level_vec[counter];
     MatMult(*I, *v2, *v1);
+    counter--;
   }
   VecAXPY(shell->y1, -1.0, *shell->level_vec[0]);
 
