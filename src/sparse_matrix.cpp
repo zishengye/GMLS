@@ -6,12 +6,15 @@
 
 using namespace std;
 
-int PetscSparseMatrix::Write(string fileName) {
+int PetscSparseMatrix::Write(string fileName)
+{
   ofstream output(fileName, ios::trunc);
 
-  for (int i = 0; i < __row; i++) {
+  for (int i = 0; i < __row; i++)
+  {
     for (vector<entry>::iterator it = __matrix[i].begin();
-         it != __matrix[i].end(); it++) {
+         it != __matrix[i].end(); it++)
+    {
       output << (i + 1) << '\t' << (it->first + 1) << '\t' << it->second
              << endl;
     }
@@ -20,13 +23,15 @@ int PetscSparseMatrix::Write(string fileName) {
   output.close();
 }
 
-int PetscSparseMatrix::FinalAssemble() {
+int PetscSparseMatrix::FinalAssemble()
+{
   // move data from outProcessIncrement
   int myid, MPIsize;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
-  for (PetscInt row = 0; row < __out_process_row; row++) {
+  for (PetscInt row = 0; row < __out_process_row; row++)
+  {
     int send_count = __out_process_matrix[row].size();
     vector<int> recv_count(MPIsize);
 
@@ -34,9 +39,11 @@ int PetscSparseMatrix::FinalAssemble() {
                MPIsize - 1, MPI_COMM_WORLD);
 
     vector<int> displs(MPIsize + 1);
-    if (myid == MPIsize - 1) {
+    if (myid == MPIsize - 1)
+    {
       displs[0] = 0;
-      for (int i = 1; i <= MPIsize; i++) {
+      for (int i = 1; i <= MPIsize; i++)
+      {
         displs[i] = displs[i - 1] + recv_count[i - 1];
       }
     }
@@ -54,7 +61,8 @@ int PetscSparseMatrix::FinalAssemble() {
     n = __out_process_matrix[row].size();
     send_j.resize(n);
     send_val.resize(n);
-    for (auto i = 0; i < n; i++) {
+    for (auto i = 0; i < n; i++)
+    {
       send_j[i] = __out_process_matrix[row][i].first;
       send_val[i] = __out_process_matrix[row][i].second;
     }
@@ -67,19 +75,22 @@ int PetscSparseMatrix::FinalAssemble() {
                 MPI_COMM_WORLD);
 
     // merge data
-    if (myid == MPIsize - 1) {
+    if (myid == MPIsize - 1)
+    {
       vector<int> sorted_recv_j = recv_j;
       sort(sorted_recv_j.begin(), sorted_recv_j.end());
       sorted_recv_j.erase(unique(sorted_recv_j.begin(), sorted_recv_j.end()),
                           sorted_recv_j.end());
 
       __matrix[row + __out_process_reduction].resize(sorted_recv_j.size());
-      for (int i = 0; i < sorted_recv_j.size(); i++) {
+      for (int i = 0; i < sorted_recv_j.size(); i++)
+      {
         __matrix[row + __out_process_reduction][i] =
             entry(sorted_recv_j[i], 0.0);
       }
 
-      for (int i = 0; i < recv_j.size(); i++) {
+      for (int i = 0; i < recv_j.size(); i++)
+      {
         auto it = lower_bound(__matrix[row + __out_process_reduction].begin(),
                               __matrix[row + __out_process_reduction].end(),
                               entry(recv_j[i], recv_val[i]), compare_index);
@@ -92,7 +103,8 @@ int PetscSparseMatrix::FinalAssemble() {
   __i.resize(__row + 1);
 
   __nnz = 0;
-  for (int i = 0; i < __row; i++) {
+  for (int i = 0; i < __row; i++)
+  {
     __i[i] = 0;
     __nnz += __matrix[i].size();
   }
@@ -100,24 +112,34 @@ int PetscSparseMatrix::FinalAssemble() {
   __j.resize(__nnz);
   __val.resize(__nnz);
 
-  for (int i = 1; i <= __row; i++) {
-    if (__i[i - 1] == 0) {
+  for (int i = 1; i <= __row; i++)
+  {
+    if (__i[i - 1] == 0)
+    {
       __i[i] = 0;
-      for (int j = i - 1; j >= 0; j--) {
-        if (__i[j] == 0) {
+      for (int j = i - 1; j >= 0; j--)
+      {
+        if (__i[j] == 0)
+        {
           __i[i] += __matrix[j].size();
-        } else {
+        }
+        else
+        {
           __i[i] += __i[j] + __matrix[j].size();
           break;
         }
       }
-    } else {
+    }
+    else
+    {
       __i[i] = __i[i - 1] + __matrix[i - 1].size();
     }
   }
 
-  for (int i = 0; i < __row; i++) {
-    for (auto n = 0; n < __matrix[i].size(); n++) {
+  for (int i = 0; i < __row; i++)
+  {
+    for (auto n = 0; n < __matrix[i].size(); n++)
+    {
       __j[__i[i] + n] = (__matrix[i][n].first);
       __val[__i[i] + n] = __matrix[i][n].second;
     }
@@ -137,14 +159,15 @@ int PetscSparseMatrix::FinalAssemble() {
   return __nnz;
 }
 
-int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
-                                     vector<int> &backgroundIndex) {
+int PetscSparseMatrix::FinalAssemble(int blockSize)
+{
   // move data from outProcessIncrement
   int myid, MPIsize;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
-  for (PetscInt row = 0; row < __out_process_row; row++) {
+  for (PetscInt row = 0; row < __out_process_row; row++)
+  {
     int send_count = __out_process_matrix[row].size();
     vector<int> recv_count(MPIsize);
 
@@ -152,9 +175,158 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
                MPIsize - 1, MPI_COMM_WORLD);
 
     vector<int> displs(MPIsize + 1);
-    if (myid == MPIsize - 1) {
+    if (myid == MPIsize - 1)
+    {
       displs[0] = 0;
-      for (int i = 1; i <= MPIsize; i++) {
+      for (int i = 1; i <= MPIsize; i++)
+      {
+        displs[i] = displs[i - 1] + recv_count[i - 1];
+      }
+    }
+
+    vector<PetscInt> recv_j;
+    vector<PetscReal> recv_val;
+
+    recv_j.resize(displs[MPIsize]);
+    recv_val.resize(displs[MPIsize]);
+
+    vector<PetscInt> send_j(send_count);
+    vector<PetscReal> send_val(send_count);
+
+    size_t n = 0;
+    n = __out_process_matrix[row].size();
+    send_j.resize(n);
+    send_val.resize(n);
+    for (auto i = 0; i < n; i++)
+    {
+      send_j[i] = __out_process_matrix[row][i].first;
+      send_val[i] = __out_process_matrix[row][i].second;
+    }
+
+    MPI_Gatherv(send_j.data(), send_count, MPI_UNSIGNED, recv_j.data(),
+                recv_count.data(), displs.data(), MPI_UNSIGNED, MPIsize - 1,
+                MPI_COMM_WORLD);
+    MPI_Gatherv(send_val.data(), send_count, MPI_DOUBLE, recv_val.data(),
+                recv_count.data(), displs.data(), MPI_DOUBLE, MPIsize - 1,
+                MPI_COMM_WORLD);
+
+    // merge data
+    if (myid == MPIsize - 1)
+    {
+      vector<int> sorted_recv_j = recv_j;
+      sort(sorted_recv_j.begin(), sorted_recv_j.end());
+      sorted_recv_j.erase(unique(sorted_recv_j.begin(), sorted_recv_j.end()),
+                          sorted_recv_j.end());
+
+      __matrix[row + __out_process_reduction].resize(sorted_recv_j.size());
+      for (int i = 0; i < sorted_recv_j.size(); i++)
+      {
+        __matrix[row + __out_process_reduction][i] =
+            entry(sorted_recv_j[i], 0.0);
+      }
+
+      for (int i = 0; i < recv_j.size(); i++)
+      {
+        auto it = lower_bound(__matrix[row + __out_process_reduction].begin(),
+                              __matrix[row + __out_process_reduction].end(),
+                              entry(recv_j[i], recv_val[i]), compare_index);
+
+        it->second += recv_val[i];
+      }
+    }
+  }
+
+  auto block_row = __row / blockSize;
+
+  __i.resize(block_row + 1);
+  __j.clear();
+
+  __nnz = 0;
+  auto nnz_block = __nnz;
+  vector<PetscInt> block_col_indices;
+  __i[0] = 0;
+  for (int i = 0; i < block_row; i++)
+  {
+    block_col_indices.clear();
+    for (int j = 0; j < blockSize; j++)
+    {
+      for (int k = 0; k < __matrix[i * blockSize + j].size(); k++)
+      {
+        block_col_indices.push_back(__matrix[i * blockSize + j][k].first / blockSize);
+      }
+    }
+
+    sort(block_col_indices.begin(), block_col_indices.end());
+    block_col_indices.erase(
+        unique(block_col_indices.begin(), block_col_indices.end()),
+        block_col_indices.end());
+
+    nnz_block += block_col_indices.size();
+
+    __i[i + 1] = __i[i] + nnz_block;
+
+    __j.insert(__j.end(), block_col_indices.begin(), block_col_indices.end());
+  }
+
+  auto blockStorage = blockSize * blockSize;
+
+  __val.resize(nnz_block * blockStorage);
+
+  for (int i = 0; i < nnz_block * blockStorage; i++)
+  {
+    __val[i] = 0.0;
+  }
+
+  for (int i = 0; i < __row; i++)
+  {
+    int block_row_index = i / blockSize;
+    for (int j = 0; j < __matrix[i].size(); j++)
+    {
+      int block_col_index = __matrix[i][j].first / blockSize;
+
+      auto it = lower_bound(__j.begin() + __i[block_row_index], __j.begin() + __i[block_row_index + 1],
+                            block_col_index);
+
+      *it = __matrix[i][j].second;
+    }
+  }
+
+  if (__Col != 0)
+    MatCreateMPIBAIJWithArrays(PETSC_COMM_WORLD, blockSize, __row, __col, PETSC_DECIDE,
+                               __Col, __i.data(), __j.data(), __val.data(),
+                               &__mat);
+  else
+    MatCreateMPIBAIJWithArrays(PETSC_COMM_WORLD, blockSize, __row, __col, PETSC_DECIDE,
+                               PETSC_DECIDE, __i.data(), __j.data(),
+                               __val.data(), &__mat);
+
+  __isAssembled = true;
+
+  return __nnz;
+}
+
+int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
+                                     vector<int> &backgroundIndex)
+{
+  // move data from outProcessIncrement
+  int myid, MPIsize;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
+
+  for (PetscInt row = 0; row < __out_process_row; row++)
+  {
+    int send_count = __out_process_matrix[row].size();
+    vector<int> recv_count(MPIsize);
+
+    MPI_Gather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
+               MPIsize - 1, MPI_COMM_WORLD);
+
+    vector<int> displs(MPIsize + 1);
+    if (myid == MPIsize - 1)
+    {
+      displs[0] = 0;
+      for (int i = 1; i <= MPIsize; i++)
+      {
         displs[i] = displs[i - 1] + recv_count[i - 1];
       }
     }
@@ -170,7 +342,8 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
 
     size_t n = 0;
     for (vector<entry>::iterator it = __out_process_matrix[row].begin();
-         it != __out_process_matrix[row].end(); it++) {
+         it != __out_process_matrix[row].end(); it++)
+    {
       send_j[n] = it->first;
       send_val[n] = it->second;
       n++;
@@ -184,8 +357,10 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
                 MPI_COMM_WORLD);
 
     // merge data
-    if (myid == MPIsize - 1) {
-      for (int i = 0; i < recv_j.size(); i++) {
+    if (myid == MPIsize - 1)
+    {
+      for (int i = 0; i < recv_j.size(); i++)
+      {
         __matrix[row + __out_process_reduction].push_back(
             entry(recv_j[i], recv_val[i]));
       }
@@ -195,7 +370,8 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
   __i.resize(__row + 1);
 
   __nnz = 0;
-  for (int i = 0; i < __row; i++) {
+  for (int i = 0; i < __row; i++)
+  {
     __i[i] = 0;
     __nnz += __matrix[i].size();
   }
@@ -203,26 +379,36 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
   __j.resize(__nnz);
   __val.resize(__nnz);
 
-  for (int i = 1; i <= __row; i++) {
-    if (__i[i - 1] == 0) {
+  for (int i = 1; i <= __row; i++)
+  {
+    if (__i[i - 1] == 0)
+    {
       __i[i] = 0;
-      for (int j = i - 1; j >= 0; j--) {
-        if (__i[j] == 0) {
+      for (int j = i - 1; j >= 0; j--)
+      {
+        if (__i[j] == 0)
+        {
           __i[i] += __matrix[j].size();
-        } else {
+        }
+        else
+        {
           __i[i] += __i[j] + __matrix[j].size();
           break;
         }
       }
-    } else {
+    }
+    else
+    {
       __i[i] = __i[i - 1] + __matrix[i - 1].size();
     }
   }
 
-  for (int i = 0; i < __row; i++) {
+  for (int i = 0; i < __row; i++)
+  {
     int count = 0;
     for (vector<entry>::iterator it = __matrix[i].begin();
-         it != __matrix[i].end(); it++) {
+         it != __matrix[i].end(); it++)
+    {
       __j[__i[i] + count] = (it->first);
       __val[__i[i] + count] = it->second;
       count++;
@@ -243,9 +429,12 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
   MatGetOwnershipRange(__mat, &localN1, &localN2);
 
   int localParticleNum;
-  if (myid != MPIsize - 1) {
+  if (myid != MPIsize - 1)
+  {
     localParticleNum = (localN2 - localN1) / fieldDof;
-  } else {
+  }
+  else
+  {
     localParticleNum = (localN2 - localN1 - 1) / fieldDof;
   }
 
@@ -257,14 +446,18 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
   diag_val.resize(localParticleNum * velocityDof * velocityDof);
 
   diag_i[0] = 0;
-  for (int i = 0; i < localParticleNum; i++) {
-    for (int j = 0; j < velocityDof; j++) {
+  for (int i = 0; i < localParticleNum; i++)
+  {
+    for (int j = 0; j < velocityDof; j++)
+    {
       diag_i[i * velocityDof + j + 1] =
           diag_i[i * velocityDof + j] + velocityDof;
     }
 
-    for (int j = 0; j < velocityDof; j++) {
-      for (int k = 0; k < velocityDof; k++) {
+    for (int j = 0; j < velocityDof; j++)
+    {
+      for (int k = 0; k < velocityDof; k++)
+      {
         diag_j[i * velocityDof * velocityDof + j * velocityDof + k] =
             backgroundIndex[i] * velocityDof + k;
 
@@ -282,7 +475,8 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
   }
 
   if (dimension == 2)
-    for (int i = 0; i < localParticleNum; i++) {
+    for (int i = 0; i < localParticleNum; i++)
+    {
       double a = diag_val[i * velocityDof * velocityDof];
       double b = diag_val[i * velocityDof * velocityDof + 1];
       double c = diag_val[i * velocityDof * velocityDof + 2];
@@ -298,7 +492,8 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
 
   // incorrect inversion
   if (dimension == 3)
-    for (int i = 0; i < localParticleNum; i++) {
+    for (int i = 0; i < localParticleNum; i++)
+    {
       double a = diag_val[i * velocityDof * velocityDof];
       double b = diag_val[i * velocityDof * velocityDof + 1];
       double c = diag_val[i * velocityDof * velocityDof + 2];
@@ -323,7 +518,8 @@ int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
 int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
                                             int dimension, int num_rigid_body,
                                             int local_rigid_body_offset,
-                                            int global_rigid_body_offset) {
+                                            int global_rigid_body_offset)
+{
   int MPIsize, myId;
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
@@ -334,7 +530,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
   int rigid_body_residual = num_rigid_body % MPIsize;
 
   rigid_body_block_distribution[0] = 0;
-  for (int i = 0; i < MPIsize; i++) {
+  for (int i = 0; i < MPIsize; i++)
+  {
     if (i < rigid_body_residual)
       rigid_body_block_distribution[i + 1] =
           rigid_body_block_distribution[i] + rigid_body_average + 1;
@@ -353,8 +550,10 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
 
   int field_dof = dimension + 1;
 
-  for (int i = 0; i < MPIsize; i++) {
-    if (myId == MPIsize - 1) {
+  for (int i = 0; i < MPIsize; i++)
+  {
+    if (myId == MPIsize - 1)
+    {
       neighborInclusion.clear();
       neighborInclusion.insert(
           neighborInclusion.end(),
@@ -374,17 +573,21 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
 
       neighborInclusion.clear();
 
-      for (auto neighbor : neighborInclusionTemp) {
-        if (neighbor % field_dof == 0) {
+      for (auto neighbor : neighborInclusionTemp)
+      {
+        if (neighbor % field_dof == 0)
+        {
           int neighbor_index = neighbor / field_dof;
-          for (int i = 0; i < field_dof; i++) {
+          for (int i = 0; i < field_dof; i++)
+          {
             neighborInclusion.push_back(neighbor_index * field_dof + i);
           }
         }
       }
 
       for (int j = rigid_body_block_distribution[i] * rigid_body_dof;
-           j < rigid_body_block_distribution[i + 1] * rigid_body_dof; j++) {
+           j < rigid_body_block_distribution[i + 1] * rigid_body_dof; j++)
+      {
         neighborInclusion.push_back(global_rigid_body_offset + j);
       }
 
@@ -396,13 +599,16 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
       neighborInclusionSize = neighborInclusion.size();
     }
 
-    if (i != MPIsize - 1) {
-      if (myId == MPIsize - 1) {
+    if (i != MPIsize - 1)
+    {
+      if (myId == MPIsize - 1)
+      {
         MPI_Send(&neighborInclusionSize, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
         MPI_Send(neighborInclusion.data(), neighborInclusionSize, MPI_INT, i, 1,
                  MPI_COMM_WORLD);
       }
-      if (myId == i) {
+      if (myId == i)
+      {
         MPI_Status stat;
         MPI_Recv(&neighborInclusionSize, 1, MPI_INT, MPIsize - 1, 0,
                  MPI_COMM_WORLD, &stat);
@@ -410,7 +616,9 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
         MPI_Recv(idx_neighbor.data(), neighborInclusionSize, MPI_INT,
                  MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
       }
-    } else {
+    }
+    else
+    {
       if (myId == MPIsize - 1)
         idx_neighbor = move(neighborInclusion);
     }
@@ -419,8 +627,10 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
   }
 }
 
-void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
-  if (__isAssembled) {
+void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x)
+{
+  if (__isAssembled)
+  {
     Vec _rhs, _x;
     VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
                           rhs.data(), &_rhs);
@@ -446,7 +656,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
 
     PetscScalar *a;
     VecGetArray(_x, &a);
-    for (size_t i = 0; i < rhs.size(); i++) {
+    for (size_t i = 0; i < rhs.size(); i++)
+    {
       x[i] = a[i];
     }
 
@@ -456,7 +667,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
 }
 
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
-                              int dimension) {
+                              int dimension)
+{
   int fieldDof = dimension + 1;
   int velocity_dof = dimension;
   int pressure_dof = 1;
@@ -473,41 +685,47 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   MatGetOwnershipRange(__mat, &localN1, &localN2);
 
   int localParticleNum;
-  if (myId != MPIsize - 1) {
+  if (myId != MPIsize - 1)
+  {
     localParticleNum = (localN2 - localN1) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
     idx_velocity.resize(velocity_dof * localParticleNum);
     idx_pressure.resize(localParticleNum);
 
-    for (int i = 0; i < localParticleNum; i++) {
-      for (int j = 0; j < fieldDof; j++) {
+    for (int i = 0; i < localParticleNum; i++)
+    {
+      for (int j = 0; j < fieldDof; j++)
+      {
         idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
       }
 
-      for (int j = 0; j < velocity_dof; j++) {
+      for (int j = 0; j < velocity_dof; j++)
+      {
         idx_velocity[velocity_dof * i + j] = localN1 + fieldDof * i + j;
       }
-      idx_pressure[i] = localN1 + fieldDof * i + velocity_dof;
+      idx_pressure[i] = localN1 + fieldDof * i + 1;
     }
-  } else {
+  }
+  else
+  {
     localParticleNum = (localN2 - localN1 - fieldDof) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
     idx_velocity.resize(velocity_dof * localParticleNum);
-    idx_pressure.resize(localParticleNum + 1);
+    idx_pressure.resize(localParticleNum);
 
-    for (int i = 0; i < localParticleNum; i++) {
-      for (int j = 0; j < fieldDof; j++) {
+    for (int i = 0; i < localParticleNum; i++)
+    {
+      for (int j = 0; j < fieldDof; j++)
+      {
         idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
       }
 
-      for (int j = 0; j < velocity_dof; j++) {
+      for (int j = 0; j < velocity_dof; j++)
+      {
         idx_velocity[velocity_dof * i + j] = localN1 + fieldDof * i + j;
       }
-      idx_pressure[i] = localN1 + fieldDof * i + velocity_dof;
+      idx_pressure[i] = localN1 + fieldDof * i + 1;
     }
-
-    idx_pressure[localParticleNum] =
-        localN1 + fieldDof * localParticleNum + velocity_dof;
   }
 
   idx_global = idx_field;
@@ -527,7 +745,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   ISCreateGeneral(MPI_COMM_WORLD, idx_pressure.size(), idx_pressure.data(),
                   PETSC_COPY_VALUES, &isg_pressure);
 
-  MatSetBlockSize(__mat, fieldDof);
+  // MatSetBlockSize(__mat, fieldDof);
 
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
@@ -564,15 +782,19 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
                         rhs.data(), &_rhs);
   VecDuplicate(_rhs, &_x);
 
-  Mat vv;
-  MatGetSubMatrix(__mat, isg_field, isg_field, MAT_INITIAL_MATRIX, &vv);
-  Vec rhs_sub, x_sub;
-  VecGetSubVector(_rhs, isg_field, &rhs_sub);
-  VecDuplicate(rhs_sub, &x_sub);
-  for (int i = 0; i < 1000; i++) {
-    MatMult(vv, rhs_sub, x_sub);
+  // Mat vv;
+  // MatGetSubMatrix(__mat, isg_field, isg_field, MAT_INITIAL_MATRIX, &vv);
+  // MatSetBlockSize(vv, fieldDof);
+  // MatAssemblyBegin(vv, MAT_FINAL_ASSEMBLY);
+  // MatAssemblyEnd(vv, MAT_FINAL_ASSEMBLY);
+  // Vec rhs_sub, x_sub;
+  // VecGetSubVector(_rhs, isg_field, &rhs_sub);
+  // VecDuplicate(rhs_sub, &x_sub);
+  for (int i = 0; i < 1000; i++)
+  {
+    MatMult(__mat, _rhs, _x);
   }
-  VecRestoreSubVector(_rhs, isg_field, &rhs_sub);
+  // VecRestoreSubVector(_rhs, isg_field, &rhs_sub);
 
   // for (int i = 0; i < 1000; i++) {
   //   MatMult(__mat, _rhs, _x);
@@ -586,7 +808,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   PetscScalar *a;
   VecGetArray(_x, &a);
-  for (size_t i = 0; i < rhs.size(); i++) {
+  for (size_t i = 0; i < rhs.size(); i++)
+  {
     x[i] = a[i];
   }
 
@@ -598,7 +821,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 }
 
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
-                              int dimension, int numRigidBody) {
+                              int dimension, int numRigidBody)
+{
   int fieldDof = dimension + 1;
   int velocityDof = dimension;
   int pressureDof = 1;
@@ -614,14 +838,17 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PetscInt localN1, localN2;
   MatGetOwnershipRange(__mat, &localN1, &localN2);
 
-  if (myId != MPIsize - 1) {
+  if (myId != MPIsize - 1)
+  {
     int localParticleNum = (localN2 - localN1) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
     idx_velocity.resize(velocityDof * localParticleNum);
     idx_pressure.resize(localParticleNum);
 
-    for (int i = 0; i < localParticleNum; i++) {
-      for (int j = 0; j < dimension; j++) {
+    for (int i = 0; i < localParticleNum; i++)
+    {
+      for (int j = 0; j < dimension; j++)
+      {
         idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
         idx_velocity[velocityDof * i + j] = localN1 + fieldDof * i + j;
       }
@@ -629,7 +856,9 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
           localN1 + fieldDof * i + velocityDof;
       idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
     }
-  } else {
+  }
+  else
+  {
     int localParticleNum =
         (localN2 - localN1 - 1 - numRigidBody * rigidBodyDof) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum + 1);
@@ -637,8 +866,10 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     idx_pressure.resize(localParticleNum + 1);
     idx_rigid.resize(rigidBodyDof * numRigidBody);
 
-    for (int i = 0; i < localParticleNum; i++) {
-      for (int j = 0; j < dimension; j++) {
+    for (int i = 0; i < localParticleNum; i++)
+    {
+      for (int j = 0; j < dimension; j++)
+      {
         idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
         idx_velocity[velocityDof * i + j] = localN1 + fieldDof * i + j;
       }
@@ -651,8 +882,10 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
         localN1 + fieldDof * localParticleNum;
     idx_pressure[localParticleNum] = localN1 + fieldDof * localParticleNum;
 
-    for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < rigidBodyDof; j++) {
+    for (int i = 0; i < numRigidBody; i++)
+    {
+      for (int j = 0; j < rigidBodyDof; j++)
+      {
         idx_rigid[rigidBodyDof * i + j] =
             localN1 + fieldDof * localParticleNum + 1 + i * rigidBodyDof + j;
       }
@@ -757,7 +990,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   PetscScalar *a;
   VecGetArray(_x, &a);
-  for (size_t i = 0; i < rhs.size(); i++) {
+  for (size_t i = 0; i < rhs.size(); i++)
+  {
     x[i] = a[i];
   }
 
@@ -785,7 +1019,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
            PetscSparseMatrix &C, vector<double> &f, vector<double> &g,
            vector<double> &x, vector<double> &y, int numRigid,
-           int rigidBodyDof) {
+           int rigidBodyDof)
+{
   if (!A.__isAssembled || !Bt.__isAssembled || !B.__isAssembled ||
       !C.__isAssembled)
     return;
@@ -864,20 +1099,26 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   vector<PetscInt> idx1, idx2;
   PetscInt localN1, localN2;
   MatGetOwnershipRange(_ASub[0], &localN1, &localN2);
-  if (myId != MPIsize - 1) {
+  if (myId != MPIsize - 1)
+  {
     idx1.resize(localN2 - localN1);
     idx2.resize(0);
-    for (int i = 0; i < localN2 - localN1; i++) {
+    for (int i = 0; i < localN2 - localN1; i++)
+    {
       idx1[i] = localN1 + i;
     }
-  } else {
+  }
+  else
+  {
     idx1.resize(localN2 - localN1 - rigidBodyDof * numRigid);
     idx2.resize(rigidBodyDof * numRigid);
 
-    for (int i = 0; i < localN2 - localN1 - rigidBodyDof * numRigid; i++) {
+    for (int i = 0; i < localN2 - localN1 - rigidBodyDof * numRigid; i++)
+    {
       idx1[i] = localN1 + i;
     }
-    for (int i = 0; i < rigidBodyDof * numRigid; i++) {
+    for (int i = 0; i < rigidBodyDof * numRigid; i++)
+    {
       idx2[i] = localN2 - rigidBodyDof * numRigid + i;
     }
   }
@@ -998,12 +1239,14 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
 
   double *p;
   VecGetArray(_xpSub[0], &p);
-  for (size_t i = 0; i < f.size(); i++) {
+  for (size_t i = 0; i < f.size(); i++)
+  {
     x[i] = p[i];
   }
   VecRestoreArray(_xpSub[0], &p);
   VecGetArray(_xpSub[1], &p);
-  for (size_t i = 0; i < g.size(); i++) {
+  for (size_t i = 0; i < g.size(); i++)
+  {
     y[i] = p[i];
   }
   VecRestoreArray(_xpSub[1], &p);
@@ -1017,7 +1260,8 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   VecDestroy(&_bp);
   VecDestroy(&_xp);
 
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 5; i++)
+  {
     MatDestroy(_ASub + i);
   }
 
@@ -1037,7 +1281,8 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
                               vector<int> &idx_neighbor, int dimension,
                               int numRigidBody, int adatptive_step,
-                              PetscSparseMatrix &I, PetscSparseMatrix &R) {
+                              PetscSparseMatrix &I, PetscSparseMatrix &R)
+{
   int fieldDof = dimension + 1;
   int velocityDof = dimension;
   int pressureDof = 1;
@@ -1053,12 +1298,15 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PetscInt localN1, localN2;
   MatGetOwnershipRange(__mat, &localN1, &localN2);
 
-  if (myId != MPIsize - 1) {
+  if (myId != MPIsize - 1)
+  {
     int localParticleNum = (localN2 - localN1) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
 
-    for (int i = 0; i < localParticleNum; i++) {
-      for (int j = 0; j < dimension; j++) {
+    for (int i = 0; i < localParticleNum; i++)
+    {
+      for (int j = 0; j < dimension; j++)
+      {
         idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
       }
       idx_field[fieldDof * i + velocityDof] =
@@ -1066,13 +1314,17 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     }
 
     idx_global = idx_field;
-  } else {
+  }
+  else
+  {
     int localParticleNum =
         (localN2 - localN1 - 1 - numRigidBody * rigidBodyDof) / fieldDof + 1;
     idx_field.resize(fieldDof * localParticleNum);
 
-    for (int i = 0; i < localParticleNum; i++) {
-      for (int j = 0; j < dimension; j++) {
+    for (int i = 0; i < localParticleNum; i++)
+    {
+      for (int j = 0; j < dimension; j++)
+      {
         idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
       }
       idx_field[fieldDof * i + velocityDof] =
@@ -1122,13 +1374,16 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   HypreLUShellPC *shell_ctx;
   HypreLUShellPCCreate(&shell_ctx);
-  if (adatptive_step == 0) {
+  if (adatptive_step == 0)
+  {
     PCShellSetApply(_pc, HypreLUShellPCApply);
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
     HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
-  } else {
+  }
+  else
+  {
     PCShellSetApply(_pc, HypreLUShellPCApply);
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
@@ -1136,7 +1391,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
   }
 
-  if (adatptive_step > 0) {
+  if (adatptive_step > 0)
+  {
     KSP smoother_ksp;
     KSPCreate(PETSC_COMM_WORLD, &smoother_ksp);
     KSPSetOperators(smoother_ksp, nn, nn);
@@ -1172,7 +1428,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   }
 
   Vec x_initial;
-  if (adatptive_step > 0) {
+  if (adatptive_step > 0)
+  {
     VecDuplicate(_x, &x_initial);
     VecCopy(_x, x_initial);
   }
@@ -1193,7 +1450,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   PetscScalar *a;
   VecGetArray(_x, &a);
-  for (size_t i = 0; i < rhs.size(); i++) {
+  for (size_t i = 0; i < rhs.size(); i++)
+  {
     x[i] = a[i];
   }
   VecRestoreArray(_x, &a);
