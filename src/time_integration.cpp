@@ -91,8 +91,7 @@ void GMLS_Solver::ForwardEulerIntegration() {
 
     __adaptive_step = 0;
     do {
-      if (__writeData)
-        WriteDataAdaptiveGeometry();
+      if (__writeData) WriteDataAdaptiveGeometry();
       PetscPrintf(PETSC_COMM_WORLD, "Adaptive level: %d\n", __adaptive_step);
       (this->*__equationSolver)();
     } while (NeedRefinement());
@@ -171,88 +170,89 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
       __adaptive_step = 0;
       do {
-        if (__writeData)
-          WriteDataAdaptiveGeometry();
+        if (__writeData) WriteDataAdaptiveGeometry();
         PetscPrintf(PETSC_COMM_WORLD, "Adaptive level: %d\n", __adaptive_step);
         (this->*__equationSolver)();
       } while (NeedRefinement());
 
       switch (i) {
-      case 0:
-        for (int num = 0; num < numRigidBody; num++) {
-          for (int j = 0; j < 3; j++) {
-            velocity_k1[num][j] = rigidBodyVelocity[num][j];
-            angularVelocity_k1[num][j] = rigidBodyAngularVelocity[num][j];
+        case 0:
+          for (int num = 0; num < numRigidBody; num++) {
+            for (int j = 0; j < 3; j++) {
+              velocity_k1[num][j] = rigidBodyVelocity[num][j];
+              angularVelocity_k1[num][j] = rigidBodyAngularVelocity[num][j];
+            }
           }
-        }
 
-        for (int num = 0; num < numRigidBody; num++) {
-          for (int j = 0; j < 3; j++) {
-            rigidBodyPosition[num][j] =
-                position0[num][j] + velocity_k1[num][j] * __dt * 0.5;
-            rigidBodyOrientation[num][j] =
-                orientation0[num][j] + angularVelocity_k1[num][j] * __dt * 0.5;
+          for (int num = 0; num < numRigidBody; num++) {
+            for (int j = 0; j < 3; j++) {
+              rigidBodyPosition[num][j] =
+                  position0[num][j] + velocity_k1[num][j] * __dt * 0.5;
+              rigidBodyOrientation[num][j] =
+                  orientation0[num][j] +
+                  angularVelocity_k1[num][j] * __dt * 0.5;
+            }
           }
-        }
-        break;
-      case 1:
-        for (int num = 0; num < numRigidBody; num++) {
-          for (int j = 0; j < 3; j++) {
-            velocity_k2[num][j] = rigidBodyVelocity[num][j];
-            angularVelocity_k2[num][j] = rigidBodyAngularVelocity[num][j];
+          break;
+        case 1:
+          for (int num = 0; num < numRigidBody; num++) {
+            for (int j = 0; j < 3; j++) {
+              velocity_k2[num][j] = rigidBodyVelocity[num][j];
+              angularVelocity_k2[num][j] = rigidBodyAngularVelocity[num][j];
+            }
           }
-        }
 
-        for (int num = 0; num < numRigidBody; num++) {
-          for (int j = 0; j < 3; j++) {
-            rigidBodyPosition[num][j] =
-                position0[num][j] + velocity_k2[num][j] * __dt * 0.5;
-            rigidBodyOrientation[num][j] =
-                orientation0[num][j] + angularVelocity_k2[num][j] * __dt * 0.5;
+          for (int num = 0; num < numRigidBody; num++) {
+            for (int j = 0; j < 3; j++) {
+              rigidBodyPosition[num][j] =
+                  position0[num][j] + velocity_k2[num][j] * __dt * 0.5;
+              rigidBodyOrientation[num][j] =
+                  orientation0[num][j] +
+                  angularVelocity_k2[num][j] * __dt * 0.5;
+            }
           }
-        }
-        break;
-      case 2:
-        for (int num = 0; num < numRigidBody; num++) {
-          for (int j = 0; j < 3; j++) {
-            velocity_k3[num][j] = rigidBodyVelocity[num][j];
-            angularVelocity_k3[num][j] = rigidBodyAngularVelocity[num][j];
+          break;
+        case 2:
+          for (int num = 0; num < numRigidBody; num++) {
+            for (int j = 0; j < 3; j++) {
+              velocity_k3[num][j] = rigidBodyVelocity[num][j];
+              angularVelocity_k3[num][j] = rigidBodyAngularVelocity[num][j];
+            }
           }
-        }
 
-        for (int num = 0; num < numRigidBody; num++) {
-          for (int j = 0; j < 3; j++) {
-            rigidBodyPosition[num][j] =
-                position0[num][j] + velocity_k3[num][j] * __dt;
-            rigidBodyOrientation[num][j] =
-                orientation0[num][j] + angularVelocity_k3[num][j] * __dt;
+          for (int num = 0; num < numRigidBody; num++) {
+            for (int j = 0; j < 3; j++) {
+              rigidBodyPosition[num][j] =
+                  position0[num][j] + velocity_k3[num][j] * __dt;
+              rigidBodyOrientation[num][j] =
+                  orientation0[num][j] + angularVelocity_k3[num][j] * __dt;
+            }
           }
-        }
-        break;
-      case 3:
-        for (int num = 0; num < numRigidBody; num++) {
-          for (int j = 0; j < 3; j++) {
-            velocity_k4[num][j] = rigidBodyVelocity[num][j];
-            angularVelocity_k4[num][j] = rigidBodyAngularVelocity[num][j];
+          break;
+        case 3:
+          for (int num = 0; num < numRigidBody; num++) {
+            for (int j = 0; j < 3; j++) {
+              velocity_k4[num][j] = rigidBodyVelocity[num][j];
+              angularVelocity_k4[num][j] = rigidBodyAngularVelocity[num][j];
+            }
           }
-        }
 
-        for (int num = 0; num < numRigidBody; num++) {
-          for (int j = 0; j < 3; j++) {
-            rigidBodyPosition[num][j] =
-                position0[num][j] +
-                (velocity_k1[num][j] + 2.0 * velocity_k2[num][j] +
-                 2.0 * velocity_k3[num][j] + velocity_k4[num][j]) *
-                    __dt / 6.0;
-            rigidBodyOrientation[num][j] =
-                orientation0[num][j] +
-                (angularVelocity_k1[num][j] + 2.0 * angularVelocity_k2[num][j] +
-                 2.0 * angularVelocity_k3[num][j] +
-                 angularVelocity_k4[num][j]) *
-                    __dt / 6.0;
+          for (int num = 0; num < numRigidBody; num++) {
+            for (int j = 0; j < 3; j++) {
+              rigidBodyPosition[num][j] =
+                  position0[num][j] +
+                  (velocity_k1[num][j] + 2.0 * velocity_k2[num][j] +
+                   2.0 * velocity_k3[num][j] + velocity_k4[num][j]) *
+                      __dt / 6.0;
+              rigidBodyOrientation[num][j] =
+                  orientation0[num][j] + (angularVelocity_k1[num][j] +
+                                          2.0 * angularVelocity_k2[num][j] +
+                                          2.0 * angularVelocity_k3[num][j] +
+                                          angularVelocity_k4[num][j]) *
+                                             __dt / 6.0;
+            }
           }
-        }
-        break;
+          break;
       }
     }
 

@@ -112,8 +112,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
     for (size_t n = 0; n < rigidBodyCoord.size(); n++) {
       double r = rigidBodySize[n];
       int M_theta = round(2 * M_PI * r / h);
-      if (M_theta % 2 == 1)
-        M_theta++;
+      if (M_theta % 2 == 1) M_theta++;
       double d_theta = 2 * M_PI * r / M_theta;
 
       vec3 particleSize = vec3(d_theta, 0, 0);

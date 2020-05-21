@@ -1,7 +1,7 @@
 #pragma once
 
-#include <algorithm>
 #include <assert.h>
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -13,14 +13,12 @@
 
 #include <petscksp.h>
 
-inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j)
-{
+inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
   return (i.first < j.first);
 }
 
-class PetscSparseMatrix
-{
-private:
+class PetscSparseMatrix {
+ private:
   bool __isAssembled;
 
   typedef std::pair<PetscInt, double> entry;
@@ -30,7 +28,7 @@ private:
   PetscInt __row, __col, __nnz, __Col, __out_process_row,
       __out_process_reduction;
 
-public:
+ public:
   Mat __mat, __diag_block, __neighbor_block;
 
   std::vector<PetscInt> __i;
@@ -38,18 +36,24 @@ public:
   std::vector<PetscReal> __val;
 
   PetscSparseMatrix()
-      : __isAssembled(false), __row(0), __col(0), __Col(0),
-        __out_process_row(0), __out_process_reduction(0) {}
+      : __isAssembled(false),
+        __row(0),
+        __col(0),
+        __Col(0),
+        __out_process_row(0),
+        __out_process_reduction(0) {}
 
   // only for square matrix
   PetscSparseMatrix(PetscInt m /* local # of rows */,
                     PetscInt N /* global # of cols */,
                     PetscInt out_process_row = 0,
                     PetscInt out_process_row_reduction = 0)
-      : __isAssembled(false), __row(m), __col(m), __Col(N),
+      : __isAssembled(false),
+        __row(m),
+        __col(m),
+        __Col(N),
         __out_process_row(out_process_row),
-        __out_process_reduction(out_process_row_reduction)
-  {
+        __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
     __out_process_matrix.resize(out_process_row);
   }
@@ -59,30 +63,31 @@ public:
                     PetscInt N /* global # of cols */,
                     PetscInt out_process_row = 0,
                     PetscInt out_process_row_reduction = 0)
-      : __isAssembled(false), __row(m), __col(n), __Col(N),
+      : __isAssembled(false),
+        __row(m),
+        __col(n),
+        __Col(N),
         __out_process_row(out_process_row),
-        __out_process_reduction(out_process_row_reduction)
-  {
+        __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
     __out_process_matrix.resize(out_process_row);
   }
 
   PetscSparseMatrix(const PetscSparseMatrix &mat)
-      : __isAssembled(false), __row(mat.__row), __col(mat.__col),
-        __Col(mat.__Col), __out_process_row(mat.__out_process_row),
-        __out_process_reduction(mat.__out_process_reduction)
-  {
+      : __isAssembled(false),
+        __row(mat.__row),
+        __col(mat.__col),
+        __Col(mat.__Col),
+        __out_process_row(mat.__out_process_row),
+        __out_process_reduction(mat.__out_process_reduction) {
     resize(__row, __col, __Col, __out_process_row, __out_process_reduction);
   }
 
-  ~PetscSparseMatrix()
-  {
-    if (__isAssembled)
-      MatDestroy(&__mat);
+  ~PetscSparseMatrix() {
+    if (__isAssembled) MatDestroy(&__mat);
   }
 
-  void resize(PetscInt m, PetscInt n)
-  {
+  void resize(PetscInt m, PetscInt n) {
     __row = m;
     __col = n;
     __Col = 0;
@@ -93,8 +98,7 @@ public:
   }
 
   void resize(PetscInt m, PetscInt n, PetscInt N, PetscInt out_process_row = 0,
-              PetscInt out_process_row_reduction = 0)
-  {
+              PetscInt out_process_row_reduction = 0) {
     __row = m;
     __col = n;
     __Col = N;
@@ -126,9 +130,9 @@ public:
 
   // (*this) * x = rhs
   void Solve(std::vector<double> &rhs,
-             std::vector<double> &x); // simple solver
+             std::vector<double> &x);  // simple solver
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
-             int dimension); // two field solver
+             int dimension);  // two field solver
   void Solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
              int numRigidBody);
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
@@ -145,39 +149,33 @@ public:
 };
 
 void PetscSparseMatrix::setColIndex(const PetscInt row,
-                                    std::vector<PetscInt> &index)
-{
+                                    std::vector<PetscInt> &index) {
   sort(index.begin(), index.end());
   __matrix[row].resize(index.size());
   size_t counter = 0;
   for (std::vector<entry>::iterator it = __matrix[row].begin();
-       it != __matrix[row].end(); it++)
-  {
+       it != __matrix[row].end(); it++) {
     it->first = index[counter++];
     it->second = 0.0;
   }
 }
 
 void PetscSparseMatrix::setOutProcessColIndex(const PetscInt row,
-                                              std::vector<PetscInt> &index)
-{
+                                              std::vector<PetscInt> &index) {
   sort(index.begin(), index.end());
   __out_process_matrix[row - __out_process_reduction].resize(index.size());
   size_t counter = 0;
   for (std::vector<entry>::iterator it =
            __out_process_matrix[row - __out_process_reduction].begin();
-       it != __out_process_matrix[row - __out_process_reduction].end(); it++)
-  {
+       it != __out_process_matrix[row - __out_process_reduction].end(); it++) {
     it->first = index[counter++];
     it->second = 0.0;
   }
 }
 
 void PetscSparseMatrix::increment(const PetscInt i, const PetscInt j,
-                                  const double daij)
-{
-  if (std::abs(daij) > 1e-15)
-  {
+                                  const double daij) {
+  if (std::abs(daij) > 1e-15) {
     auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
                           entry(j, daij), compare_index);
     if (it->first == j)
@@ -188,10 +186,8 @@ void PetscSparseMatrix::increment(const PetscInt i, const PetscInt j,
 }
 
 void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
-                                            const double daij)
-{
-  if (std::abs(daij) > 1e-15)
-  {
+                                            const double daij) {
+  if (std::abs(daij) > 1e-15) {
     PetscInt in = i - __out_process_reduction;
     auto it = lower_bound(__out_process_matrix[in].begin(),
                           __out_process_matrix[in].end(), entry(j, daij),

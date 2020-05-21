@@ -1,8 +1,8 @@
 #pragma once
 
+#include <tgmath.h>
 #include <cmath>
 #include <iostream>
-#include <tgmath.h>
 #include <vector>
 
 #include "vec3.h"

@@ -6,8 +6,7 @@
 
 #include "multilevel.h"
 
-struct HypreLUShellPC
-{
+struct HypreLUShellPC {
   KSP field;
   KSP nearField;
   KSP globalSmoother;

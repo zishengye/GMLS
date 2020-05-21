@@ -11,8 +11,7 @@ using namespace Compadre;
 void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                                                            PetscSparseMatrix &R,
                                                            int num_rigid_body,
-                                                           int dimension)
-{
+                                                           int dimension) {
   static auto &coord = __field.vector.GetHandle("coord");
   static auto &adaptive_level = __field.index.GetHandle("adaptive level");
   static auto &background_coord = __background.vector.GetHandle("source coord");
@@ -69,20 +68,16 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   int actual_new_target = 0;
   vector<int> new_actual_index(coord.size());
-  for (int i = 0; i < coord.size(); i++)
-  {
+  for (int i = 0; i < coord.size(); i++) {
     new_actual_index[i] = actual_new_target;
-    if (adaptive_level[i] == __adaptive_step)
-      actual_new_target++;
+    if (adaptive_level[i] == __adaptive_step) actual_new_target++;
   }
 
   int actual_old_target = 0;
   vector<int> old_actual_index(old_coord.size());
-  for (int i = 0; i < old_coord.size(); i++)
-  {
+  for (int i = 0; i < old_coord.size(); i++) {
     old_actual_index[i] = actual_old_target;
-    if (fieldParticleSplitTag[i])
-    {
+    if (fieldParticleSplitTag[i]) {
       actual_old_target++;
     }
   }
@@ -98,25 +93,21 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
       Kokkos::create_mirror_view(old_target_coords_device);
 
   // copy old source coords
-  for (int i = 0; i < old_background_coord.size(); i++)
-  {
+  for (int i = 0; i < old_background_coord.size(); i++) {
     for (int j = 0; j < dimension; j++)
       old_source_coords(i, j) = old_background_coord[i][j];
   }
 
   // copy new source coords
-  for (int i = 0; i < background_coord.size(); i++)
-  {
+  for (int i = 0; i < background_coord.size(); i++) {
     for (int j = 0; j < dimension; j++)
       new_source_coords(i, j) = background_coord[i][j];
   }
 
   // copy old target coords
   int counter = 0;
-  for (int i = 0; i < old_coord.size(); i++)
-  {
-    if (fieldParticleSplitTag[i])
-    {
+  for (int i = 0; i < old_coord.size(); i++) {
+    if (fieldParticleSplitTag[i]) {
       for (int j = 0; j < dimension; j++)
         old_target_coords(counter, j) = old_coord[i][j];
 
@@ -126,12 +117,9 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   // copy new target coords
   counter = 0;
-  for (int i = 0; i < coord.size(); i++)
-  {
-    if (adaptive_level[i] == __adaptive_step)
-    {
-      for (int j = 0; j < dimension; j++)
-      {
+  for (int i = 0; i < coord.size(); i++) {
+    if (adaptive_level[i] == __adaptive_step) {
+      for (int j = 0; j < dimension; j++) {
         new_target_coords(counter, j) = coord[i][j];
       }
 
@@ -236,18 +224,14 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   I.resize(new_local_dof, old_local_dof, old_global_dof);
   // compute matrix graph
   vector<PetscInt> index;
-  for (int i = 0; i < new_local_particle_num; i++)
-  {
-    if (adaptive_level[i] == __adaptive_step)
-    {
+  for (int i = 0; i < new_local_particle_num; i++) {
+    if (adaptive_level[i] == __adaptive_step) {
       // velocity interpolation
       index.resize(old_to_new_neighbor_lists(new_actual_index[i], 0) *
                    velocity_dof);
       for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
-           j++)
-      {
-        for (int k = 0; k < velocity_dof; k++)
-        {
+           j++) {
+        for (int k = 0; k < velocity_dof; k++) {
           index[j * velocity_dof + k] =
               field_dof * old_background_index[old_to_new_neighbor_lists(
                               new_actual_index[i], j + 1)] +
@@ -255,27 +239,22 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
         }
       }
 
-      for (int k = 0; k < velocity_dof; k++)
-      {
+      for (int k = 0; k < velocity_dof; k++) {
         I.setColIndex(field_dof * i + k, index);
       }
 
       // pressure interpolation
       index.resize(old_to_new_neighbor_lists(new_actual_index[i], 0));
       for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
-           j++)
-      {
+           j++) {
         index[j] = field_dof * old_background_index[old_to_new_neighbor_lists(
                                    new_actual_index[i], j + 1)] +
                    velocity_dof;
       }
       I.setColIndex(field_dof * i + velocity_dof, index);
-    }
-    else
-    {
+    } else {
       index.resize(1);
-      for (int j = 0; j < field_dof; j++)
-      {
+      for (int j = 0; j < field_dof; j++) {
         index[0] = field_dof * old_background_index[i] + j;
         I.setColIndex(field_dof * i + j, index);
       }
@@ -283,11 +262,9 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   }
 
   // lagrange multiplier
-  if (__myID == __MPISize - 1)
-  {
+  if (__myID == __MPISize - 1) {
     index.resize(1);
-    for (int j = 0; j < field_dof; j++)
-    {
+    for (int j = 0; j < field_dof; j++) {
       index[0] = field_dof * old_global_particle_num + j;
       I.setColIndex(field_dof * new_local_particle_num + j, index);
     }
@@ -304,13 +281,10 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
           old_to_new_velocity_basis->getAlphaColumnOffset(VectorPointEvaluation,
                                                           axes1, 0, axes2, 0);
 
-  for (int i = 0; i < new_local_particle_num; i++)
-  {
-    if (adaptive_level[i] == __adaptive_step)
-    {
+  for (int i = 0; i < new_local_particle_num; i++) {
+    if (adaptive_level[i] == __adaptive_step) {
       for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
-           j++)
-      {
+           j++) {
         for (int axes1 = 0; axes1 < dimension; axes1++)
           for (int axes2 = 0; axes2 < dimension; axes2++)
             I.increment(
@@ -325,31 +299,25 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
       }
 
       for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
-           j++)
-      {
-        I.increment(field_dof * i + velocity_dof,
-                    field_dof * old_background_index[old_to_new_neighbor_lists(
-                                    new_actual_index[i], j + 1)] +
-                        velocity_dof,
-                    old_to_new_pressure_alphas(new_actual_index[i],
-                                               pressure_old_to_new_alphas_index,
-                                               j));
+           j++) {
+        I.increment(
+            field_dof * i + velocity_dof,
+            field_dof * old_background_index[old_to_new_neighbor_lists(
+                            new_actual_index[i], j + 1)] +
+                velocity_dof,
+            old_to_new_pressure_alphas(new_actual_index[i],
+                                       pressure_old_to_new_alphas_index, j));
       }
-    }
-    else
-    {
-      for (int j = 0; j < field_dof; j++)
-      {
+    } else {
+      for (int j = 0; j < field_dof; j++) {
         I.increment(field_dof * i + j, field_dof * old_background_index[i] + j,
                     1.0);
       }
     }
   }
 
-  if (__myID == __MPISize - 1)
-  {
-    for (int j = 0; j < field_dof; j++)
-    {
+  if (__myID == __MPISize - 1) {
+    for (int j = 0; j < field_dof; j++) {
       I.increment(field_dof * new_local_particle_num + j,
                   field_dof * old_global_particle_num + j,
                   old_global_particle_num / new_global_particle_num);
@@ -390,8 +358,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // new to old relaxation matrix
   R.resize(old_local_dof, new_local_dof, new_global_dof);
 
-  for (int i = 0; i < old_local_particle_num; i++)
-  {
+  for (int i = 0; i < old_local_particle_num; i++) {
     // velocity interpolation
     // index.resize(new_to_old_neighbor_lists(i, 0) * velocity_dof);
     // for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
@@ -407,41 +374,31 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     // }
 
     // pressure interpolation
-    if (fieldParticleSplitTag[i])
-    {
-      if (old_particle_type[i] == 0)
-      {
+    if (fieldParticleSplitTag[i]) {
+      if (old_particle_type[i] == 0) {
         index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
-        for (int k = 0; k < field_dof; k++)
-        {
+        for (int k = 0; k < field_dof; k++) {
           for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
-               j++)
-          {
+               j++) {
             index[j] = field_dof * background_index[new_to_old_neighbor_lists(
                                        old_actual_index[i], j + 1)] +
                        k;
           }
           R.setColIndex(field_dof * i + k, index);
         }
-      }
-      else
-      {
+      } else {
         index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
         for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
-             j++)
-        {
+             j++) {
           index[j] = field_dof * background_index[new_to_old_neighbor_lists(
                                      old_actual_index[i], j + 1)] +
                      velocity_dof;
         }
         R.setColIndex(field_dof * i + velocity_dof, index);
       }
-    }
-    else
-    {
+    } else {
       index.resize(1);
-      for (int k = 0; k < field_dof; k++)
-      {
+      for (int k = 0; k < field_dof; k++) {
         index[0] = field_dof * background_index[i] + k;
         R.setColIndex(field_dof * i + k, index);
       }
@@ -449,11 +406,9 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   }
 
   // lagrange multiplier
-  if (__myID == __MPISize - 1)
-  {
+  if (__myID == __MPISize - 1) {
     index.resize(1);
-    for (int j = 0; j < field_dof; j++)
-    {
+    for (int j = 0; j < field_dof; j++) {
       index[0] = field_dof * new_global_particle_num + j;
       R.setColIndex(field_dof * old_local_particle_num + j, index);
     }
@@ -469,8 +424,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
           new_to_old_velocity_basis->getAlphaColumnOffset(VectorPointEvaluation,
                                                           axes1, 0, axes2, 0);
 
-  for (int i = 0; i < old_local_particle_num; i++)
-  {
+  for (int i = 0; i < old_local_particle_num; i++) {
     // for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
     //   for (int axes1 = 0; axes1 < dimension; axes1++)
     //     for (int axes2 = 0; axes2 < dimension; axes2++)
@@ -485,13 +439,10 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     //               axes2], j));
     // }
 
-    if (fieldParticleSplitTag[i])
-    {
-      if (old_particle_type[i] == 0)
-      {
+    if (fieldParticleSplitTag[i]) {
+      if (old_particle_type[i] == 0) {
         for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
-             j++)
-        {
+             j++) {
           for (int k = 0; k < field_dof; k++)
             R.increment(
                 field_dof * i + k,
@@ -501,12 +452,9 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                 new_to_old_pressure_alphas(
                     old_actual_index[i], pressure_new_to_old_alphas_index, j));
         }
-      }
-      else
-      {
+      } else {
         for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
-             j++)
-        {
+             j++) {
           R.increment(
               field_dof * i + velocity_dof,
               field_dof * background_index[new_to_old_neighbor_lists(
@@ -516,21 +464,16 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                                          pressure_new_to_old_alphas_index, j));
         }
       }
-    }
-    else
-    {
-      for (int k = 0; k < field_dof; k++)
-      {
+    } else {
+      for (int k = 0; k < field_dof; k++) {
         R.increment(field_dof * i + k, field_dof * background_index[i] + k,
                     1.0);
       }
     }
   }
 
-  if (__myID == __MPISize - 1)
-  {
-    for (int j = 0; j < field_dof; j++)
-    {
+  if (__myID == __MPISize - 1) {
+    for (int j = 0; j < field_dof; j++) {
       R.increment(field_dof * old_local_particle_num + j,
                   field_dof * new_global_particle_num + j,
                   new_global_particle_num / old_global_particle_num);
@@ -541,8 +484,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 }
 
 void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
-                       std::vector<int> &idx_neighbor)
-{
+                       std::vector<int> &idx_neighbor) {
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nstart of linear system solving setup\n");
 
@@ -560,15 +502,12 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   Mat &mat = (*(A_list.end() - 1))->__mat;
   MatGetOwnershipRange(mat, &localN1, &localN2);
 
-  if (myid != mpi_size - 1)
-  {
+  if (myid != mpi_size - 1) {
     int localParticleNum = (localN2 - localN1) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
 
-    for (int i = 0; i < localParticleNum; i++)
-    {
-      for (int j = 0; j < dimension; j++)
-      {
+    for (int i = 0; i < localParticleNum; i++) {
+      for (int j = 0; j < dimension; j++) {
         idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
       }
       idx_field[fieldDof * i + velocityDof] =
@@ -576,17 +515,13 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     }
 
     idx_global = idx_field;
-  }
-  else
-  {
+  } else {
     int localParticleNum =
         (localN2 - localN1 - 1 - num_rigid_body * rigidBodyDof) / fieldDof + 1;
     idx_field.resize(fieldDof * localParticleNum);
 
-    for (int i = 0; i < localParticleNum; i++)
-    {
-      for (int j = 0; j < dimension; j++)
-      {
+    for (int i = 0; i < localParticleNum; i++) {
+      for (int j = 0; j < dimension; j++) {
         idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
       }
       idx_field[fieldDof * i + velocityDof] =
@@ -634,16 +569,13 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   HypreLUShellPC *shell_ctx;
   HypreLUShellPCCreate(&shell_ctx);
-  if (A_list.size() == 1)
-  {
+  if (A_list.size() == 1) {
     PCShellSetApply(_pc, HypreLUShellPCApply);
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
     HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field_lag, &isg_neighbor, _x);
-  }
-  else
-  {
+  } else {
     MPI_Barrier(MPI_COMM_WORLD);
     PetscPrintf(PETSC_COMM_WORLD, "start of multilevel preconditioner setup\n");
 
@@ -657,8 +589,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   }
 
   Vec x_initial;
-  if (A_list.size() > 1)
-  {
+  if (A_list.size() > 1) {
     VecDuplicate(_x, &x_initial);
     VecCopy(_x, x_initial);
   }
@@ -678,8 +609,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   PetscScalar *a;
   VecGetArray(_x, &a);
-  for (size_t i = 0; i < rhs.size(); i++)
-  {
+  for (size_t i = 0; i < rhs.size(); i++) {
     x[i] = a[i];
   }
   VecRestoreArray(_x, &a);

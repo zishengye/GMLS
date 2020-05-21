@@ -6,8 +6,6 @@
                 "${workspaceRoot}/include",
                 "/usr/include",
                 "/usr/include/c++/7",
-                "/usr/local/cuda/include",
-                "${MKLROOT}/include",
                 "/opt/petsc/include",
                 "/opt/compadre/include",
                 "/opt/kokkos/include"
@@ -28,8 +26,6 @@
                     "${workspaceRoot}/include",
                     "/usr/include",
                     "/usr/include/c++/7",
-                    "/usr/local/cuda/include",
-                    "${MKLROOT}/include",
                     "/opt/petsc/include",
                     "/opt/compadre/include",
                     "/opt/kokkos/include"
