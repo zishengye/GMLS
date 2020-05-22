@@ -132,7 +132,7 @@ class PetscSparseMatrix {
   void Solve(std::vector<double> &rhs,
              std::vector<double> &x);  // simple solver
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
-             int dimension);  // two field solver
+             PetscInt blockSize);  // simple solver
   void Solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
              int numRigidBody);
   void Solve(std::vector<double> &rhs, std::vector<double> &x,

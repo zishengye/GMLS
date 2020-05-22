@@ -118,7 +118,7 @@ int PetscSparseMatrix::FinalAssemble() {
 
   for (int i = 0; i < __row; i++) {
     for (auto n = 0; n < __matrix[i].size(); n++) {
-      __j[__i[i] + n] = (__matrix[i][n].first);
+      __j[__i[i] + n] = __matrix[i][n].first;
       __val[__i[i] + n] = __matrix[i][n].second;
     }
   }
@@ -236,8 +236,6 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     __j.insert(__j.end(), block_col_indices.begin(), block_col_indices.end());
   }
 
-  cout << __i[block_row] << endl;
-
   auto blockStorage = blockSize * blockSize;
 
   __val.resize(nnz_block * blockStorage);
@@ -263,14 +261,15 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     }
   }
 
-  if (__Col != 0)
+  if (__Col != 0) {
     MatCreateMPIBAIJWithArrays(PETSC_COMM_WORLD, blockSize, __row, __col,
                                PETSC_DECIDE, __Col, __i.data(), __j.data(),
                                __val.data(), &__mat);
-  else
+  } else {
     MatCreateMPIBAIJWithArrays(PETSC_COMM_WORLD, blockSize, __row, __col,
                                PETSC_DECIDE, PETSC_DECIDE, __i.data(),
                                __j.data(), __val.data(), &__mat);
+  }
 
   __isAssembled = true;
 
@@ -595,145 +594,40 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
 }
 
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
-                              int dimension) {
-  int fieldDof = dimension + 1;
-  int velocity_dof = dimension;
-  int pressure_dof = 1;
+                              PetscInt blockSize) {
+  if (__isAssembled) {
+    Vec _rhs, _x;
+    VecCreateMPIWithArray(PETSC_COMM_WORLD, blockSize, rhs.size(), PETSC_DECIDE,
+                          rhs.data(), &_rhs);
+    VecDuplicate(_rhs, &_x);
 
-  vector<int> idx_velocity, idx_pressure;
-  vector<int> idx_field;
-  vector<int> idx_global;
+    KSP _ksp;
+    KSPCreate(PETSC_COMM_WORLD, &_ksp);
+    KSPSetOperators(_ksp, __mat, __mat);
+    KSPSetFromOptions(_ksp);
 
-  int MPIsize, myId;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myId);
-  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
+    KSPSetUp(_ksp);
 
-  PetscInt localN1, localN2;
-  MatGetOwnershipRange(__mat, &localN1, &localN2);
+    PC _pc;
+    KSPGetPC(_ksp, &_pc);
+    PCSetFromOptions(_pc);
+    PCSetUp(_pc);
 
-  int localParticleNum;
-  if (myId != MPIsize - 1) {
-    localParticleNum = (localN2 - localN1) / fieldDof;
-    idx_field.resize(fieldDof * localParticleNum);
-    idx_velocity.resize(velocity_dof * localParticleNum);
-    idx_pressure.resize(localParticleNum);
+    PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
+    KSPSolve(_ksp, _rhs, _x);
+    MPI_Barrier(MPI_COMM_WORLD);
 
-    for (int i = 0; i < localParticleNum; i++) {
-      for (int j = 0; j < fieldDof; j++) {
-        idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
-      }
+    KSPDestroy(&_ksp);
 
-      for (int j = 0; j < velocity_dof; j++) {
-        idx_velocity[velocity_dof * i + j] = localN1 + fieldDof * i + j;
-      }
-      idx_pressure[i] = localN1 + fieldDof * i + 1;
+    PetscScalar *a;
+    VecGetArray(_x, &a);
+    for (size_t i = 0; i < rhs.size(); i++) {
+      x[i] = a[i];
     }
-  } else {
-    localParticleNum = (localN2 - localN1 - fieldDof) / fieldDof;
-    idx_field.resize(fieldDof * localParticleNum);
-    idx_velocity.resize(velocity_dof * localParticleNum);
-    idx_pressure.resize(localParticleNum);
 
-    for (int i = 0; i < localParticleNum; i++) {
-      for (int j = 0; j < fieldDof; j++) {
-        idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
-      }
-
-      for (int j = 0; j < velocity_dof; j++) {
-        idx_velocity[velocity_dof * i + j] = localN1 + fieldDof * i + j;
-      }
-      idx_pressure[i] = localN1 + fieldDof * i + 1;
-    }
+    VecDestroy(&_rhs);
+    VecDestroy(&_x);
   }
-
-  idx_global = idx_field;
-  if (myId == MPIsize - 1)
-    idx_global.push_back(localN1 + fieldDof * localParticleNum + fieldDof - 1);
-
-  IS isg_field, isg_global;
-  IS isg_velocity, isg_pressure;
-
-  ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
-                  PETSC_COPY_VALUES, &isg_field);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_global.size(), idx_global.data(),
-                  PETSC_COPY_VALUES, &isg_global);
-
-  ISCreateGeneral(MPI_COMM_WORLD, idx_velocity.size(), idx_velocity.data(),
-                  PETSC_COPY_VALUES, &isg_velocity);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_pressure.size(), idx_pressure.data(),
-                  PETSC_COPY_VALUES, &isg_pressure);
-
-  // MatSetBlockSize(__mat, fieldDof);
-
-  KSP _ksp;
-  KSPCreate(PETSC_COMM_WORLD, &_ksp);
-  KSPSetOperators(_ksp, __mat, __mat);
-  KSPSetFromOptions(_ksp);
-
-  PC _pc;
-
-  KSPGetPC(_ksp, &_pc);
-
-  PCSetType(_pc, PCCOMPOSITE);
-  PCCompositeAddPC(_pc, PCFIELDSPLIT);
-  PCCompositeAddPC(_pc, PCPBJACOBI);
-  PCCompositeSetType(_pc, PC_COMPOSITE_MULTIPLICATIVE);
-  PCSetUp(_pc);
-
-  PC _sub_pc_fieldsplit;
-  PC _sub_pc_pbjacobi;
-
-  PCCompositeGetPC(_pc, 0, &_sub_pc_fieldsplit);
-  PCFieldSplitSetIS(_sub_pc_fieldsplit, "0", isg_velocity);
-  PCFieldSplitSetIS(_sub_pc_fieldsplit, "1", isg_pressure);
-  PCSetFromOptions(_sub_pc_fieldsplit);
-  PCSetUp(_sub_pc_fieldsplit);
-
-  PCCompositeGetPC(_pc, 1, &_sub_pc_pbjacobi);
-  PCSetFromOptions(_sub_pc_pbjacobi);
-  PCSetUp(_sub_pc_pbjacobi);
-
-  KSPSetUp(_ksp);
-
-  Vec _rhs, _x;
-  VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
-                        rhs.data(), &_rhs);
-  VecDuplicate(_rhs, &_x);
-
-  // Mat vv;
-  // MatGetSubMatrix(__mat, isg_field, isg_field, MAT_INITIAL_MATRIX, &vv);
-  // MatSetBlockSize(vv, fieldDof);
-  // MatAssemblyBegin(vv, MAT_FINAL_ASSEMBLY);
-  // MatAssemblyEnd(vv, MAT_FINAL_ASSEMBLY);
-  // Vec rhs_sub, x_sub;
-  // VecGetSubVector(_rhs, isg_field, &rhs_sub);
-  // VecDuplicate(rhs_sub, &x_sub);
-  for (int i = 0; i < 1000; i++) {
-    MatMult(__mat, _rhs, _x);
-  }
-  // VecRestoreSubVector(_rhs, isg_field, &rhs_sub);
-
-  // for (int i = 0; i < 1000; i++) {
-  //   MatMult(__mat, _rhs, _x);
-  // }
-
-  PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-  // KSPSolve(_ksp, _rhs, _x);
-  PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
-
-  KSPDestroy(&_ksp);
-
-  PetscScalar *a;
-  VecGetArray(_x, &a);
-  for (size_t i = 0; i < rhs.size(); i++) {
-    x[i] = a[i];
-  }
-
-  VecDestroy(&_rhs);
-  VecDestroy(&_x);
-
-  ISDestroy(&isg_field);
-  ISDestroy(&isg_global);
 }
 
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,

@@ -817,8 +817,8 @@ void GMLS_Solver::StokesEquation() {
 
   vector<int> idx_neighbor;
 
-  A.FinalAssemble();
-  // A.FinalAssemble(fieldDof);
+  // A.FinalAssemble();
+  A.FinalAssemble(fieldDof);
   // A.ExtractNeighborIndex(idx_neighbor, __dim, numRigidBody,
   //                        localRigidBodyOffset, globalRigidBodyOffset);
 
@@ -966,7 +966,8 @@ void GMLS_Solver::StokesEquation() {
   tStart = MPI_Wtime();
   if (numRigidBody == 0) {
     // A.Solve(rhs, res, __dim);
-    A.Solve(rhs, res);
+    // A.Solve(rhs, res);
+    A.Solve(rhs, res, fieldDof);
   } else {
     if (__adaptive_step != 0) InitialGuessFromPreviousAdaptiveStep(I, res);
     // A.Solve(rhs, res, idx_neighbor, __dim, numRigidBody, __adaptive_step, I,
