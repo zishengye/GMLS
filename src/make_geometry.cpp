@@ -220,7 +220,7 @@ void GMLS_Solver::InitUniformParticleField() {
   ClearParticle();
 
   InitFieldParticle();
-  InitFieldBoundaryParticle();
+  // InitFieldBoundaryParticle();
   InitRigidBodySurfaceParticle();
 
   ParticleIndex();
@@ -300,21 +300,99 @@ void GMLS_Solver::InitFieldParticle() {
 
   double xPos, yPos, zPos;
   vec3 normal = vec3(1.0, 0.0, 0.0);
+  vec3 boundary_normal;
 
   if (__dim == 2) {
     zPos = 0.0;
     double vol = __particleSize0[0] * __particleSize0[1];
     int localIndex = 0;
+
+    // down
+    if (__domainBoundaryType[0] != 0) {
+      xPos = __domain[0][0];
+      yPos = __domain[0][1];
+      if (__domainBoundaryType[3] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        boundary_normal = vec3(sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
+        InsertParticle(pos, 1, __particleSize0, boundary_normal, localIndex, 0,
+                       vol);
+      }
+      xPos += 0.5 * __particleSize0[0];
+
+      while (xPos < __domain[1][0] - 1e-5) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        boundary_normal = vec3(0.0, 1.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, boundary_normal, localIndex, 0,
+                       vol);
+        xPos += __particleSize0[0];
+      }
+
+      if (__domainBoundaryType[1] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        boundary_normal = vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
+        InsertParticle(pos, 1, __particleSize0, boundary_normal, localIndex, 0,
+                       vol);
+      }
+    }
+
     // fluid particle
     yPos = __domain[0][1] + __particleSize0[1] / 2.0;
     for (int j = 0; j < __domainCount[1]; j++) {
+      // left
+      if (__domainBoundaryType[3] != 0) {
+        xPos = __domain[0][0];
+        vec3 pos = vec3(xPos, yPos, zPos);
+        boundary_normal = vec3(1.0, 0.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, boundary_normal, localIndex, 0,
+                       vol);
+      }
+
       xPos = __domain[0][0] + __particleSize0[0] / 2.0;
       for (int i = 0; i < __domainCount[0]; i++) {
         vec3 pos = vec3(xPos, yPos, zPos);
         InsertParticle(pos, 0, __particleSize0, normal, localIndex, 0, vol);
         xPos += __particleSize0[0];
       }
+
+      // right
+      if (__domainBoundaryType[1] != 0) {
+        xPos = __domain[1][0];
+        vec3 pos = vec3(xPos, yPos, zPos);
+        boundary_normal = vec3(-1.0, 0.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, boundary_normal, localIndex, 0,
+                       vol);
+      }
+
       yPos += __particleSize0[1];
+    }
+
+    // up
+    if (__domainBoundaryType[2] != 0) {
+      xPos = __domain[0][0];
+      yPos = __domain[1][1];
+      if (__domainBoundaryType[3] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        boundary_normal = vec3(sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
+        InsertParticle(pos, 1, __particleSize0, boundary_normal, localIndex, 0,
+                       vol);
+      }
+      xPos += 0.5 * __particleSize0[0];
+
+      while (xPos < __domain[1][0] - 1e-5) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        boundary_normal = vec3(0.0, -1.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, boundary_normal, localIndex, 0,
+                       vol);
+        xPos += __particleSize0[0];
+      }
+
+      xPos = __domain[1][0];
+      if (__domainBoundaryType[1] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        boundary_normal = vec3(-sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
+        InsertParticle(pos, 1, __particleSize0, boundary_normal, localIndex, 0,
+                       vol);
+      }
     }
   }
   if (__dim == 3) {
@@ -421,7 +499,7 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
         yPos -= __particleSize0[1];
       }
     }
-  }  // end of 2d construction
+  } // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = coord.size();
@@ -999,8 +1077,9 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
 
         bool insert = false;
         for (int i = -1; i < 2; i += 2) {
-          vec3 newPos = oldCoord + vec3(normal[tag][1], -normal[tag][0], 0.0) *
-                                       i * particleSize[tag][0] * 0.5;
+          vec3 newPos = oldCoord +
+                        vec3(normal[tag][1], -normal[tag][0], 0.0) * i *
+                            particleSize[tag][0] * 0.5;
 
           if (!insert) {
             coord[tag] = newPos;
