@@ -256,19 +256,28 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
                       __j.begin() + __i[block_row_index + 1], block_col_index);
 
       auto disp = it - __j.begin();
-      __val[blockStorage * disp + local_col_index * blockSize +
-            local_row_index] = __matrix[i][j].second;
+      __val[blockStorage * disp + local_col_index +
+            local_row_index * blockSize] = __matrix[i][j].second;
     }
   }
 
+  // MatCreateMPIBAIJWithArray is incompatible with current code setup
   if (__Col != 0) {
-    MatCreateMPIBAIJWithArrays(PETSC_COMM_WORLD, blockSize, __row, __col,
-                               PETSC_DECIDE, __Col, __i.data(), __j.data(),
-                               __val.data(), &__mat);
+    MatCreate(MPI_COMM_WORLD, &__mat);
+    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
+    MatSetType(__mat, MATMPIBAIJ);
+    MatSetBlockSize(__mat, blockSize);
+    MatSetUp(__mat);
+    MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
+                                  __val.data());
   } else {
-    MatCreateMPIBAIJWithArrays(PETSC_COMM_WORLD, blockSize, __row, __col,
-                               PETSC_DECIDE, PETSC_DECIDE, __i.data(),
-                               __j.data(), __val.data(), &__mat);
+    MatCreate(MPI_COMM_WORLD, &__mat);
+    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
+    MatSetType(__mat, MATMPIBAIJ);
+    MatSetBlockSize(__mat, blockSize);
+    MatSetUp(__mat);
+    MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
+                                  __val.data());
   }
 
   __isAssembled = true;
@@ -550,7 +559,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
                  MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
       }
     } else {
-      if (myId == MPIsize - 1) idx_neighbor = move(neighborInclusion);
+      if (myId == MPIsize - 1)
+        idx_neighbor = move(neighborInclusion);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
