@@ -1,7 +1,7 @@
 #pragma once
 
-#include <assert.h>
 #include <algorithm>
+#include <assert.h>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -18,7 +18,7 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
 }
 
 class PetscSparseMatrix {
- private:
+private:
   bool __isAssembled;
 
   typedef std::pair<PetscInt, double> entry;
@@ -28,30 +28,23 @@ class PetscSparseMatrix {
   PetscInt __row, __col, __nnz, __Col, __out_process_row,
       __out_process_reduction;
 
- public:
-  Mat __mat, __diag_block, __neighbor_block;
+public:
+  Mat __mat, __diag_block, __neighbor_block, __prec;
 
   std::vector<PetscInt> __i;
   std::vector<PetscInt> __j;
   std::vector<PetscReal> __val;
 
   PetscSparseMatrix()
-      : __isAssembled(false),
-        __row(0),
-        __col(0),
-        __Col(0),
-        __out_process_row(0),
-        __out_process_reduction(0) {}
+      : __isAssembled(false), __row(0), __col(0), __Col(0),
+        __out_process_row(0), __out_process_reduction(0) {}
 
   // only for square matrix
   PetscSparseMatrix(PetscInt m /* local # of rows */,
                     PetscInt N /* global # of cols */,
                     PetscInt out_process_row = 0,
                     PetscInt out_process_row_reduction = 0)
-      : __isAssembled(false),
-        __row(m),
-        __col(m),
-        __Col(N),
+      : __isAssembled(false), __row(m), __col(m), __Col(N),
         __out_process_row(out_process_row),
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
@@ -63,10 +56,7 @@ class PetscSparseMatrix {
                     PetscInt N /* global # of cols */,
                     PetscInt out_process_row = 0,
                     PetscInt out_process_row_reduction = 0)
-      : __isAssembled(false),
-        __row(m),
-        __col(n),
-        __Col(N),
+      : __isAssembled(false), __row(m), __col(n), __Col(N),
         __out_process_row(out_process_row),
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
@@ -74,17 +64,15 @@ class PetscSparseMatrix {
   }
 
   PetscSparseMatrix(const PetscSparseMatrix &mat)
-      : __isAssembled(false),
-        __row(mat.__row),
-        __col(mat.__col),
-        __Col(mat.__Col),
-        __out_process_row(mat.__out_process_row),
+      : __isAssembled(false), __row(mat.__row), __col(mat.__col),
+        __Col(mat.__Col), __out_process_row(mat.__out_process_row),
         __out_process_reduction(mat.__out_process_reduction) {
     resize(__row, __col, __Col, __out_process_row, __out_process_reduction);
   }
 
   ~PetscSparseMatrix() {
-    if (__isAssembled) MatDestroy(&__mat);
+    if (__isAssembled)
+      MatDestroy(&__mat);
   }
 
   void resize(PetscInt m, PetscInt n) {
@@ -130,9 +118,9 @@ class PetscSparseMatrix {
 
   // (*this) * x = rhs
   void Solve(std::vector<double> &rhs,
-             std::vector<double> &x);  // simple solver
+             std::vector<double> &x); // simple solver
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
-             PetscInt blockSize);  // simple solver
+             PetscInt blockSize); // simple solver
   void Solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
              int numRigidBody);
   void Solve(std::vector<double> &rhs, std::vector<double> &x,

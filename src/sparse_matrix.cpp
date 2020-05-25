@@ -263,22 +263,24 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
 
   // MatCreateMPIBAIJWithArray is incompatible with current code setup
   if (__Col != 0) {
-    MatCreate(MPI_COMM_WORLD, &__mat);
-    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
-    MatSetType(__mat, MATMPIBAIJ);
-    MatSetBlockSize(__mat, blockSize);
-    MatSetUp(__mat);
-    MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
+    MatCreate(MPI_COMM_WORLD, &__prec);
+    MatSetSizes(__prec, __row, __col, PETSC_DECIDE, __Col);
+    MatSetType(__prec, MATMPIBAIJ);
+    MatSetBlockSize(__prec, blockSize);
+    MatSetUp(__prec);
+    MatMPIBAIJSetPreallocationCSR(__prec, blockSize, __i.data(), __j.data(),
                                   __val.data());
   } else {
-    MatCreate(MPI_COMM_WORLD, &__mat);
-    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
-    MatSetType(__mat, MATMPIBAIJ);
-    MatSetBlockSize(__mat, blockSize);
-    MatSetUp(__mat);
-    MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
+    MatCreate(MPI_COMM_WORLD, &__prec);
+    MatSetSizes(__prec, __row, __col, PETSC_DECIDE, __Col);
+    MatSetType(__prec, MATMPIBAIJ);
+    MatSetBlockSize(__prec, blockSize);
+    MatSetUp(__prec);
+    MatMPIBAIJSetPreallocationCSR(__prec, blockSize, __i.data(), __j.data(),
                                   __val.data());
   }
+
+  MatDuplicate(__prec, MAT_COPY_VALUES, &__mat);
 
   __isAssembled = true;
 
@@ -613,7 +615,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
     KSP _ksp;
     KSPCreate(PETSC_COMM_WORLD, &_ksp);
-    KSPSetOperators(_ksp, __mat, __mat);
+    KSPSetOperators(_ksp, __mat, __prec);
     KSPSetFromOptions(_ksp);
 
     KSPSetUp(_ksp);
