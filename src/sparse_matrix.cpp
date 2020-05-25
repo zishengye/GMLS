@@ -206,80 +206,6 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     }
   }
 
-  auto block_row = __row / blockSize;
-
-  __i.resize(block_row + 1);
-  __j.clear();
-
-  __nnz = 0;
-  auto nnz_block = __nnz;
-  vector<PetscInt> block_col_indices;
-  __i[0] = 0;
-  for (int i = 0; i < block_row; i++) {
-    block_col_indices.clear();
-    for (int j = 0; j < blockSize; j++) {
-      for (int k = 0; k < __matrix[i * blockSize + j].size(); k++) {
-        block_col_indices.push_back(__matrix[i * blockSize + j][k].first /
-                                    blockSize);
-      }
-    }
-
-    sort(block_col_indices.begin(), block_col_indices.end());
-    block_col_indices.erase(
-        unique(block_col_indices.begin(), block_col_indices.end()),
-        block_col_indices.end());
-
-    nnz_block += block_col_indices.size();
-
-    __i[i + 1] = __i[i] + block_col_indices.size();
-
-    __j.insert(__j.end(), block_col_indices.begin(), block_col_indices.end());
-  }
-
-  auto blockStorage = blockSize * blockSize;
-
-  __val.resize(nnz_block * blockStorage);
-
-  for (int i = 0; i < nnz_block * blockStorage; i++) {
-    __val[i] = 0.0;
-  }
-
-  for (int i = 0; i < __row; i++) {
-    int block_row_index = i / blockSize;
-    int local_row_index = i % blockSize;
-    for (int j = 0; j < __matrix[i].size(); j++) {
-      int block_col_index = __matrix[i][j].first / blockSize;
-      int local_col_index = __matrix[i][j].first % blockSize;
-
-      auto it =
-          lower_bound(__j.begin() + __i[block_row_index],
-                      __j.begin() + __i[block_row_index + 1], block_col_index);
-
-      auto disp = it - __j.begin();
-      __val[blockStorage * disp + local_col_index +
-            local_row_index * blockSize] = __matrix[i][j].second;
-    }
-  }
-
-  // MatCreateMPIBAIJWithArray is incompatible with current code setup
-  if (__Col != 0) {
-    MatCreate(MPI_COMM_WORLD, &__mat);
-    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
-    MatSetType(__mat, MATMPIBAIJ);
-    MatSetBlockSize(__mat, blockSize);
-    MatSetUp(__mat);
-    MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
-                                  __val.data());
-  } else {
-    MatCreate(MPI_COMM_WORLD, &__mat);
-    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
-    MatSetType(__mat, MATMPIBAIJ);
-    MatSetBlockSize(__mat, blockSize);
-    MatSetUp(__mat);
-    MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
-                                  __val.data());
-  }
-
   __i.resize(__row + 1);
 
   __nnz = 0;
@@ -322,6 +248,98 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
                               PETSC_DECIDE, __i.data(), __j.data(),
                               __val.data(), &__prec);
+
+  if (myid == MPIsize - 1) {
+    __row -= blockSize;
+    __col -= blockSize;
+  }
+
+  __Col -= blockSize;
+
+  auto block_row = __row / blockSize;
+
+  __i.resize(block_row + 1);
+  __j.clear();
+
+  __nnz = 0;
+  auto nnz_block = __nnz;
+  vector<PetscInt> block_col_indices;
+  __i[0] = 0;
+  for (int i = 0; i < block_row; i++) {
+    block_col_indices.clear();
+    for (int j = 0; j < blockSize; j++) {
+      for (int k = 0; k < __matrix[i * blockSize + j].size(); k++) {
+        if (__matrix[i * blockSize + j][k].first < __Col)
+          block_col_indices.push_back(__matrix[i * blockSize + j][k].first /
+                                      blockSize);
+      }
+    }
+
+    sort(block_col_indices.begin(), block_col_indices.end());
+    block_col_indices.erase(
+        unique(block_col_indices.begin(), block_col_indices.end()),
+        block_col_indices.end());
+
+    nnz_block += block_col_indices.size();
+
+    __i[i + 1] = __i[i] + block_col_indices.size();
+
+    __j.insert(__j.end(), block_col_indices.begin(), block_col_indices.end());
+  }
+
+  auto blockStorage = blockSize * blockSize;
+
+  __val.resize(nnz_block * blockStorage);
+
+  for (int i = 0; i < nnz_block * blockStorage; i++) {
+    __val[i] = 0.0;
+  }
+
+  for (int i = 0; i < __row; i++) {
+    int block_row_index = i / blockSize;
+    int local_row_index = i % blockSize;
+    for (int j = 0; j < __matrix[i].size(); j++) {
+      if (__matrix[i][j].first < __Col) {
+        int block_col_index = __matrix[i][j].first / blockSize;
+        int local_col_index = __matrix[i][j].first % blockSize;
+
+        auto it = lower_bound(__j.begin() + __i[block_row_index],
+                              __j.begin() + __i[block_row_index + 1],
+                              block_col_index);
+
+        auto disp = it - __j.begin();
+        __val[blockStorage * disp + local_col_index * blockSize +
+              local_row_index] = __matrix[i][j].second;
+      }
+    }
+  }
+
+  // MatCreateMPIBAIJWithArray is incompatible with current code setup
+  if (__Col != 0) {
+    MatCreate(MPI_COMM_WORLD, &__mat);
+    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
+    MatSetType(__mat, MATMPIBAIJ);
+    MatSetBlockSize(__mat, blockSize);
+    MatSetUp(__mat);
+    MatSetOption(__mat, MAT_ROW_ORIENTED, PETSC_FALSE);
+    MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
+                                  __val.data());
+  } else {
+    MatCreate(MPI_COMM_WORLD, &__mat);
+    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
+    MatSetType(__mat, MATMPIBAIJ);
+    MatSetBlockSize(__mat, blockSize);
+    MatSetUp(__mat);
+    MatSetOption(__mat, MAT_ROW_ORIENTED, PETSC_FALSE);
+    MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
+                                  __val.data());
+  }
+
+  Vec rhs, x;
+  MatCreateVecs(__mat, &rhs, &x);
+  for (int i = 0; i < 1000; i++) {
+    MatMult(__mat, x, rhs);
+  }
 
   __isAssembled = true;
 
@@ -667,7 +685,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     PCSetUp(_pc);
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-    KSPSolve(_ksp, _rhs, _x);
+    // KSPSolve(_ksp, _rhs, _x);
     MPI_Barrier(MPI_COMM_WORLD);
 
     KSPDestroy(&_ksp);
