@@ -407,26 +407,21 @@ void GMLS_Solver::StokesEquation() {
   int globalVelocityDof =
       globalParticleNum * __dim + rigidBodyDof * numRigidBody;
   int localPressureDof = localParticleNum;
-  int globalPressureDof = globalParticleNum + fieldDof;
+  int globalPressureDof = globalParticleNum;
 
   if (__myID == __MPISize - 1) {
-    localVelocityDof += velocityDof + rigidBodyDof * numRigidBody;
-    localPressureDof += 1;
+    localVelocityDof += rigidBodyDof * numRigidBody;
   }
 
-  int localRigidBodyOffset = particleNum[__MPISize + 1] * fieldDof + fieldDof;
-  int globalRigidBodyOffset = globalParticleNum * fieldDof + fieldDof;
+  int localRigidBodyOffset = particleNum[__MPISize + 1] * fieldDof;
+  int globalRigidBodyOffset = globalParticleNum * fieldDof;
   int localOutProcessOffset = particleNum[__MPISize + 1] * fieldDof;
   int globalOutProcessOffset = globalParticleNum * fieldDof;
-  int localLagrangeMultiplierOffset =
-      particleNum[__MPISize + 1] * fieldDof + velocityDof;
-  int globalLagrangeMultiplierOffset =
-      globalParticleNum * fieldDof + velocityDof;
 
   int localDof = localVelocityDof + localPressureDof;
   int globalDof = globalVelocityDof + globalPressureDof;
 
-  int outProcessRow = rigidBodyDof * numRigidBody + fieldDof;
+  int outProcessRow = rigidBodyDof * numRigidBody;
 
   if (__adaptive_step == 0)
     _multi.clear();
@@ -470,14 +465,20 @@ void GMLS_Solver::StokesEquation() {
 
       // pressure block
       index.clear();
-      for (int j = 0; j < neighborLists(i, 0); j++) {
-        const int neighborParticleIndex =
-            backgroundSourceIndex[neighborLists(i, j + 1)];
+      if (__myID == 0 && i == 0) {
+        index.resize(1);
+        index[0] = currentParticleGlobalIndex * fieldDof + velocityDof;
 
-        index.push_back(fieldDof * neighborParticleIndex + velocityDof);
+        A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof,
+                      index);
+      } else {
+        for (int j = 0; j < neighborLists(i, 0); j++) {
+          const int neighborParticleIndex =
+              backgroundSourceIndex[neighborLists(i, j + 1)];
+
+          index.push_back(fieldDof * neighborParticleIndex + velocityDof);
+        }
       }
-      // Lagrange multiplier
-      index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
     }
@@ -501,8 +502,6 @@ void GMLS_Solver::StokesEquation() {
           index.push_back(fieldDof * neighborParticleIndex + axes);
         }
       }
-      // Lagrange multiplier
-      index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
     }
@@ -534,8 +533,6 @@ void GMLS_Solver::StokesEquation() {
           index.push_back(fieldDof * neighborParticleIndex + axes);
         }
       }
-      // Lagrange multiplier
-      index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
     }
@@ -545,10 +542,6 @@ void GMLS_Solver::StokesEquation() {
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
-
-    // Lagrange multiplier
-    outProcessIndex[velocityDof].push_back(
-        currentParticleGlobalIndex * fieldDof + velocityDof);
 
     if (particleType[i] >= 4) {
       vector<PetscInt> index;
@@ -571,12 +564,6 @@ void GMLS_Solver::StokesEquation() {
                             attachedRigidBodyIndex[i] * rigidBodyDof + axes];
         it.insert(it.end(), index.begin(), index.end());
       }
-    }
-  }
-
-  if (__myID == __MPISize - 1) {
-    for (int i = 0; i < fieldDof; i++) {
-      outProcessIndex[i].push_back(globalOutProcessOffset + i);
     }
   }
 
@@ -754,29 +741,33 @@ void GMLS_Solver::StokesEquation() {
 
     // pressure block
     if (particleType[i] == 0) {
-      for (int j = 0; j < neighborLists(i, 0); j++) {
-        const int neighborParticleIndex =
-            backgroundSourceIndex[neighborLists(i, j + 1)];
+      if (__myID == 0 && i == 0) {
+        A.increment(iPressureLocal, iPressureGlobal, 1.0);
+      } else {
+        for (int j = 0; j < neighborLists(i, 0); j++) {
+          const int neighborParticleIndex =
+              backgroundSourceIndex[neighborLists(i, j + 1)];
 
-        const int jPressureGlobal =
-            fieldDof * neighborParticleIndex + velocityDof;
+          const int jPressureGlobal =
+              fieldDof * neighborParticleIndex + velocityDof;
 
-        const double Aij = pressureAlphas(i, pressureLaplacianIndex, j);
+          const double Aij = pressureAlphas(i, pressureLaplacianIndex, j);
 
-        // laplacian p
-        A.increment(iPressureLocal, jPressureGlobal, Aij);
-        A.increment(iPressureLocal, iPressureGlobal, -Aij);
+          // laplacian p
+          A.increment(iPressureLocal, jPressureGlobal, Aij);
+          A.increment(iPressureLocal, iPressureGlobal, -Aij);
 
-        for (int axes1 = 0; axes1 < __dim; axes1++) {
-          const int iVelocityLocal =
-              fieldDof * currentParticleLocalIndex + axes1;
+          for (int axes1 = 0; axes1 < __dim; axes1++) {
+            const int iVelocityLocal =
+                fieldDof * currentParticleLocalIndex + axes1;
 
-          const double Dijx =
-              pressureAlphas(i, pressureGradientIndex[axes1], j);
+            const double Dijx =
+                pressureAlphas(i, pressureGradientIndex[axes1], j);
 
-          // grad p
-          A.increment(iVelocityLocal, jPressureGlobal, -Dijx);
-          A.increment(iVelocityLocal, iPressureGlobal, Dijx);
+            // grad p
+            A.increment(iVelocityLocal, jPressureGlobal, -Dijx);
+            A.increment(iVelocityLocal, iPressureGlobal, Dijx);
+          }
         }
       }
     }
@@ -800,24 +791,8 @@ void GMLS_Solver::StokesEquation() {
         A.increment(iPressureLocal, iPressureGlobal, -Aij);
       }
     }
-
-    // Lagrangian multiplier
-    A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
-
-    A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal, 1.0);
     // end of pressure block
   } // end of fluid particle loop
-
-  if (__myID == __MPISize - 1) {
-    // Lagrangian multiplier for pressure
-    // add a penalty factor
-    A.outProcessIncrement(localLagrangeMultiplierOffset,
-                          globalLagrangeMultiplierOffset, globalParticleNum);
-    for (int i = 0; i < velocityDof; i++) {
-      A.outProcessIncrement(localOutProcessOffset + i,
-                            globalOutProcessOffset + i, 1.0);
-    }
-  }
 
   vector<int> idx_neighbor;
 
