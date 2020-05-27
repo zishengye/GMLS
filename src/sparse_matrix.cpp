@@ -206,6 +206,7 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     }
   }
 
+  // non-block version matrix
   __i.resize(__row + 1);
 
   __nnz = 0;
@@ -248,6 +249,13 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
                               PETSC_DECIDE, __i.data(), __j.data(),
                               __val.data(), &__prec);
+
+  // block version matrix
+  __Col -= blockSize;
+  if (myid == MPIsize - 1) {
+    __row -= blockSize;
+    __col -= blockSize;
+  }
 
   auto block_row = __row / blockSize;
 
@@ -324,6 +332,12 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     MatSetUp(__mat);
     MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
                                   __val.data());
+  }
+
+  Vec rhs, x;
+  MatCreateVecs(__mat, &rhs, &x);
+  for (int i = 0; i < 1000; i++) {
+    MatMult(__mat, rhs, x);
   }
 
   __isAssembled = true;
@@ -670,7 +684,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     PCSetUp(_pc);
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-    KSPSolve(_ksp, _rhs, _x);
+    // KSPSolve(_ksp, _rhs, _x);
     MPI_Barrier(MPI_COMM_WORLD);
 
     KSPDestroy(&_ksp);
