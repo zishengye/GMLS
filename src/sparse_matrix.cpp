@@ -320,7 +320,7 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
                                   __val.data());
   } else {
     MatCreate(MPI_COMM_WORLD, &__mat);
-    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
+    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, PETSC_DECIDE);
     MatSetType(__mat, MATMPIBAIJ);
     MatSetBlockSize(__mat, blockSize);
     MatSetUp(__mat);

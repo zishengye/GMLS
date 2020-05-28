@@ -437,6 +437,8 @@ void GMLS_Solver::StokesEquation() {
   // compute matrix graph
   vector<vector<PetscInt>> outProcessIndex(outProcessRow);
 
+  bool pinned_particle = true;
+
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
@@ -465,12 +467,14 @@ void GMLS_Solver::StokesEquation() {
 
       // pressure block
       index.clear();
-      if (__myID == 0 && i == 0) {
+      if (__myID == 0 && pinned_particle) {
         index.resize(1);
         index[0] = currentParticleGlobalIndex * fieldDof + velocityDof;
 
         A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof,
                       index);
+
+        pinned_particle = false;
       } else {
         for (int j = 0; j < neighborLists(i, 0); j++) {
           const int neighborParticleIndex =
@@ -577,6 +581,7 @@ void GMLS_Solver::StokesEquation() {
   }
 
   // insert matrix entity
+  pinned_particle = true;
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
@@ -741,8 +746,29 @@ void GMLS_Solver::StokesEquation() {
 
     // pressure block
     if (particleType[i] == 0) {
-      if (__myID == 0 && i == 0) {
+      if (__myID == 0 && pinned_particle) {
         A.increment(iPressureLocal, iPressureGlobal, 1.0);
+        pinned_particle = false;
+
+        for (int j = 0; j < neighborLists(i, 0); j++) {
+          const int neighborParticleIndex =
+              backgroundSourceIndex[neighborLists(i, j + 1)];
+
+          const int jPressureGlobal =
+              fieldDof * neighborParticleIndex + velocityDof;
+
+          for (int axes1 = 0; axes1 < __dim; axes1++) {
+            const int iVelocityLocal =
+                fieldDof * currentParticleLocalIndex + axes1;
+
+            const double Dijx =
+                pressureAlphas(i, pressureGradientIndex[axes1], j);
+
+            // grad p
+            A.increment(iVelocityLocal, jPressureGlobal, -Dijx);
+            A.increment(iVelocityLocal, iPressureGlobal, Dijx);
+          }
+        }
       } else {
         for (int j = 0; j < neighborLists(i, 0); j++) {
           const int neighborParticleIndex =
@@ -834,6 +860,7 @@ void GMLS_Solver::StokesEquation() {
     res[i] = 0.0;
   }
 
+  pinned_particle = true;
   for (int i = 0; i < localParticleNum; i++) {
     if (particleType[i] != 0 && particleType[i] < 4) {
       // 2-d Taylor-Green vortex-like flow
@@ -906,8 +933,13 @@ void GMLS_Solver::StokesEquation() {
             -2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
 
-        rhs[fieldDof * i + velocityDof] =
-            -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
+        if (__myID == 0 && pinned_particle) {
+          pinned_particle = false;
+        } else {
+          rhs[fieldDof * i + velocityDof] =
+              -4.0 * pow(M_PI, 2.0) *
+              (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
+        }
       }
 
       if (__dim == 3) {
@@ -965,10 +997,19 @@ void GMLS_Solver::StokesEquation() {
   pressure.resize(localParticleNum);
   velocity.resize(localParticleNum);
 
+  double pressure_sum = 0.0;
   for (int i = 0; i < localParticleNum; i++) {
     pressure[i] = res[fieldDof * i + velocityDof];
+    pressure_sum += pressure[i];
     for (int axes1 = 0; axes1 < __dim; axes1++)
       velocity[i][axes1] = res[fieldDof * i + axes1];
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  double average_pressure = pressure_sum / globalParticleNum;
+  for (int i = 0; i < localParticleNum; i++) {
+    pressure[i] -= average_pressure;
   }
 
   // check data
