@@ -328,6 +328,7 @@ void GMLS_Solver::InitFieldParticle() {
       }
 
       if (__domainBoundaryType[1] != 0) {
+        xPos = __domain[1][0];
         vec3 pos = vec3(xPos, yPos, zPos);
         boundary_normal = vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
         InsertParticle(pos, 1, __particleSize0, boundary_normal, localIndex, 0,
@@ -1077,9 +1078,8 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
 
         bool insert = false;
         for (int i = -1; i < 2; i += 2) {
-          vec3 newPos = oldCoord +
-                        vec3(normal[tag][1], -normal[tag][0], 0.0) * i *
-                            particleSize[tag][0] * 0.5;
+          vec3 newPos = oldCoord + vec3(normal[tag][1], -normal[tag][0], 0.0) *
+                                       i * particleSize[tag][0] * 0.5;
 
           if (!insert) {
             coord[tag] = newPos;
