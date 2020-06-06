@@ -6,20 +6,30 @@
 #include "sparse_matrix.h"
 
 class multilevel {
- private:
-  std::vector<PetscSparseMatrix *> A_list;  // coefficient matrix list
-  std::vector<PetscSparseMatrix *> I_list;  // interpolation matrix list
-  std::vector<PetscSparseMatrix *> R_list;  // restriction matrix list
+private:
+  std::vector<PetscSparseMatrix *> A_list; // coefficient matrix list
+  std::vector<PetscSparseMatrix *> I_list; // interpolation matrix list
+  std::vector<PetscSparseMatrix *> R_list; // restriction matrix list
   std::vector<Mat *>
-      ff_lag_list;  // field with lagrange multiplier sub-matrix list
+      ff_lag_list; // field with lagrange multiplier sub-matrix list
   std::vector<Mat *>
-      ff_list;  // field without lagrange multiplier sub-matrix list
-  std::vector<Mat *> nn_list;                  // nearfield sub-matrix list
-  std::vector<KSP *> ksp_list;                 // main ksp list
-  std::vector<KSP *> field_smoother_ksp_list;  // field value smoother ksp list
+      ff_list; // field without lagrange multiplier sub-matrix list
+  std::vector<Mat *> nn_list;                 // nearfield sub-matrix list
+  std::vector<KSP *> ksp_list;                // main ksp list
+  std::vector<KSP *> field_smoother_ksp_list; // field value smoother ksp list
   std::vector<IS *> isg_field_lag_list;
   std::vector<IS *> isg_field_list;
   std::vector<IS *> isg_neighbor_list;
+
+  // vector list
+  std::vector<Vec *> x_list;
+  std::vector<Vec *> y_list;
+  std::vector<Vec *> b_list;
+  std::vector<Vec *> r_list;
+  std::vector<Vec *> t_list;
+
+  // relaxation list
+  std::vector<KSP *> relaxation_list;
 
   KSP ksp_field_base;
 
@@ -29,7 +39,7 @@ class multilevel {
 
   int field_dof, velocity_dof, pressure_dof;
 
- public:
+public:
   multilevel() {}
 
   ~multilevel() {}
@@ -85,8 +95,17 @@ class multilevel {
     ksp_list.clear();
   }
 
-  void InitialGuessFromPreviousAdaptiveStep(
-      std::vector<double> &initial_guess) {}
+  void
+  InitialGuessFromPreviousAdaptiveStep(std::vector<double> &initial_guess) {}
+
+  std::vector<PetscSparseMatrix *> *GetInterpolationList() { return &I_list; }
+  std::vector<PetscSparseMatrix *> *GetRestrictionList() { return &R_list; }
+
+  std::vector<Vec *> *GetXList() { return &x_list; }
+  std::vector<Vec *> *GetYList() { return &y_list; }
+  std::vector<Vec *> *GetBList() { return &b_list; }
+  std::vector<Vec *> *GetRList() { return &r_list; }
+  std::vector<Vec *> *GetTList() { return &t_list; }
 
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
              std::vector<int> &idx_neighbor);

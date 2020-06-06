@@ -70,7 +70,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   vector<int> new_actual_index(coord.size());
   for (int i = 0; i < coord.size(); i++) {
     new_actual_index[i] = actual_new_target;
-    if (adaptive_level[i] == __adaptive_step) actual_new_target++;
+    if (adaptive_level[i] == __adaptive_step)
+      actual_new_target++;
   }
 
   int actual_old_target = 0;
@@ -300,13 +301,13 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
       for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
            j++) {
-        I.increment(
-            field_dof * i + velocity_dof,
-            field_dof * old_background_index[old_to_new_neighbor_lists(
-                            new_actual_index[i], j + 1)] +
-                velocity_dof,
-            old_to_new_pressure_alphas(new_actual_index[i],
-                                       pressure_old_to_new_alphas_index, j));
+        I.increment(field_dof * i + velocity_dof,
+                    field_dof * old_background_index[old_to_new_neighbor_lists(
+                                    new_actual_index[i], j + 1)] +
+                        velocity_dof,
+                    old_to_new_pressure_alphas(new_actual_index[i],
+                                               pressure_old_to_new_alphas_index,
+                                               j));
       }
     } else {
       for (int j = 0; j < field_dof; j++) {
@@ -557,6 +558,33 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   MatSetBlockSize(ff, fieldDof);
 
+  // setup current level vectors and relaxation
+  x_list.push_back(new Vec);
+  y_list.push_back(new Vec);
+  b_list.push_back(new Vec);
+  r_list.push_back(new Vec);
+  t_list.push_back(new Vec);
+
+  relaxation_list.push_back(new KSP);
+
+  MatCreateVecs(ff, NULL, x_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, y_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, b_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, r_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, t_list[adaptive_step]);
+
+  KSPCreate(MPI_COMM_WORLD, relaxation_list[adaptive_step]);
+
+  KSPSetType(*relaxation_list[adaptive_step], KSPPREONLY);
+  KSPSetOperators(*relaxation_list[adaptive_step], ff, ff);
+
+  PC relaxation;
+  KSPGetPC(*relaxation_list[adaptive_step], &relaxation);
+  PCSetType(relaxation, PCSOR);
+  PCSetUp(relaxation);
+
+  KSPSetUp(*relaxation_list[adaptive_step]);
+
   KSP &_ksp = getKsp(adaptive_step);
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
   KSPSetOperators(_ksp, mat, mat);
@@ -584,8 +612,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
     HypreLUShellPCSetUpAdaptive(_pc, &mat, &ff, ff_lag_list[0], &nn,
-                                &isg_field_lag, &isg_neighbor, &I_list, &R_list,
-                                _x);
+                                &isg_field_lag, &isg_neighbor, this, _x);
   }
 
   Vec x_initial;
