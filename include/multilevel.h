@@ -64,6 +64,9 @@ public:
   KSP &getSmootherKsp(int num_level) {
     return *field_smoother_ksp_list[num_level];
   }
+  KSP &getRelaxation(int num_level) { return *relaxation_list[num_level]; }
+
+  Mat &getFieldMat(int num_level) { return *ff_lag_list[num_level]; }
 
   void add_new_level() {
     A_list.push_back(new PetscSparseMatrix());

@@ -243,22 +243,26 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   VecScatterEnd(shell->ctx_scatter1, y, shell->y1, INSERT_VALUES,
                 SCATTER_FORWARD);
 
-  // pre-smooth
-  KSPSolve(shell->globalSmoother, shell->x1, shell->y1);
-  MatMult(*shell->a, shell->y1,
-          *((*shell->multi->GetBList())[shell->adaptive_level - 1]));
-  VecAXPY(*((*shell->multi->GetBList())[shell->adaptive_level - 1]), -1.0,
-          shell->x1);
+  VecCopy(shell->x1, *((*shell->multi->GetBList())[shell->adaptive_level - 1]));
 
   // sweep down
-  int counter = 1;
   for (int i = shell->adaptive_level - 1; i > 0; i--) {
+    // pre-smooth
+    KSPSolve(shell->multi->getRelaxation(i), *((*shell->multi->GetBList())[i]),
+             *((*shell->multi->GetXList())[i]));
+
+    MatMult(shell->multi->getFieldMat(i), *((*shell->multi->GetXList())[i]),
+            *((*shell->multi->GetRList())[i]));
+
+    VecAXPY(*((*shell->multi->GetRList())[i]), -1.0,
+            *((*shell->multi->GetBList())[i]));
+
+    VecScale(*((*shell->multi->GetRList())[i]), -1.0);
+
     Mat *R = &(*shell->multi->GetRestrictionList())[i]->__mat;
-    Vec *v1 = (*shell->multi->GetBList())[i];
+    Vec *v1 = (*shell->multi->GetRList())[i];
     Vec *v2 = (*shell->multi->GetBList())[i - 1];
     MatMult(*R, *v1, *v2);
-
-    counter++;
   }
 
   // solve on coarest-level
@@ -266,29 +270,32 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   Vec y_base;
   VecDuplicate(*x_base, &y_base);
   KSPSolve(shell->field, *x_base, y_base);
-  VecCopy(y_base, *(*shell->multi->GetBList())[0]);
+  VecCopy(y_base, *(*shell->multi->GetXList())[0]);
 
   // sweep up
-  counter = shell->adaptive_level - 1;
   for (int i = 1; i < shell->adaptive_level; i++) {
     Mat *I = &(*shell->multi->GetInterpolationList())[i]->__mat;
-    Vec *v1 = (*shell->multi->GetBList())[i];
-    Vec *v2 = (*shell->multi->GetBList())[i - 1];
+    Vec *v1 = (*shell->multi->GetTList())[i];
+    Vec *v2 = (*shell->multi->GetXList())[i - 1];
     MatMult(*I, *v2, *v1);
-    counter--;
-  }
-  VecAXPY(shell->y1, -1.0,
-          *((*shell->multi->GetBList())[shell->adaptive_level - 1]));
 
-  // post-smooth
-  MatMult(*shell->a, shell->y1,
-          *((*shell->multi->GetBList())[shell->adaptive_level - 1]));
-  VecAXPY(*((*shell->multi->GetBList())[shell->adaptive_level - 1]), -1.0,
-          shell->x1);
-  KSPSolve(shell->globalSmoother,
-           *((*shell->multi->GetBList())[shell->adaptive_level - 1]),
-           shell->t1);
-  VecAXPY(shell->y1, -1.0, shell->t1);
+    VecAXPY(*((*shell->multi->GetXList())[i]), 1.0,
+            *((*shell->multi->GetTList())[i]));
+
+    MatMult(shell->multi->getFieldMat(i), *((*shell->multi->GetXList())[i]),
+            *((*shell->multi->GetRList())[i]));
+
+    VecAXPY(*((*shell->multi->GetRList())[i]), -1.0,
+            *((*shell->multi->GetBList())[i]));
+
+    KSPSolve(shell->multi->getRelaxation(i), *((*shell->multi->GetRList())[i]),
+             *((*shell->multi->GetTList())[i]));
+
+    VecAXPY(*((*shell->multi->GetXList())[i]), -1.0,
+            *((*shell->multi->GetTList())[i]));
+  }
+
+  VecCopy(*((*shell->multi->GetXList())[shell->adaptive_level - 1]), shell->y1);
 
   VecScatterBegin(shell->ctx_scatter1, shell->y1, y, INSERT_VALUES,
                   SCATTER_REVERSE);
