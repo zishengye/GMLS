@@ -32,6 +32,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   int velocity_dof = dimension;
   int pressure_dof = 1;
 
+  int rigid_body_dof = (dimension == 3) ? 6 : 3;
+
   int translation_dof = dimension;
   int rotation_dof = (dimension == 3) ? 3 : 1;
 
@@ -222,7 +224,13 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   auto old_to_new_velocity_alphas = old_to_new_velocity_basis->getAlphas();
 
   // old to new interpolation matrix
-  I.resize(new_local_dof, old_local_dof, old_global_dof);
+  if (__myID == __MPISize - 1)
+    I.resize(new_local_dof + rigid_body_dof * num_rigid_body,
+             old_local_dof + rigid_body_dof * num_rigid_body,
+             old_global_dof + rigid_body_dof * num_rigid_body);
+  else
+    I.resize(new_local_dof, old_local_dof,
+             old_global_dof + rigid_body_dof * num_rigid_body);
   // compute matrix graph
   vector<PetscInt> index;
   for (int i = 0; i < new_local_particle_num; i++) {
@@ -268,6 +276,19 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     for (int j = 0; j < field_dof; j++) {
       index[0] = field_dof * old_global_particle_num + j;
       I.setColIndex(field_dof * new_local_particle_num + j, index);
+    }
+  }
+
+  // rigid body
+  if (__myID == __MPISize - 1) {
+    index.resize(1);
+    for (int i = 0; i < num_rigid_body; i++) {
+      int local_rigid_body_index_offset =
+          field_dof * (new_local_particle_num + 1) + i * rigid_body_dof;
+      for (int j = 0; j < rigid_body_dof; j++) {
+        index[0] = field_dof * (old_global_dof + 1) + i * rigid_body_dof + j;
+        I.setColIndex(local_rigid_body_index_offset + j, index);
+      }
     }
   }
 
@@ -317,11 +338,25 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     }
   }
 
+  // lagrange multiplier
   if (__myID == __MPISize - 1) {
     for (int j = 0; j < field_dof; j++) {
       I.increment(field_dof * new_local_particle_num + j,
                   field_dof * old_global_particle_num + j,
                   old_global_particle_num / new_global_particle_num);
+    }
+  }
+
+  // rigid body
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i < num_rigid_body; i++) {
+      int local_rigid_body_index_offset =
+          field_dof * (new_local_particle_num + 1) + i * rigid_body_dof;
+      for (int j = 0; j < rigid_body_dof; j++) {
+        I.increment(local_rigid_body_index_offset + j,
+                    field_dof * (old_global_dof + 1) + i * rigid_body_dof + j,
+                    1.0);
+      }
     }
   }
 
@@ -357,8 +392,15 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   auto new_to_old_velocity_alphas = new_to_old_velocity_basis->getAlphas();
 
   // new to old relaxation matrix
-  R.resize(old_local_dof, new_local_dof, new_global_dof);
+  if (__myID == __MPISize - 1)
+    R.resize(old_local_dof + num_rigid_body * rigid_body_dof,
+             new_local_dof + num_rigid_body * rigid_body_dof,
+             new_global_dof + num_rigid_body * rigid_body_dof);
+  else
+    R.resize(old_local_dof, new_local_dof,
+             new_global_dof + num_rigid_body * rigid_body_dof);
 
+  // compute restriction amtrix graph
   for (int i = 0; i < old_local_particle_num; i++) {
     // velocity interpolation
     // index.resize(new_to_old_neighbor_lists(i, 0) * velocity_dof);
@@ -412,6 +454,20 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     for (int j = 0; j < field_dof; j++) {
       index[0] = field_dof * new_global_particle_num + j;
       R.setColIndex(field_dof * old_local_particle_num + j, index);
+    }
+  }
+
+  // rigid body
+  if (__myID == __MPISize - 1) {
+    index.resize(1);
+    for (int i = 0; i < num_rigid_body; i++) {
+      int local_rigid_body_index_offset =
+          field_dof * (old_local_particle_num + 1) + i * rigid_body_dof;
+      for (int j = 0; j < rigid_body_dof; j++) {
+        index[0] =
+            field_dof * (new_global_particle_num + 1) + i * rigid_body_dof + j;
+        R.setColIndex(local_rigid_body_index_offset + j, index);
+      }
     }
   }
 
@@ -473,11 +529,27 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     }
   }
 
+  // lagrange multiplier
   if (__myID == __MPISize - 1) {
     for (int j = 0; j < field_dof; j++) {
       R.increment(field_dof * old_local_particle_num + j,
                   field_dof * new_global_particle_num + j,
                   new_global_particle_num / old_global_particle_num);
+    }
+  }
+
+  // rigid body
+  if (__myID == __MPISize - 1) {
+    index.resize(1);
+    for (int i = 0; i < num_rigid_body; i++) {
+      int local_rigid_body_index_offset =
+          field_dof * (old_local_particle_num + 1) + i * rigid_body_dof;
+      for (int j = 0; j < rigid_body_dof; j++) {
+        R.increment(local_rigid_body_index_offset + j,
+                    field_dof * (new_global_particle_num + 1) +
+                        i * rigid_body_dof + j,
+                    1.0);
+      }
     }
   }
 
