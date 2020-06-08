@@ -19,10 +19,37 @@ void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
   int old_local_particle_num = pressure.size();
   int new_local_particle_num = coord.size();
 
-  if (__myID == __MPISize - 1)
-    previous_result.resize(field_dof * (old_local_particle_num + 1));
-  else
+  if (__myID == __MPISize - 1) {
+    static vector<vec3> &rigid_body_velocity =
+        __rigidBody.vector.GetHandle("velocity");
+    static vector<vec3> &rigid_body_angular_velocity =
+        __rigidBody.vector.GetHandle("angular velocity");
+
+    int local_rigid_body_offset = (old_local_particle_num + 1) * field_dof;
+    int num_rigid_body = rigid_body_velocity.size();
+
+    int translation_dof = __dim;
+    int rotation_dof = (__dim == 3) ? 3 : 1;
+    int rigid_body_dof = translation_dof + rotation_dof;
+
+    previous_result.resize(field_dof * (old_local_particle_num + 1) +
+                           num_rigid_body * rigid_body_dof);
+
+    for (int i = 0; i < num_rigid_body; i++) {
+      for (int j = 0; j < translation_dof; j++) {
+        previous_result[local_rigid_body_offset + i * rigid_body_dof + j] =
+            rigid_body_velocity[i][j];
+      }
+      for (int j = 0; j < rotation_dof; j++) {
+        previous_result[local_rigid_body_offset + i * rigid_body_dof +
+                        translation_dof + j] =
+            rigid_body_angular_velocity[i][j];
+      }
+    }
+
+  } else {
     previous_result.resize(field_dof * old_local_particle_num);
+  }
 
   for (int i = 0; i < old_local_particle_num; i++) {
     for (int j = 0; j < velocity_dof; j++) {
@@ -41,57 +68,15 @@ void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
   MatMult(I.__mat, previous_result_vec, initial_guess_vec);
 
   velocity.resize(new_local_particle_num);
-  pressure.resize(pressure_dof * new_local_particle_num);
+  pressure.resize(new_local_particle_num);
 
   double *ptr;
   VecGetArray(initial_guess_vec, &ptr);
-  if (__myID == __MPISize - 1) {
-    for (int i = 0; i <= new_local_particle_num; i++) {
-      for (int j = 0; j < velocity_dof; j++) {
-        initial_guess[i * field_dof + j] = ptr[i * field_dof + j];
-      }
-
-      initial_guess[i * field_dof + velocity_dof] =
-          ptr[i * field_dof + velocity_dof];
-    }
-  } else {
-    for (int i = 0; i < new_local_particle_num; i++) {
-      for (int j = 0; j < velocity_dof; j++) {
-        initial_guess[i * field_dof + j] = ptr[i * field_dof + j];
-      }
-
-      initial_guess[i * field_dof + velocity_dof] =
-          ptr[i * field_dof + velocity_dof];
-    }
+  for (int i = 0; i < initial_guess.size(); i++) {
+    initial_guess[i] = ptr[i];
   }
   VecRestoreArray(initial_guess_vec, &ptr);
 
   VecDestroy(&initial_guess_vec);
   VecDestroy(&previous_result_vec);
-
-  // set initial value for rigid body dofs
-  if (__myID == __MPISize - 1) {
-    static vector<vec3> &rigid_body_velocity =
-        __rigidBody.vector.GetHandle("velocity");
-    static vector<vec3> &rigid_body_angular_velocity =
-        __rigidBody.vector.GetHandle("angular velocity");
-
-    int local_rigid_body_offset = (new_local_particle_num + 1) * field_dof;
-    int num_rigid_body = rigid_body_velocity.size();
-
-    int translation_dof = __dim;
-    int rotation_dof = (__dim == 3) ? 3 : 1;
-    int rigid_body_dof = translation_dof + rotation_dof;
-
-    for (int i = 0; i < num_rigid_body; i++) {
-      for (int j = 0; j < translation_dof; j++) {
-        initial_guess[local_rigid_body_offset + i * rigid_body_dof + j] =
-            rigid_body_velocity[i][j];
-      }
-      for (int j = 0; j < rotation_dof; j++) {
-        initial_guess[local_rigid_body_offset + i * rigid_body_dof +
-                      translation_dof + j] = rigid_body_angular_velocity[i][j];
-      }
-    }
-  }
 }
