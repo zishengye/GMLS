@@ -286,7 +286,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
       int local_rigid_body_index_offset =
           field_dof * (new_local_particle_num + 1) + i * rigid_body_dof;
       for (int j = 0; j < rigid_body_dof; j++) {
-        index[0] = field_dof * (old_global_dof + 1) + i * rigid_body_dof + j;
+        index[0] =
+            field_dof * (old_global_particle_num + 1) + i * rigid_body_dof + j;
         I.setColIndex(local_rigid_body_index_offset + j, index);
       }
     }
@@ -354,7 +355,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
           field_dof * (new_local_particle_num + 1) + i * rigid_body_dof;
       for (int j = 0; j < rigid_body_dof; j++) {
         I.increment(local_rigid_body_index_offset + j,
-                    field_dof * (old_global_dof + 1) + i * rigid_body_dof + j,
+                    field_dof * (old_global_particle_num + 1) +
+                        i * rigid_body_dof + j,
                     1.0);
       }
     }
