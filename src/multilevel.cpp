@@ -484,6 +484,9 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   R.FinalAssemble();
 }
 
+void multilevel::InitialGuessFromPreviousAdaptiveStep(
+    std::vector<double> &initial_guess) {}
+
 void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
                        std::vector<int> &idx_neighbor) {
   MPI_Barrier(MPI_COMM_WORLD);

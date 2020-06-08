@@ -98,8 +98,7 @@ public:
     ksp_list.clear();
   }
 
-  void
-  InitialGuessFromPreviousAdaptiveStep(std::vector<double> &initial_guess) {}
+  void InitialGuessFromPreviousAdaptiveStep(std::vector<double> &initial_guess);
 
   std::vector<PetscSparseMatrix *> *GetInterpolationList() { return &I_list; }
   std::vector<PetscSparseMatrix *> *GetRestrictionList() { return &R_list; }
