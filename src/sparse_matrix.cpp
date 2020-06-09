@@ -1216,13 +1216,15 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
+    // HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor,
+    // _x);
   } else {
     PCShellSetApply(_pc, HypreLUShellPCApply);
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor, _x);
+    // HypreLUShellPCSetUp(_pc, &__mat, &ff, &nn, &isg_field, &isg_neighbor,
+    // _x);
   }
 
   if (adatptive_step > 0) {

@@ -28,10 +28,21 @@ private:
   std::vector<Vec *> r_list;
   std::vector<Vec *> t_list;
 
+  std::vector<Vec *> x_sub_list;
+  std::vector<Vec *> y_sub_list;
+  std::vector<Vec *> b_sub_list;
+  std::vector<Vec *> r_sub_list;
+  std::vector<Vec *> t_sub_list;
+
+  std::vector<VecScatter *> field_scatter_list;
+  std::vector<VecScatter *> neighbor_scatter_list;
+
+  Vec x_neighbor, y_neighbor;
+
   // relaxation list
   std::vector<KSP *> relaxation_list;
 
-  KSP ksp_field_base;
+  KSP ksp_field_base, ksp_neighbor_base;
 
   int myid, mpi_size;
 
@@ -65,8 +76,13 @@ public:
     return *field_smoother_ksp_list[num_level];
   }
   KSP &getRelaxation(int num_level) { return *relaxation_list[num_level]; }
+  KSP &getFieldBase() { return ksp_field_base; }
+  KSP &getNeighborBase() { return ksp_neighbor_base; }
 
   Mat &getFieldMat(int num_level) { return *ff_lag_list[num_level]; }
+
+  Vec *getXNeighbor() { return &x_neighbor; }
+  Vec *getYNeighbor() { return &y_neighbor; }
 
   void add_new_level() {
     A_list.push_back(new PetscSparseMatrix());
@@ -108,6 +124,19 @@ public:
   std::vector<Vec *> *GetBList() { return &b_list; }
   std::vector<Vec *> *GetRList() { return &r_list; }
   std::vector<Vec *> *GetTList() { return &t_list; }
+
+  std::vector<Vec *> *GetXSubList() { return &x_sub_list; }
+  std::vector<Vec *> *GetYSubList() { return &y_sub_list; }
+  std::vector<Vec *> *GetBSubList() { return &b_sub_list; }
+  std::vector<Vec *> *GetRSubList() { return &r_sub_list; }
+  std::vector<Vec *> *GetTSubList() { return &t_sub_list; }
+
+  std::vector<VecScatter *> *GetFieldScatterList() {
+    return &field_scatter_list;
+  }
+  std::vector<VecScatter *> *GetNeighborScatterList() {
+    return &neighbor_scatter_list;
+  }
 
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
              std::vector<int> &idx_neighbor);

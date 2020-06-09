@@ -635,21 +635,86 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   MatSetBlockSize(ff, fieldDof);
 
-  // setup current level vectors and relaxation
+  // setup current level vectors
   x_list.push_back(new Vec);
   y_list.push_back(new Vec);
   b_list.push_back(new Vec);
   r_list.push_back(new Vec);
   t_list.push_back(new Vec);
 
+  x_sub_list.push_back(new Vec);
+  y_sub_list.push_back(new Vec);
+  b_sub_list.push_back(new Vec);
+  r_sub_list.push_back(new Vec);
+  t_sub_list.push_back(new Vec);
+
   relaxation_list.push_back(new KSP);
 
-  MatCreateVecs(ff, NULL, x_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, y_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, b_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, r_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, t_list[adaptive_step]);
+  MatCreateVecs(mat, NULL, x_list[adaptive_step]);
+  MatCreateVecs(mat, NULL, y_list[adaptive_step]);
+  MatCreateVecs(mat, NULL, b_list[adaptive_step]);
+  MatCreateVecs(mat, NULL, r_list[adaptive_step]);
+  MatCreateVecs(mat, NULL, t_list[adaptive_step]);
 
+  MatCreateVecs(ff, NULL, x_sub_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, y_sub_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, b_sub_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, r_sub_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, t_sub_list[adaptive_step]);
+
+  // field vector scatter
+  field_scatter_list.push_back(new VecScatter);
+  VecScatterCreate(*x_list[adaptive_step], isg_field_lag,
+                   *x_sub_list[adaptive_step], NULL,
+                   field_scatter_list[adaptive_step]);
+
+  // neighbor vector scatter, only needed on base level
+  if (adaptive_step == 0) {
+    MatCreateVecs(nn, NULL, &x_neighbor);
+    MatCreateVecs(nn, NULL, &y_neighbor);
+
+    neighbor_scatter_list.push_back(new VecScatter);
+
+    VecScatterCreate(*x_list[adaptive_step], isg_neighbor, x_neighbor, NULL,
+                     neighbor_scatter_list[adaptive_step]);
+  }
+
+  // setup preconditioner for base level
+  if (adaptive_step == 0) {
+    KSPCreate(PETSC_COMM_WORLD, &ksp_field_base);
+    KSPCreate(PETSC_COMM_WORLD, &ksp_neighbor_base);
+
+    KSPSetOperators(ksp_field_base, ff, ff);
+    KSPSetOperators(ksp_neighbor_base, nn, nn);
+
+    KSPSetType(ksp_field_base, KSPPREONLY);
+    KSPSetType(ksp_neighbor_base, KSPPREONLY);
+
+    PC pc_field_base;
+    PC pc_neighbor_base;
+
+    KSPGetPC(ksp_field_base, &pc_field_base);
+    PCSetType(pc_field_base, PCHYPRE);
+    PCSetFromOptions(pc_field_base);
+    PCSetUp(pc_field_base);
+
+    KSPGetPC(ksp_neighbor_base, &pc_neighbor_base);
+    PCSetType(pc_neighbor_base, PCBJACOBI);
+    PCSetUp(pc_neighbor_base);
+    KSP *bjacobi_ksp;
+    PCBJacobiGetSubKSP(pc_neighbor_base, NULL, NULL, &bjacobi_ksp);
+    KSPSetType(bjacobi_ksp[0], KSPPREONLY);
+    PC bjacobi_pc;
+    KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
+    PCSetType(bjacobi_pc, PCLU);
+    PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
+    PCSetUp(bjacobi_pc);
+
+    KSPSetUp(ksp_field_base);
+    KSPSetUp(ksp_neighbor_base);
+  }
+
+  // setup relaxation on field for current level
   KSPCreate(MPI_COMM_WORLD, relaxation_list[adaptive_step]);
 
   KSPSetType(*relaxation_list[adaptive_step], KSPPREONLY);
@@ -680,7 +745,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, &mat, &ff, &nn, &isg_field_lag, &isg_neighbor, _x);
+    HypreLUShellPCSetUp(_pc, this, _x);
   } else {
     MPI_Barrier(MPI_COMM_WORLD);
     PetscPrintf(PETSC_COMM_WORLD, "start of multilevel preconditioner setup\n");
@@ -689,8 +754,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUpAdaptive(_pc, &mat, &ff, ff_lag_list[0], &nn,
-                                &isg_field_lag, &isg_neighbor, this, _x);
+    HypreLUShellPCSetUp(_pc, this, _x);
   }
 
   Vec x_initial;
@@ -700,10 +764,10 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   }
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
-
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   // if (adaptive_step < 2)
+
   KSPSolve(_ksp, _rhs, _x);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
