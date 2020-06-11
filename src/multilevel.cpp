@@ -655,6 +655,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   t_neighbor_list.push_back(new Vec);
 
   field_relaxation_list.push_back(new KSP);
+  neighbor_relaxation_list.push_back(new KSP);
 
   MatCreateVecs(mat, NULL, x_list[adaptive_step]);
   MatCreateVecs(mat, NULL, y_list[adaptive_step]);
@@ -737,13 +738,37 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetType(*field_relaxation_list[adaptive_step], KSPPREONLY);
   KSPSetOperators(*field_relaxation_list[adaptive_step], ff, ff);
 
-  PC relaxation;
-  KSPGetPC(*field_relaxation_list[adaptive_step], &relaxation);
-  PCSetType(relaxation, PCSOR);
-  PCSetFromOptions(relaxation);
-  PCSetUp(relaxation);
+  PC field_relaxation_pc;
+  KSPGetPC(*field_relaxation_list[adaptive_step], &field_relaxation_pc);
+  PCSetType(field_relaxation_pc, PCSOR);
+  PCSetFromOptions(field_relaxation_pc);
+  PCSetUp(field_relaxation_pc);
 
   KSPSetUp(*field_relaxation_list[adaptive_step]);
+
+  // setup relaxation on neighbor for current level
+  KSPCreate(MPI_COMM_WORLD, neighbor_relaxation_list[adaptive_step]);
+
+  KSPSetType(*neighbor_relaxation_list[adaptive_step], KSPGMRES);
+  KSPSetTolerances(*neighbor_relaxation_list[adaptive_step], 1e-3, 1e-10, 1e10,
+                   5);
+  KSPSetOperators(*neighbor_relaxation_list[adaptive_step], nn, nn);
+
+  PC neighbor_relaxation_pc;
+  KSPGetPC(*neighbor_relaxation_list[adaptive_step], &neighbor_relaxation_pc);
+  PCSetType(neighbor_relaxation_pc, PCBJACOBI);
+  PCSetUp(neighbor_relaxation_pc);
+
+  KSP *neighbor_relaxation_sub_ksp;
+  PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
+                     &neighbor_relaxation_sub_ksp);
+  KSPSetType(neighbor_relaxation_sub_ksp[0], KSPPREONLY);
+  PC neighbor_relaxation_sub_pc;
+  KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
+  PCSetType(neighbor_relaxation_sub_pc, PCKACZMARZ);
+  PCSetUp(neighbor_relaxation_sub_pc);
+
+  KSPSetUp(*neighbor_relaxation_list[adaptive_step]);
 
   KSP &_ksp = getKsp(adaptive_step);
   KSPCreate(PETSC_COMM_WORLD, &_ksp);

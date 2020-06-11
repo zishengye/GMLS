@@ -82,8 +82,11 @@ public:
   KSP &getSmootherKsp(int num_level) {
     return *field_smoother_ksp_list[num_level];
   }
-  KSP &getRelaxation(int num_level) {
+  KSP &getFieldRelaxation(int num_level) {
     return *field_relaxation_list[num_level];
+  }
+  KSP &getNeighborRelaxation(int num_level) {
+    return *neighbor_relaxation_list[num_level];
   }
   KSP &getFieldBase() { return ksp_field_base; }
   KSP &getNeighborBase() { return ksp_neighbor_base; }
@@ -134,11 +137,17 @@ public:
   std::vector<Vec *> *GetRList() { return &r_list; }
   std::vector<Vec *> *GetTList() { return &t_list; }
 
-  std::vector<Vec *> *GetXSubList() { return &x_field_list; }
-  std::vector<Vec *> *GetYSubList() { return &y_field_list; }
-  std::vector<Vec *> *GetBSubList() { return &b_field_list; }
-  std::vector<Vec *> *GetRSubList() { return &r_field_list; }
-  std::vector<Vec *> *GetTSubList() { return &t_field_list; }
+  std::vector<Vec *> *GetXFieldList() { return &x_field_list; }
+  std::vector<Vec *> *GetYFieldList() { return &y_field_list; }
+  std::vector<Vec *> *GetBFieldList() { return &b_field_list; }
+  std::vector<Vec *> *GetRFieldList() { return &r_field_list; }
+  std::vector<Vec *> *GetTFieldList() { return &t_field_list; }
+
+  std::vector<Vec *> *GetXNeighborList() { return &x_neighbor_list; }
+  std::vector<Vec *> *GetYNeighborList() { return &y_neighbor_list; }
+  std::vector<Vec *> *GetBNeighborList() { return &b_neighbor_list; }
+  std::vector<Vec *> *GetRNeighborList() { return &r_neighbor_list; }
+  std::vector<Vec *> *GetTNeighborList() { return &t_neighbor_list; }
 
   std::vector<VecScatter *> *GetFieldScatterList() {
     return &field_scatter_list;
