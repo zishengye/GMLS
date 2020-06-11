@@ -642,13 +642,19 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   r_list.push_back(new Vec);
   t_list.push_back(new Vec);
 
-  x_sub_list.push_back(new Vec);
-  y_sub_list.push_back(new Vec);
-  b_sub_list.push_back(new Vec);
-  r_sub_list.push_back(new Vec);
-  t_sub_list.push_back(new Vec);
+  x_field_list.push_back(new Vec);
+  y_field_list.push_back(new Vec);
+  b_field_list.push_back(new Vec);
+  r_field_list.push_back(new Vec);
+  t_field_list.push_back(new Vec);
 
-  relaxation_list.push_back(new KSP);
+  x_neighbor_list.push_back(new Vec);
+  y_neighbor_list.push_back(new Vec);
+  b_neighbor_list.push_back(new Vec);
+  r_neighbor_list.push_back(new Vec);
+  t_neighbor_list.push_back(new Vec);
+
+  field_relaxation_list.push_back(new KSP);
 
   MatCreateVecs(mat, NULL, x_list[adaptive_step]);
   MatCreateVecs(mat, NULL, y_list[adaptive_step]);
@@ -656,17 +662,28 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   MatCreateVecs(mat, NULL, r_list[adaptive_step]);
   MatCreateVecs(mat, NULL, t_list[adaptive_step]);
 
-  MatCreateVecs(ff, NULL, x_sub_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, y_sub_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, b_sub_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, r_sub_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, t_sub_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, x_field_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, y_field_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, b_field_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, r_field_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, t_field_list[adaptive_step]);
+
+  MatCreateVecs(nn, NULL, x_neighbor_list[adaptive_step]);
+  MatCreateVecs(nn, NULL, y_neighbor_list[adaptive_step]);
+  MatCreateVecs(nn, NULL, b_neighbor_list[adaptive_step]);
+  MatCreateVecs(nn, NULL, r_neighbor_list[adaptive_step]);
+  MatCreateVecs(nn, NULL, t_neighbor_list[adaptive_step]);
 
   // field vector scatter
   field_scatter_list.push_back(new VecScatter);
   VecScatterCreate(*x_list[adaptive_step], isg_field_lag,
-                   *x_sub_list[adaptive_step], NULL,
+                   *x_field_list[adaptive_step], NULL,
                    field_scatter_list[adaptive_step]);
+
+  neighbor_scatter_list.push_back(new VecScatter);
+  VecScatterCreate(*x_list[adaptive_step], isg_neighbor,
+                   *x_neighbor_list[adaptive_step], NULL,
+                   neighbor_scatter_list[adaptive_step]);
 
   // neighbor vector scatter, only needed on base level
   if (adaptive_step == 0) {
@@ -715,18 +732,18 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   }
 
   // setup relaxation on field for current level
-  KSPCreate(MPI_COMM_WORLD, relaxation_list[adaptive_step]);
+  KSPCreate(MPI_COMM_WORLD, field_relaxation_list[adaptive_step]);
 
-  KSPSetType(*relaxation_list[adaptive_step], KSPPREONLY);
-  KSPSetOperators(*relaxation_list[adaptive_step], ff, ff);
+  KSPSetType(*field_relaxation_list[adaptive_step], KSPPREONLY);
+  KSPSetOperators(*field_relaxation_list[adaptive_step], ff, ff);
 
   PC relaxation;
-  KSPGetPC(*relaxation_list[adaptive_step], &relaxation);
+  KSPGetPC(*field_relaxation_list[adaptive_step], &relaxation);
   PCSetType(relaxation, PCSOR);
   PCSetFromOptions(relaxation);
   PCSetUp(relaxation);
 
-  KSPSetUp(*relaxation_list[adaptive_step]);
+  KSPSetUp(*field_relaxation_list[adaptive_step]);
 
   KSP &_ksp = getKsp(adaptive_step);
   KSPCreate(PETSC_COMM_WORLD, &_ksp);

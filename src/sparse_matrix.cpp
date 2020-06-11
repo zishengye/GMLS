@@ -812,16 +812,16 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   PCFieldSplitSetSchurPre(_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, fr_s);
 
-  KSP *_subKsp;
+  KSP *_fieldKsp;
   PetscInt n = 1;
   PCSetUp(_pc);
-  PCFieldSplitGetSubKSP(_pc, &n, &_subKsp);
-  KSPSetOperators(_subKsp[1], fr_s, fr_s);
-  KSPSetFromOptions(_subKsp[0]);
-  KSPSetOperators(_subKsp[0], ff, ff);
+  PCFieldSplitGetSubKSP(_pc, &n, &_fieldKsp);
+  KSPSetOperators(_fieldKsp[1], fr_s, fr_s);
+  KSPSetFromOptions(_fieldKsp[0]);
+  KSPSetOperators(_fieldKsp[0], ff, ff);
 
   PC subpc;
-  KSPGetPC(_subKsp[0], &subpc);
+  KSPGetPC(_fieldKsp[0], &subpc);
 
   PCFieldSplitSetIS(subpc, "0", isg_velocity);
   PCFieldSplitSetIS(subpc, "1", isg_pressure);
@@ -829,13 +829,13 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   PCFieldSplitSetSchurPre(subpc, PC_FIELDSPLIT_SCHUR_PRE_USER, up_s);
 
   // setup sub solver
-  KSP *_subsubKsp;
+  KSP *_fieldsubKsp;
   PCSetFromOptions(subpc);
   PCSetUp(subpc);
-  PCFieldSplitGetSubKSP(subpc, &n, &_subsubKsp);
-  KSPSetOperators(_subsubKsp[1], up_s, up_s);
-  KSPSetFromOptions(_subsubKsp[0]);
-  PetscFree(_subsubKsp);
+  PCFieldSplitGetSubKSP(subpc, &n, &_fieldsubKsp);
+  KSPSetOperators(_fieldsubKsp[1], up_s, up_s);
+  KSPSetFromOptions(_fieldsubKsp[0]);
+  PetscFree(_fieldsubKsp);
 
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
@@ -938,13 +938,13 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   PCFieldSplitSetSchurPre(_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, _ASub[4]);
 
   // setup sub solver
-  KSP *_subKsp;
+  KSP *_fieldKsp;
   PetscInt n = 1;
   PCSetUp(_pc);
-  PCFieldSplitGetSubKSP(_pc, &n, &_subKsp);
-  KSPSetOperators(_subKsp[1], _ASub[4], _ASub[4]);
-  KSPSetFromOptions(_subKsp[0]);
-  KSPSetOperators(_subKsp[0], _ASub[0], _ASub[0]);
+  PCFieldSplitGetSubKSP(_pc, &n, &_fieldKsp);
+  KSPSetOperators(_fieldKsp[1], _ASub[4], _ASub[4]);
+  KSPSetFromOptions(_fieldKsp[0]);
+  KSPSetOperators(_fieldKsp[0], _ASub[0], _ASub[0]);
 
   int MPIsize, myId;
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
@@ -994,7 +994,7 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   MatScale(sub_S, -1.0);
 
   PC subpc;
-  KSPGetPC(_subKsp[0], &subpc);
+  KSPGetPC(_fieldKsp[0], &subpc);
 
   PCFieldSplitSetIS(subpc, "0", isg1);
   PCFieldSplitSetIS(subpc, "1", isg2);
@@ -1002,13 +1002,13 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   PCFieldSplitSetSchurPre(subpc, PC_FIELDSPLIT_SCHUR_PRE_USER, sub_S);
 
   // setup sub solver
-  KSP *_subsubKsp;
+  KSP *_fieldsubKsp;
   PCSetFromOptions(subpc);
   PCSetUp(subpc);
-  PCFieldSplitGetSubKSP(subpc, &n, &_subsubKsp);
-  KSPSetOperators(_subsubKsp[1], sub_S, sub_S);
-  KSPSetFromOptions(_subsubKsp[0]);
-  PetscFree(_subsubKsp);
+  PCFieldSplitGetSubKSP(subpc, &n, &_fieldsubKsp);
+  KSPSetOperators(_fieldsubKsp[1], sub_S, sub_S);
+  KSPSetFromOptions(_fieldsubKsp[0]);
+  PetscFree(_fieldsubKsp);
 
   // vector<PetscInt> idx3, idx4;
   // MatGetOwnershipRange(_ASub[4], &localN1, &localN2);
@@ -1053,7 +1053,7 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   // MatScale(S_S, -1.0);
 
   // PC subpc_s;
-  // KSPGetPC(_subKsp[1], &subpc_s);
+  // KSPGetPC(_fieldKsp[1], &subpc_s);
 
   // PCFieldSplitSetIS(subpc_s, "0", isg3);
   // PCFieldSplitSetIS(subpc_s, "1", isg4);
@@ -1061,14 +1061,14 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   // PCFieldSplitSetSchurPre(subpc_s, PC_FIELDSPLIT_SCHUR_PRE_USER, S_S);
 
   // // setup sub solver
-  // KSP *_subsubKsp_s;
+  // KSP *_fieldsubKsp_s;
   // PCSetFromOptions(subpc_s);
   // PCSetUp(subpc_s);
-  // PCFieldSplitGetSubKSP(subpc_s, &n, &_subsubKsp_s);
-  // KSPSetOperators(_subsubKsp_s[1], S_S, S_S);
-  // KSPSetFromOptions(_subsubKsp_s[0]);
-  // PetscFree(_subsubKsp_s);
-  PetscFree(_subKsp);
+  // PCFieldSplitGetSubKSP(subpc_s, &n, &_fieldsubKsp_s);
+  // KSPSetOperators(_fieldsubKsp_s[1], S_S, S_S);
+  // KSPSetFromOptions(_fieldsubKsp_s[0]);
+  // PetscFree(_fieldsubKsp_s);
+  PetscFree(_fieldKsp);
 
   MPI_Barrier(MPI_COMM_WORLD);
 

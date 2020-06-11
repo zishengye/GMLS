@@ -28,11 +28,17 @@ private:
   std::vector<Vec *> r_list;
   std::vector<Vec *> t_list;
 
-  std::vector<Vec *> x_sub_list;
-  std::vector<Vec *> y_sub_list;
-  std::vector<Vec *> b_sub_list;
-  std::vector<Vec *> r_sub_list;
-  std::vector<Vec *> t_sub_list;
+  std::vector<Vec *> x_field_list;
+  std::vector<Vec *> y_field_list;
+  std::vector<Vec *> b_field_list;
+  std::vector<Vec *> r_field_list;
+  std::vector<Vec *> t_field_list;
+
+  std::vector<Vec *> x_neighbor_list;
+  std::vector<Vec *> y_neighbor_list;
+  std::vector<Vec *> b_neighbor_list;
+  std::vector<Vec *> r_neighbor_list;
+  std::vector<Vec *> t_neighbor_list;
 
   std::vector<VecScatter *> field_scatter_list;
   std::vector<VecScatter *> neighbor_scatter_list;
@@ -40,7 +46,8 @@ private:
   Vec x_neighbor, y_neighbor;
 
   // relaxation list
-  std::vector<KSP *> relaxation_list;
+  std::vector<KSP *> field_relaxation_list;
+  std::vector<KSP *> neighbor_relaxation_list;
 
   KSP ksp_field_base, ksp_neighbor_base;
 
@@ -75,7 +82,9 @@ public:
   KSP &getSmootherKsp(int num_level) {
     return *field_smoother_ksp_list[num_level];
   }
-  KSP &getRelaxation(int num_level) { return *relaxation_list[num_level]; }
+  KSP &getRelaxation(int num_level) {
+    return *field_relaxation_list[num_level];
+  }
   KSP &getFieldBase() { return ksp_field_base; }
   KSP &getNeighborBase() { return ksp_neighbor_base; }
 
@@ -125,11 +134,11 @@ public:
   std::vector<Vec *> *GetRList() { return &r_list; }
   std::vector<Vec *> *GetTList() { return &t_list; }
 
-  std::vector<Vec *> *GetXSubList() { return &x_sub_list; }
-  std::vector<Vec *> *GetYSubList() { return &y_sub_list; }
-  std::vector<Vec *> *GetBSubList() { return &b_sub_list; }
-  std::vector<Vec *> *GetRSubList() { return &r_sub_list; }
-  std::vector<Vec *> *GetTSubList() { return &t_sub_list; }
+  std::vector<Vec *> *GetXSubList() { return &x_field_list; }
+  std::vector<Vec *> *GetYSubList() { return &y_field_list; }
+  std::vector<Vec *> *GetBSubList() { return &b_field_list; }
+  std::vector<Vec *> *GetRSubList() { return &r_field_list; }
+  std::vector<Vec *> *GetTSubList() { return &t_field_list; }
 
   std::vector<VecScatter *> *GetFieldScatterList() {
     return &field_scatter_list;
