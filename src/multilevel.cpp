@@ -228,8 +228,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                     old_to_new_neighbor_lists);
   Kokkos::deep_copy(old_epsilon_device, old_epsilon);
 
-  auto new_to_old_pressusre_basis = new GMLS(
-      ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
+  auto new_to_old_pressure_basis = new GMLS(ScalarTaylorPolynomial, PointSample,
+                                            2, dimension, "LU", "STANDARD");
   auto new_to_old_pressure_wo_bc_basis = new GMLS(
       ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
   auto old_to_new_pressusre_basis = new GMLS(
@@ -409,21 +409,21 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   // new to old relaxation matrix
   // new to old pressure field transition
-  new_to_old_pressusre_basis->setProblemData(
+  new_to_old_pressure_basis->setProblemData(
       new_to_old_neighbor_lists_device, new_source_coords_device,
       old_target_coords_device, new_epsilon_device);
 
-  new_to_old_pressusre_basis->addTargets(ScalarPointEvaluation);
+  new_to_old_pressure_basis->addTargets(ScalarPointEvaluation);
 
-  new_to_old_pressusre_basis->setWeightingType(WeightingFunctionType::Power);
-  new_to_old_pressusre_basis->setWeightingPower(__weightFuncOrder);
-  new_to_old_pressusre_basis->setOrderOfQuadraturePoints(2);
-  new_to_old_pressusre_basis->setDimensionOfQuadraturePoints(1);
-  new_to_old_pressusre_basis->setQuadratureType("LINE");
+  new_to_old_pressure_basis->setWeightingType(WeightingFunctionType::Power);
+  new_to_old_pressure_basis->setWeightingPower(__weightFuncOrder);
+  new_to_old_pressure_basis->setOrderOfQuadraturePoints(2);
+  new_to_old_pressure_basis->setDimensionOfQuadraturePoints(1);
+  new_to_old_pressure_basis->setQuadratureType("LINE");
 
-  new_to_old_pressusre_basis->generateAlphas(1);
+  new_to_old_pressure_basis->generateAlphas(1);
 
-  auto new_to_old_pressure_alphas = new_to_old_pressusre_basis->getAlphas();
+  auto new_to_old_pressure_alphas = new_to_old_pressure_basis->getAlphas();
 
   new_to_old_pressure_wo_bc_basis->setProblemData(
       new_to_old_wo_bc_neighbor_lists_device, new_source_coords_wo_bc_device,
@@ -456,9 +456,10 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   for (int i = 0; i < old_local_particle_num; i++) {
     if (fieldParticleSplitTag[i]) {
       if (old_particle_type[i] == 0) {
-        index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
-        for (int k = 0; k < field_dof; k++) {
-          for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
+        index.resize(new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0));
+        for (int k = 0; k < velocity_dof; k++) {
+          for (int j = 0;
+               j < new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0);
                j++) {
             index[j] = field_dof * background_index[new_to_old_neighbor_lists(
                                        old_actual_index[i], j + 1)] +
@@ -466,6 +467,15 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
           }
           R.setColIndex(field_dof * i + k, index);
         }
+
+        index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
+        for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
+             j++) {
+          index[j] = field_dof * background_index[new_to_old_neighbor_lists(
+                                     old_actual_index[i], j + 1)] +
+                     velocity_dof;
+        }
+        R.setColIndex(field_dof * i + velocity_dof, index);
       } else {
         index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
         for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
@@ -509,8 +519,12 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   }
 
   const auto pressure_new_to_old_alphas_index =
-      new_to_old_pressusre_basis->getAlphaColumnOffset(ScalarPointEvaluation, 0,
-                                                       0, 0, 0);
+      new_to_old_pressure_basis->getAlphaColumnOffset(ScalarPointEvaluation, 0,
+                                                      0, 0, 0);
+
+  const auto pressure_new_to_old_wo_bc_alphas_index =
+      new_to_old_pressure_wo_bc_basis->getAlphaColumnOffset(
+          ScalarPointEvaluation, 0, 0, 0, 0);
 
   for (int i = 0; i < old_local_particle_num; i++) {
     // for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
