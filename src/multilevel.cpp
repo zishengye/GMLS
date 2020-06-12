@@ -56,11 +56,23 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                           : field_dof * new_local_particle_num;
   int new_global_dof = field_dof * (new_global_particle_num + 1);
 
+  int new_source_coords_wo_bc_count = 0;
+  for (int i = 0; i < background_coord.size(); i++) {
+    if (particleType[i] == 0)
+      new_source_coords_wo_bc_count++;
+  }
+
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
       new_source_coords_device("new source coordinates",
                                background_coord.size(), 3);
   Kokkos::View<double **>::HostMirror new_source_coords =
       Kokkos::create_mirror_view(new_source_coords_device);
+
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+      new_source_coords_wo_bc_device("new source coordinates",
+                                     new_source_coords_wo_bc_count, 3);
+  Kokkos::View<double **>::HostMirror new_source_coords_wo_bc =
+      Kokkos::create_mirror_view(new_source_coords_wo_bc_device);
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
       old_source_coords_device("old source coordinates",
@@ -107,8 +119,17 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
       new_source_coords(i, j) = background_coord[i][j];
   }
 
-  // copy old target coords
   int counter = 0;
+  for (int i = 0; i < background_coord.size(); i++) {
+    if (particleType[i] == 0) {
+      for (int j = 0; j < dimension; j++)
+        new_source_coords_wo_bc(counter, j) = background_coord[i][j];
+      counter++;
+    }
+  }
+
+  // copy old target coords
+  counter = 0;
   for (int i = 0; i < old_coord.size(); i++) {
     if (fieldParticleSplitTag[i]) {
       for (int j = 0; j < dimension; j++)
@@ -132,11 +153,14 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   Kokkos::deep_copy(old_source_coords_device, old_source_coords);
   Kokkos::deep_copy(new_source_coords_device, new_source_coords);
+  Kokkos::deep_copy(new_source_coords_wo_bc_device, new_source_coords_wo_bc);
   Kokkos::deep_copy(old_target_coords_device, old_target_coords);
   Kokkos::deep_copy(new_target_coords_device, new_target_coords);
 
   auto new_to_old_point_search(
       CreatePointCloudSearch(new_source_coords_device, dimension));
+  auto new_to_old_wo_bc_point_search(
+      CreatePointCloudSearch(new_source_coords_wo_bc_device, dimension));
   auto old_to_new_point_search(
       CreatePointCloudSearch(old_source_coords_device, dimension));
 
@@ -152,6 +176,13 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
       Kokkos::create_mirror_view(new_to_old_neighbor_lists_device);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+      new_to_old_wo_bc_neighbor_lists_device(
+          "new to old neighbor lists without boundary", actual_old_target,
+          estimatedUpperBoundNumberNeighbors);
+  Kokkos::View<int **>::HostMirror new_to_old_wo_bc_neighbor_lists =
+      Kokkos::create_mirror_view(new_to_old_wo_bc_neighbor_lists_device);
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
       old_to_new_neighbor_lists_device("old to new neighbor lists",
                                        actual_new_target,
                                        estimatedUpperBoundNumberNeighbors);
@@ -163,6 +194,11 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   Kokkos::View<double *>::HostMirror new_epsilon =
       Kokkos::create_mirror_view(new_epsilon_device);
 
+  Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+      new_epsilon_wo_bc_device("h supports", actual_old_target);
+  Kokkos::View<double *>::HostMirror new_epsilon_wo_bc =
+      Kokkos::create_mirror_view(new_epsilon_wo_bc_device);
+
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> old_epsilon_device(
       "h supports", actual_new_target);
   Kokkos::View<double *>::HostMirror old_epsilon =
@@ -173,6 +209,9 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   new_to_old_point_search.generateNeighborListsFromKNNSearch(
       false, old_target_coords, new_to_old_neighbor_lists, new_epsilon,
       neighbor_needed, 1.2);
+  new_to_old_wo_bc_point_search.generateNeighborListsFromKNNSearch(
+      false, old_target_coords, new_to_old_wo_bc_neighbor_lists,
+      new_epsilon_wo_bc, neighbor_needed, 1.2);
   old_to_new_point_search.generateNeighborListsFromKNNSearch(
       false, new_target_coords, old_to_new_neighbor_lists, old_epsilon,
       neighbor_needed, 1.2);
@@ -180,15 +219,19 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   Kokkos::deep_copy(new_to_old_neighbor_lists_device,
                     new_to_old_neighbor_lists);
   Kokkos::deep_copy(new_epsilon_device, new_epsilon);
+
+  Kokkos::deep_copy(new_to_old_wo_bc_neighbor_lists_device,
+                    new_to_old_wo_bc_neighbor_lists);
+  Kokkos::deep_copy(new_epsilon_wo_bc_device, new_epsilon_wo_bc);
+
   Kokkos::deep_copy(old_to_new_neighbor_lists_device,
                     old_to_new_neighbor_lists);
   Kokkos::deep_copy(old_epsilon_device, old_epsilon);
 
   auto new_to_old_pressusre_basis = new GMLS(
       ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
-  auto new_to_old_velocity_basis =
-      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 2,
-               dimension, "SVD", "STANDARD");
+  auto new_to_old_pressure_wo_bc_basis = new GMLS(
+      ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
   auto old_to_new_pressusre_basis = new GMLS(
       ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
   auto old_to_new_velocity_basis =
@@ -198,7 +241,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // old to new pressure field transition
   old_to_new_pressusre_basis->setProblemData(
       old_to_new_neighbor_lists_device, old_source_coords_device,
-      new_target_coords_device, old_epsilon);
+      new_target_coords_device, old_epsilon_device);
 
   old_to_new_pressusre_basis->addTargets(ScalarPointEvaluation);
 
@@ -215,7 +258,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // old to new velocity field transition
   old_to_new_velocity_basis->setProblemData(
       old_to_new_neighbor_lists_device, old_source_coords_device,
-      new_target_coords_device, old_epsilon);
+      new_target_coords_device, old_epsilon_device);
 
   old_to_new_velocity_basis->addTargets(VectorPointEvaluation);
 
@@ -368,7 +411,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // new to old pressure field transition
   new_to_old_pressusre_basis->setProblemData(
       new_to_old_neighbor_lists_device, new_source_coords_device,
-      old_target_coords_device, new_epsilon);
+      old_target_coords_device, new_epsilon_device);
 
   new_to_old_pressusre_basis->addTargets(ScalarPointEvaluation);
 
@@ -382,18 +425,25 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   auto new_to_old_pressure_alphas = new_to_old_pressusre_basis->getAlphas();
 
-  // new to old velocity field transition
-  new_to_old_velocity_basis->setProblemData(
-      new_to_old_neighbor_lists_device, new_source_coords_device,
-      old_target_coords_device, new_epsilon);
+  new_to_old_pressure_wo_bc_basis->setProblemData(
+      new_to_old_wo_bc_neighbor_lists_device, new_source_coords_wo_bc_device,
+      old_target_coords_device, new_epsilon_wo_bc_device);
 
-  new_to_old_velocity_basis->addTargets(VectorPointEvaluation);
+  new_to_old_pressure_wo_bc_basis->addTargets(ScalarPointEvaluation);
 
-  new_to_old_velocity_basis->generateAlphas(1);
+  new_to_old_pressure_wo_bc_basis->setWeightingType(
+      WeightingFunctionType::Power);
+  new_to_old_pressure_wo_bc_basis->setWeightingPower(__weightFuncOrder);
+  new_to_old_pressure_wo_bc_basis->setOrderOfQuadraturePoints(2);
+  new_to_old_pressure_wo_bc_basis->setDimensionOfQuadraturePoints(1);
+  new_to_old_pressure_wo_bc_basis->setQuadratureType("LINE");
 
-  auto new_to_old_velocity_alphas = new_to_old_velocity_basis->getAlphas();
+  new_to_old_pressure_wo_bc_basis->generateAlphas(1);
 
-  // new to old relaxation matrix
+  auto new_to_old_pressure_wo_bc_alphas =
+      new_to_old_pressure_wo_bc_basis->getAlphas();
+
+  // new to old restriction matrix
   if (__myID == __MPISize - 1)
     R.resize(old_local_dof + num_rigid_body * rigid_body_dof,
              new_local_dof + num_rigid_body * rigid_body_dof,
@@ -404,21 +454,6 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   // compute restriction amtrix graph
   for (int i = 0; i < old_local_particle_num; i++) {
-    // velocity interpolation
-    // index.resize(new_to_old_neighbor_lists(i, 0) * velocity_dof);
-    // for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
-    //   for (int k = 0; k < velocity_dof; k++) {
-    //     index[j * velocity_dof + k] =
-    //         field_dof * background_index[new_to_old_neighbor_lists(i, j + 1)]
-    //         + k;
-    //   }
-    // }
-
-    // for (int k = 0; k < velocity_dof; k++) {
-    //   R.setColIndex(field_dof * i + k, index);
-    // }
-
-    // pressure interpolation
     if (fieldParticleSplitTag[i]) {
       if (old_particle_type[i] == 0) {
         index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
@@ -476,12 +511,6 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   const auto pressure_new_to_old_alphas_index =
       new_to_old_pressusre_basis->getAlphaColumnOffset(ScalarPointEvaluation, 0,
                                                        0, 0, 0);
-  vector<int> velocity_new_to_old_alphas_index(pow(dimension, 2));
-  for (int axes1 = 0; axes1 < dimension; axes1++)
-    for (int axes2 = 0; axes2 < dimension; axes2++)
-      velocity_new_to_old_alphas_index[axes1 * dimension + axes2] =
-          new_to_old_velocity_basis->getAlphaColumnOffset(VectorPointEvaluation,
-                                                          axes1, 0, axes2, 0);
 
   for (int i = 0; i < old_local_particle_num; i++) {
     // for (int j = 0; j < new_to_old_neighbor_lists(i, 0); j++) {
