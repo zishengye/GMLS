@@ -13,7 +13,7 @@ struct ErrorComb {
 
 bool pairCompare(const std::pair<int, double> &firstElem,
                  const std::pair<int, double> &secondElem) {
-  return firstElem.second < secondElem.second;
+  return firstElem.second > secondElem.second;
 }
 
 bool GMLS_Solver::NeedRefinement() {
@@ -413,33 +413,71 @@ bool GMLS_Solver::NeedRefinement() {
     std::sort(chopper.begin(), chopper.end(), pairCompare);
 
     vector<int> splitTag;
-    double subError = 0.0;
 
-    // parallel sorting
-    auto i = 0;
-    bool is_loop = true;
-    while (i <= localParticleNum && is_loop) {
-      ErrorComb currentLocalError;
-      ErrorComb currentGlobalError;
+    // parallel selection
+    int split_max_index = 0;
 
-      currentLocalError.rank = __myID;
-      if (i == localParticleNum) {
-        currentLocalError.error = DBL_MAX;
-      } else {
-        currentLocalError.error = chopper[localParticleNum - i - 1].second;
-      }
+    double error_max, error_min, current_error_split;
+    error_max = chopper[0].second;
+    error_min = chopper[localParticleNum - 1].second;
 
-      MPI_Allreduce(&currentLocalError, &currentGlobalError, 1, MPI_DOUBLE_INT,
-                    MPI_MAXLOC, MPI_COMM_WORLD);
-      subError += currentGlobalError.error;
-      if (subError < alpha * globalError) {
-        if (currentGlobalError.rank == __myID) {
-          splitTag.push_back(chopper[localParticleNum - i - 1].first);
-          i++;
+    MPI_Allreduce(MPI_IN_PLACE, &error_max, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &error_min, 1, MPI_DOUBLE, MPI_MIN,
+                  MPI_COMM_WORLD);
+
+    current_error_split = (error_max + error_min) / 2.0;
+    bool selection_finished = false;
+    while (!selection_finished) {
+      int ite = 0;
+      double error_sum = 0.0;
+      while (ite < localParticleNum) {
+        if (chopper[ite].second > current_error_split) {
+          error_sum += chopper[ite].second;
+          ite++;
+        } else {
+          break;
         }
-      } else {
-        is_loop = false;
       }
+
+      MPI_Allreduce(MPI_IN_PLACE, &error_sum, 1, MPI_DOUBLE, MPI_SUM,
+                    MPI_COMM_WORLD);
+
+      if (error_sum < alpha * globalError) {
+        error_max = current_error_split;
+        current_error_split = (current_error_split + error_min) / 2.0;
+      } else {
+        double current_error_min =
+            (ite != 0) ? chopper[ite - 1].second : globalError;
+        MPI_Allreduce(MPI_IN_PLACE, &current_error_min, 1, MPI_DOUBLE, MPI_MIN,
+                      MPI_COMM_WORLD);
+
+        int new_ite = 0;
+        double new_error_sum = 0.0;
+        while (new_ite < localParticleNum) {
+          if (chopper[new_ite].second > current_error_min) {
+            new_error_sum += chopper[new_ite].second;
+            new_ite++;
+          } else {
+            break;
+          }
+        }
+
+        MPI_Allreduce(MPI_IN_PLACE, &new_error_sum, 1, MPI_DOUBLE, MPI_SUM,
+                      MPI_COMM_WORLD);
+
+        if (new_error_sum < alpha * globalError) {
+          split_max_index = ite;
+          selection_finished = true;
+        } else {
+          error_min = current_error_split;
+          current_error_split = (current_error_split + error_max) / 2.0;
+        }
+      }
+    }
+
+    for (int i = 0; i < split_max_index; i++) {
+      splitTag.push_back(chopper[i].first);
     }
 
     for (int i = 0; i < localParticleNum; i++) {

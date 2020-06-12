@@ -750,23 +750,14 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPCreate(MPI_COMM_WORLD, neighbor_relaxation_list[adaptive_step]);
 
   KSPSetType(*neighbor_relaxation_list[adaptive_step], KSPGMRES);
-  KSPSetTolerances(*neighbor_relaxation_list[adaptive_step], 1e-3, 1e-10, 1e10,
+  KSPSetTolerances(*neighbor_relaxation_list[adaptive_step], 1e-50, 1e-50, 1e10,
                    5);
   KSPSetOperators(*neighbor_relaxation_list[adaptive_step], nn, nn);
 
   PC neighbor_relaxation_pc;
   KSPGetPC(*neighbor_relaxation_list[adaptive_step], &neighbor_relaxation_pc);
-  PCSetType(neighbor_relaxation_pc, PCBJACOBI);
+  PCSetType(neighbor_relaxation_pc, PCKACZMARZ);
   PCSetUp(neighbor_relaxation_pc);
-
-  KSP *neighbor_relaxation_sub_ksp;
-  PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
-                     &neighbor_relaxation_sub_ksp);
-  KSPSetType(neighbor_relaxation_sub_ksp[0], KSPPREONLY);
-  PC neighbor_relaxation_sub_pc;
-  KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
-  PCSetType(neighbor_relaxation_sub_pc, PCKACZMARZ);
-  PCSetUp(neighbor_relaxation_sub_pc);
 
   KSPSetUp(*neighbor_relaxation_list[adaptive_step]);
 
