@@ -485,7 +485,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
         R.setColIndex(field_dof * i + velocity_dof, index);
       } else {
         // corner point
-        if (old_particle_type[i] == 2) {
+        if (old_particle_type[i] == 1) {
           index.resize(1);
           for (int j = 0; j < field_dof; j++) {
             index[j] = field_dof * background_index[i] + j;
@@ -561,7 +561,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                           pressure_new_to_old_wo_bc_alphas_index, j));
         }
       } else {
-        if (old_particle_type[i] == 2) {
+        // corner particle
+        if (old_particle_type[i] == 1) {
           for (int j = 0; j < field_dof; j++) {
             R.increment(field_dof * i + j, field_dof * background_index[i] + j,
                         1.0);

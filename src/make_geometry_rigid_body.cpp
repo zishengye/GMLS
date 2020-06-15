@@ -112,7 +112,8 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
     for (size_t n = 0; n < rigidBodyCoord.size(); n++) {
       double r = rigidBodySize[n];
       int M_theta = round(2 * M_PI * r / h);
-      if (M_theta % 2 == 1) M_theta++;
+      if (M_theta % 2 == 1)
+        M_theta++;
       double d_theta = 2 * M_PI * r / M_theta;
 
       vec3 particleSize = vec3(d_theta, 0, 0);
@@ -150,6 +151,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
 
   if (__dim == 3) {
     for (auto tag : splitTag) {
+      splitList[tag].clear();
       const double thetaDelta = particleSize[tag][0] * 0.25 /
                                 rigidBodySize[attachedRigidBodyIndex[tag]];
       const double phiDelta = particleSize[tag][1] * 0.25 /
@@ -176,14 +178,20 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
             normal[tag] = newNormal;
             pCoord[tag] = vec3(theta + i * thetaDelta, phi + j * phiDelta, 0.0);
 
+            splitList[tag].push_back(tag);
+
             insert = true;
           } else {
             double vol = volume[tag];
-            InsertParticle(
+            int newParticle = InsertParticle(
                 newPos, particleType[tag], particleSize[tag], newNormal,
                 localIndex, __adaptive_step, vol, true,
                 attachedRigidBodyIndex[tag],
                 vec3(theta + i * thetaDelta, phi + j * phiDelta, 0.0));
+
+            if (newParticle == 0) {
+              splitList[tag].push_back(localIndex - 1);
+            }
           }
         }
       }
@@ -192,6 +200,8 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
 
   if (__dim == 2) {
     for (auto tag : splitTag) {
+      splitList[tag].clear();
+
       const double thetaDelta = particleSize[tag][0] * 0.25 /
                                 rigidBodySize[attachedRigidBodyIndex[tag]];
 
@@ -210,6 +220,8 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
       pCoord[tag] = vec3(theta + thetaDelta, 0.0, 0.0);
       adaptive_level[tag] = __adaptive_step;
 
+      splitList[tag].push_back(tag);
+
       newNormal = vec3(
           cos(theta) * cos(-thetaDelta) - sin(theta) * sin(-thetaDelta),
           cos(theta) * sin(-thetaDelta) + sin(theta) * cos(-thetaDelta), 0.0);
@@ -220,6 +232,8 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
                      localIndex, __adaptive_step, volume[tag], true,
                      attachedRigidBodyIndex[tag],
                      vec3(theta - thetaDelta, 0.0, 0.0));
+
+      splitList[tag].push_back(localIndex - 1);
     }
   }
 }

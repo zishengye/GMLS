@@ -27,7 +27,7 @@ int SearchCommand(int argc, char **argv, const std::string &commandName,
                   T &res);
 
 class GMLS_Solver {
- private:
+private:
   // MPI setting
   int __myID;
   int __MPISize;
@@ -150,11 +150,11 @@ class GMLS_Solver {
     _volume.push_back(vol);
   }
 
-  void InsertParticle(const vec3 &X, int particleType, const vec3 &particleSize,
-                      const vec3 &normal, int &globalIndex, int adaptive_level,
-                      double vol, bool rigidBodyParticle = false,
-                      int rigidBodyIndex = -1,
-                      vec3 pCoord = vec3(0.0, 0.0, 0.0)) {
+  int InsertParticle(const vec3 &X, int particleType, const vec3 &particleSize,
+                     const vec3 &normal, int &globalIndex, int adaptive_level,
+                     double vol, bool rigidBodyParticle = false,
+                     int rigidBodyIndex = -1,
+                     vec3 pCoord = vec3(0.0, 0.0, 0.0)) {
     static auto &_coord = __field.vector.GetHandle("coord");
     static auto &_normal = __field.vector.GetHandle("normal");
     static auto &_particleSize = __field.vector.GetHandle("size");
@@ -185,13 +185,19 @@ class GMLS_Solver {
       _adaptive_level.push_back(adaptive_level);
       _attachedRigidBodyIndex.push_back(rigidBodyIndex);
       _pCoord.push_back(pCoord);
+
+      return 0;
     } else if (idx > -1) {
       _gapCoord.push_back(X);
       _gapNormal.push_back(normal);
       _gapParticleSize.push_back(particleSize);
       _gapParticleType.push_back(particleType);
       _gap_particle_adaptive_level.push_back(adaptive_level);
+
+      return -1;
     }
+
+    return -2;
   }
 
   triple<int> __domainCount;
@@ -281,6 +287,7 @@ class GMLS_Solver {
   void SplitParticle(std::vector<int> &splitTag);
 
   std::vector<int> fieldParticleSplitTag;
+  std::vector<std::vector<int>> splitList;
 
   void SplitFieldParticle(std::vector<int> &splitTag);
   void SplitFieldBoundaryParticle(std::vector<int> &splitTag);
@@ -320,8 +327,7 @@ class GMLS_Solver {
   void RungeKuttaIntegration();
 
   // operator
-  template <typename Func>
-  void SerialOperation(Func operation) {
+  template <typename Func> void SerialOperation(Func operation) {
     for (int i = 0; i < __MPISize; i++) {
       if (i == __myID) {
         operation();
@@ -330,8 +336,7 @@ class GMLS_Solver {
     }
   }
 
-  template <typename Func>
-  void MasterOperation(int master, Func operation) {
+  template <typename Func> void MasterOperation(int master, Func operation) {
     if (master == __myID) {
       operation();
     }
@@ -347,7 +352,7 @@ class GMLS_Solver {
   void WriteDataAdaptiveStep();
   void WriteDataAdaptiveGeometry();
 
- public:
+public:
   GMLS_Solver(int argc, char **argv);
 
   void TimeIntegration();
