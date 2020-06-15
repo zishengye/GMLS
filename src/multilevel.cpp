@@ -61,24 +61,6 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                           : field_dof * new_local_particle_num;
   int new_global_dof = field_dof * (new_global_particle_num + 1);
 
-  int new_source_coords_wo_bc_count = 0;
-  for (int i = 0; i < background_coord.size(); i++) {
-    if (particleType[i] == 0)
-      new_source_coords_wo_bc_count++;
-  }
-
-  Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-      new_source_coords_device("new source coordinates",
-                               background_coord.size(), 3);
-  Kokkos::View<double **>::HostMirror new_source_coords =
-      Kokkos::create_mirror_view(new_source_coords_device);
-
-  Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-      new_source_coords_wo_bc_device("new source coordinates",
-                                     new_source_coords_wo_bc_count, 3);
-  Kokkos::View<double **>::HostMirror new_source_coords_wo_bc =
-      Kokkos::create_mirror_view(new_source_coords_wo_bc_device);
-
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
       old_source_coords_device("old source coordinates",
                                old_background_coord.size(), 3);
@@ -93,24 +75,10 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
       actual_new_target++;
   }
 
-  int actual_old_target = 0;
-  vector<int> old_actual_index(old_coord.size());
-  for (int i = 0; i < old_coord.size(); i++) {
-    old_actual_index[i] = actual_old_target;
-    if (fieldParticleSplitTag[i]) {
-      actual_old_target++;
-    }
-  }
-
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
       new_target_coords_device("new target coordinates", actual_new_target, 3);
   Kokkos::View<double **>::HostMirror new_target_coords =
       Kokkos::create_mirror_view(new_target_coords_device);
-
-  Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-      old_target_coords_device("old target coordinates", actual_old_target, 3);
-  Kokkos::View<double **>::HostMirror old_target_coords =
-      Kokkos::create_mirror_view(old_target_coords_device);
 
   // copy old source coords
   for (int i = 0; i < old_background_coord.size(); i++) {
@@ -118,34 +86,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
       old_source_coords(i, j) = old_background_coord[i][j];
   }
 
-  // copy new source coords
-  for (int i = 0; i < background_coord.size(); i++) {
-    for (int j = 0; j < dimension; j++)
-      new_source_coords(i, j) = background_coord[i][j];
-  }
-
-  int counter = 0;
-  for (int i = 0; i < background_coord.size(); i++) {
-    if (particleType[i] == 0) {
-      for (int j = 0; j < dimension; j++)
-        new_source_coords_wo_bc(counter, j) = background_coord[i][j];
-      counter++;
-    }
-  }
-
-  // copy old target coords
-  counter = 0;
-  for (int i = 0; i < old_coord.size(); i++) {
-    if (fieldParticleSplitTag[i]) {
-      for (int j = 0; j < dimension; j++)
-        old_target_coords(counter, j) = old_coord[i][j];
-
-      counter++;
-    }
-  }
-
   // copy new target coords
-  counter = 0;
+  int counter = 0;
   for (int i = 0; i < coord.size(); i++) {
     if (adaptive_level[i] == __adaptive_step) {
       for (int j = 0; j < dimension; j++) {
@@ -159,13 +101,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   Kokkos::deep_copy(old_source_coords_device, old_source_coords);
   Kokkos::deep_copy(new_source_coords_device, new_source_coords);
   Kokkos::deep_copy(new_source_coords_wo_bc_device, new_source_coords_wo_bc);
-  Kokkos::deep_copy(old_target_coords_device, old_target_coords);
   Kokkos::deep_copy(new_target_coords_device, new_target_coords);
 
-  auto new_to_old_point_search(
-      CreatePointCloudSearch(new_source_coords_device, dimension));
-  auto new_to_old_wo_bc_point_search(
-      CreatePointCloudSearch(new_source_coords_wo_bc_device, dimension));
   auto old_to_new_point_search(
       CreatePointCloudSearch(old_source_coords_device, dimension));
 
@@ -174,35 +111,11 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
       pow(2, dimension) * pow(2 * 2.5, dimension);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-      new_to_old_neighbor_lists_device("new to old neighbor lists",
-                                       actual_old_target,
-                                       estimatedUpperBoundNumberNeighbors);
-  Kokkos::View<int **>::HostMirror new_to_old_neighbor_lists =
-      Kokkos::create_mirror_view(new_to_old_neighbor_lists_device);
-
-  Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-      new_to_old_wo_bc_neighbor_lists_device(
-          "new to old neighbor lists without boundary", actual_old_target,
-          estimatedUpperBoundNumberNeighbors);
-  Kokkos::View<int **>::HostMirror new_to_old_wo_bc_neighbor_lists =
-      Kokkos::create_mirror_view(new_to_old_wo_bc_neighbor_lists_device);
-
-  Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
       old_to_new_neighbor_lists_device("old to new neighbor lists",
                                        actual_new_target,
                                        estimatedUpperBoundNumberNeighbors);
   Kokkos::View<int **>::HostMirror old_to_new_neighbor_lists =
       Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
-
-  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> new_epsilon_device(
-      "h supports", actual_old_target);
-  Kokkos::View<double *>::HostMirror new_epsilon =
-      Kokkos::create_mirror_view(new_epsilon_device);
-
-  Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
-      new_epsilon_wo_bc_device("h supports", actual_old_target);
-  Kokkos::View<double *>::HostMirror new_epsilon_wo_bc =
-      Kokkos::create_mirror_view(new_epsilon_wo_bc_device);
 
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> old_epsilon_device(
       "h supports", actual_new_target);
@@ -211,32 +124,14 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   auto neighbor_needed = Compadre::GMLS::getNP(
       __polynomialOrder, __dim, DivergenceFreeVectorTaylorPolynomial);
-  new_to_old_point_search.generateNeighborListsFromKNNSearch(
-      false, old_target_coords, new_to_old_neighbor_lists, new_epsilon,
-      neighbor_needed, 1.2);
-  new_to_old_wo_bc_point_search.generateNeighborListsFromKNNSearch(
-      false, old_target_coords, new_to_old_wo_bc_neighbor_lists,
-      new_epsilon_wo_bc, neighbor_needed, 1.2);
   old_to_new_point_search.generateNeighborListsFromKNNSearch(
       false, new_target_coords, old_to_new_neighbor_lists, old_epsilon,
       neighbor_needed, 1.2);
-
-  Kokkos::deep_copy(new_to_old_neighbor_lists_device,
-                    new_to_old_neighbor_lists);
-  Kokkos::deep_copy(new_epsilon_device, new_epsilon);
-
-  Kokkos::deep_copy(new_to_old_wo_bc_neighbor_lists_device,
-                    new_to_old_wo_bc_neighbor_lists);
-  Kokkos::deep_copy(new_epsilon_wo_bc_device, new_epsilon_wo_bc);
 
   Kokkos::deep_copy(old_to_new_neighbor_lists_device,
                     old_to_new_neighbor_lists);
   Kokkos::deep_copy(old_epsilon_device, old_epsilon);
 
-  auto new_to_old_pressure_basis = new GMLS(ScalarTaylorPolynomial, PointSample,
-                                            2, dimension, "LU", "STANDARD");
-  auto new_to_old_pressure_wo_bc_basis = new GMLS(
-      ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
   auto old_to_new_pressusre_basis = new GMLS(
       ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
   auto old_to_new_velocity_basis =
