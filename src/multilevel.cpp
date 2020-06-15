@@ -99,8 +99,6 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   }
 
   Kokkos::deep_copy(old_source_coords_device, old_source_coords);
-  Kokkos::deep_copy(new_source_coords_device, new_source_coords);
-  Kokkos::deep_copy(new_source_coords_wo_bc_device, new_source_coords_wo_bc);
   Kokkos::deep_copy(new_target_coords_device, new_target_coords);
 
   auto old_to_new_point_search(
