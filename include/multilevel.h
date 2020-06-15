@@ -118,12 +118,6 @@ public:
     A_list.clear();
     I_list.clear();
     R_list.clear();
-
-    for (int i = 1; i < ksp_list.size(); i++) {
-      KSPDestroy(ksp_list[i]);
-    }
-
-    ksp_list.clear();
   }
 
   void InitialGuessFromPreviousAdaptiveStep(std::vector<double> &initial_guess);

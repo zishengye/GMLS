@@ -22,7 +22,8 @@ int main(int argc, char *argv[]) {
   PetscErrorCode ierr;
 
   ierr = PetscInitialize(&inputCommandCount, &inputCommand, NULL, NULL);
-  if (ierr) return ierr;
+  if (ierr)
+    return ierr;
 
   double tStart, tEnd;
   tStart = MPI_Wtime();

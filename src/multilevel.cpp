@@ -28,6 +28,11 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   vector<int> recvParticleType;
   DataSwapAmongNeighbor(particleType, recvParticleType);
 
+  vector<int> backgroundParticleType = particleType;
+  backgroundParticleType.insert(backgroundParticleType.end(),
+                                recvParticleType.begin(),
+                                recvParticleType.end());
+
   int field_dof = dimension + 1;
   int velocity_dof = dimension;
   int pressure_dof = 1;
@@ -336,7 +341,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     }
   }
 
-  // compute matrix entity
+  // compute interpolation matrix entity
   const auto pressure_old_to_new_alphas_index =
       old_to_new_pressusre_basis->getAlphaColumnOffset(ScalarPointEvaluation, 0,
                                                        0, 0, 0);
@@ -407,7 +412,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   I.FinalAssemble();
 
-  // new to old relaxation matrix
+  // new to old restriction matrix
   // new to old pressure field transition
   new_to_old_pressure_basis->setProblemData(
       new_to_old_neighbor_lists_device, new_source_coords_device,
@@ -469,23 +474,24 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
           R.setColIndex(field_dof * i + k, index);
         }
 
-        index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
-        for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
-             j++) {
-          index[j] = field_dof * background_index[new_to_old_neighbor_lists(
-                                     old_actual_index[i], j + 1)] +
-                     velocity_dof;
+        index.resize(new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0));
+        for (int j = 0;
+             j < new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0); j++) {
+          index[j] =
+              field_dof * background_index[new_to_old_wo_bc_neighbor_lists(
+                              old_actual_index[i], j + 1)] +
+              velocity_dof;
         }
         R.setColIndex(field_dof * i + velocity_dof, index);
       } else {
-        index.resize(new_to_old_neighbor_lists(old_actual_index[i], 0));
-        for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
-             j++) {
-          index[j] = field_dof * background_index[new_to_old_neighbor_lists(
-                                     old_actual_index[i], j + 1)] +
-                     velocity_dof;
+        // corner point
+        if (old_particle_type[i] == 2) {
+          index.resize(1);
+          for (int j = 0; j < field_dof; j++) {
+            index[j] = field_dof * background_index[i] + j;
+            R.setColIndex(field_dof * i + j, index);
+          }
         }
-        R.setColIndex(field_dof * i + velocity_dof, index);
       }
     } else {
       index.resize(1);
@@ -543,26 +549,25 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                     j));
         }
 
-        for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
-             j++) {
-          R.increment(
-              field_dof * i + velocity_dof,
-              field_dof * background_index[new_to_old_neighbor_lists(
-                              old_actual_index[i], j + 1)] +
-                  velocity_dof,
-              new_to_old_pressure_alphas(old_actual_index[i],
-                                         pressure_new_to_old_alphas_index, j));
+        for (int j = 0;
+             j < new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0); j++) {
+          R.increment(field_dof * i + velocity_dof,
+                      field_dof *
+                              background_index[new_to_old_wo_bc_neighbor_lists(
+                                  old_actual_index[i], j + 1)] +
+                          velocity_dof,
+                      new_to_old_pressure_wo_bc_alphas(
+                          old_actual_index[i],
+                          pressure_new_to_old_wo_bc_alphas_index, j));
         }
       } else {
-        for (int j = 0; j < new_to_old_neighbor_lists(old_actual_index[i], 0);
-             j++) {
-          R.increment(
-              field_dof * i + velocity_dof,
-              field_dof * background_index[new_to_old_neighbor_lists(
-                              old_actual_index[i], j + 1)] +
-                  velocity_dof,
-              new_to_old_pressure_alphas(old_actual_index[i],
-                                         pressure_new_to_old_alphas_index, j));
+        if (old_particle_type[i] == 2) {
+          for (int j = 0; j < field_dof; j++) {
+            R.increment(field_dof * i + j, field_dof * background_index[i] + j,
+                        1.0);
+          }
+        }
+        if (old_particle_type[i] == 3) {
         }
       }
     } else {

@@ -490,9 +490,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   MasterOperation(0, [globalParticleNum, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_step_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::trunc);
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::trunc);
     if (!file.is_open()) {
       cout << "adaptive step output file open failed\n";
     }
@@ -506,9 +506,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   SerialOperation([coord, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_step_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     for (size_t i = 0; i < coord.size(); i++) {
       file << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << endl;
     }
@@ -517,18 +517,18 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   MasterOperation(0, [globalParticleNum, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_step_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     file << "POINT_DATA " << globalParticleNum << endl;
     file.close();
   });
 
   MasterOperation(0, [this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_step_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     file << "SCALARS ID int 1" << endl;
     file << "LOOKUP_TABLE default" << endl;
     file.close();
@@ -536,9 +536,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   SerialOperation([particleType, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_step_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     for (size_t i = 0; i < particleType.size(); i++) {
       file << particleType[i] << endl;
     }
@@ -547,9 +547,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   MasterOperation(0, [this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_step_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     file << "SCALARS d float 1" << endl;
     file << "LOOKUP_TABLE default " << endl;
     file.close();
@@ -557,9 +557,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   SerialOperation([particleSize, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_step_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     for (size_t i = 0; i < particleSize.size(); i++) {
       file << particleSize[i][0] << endl;
     }
@@ -568,9 +568,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   MasterOperation(0, [this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_step_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     file << "SCALARS vol float 1" << endl;
     file << "LOOKUP_TABLE default " << endl;
     file.close();
@@ -578,9 +578,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   SerialOperation([volume, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_step_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     for (size_t i = 0; i < volume.size(); i++) {
       file << volume[i] << endl;
     }
@@ -593,9 +593,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   MasterOperation(0, [globalGapParticleNum, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::trunc);
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::trunc);
     if (!file.is_open()) {
       cout << "adaptive step output file open failed\n";
     }
@@ -609,9 +609,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   SerialOperation([_gapCoord, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     for (size_t i = 0; i < _gapCoord.size(); i++) {
       file << _gapCoord[i][0] << ' ' << _gapCoord[i][1] << ' '
            << _gapCoord[i][2] << endl;
@@ -621,18 +621,18 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   MasterOperation(0, [globalGapParticleNum, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     file << "POINT_DATA " << globalGapParticleNum << endl;
     file.close();
   });
 
   MasterOperation(0, [this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     file << "SCALARS ID int 1" << endl;
     file << "LOOKUP_TABLE default" << endl;
     file.close();
@@ -640,9 +640,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   SerialOperation([_gapParticleType, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     for (size_t i = 0; i < _gapParticleType.size(); i++) {
       file << _gapParticleType[i] << endl;
     }
@@ -651,9 +651,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   MasterOperation(0, [this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     file << "SCALARS d float 1" << endl;
     file << "LOOKUP_TABLE default" << endl;
     file.close();
@@ -661,9 +661,9 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
 
   SerialOperation([_gapParticleSize, this]() {
     ofstream file;
-    file.open(
-        "./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) + ".vtk",
-        ios::app);
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
     for (size_t i = 0; i < _gapParticleSize.size(); i++) {
       file << _gapParticleSize[i][0] << endl;
     }
