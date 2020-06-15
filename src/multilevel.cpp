@@ -413,42 +413,6 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   I.FinalAssemble();
 
   // new to old restriction matrix
-  // new to old pressure field transition
-  new_to_old_pressure_basis->setProblemData(
-      new_to_old_neighbor_lists_device, new_source_coords_device,
-      old_target_coords_device, new_epsilon_device);
-
-  new_to_old_pressure_basis->addTargets(ScalarPointEvaluation);
-
-  new_to_old_pressure_basis->setWeightingType(WeightingFunctionType::Power);
-  new_to_old_pressure_basis->setWeightingPower(__weightFuncOrder);
-  new_to_old_pressure_basis->setOrderOfQuadraturePoints(2);
-  new_to_old_pressure_basis->setDimensionOfQuadraturePoints(1);
-  new_to_old_pressure_basis->setQuadratureType("LINE");
-
-  new_to_old_pressure_basis->generateAlphas(1);
-
-  auto new_to_old_pressure_alphas = new_to_old_pressure_basis->getAlphas();
-
-  new_to_old_pressure_wo_bc_basis->setProblemData(
-      new_to_old_wo_bc_neighbor_lists_device, new_source_coords_wo_bc_device,
-      old_target_coords_device, new_epsilon_wo_bc_device);
-
-  new_to_old_pressure_wo_bc_basis->addTargets(ScalarPointEvaluation);
-
-  new_to_old_pressure_wo_bc_basis->setWeightingType(
-      WeightingFunctionType::Power);
-  new_to_old_pressure_wo_bc_basis->setWeightingPower(__weightFuncOrder);
-  new_to_old_pressure_wo_bc_basis->setOrderOfQuadraturePoints(2);
-  new_to_old_pressure_wo_bc_basis->setDimensionOfQuadraturePoints(1);
-  new_to_old_pressure_wo_bc_basis->setQuadratureType("LINE");
-
-  new_to_old_pressure_wo_bc_basis->generateAlphas(1);
-
-  auto new_to_old_pressure_wo_bc_alphas =
-      new_to_old_pressure_wo_bc_basis->getAlphas();
-
-  // new to old restriction matrix
   if (__myID == __MPISize - 1)
     R.resize(old_local_dof + num_rigid_body * rigid_body_dof,
              new_local_dof + num_rigid_body * rigid_body_dof,
@@ -460,38 +424,13 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // compute restriction matrix graph
   for (int i = 0; i < old_local_particle_num; i++) {
     if (fieldParticleSplitTag[i]) {
-      if (old_particle_type[i] == 0) {
-        index.resize(new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0));
-        for (int k = 0; k < velocity_dof; k++) {
-          for (int j = 0;
-               j < new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0);
-               j++) {
-            index[j] =
-                field_dof * background_index[new_to_old_wo_bc_neighbor_lists(
-                                old_actual_index[i], j + 1)] +
-                k;
-          }
-          R.setColIndex(field_dof * i + k, index);
+      index.resize(splitList[i].size());
+      for (int j = 0; j < field_dof; j++) {
+        for (int k = 0; k < splitList[i].size(); k++) {
+          index[k] = background_index[splitList[i][k]] * field_dof + j;
         }
 
-        index.resize(new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0));
-        for (int j = 0;
-             j < new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0); j++) {
-          index[j] =
-              field_dof * background_index[new_to_old_wo_bc_neighbor_lists(
-                              old_actual_index[i], j + 1)] +
-              velocity_dof;
-        }
-        R.setColIndex(field_dof * i + velocity_dof, index);
-      } else {
-        // corner point
-        if (old_particle_type[i] == 1) {
-          index.resize(1);
-          for (int j = 0; j < field_dof; j++) {
-            index[j] = field_dof * background_index[i] + j;
-            R.setColIndex(field_dof * i + j, index);
-          }
-        }
+        R.setColIndex(field_dof * i + j, index);
       }
     } else {
       index.resize(1);
@@ -525,50 +464,13 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     }
   }
 
-  const auto pressure_new_to_old_alphas_index =
-      new_to_old_pressure_basis->getAlphaColumnOffset(ScalarPointEvaluation, 0,
-                                                      0, 0, 0);
-
-  const auto pressure_new_to_old_wo_bc_alphas_index =
-      new_to_old_pressure_wo_bc_basis->getAlphaColumnOffset(
-          ScalarPointEvaluation, 0, 0, 0, 0);
-
   for (int i = 0; i < old_local_particle_num; i++) {
     if (fieldParticleSplitTag[i]) {
-      if (old_particle_type[i] == 0) {
-        for (int j = 0;
-             j < new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0); j++) {
-          for (int k = 0; k < velocity_dof; k++)
-            R.increment(
-                field_dof * i + k,
-                field_dof * background_index[new_to_old_wo_bc_neighbor_lists(
-                                old_actual_index[i], j + 1)] +
-                    k,
-                new_to_old_pressure_wo_bc_alphas(
-                    old_actual_index[i], pressure_new_to_old_wo_bc_alphas_index,
-                    j));
-        }
-
-        for (int j = 0;
-             j < new_to_old_wo_bc_neighbor_lists(old_actual_index[i], 0); j++) {
-          R.increment(field_dof * i + velocity_dof,
-                      field_dof *
-                              background_index[new_to_old_wo_bc_neighbor_lists(
-                                  old_actual_index[i], j + 1)] +
-                          velocity_dof,
-                      new_to_old_pressure_wo_bc_alphas(
-                          old_actual_index[i],
-                          pressure_new_to_old_wo_bc_alphas_index, j));
-        }
-      } else {
-        // corner particle
-        if (old_particle_type[i] == 1) {
-          for (int j = 0; j < field_dof; j++) {
-            R.increment(field_dof * i + j, field_dof * background_index[i] + j,
-                        1.0);
-          }
-        }
-        if (old_particle_type[i] == 3) {
+      for (int j = 0; j < field_dof; j++) {
+        for (int k = 0; k < splitList[i].size(); k++) {
+          R.increment(field_dof * i + j,
+                      background_index[splitList[i][k]] * field_dof + j,
+                      1.0 / splitList[i].size());
         }
       }
     } else {
@@ -797,9 +699,9 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   // setup relaxation on neighbor for current level
   KSPCreate(MPI_COMM_WORLD, neighbor_relaxation_list[adaptive_step]);
 
-  KSPSetType(*neighbor_relaxation_list[adaptive_step], KSPGMRES);
+  KSPSetType(*neighbor_relaxation_list[adaptive_step], KSPPREONLY);
   KSPSetTolerances(*neighbor_relaxation_list[adaptive_step], 1e-50, 1e-50, 1e10,
-                   5);
+                   1);
   KSPSetOperators(*neighbor_relaxation_list[adaptive_step], nn, nn);
 
   PC neighbor_relaxation_pc;
