@@ -599,7 +599,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   PC neighbor_relaxation_pc;
   KSPGetPC(*neighbor_relaxation_list[adaptive_step], &neighbor_relaxation_pc);
-  PCSetType(neighbor_relaxation_pc, PCKACZMARZ);
+  PCSetType(neighbor_relaxation_pc, PCLU);
   PCSetUp(neighbor_relaxation_pc);
 
   KSPSetUp(*neighbor_relaxation_list[adaptive_step]);
