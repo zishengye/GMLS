@@ -89,10 +89,11 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, Mat *a, Mat *amat, Mat *cmat,
   return 0;
 }
 
-PetscErrorCode HypreLUShellPCSetUpAdaptive(
-    PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat, IS *isg0, IS *isg1,
-    vector<PetscSparseMatrix *> *interpolation,
-    vector<PetscSparseMatrix *> *restriction, Vec x) {
+PetscErrorCode
+HypreLUShellPCSetUpAdaptive(PC pc, Mat *a, Mat *amat, Mat *amat_base, Mat *cmat,
+                            IS *isg0, IS *isg1,
+                            vector<PetscSparseMatrix *> *interpolation,
+                            vector<PetscSparseMatrix *> *restriction, Vec x) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -351,4 +352,66 @@ PetscErrorCode HypreLUShellPCDestroy(PC pc) {
   PetscFree(shell);
 
   return 0;
+}
+
+PetscErrorCode HypreConstConstraintPCCreate(HypreConstConstraintPC **pc) {
+  HypreConstConstraintPC *newctx;
+
+  PetscNew(&newctx);
+  *pc = newctx;
+
+  return 0;
+}
+
+PetscErrorCode HypreConstConstraintPCSetUp(PC pc, Mat *a, PetscInt block_size) {
+  HypreConstConstraintPC *shell;
+  PCShellGetContext(pc, (void **)&shell);
+
+  KSPCreate(PETSC_COMM_WORLD, &shell->ksp_hypre);
+  KSPSetOperators(shell->ksp_hypre, *a, *a);
+  KSPSetType(shell->ksp_hypre, KSPPREONLY);
+
+  PC pc_hypre;
+  KSPGetPC(shell->ksp_hypre, &pc_hypre);
+  PCSetType(pc_hypre, PCHYPRE);
+  PCSetFromOptions(pc_hypre);
+  PCSetUp(pc_hypre);
+
+  shell->block_size = block_size;
+  shell->offset = block_size - 1;
+}
+
+PetscErrorCode HypreConstConstraintPCApply(PC pc, Vec x, Vec y) {
+  HypreConstConstraintPC *shell;
+  PCShellGetContext(pc, (void **)&shell);
+
+  KSPSolve(shell->ksp_hypre, x, y);
+
+  PetscReal *a;
+  PetscInt size;
+
+  VecGetLocalSize(y, &size);
+
+  PetscInt local_particle_num = size / shell->block_size;
+
+  PetscReal sum = 0.0;
+  VecGetArray(y, &a);
+  for (PetscInt i = 0; i < local_particle_num; i++) {
+    sum += a[shell->block_size * i + shell->offset];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  VecGetSize(y, &size);
+
+  sum /= (size / shell->block_size);
+  for (PetscInt i = 0; i < local_particle_num; i++) {
+    a[shell->block_size * i + shell->offset] -= sum;
+  }
+  VecRestoreArray(y, &a);
+}
+
+PetscErrorCode HypreConstConstraintPCDestroy(PC pc) {
+  HypreConstConstraintPC *shell;
+  PCShellGetContext(pc, (void **)&shell);
+
+  KSPDestroy(&shell->ksp_hypre);
 }
