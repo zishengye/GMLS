@@ -664,21 +664,21 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     VecCreateMPIWithArray(PETSC_COMM_WORLD, blockSize, rhs.size(), PETSC_DECIDE,
                           rhs.data(), &_rhs);
     VecDuplicate(_rhs, &_x);
-    // VecDuplicate(_rhs, &null);
+    VecDuplicate(_rhs, &null);
 
     PetscScalar *a;
-    // VecGetArray(null, &a);
-    // for (size_t i = 0; i < rhs.size(); i++) {
-    //   if (i % blockSize == blockSize - 1)
-    //     a[i] = 1.0;
-    //   else
-    //     a[i] = 0.0;
-    // }
-    // VecRestoreArray(null, &a);
+    VecGetArray(null, &a);
+    for (size_t i = 0; i < rhs.size(); i++) {
+      if (i % blockSize == blockSize - 1)
+        a[i] = 1.0;
+      else
+        a[i] = 0.0;
+    }
+    VecRestoreArray(null, &a);
 
-    // MatNullSpace nullspace;
-    // MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null, &nullspace);
-    // MatSetNullSpace(__mat, nullspace);
+    MatNullSpace nullspace;
+    MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null, &nullspace);
+    MatSetNullSpace(__mat, nullspace);
 
     KSP _ksp;
     KSPCreate(PETSC_COMM_WORLD, &_ksp);
