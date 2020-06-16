@@ -206,6 +206,7 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     }
   }
 
+  // non-block version matrix
   __i.resize(__row + 1);
 
   __nnz = 0;
@@ -249,6 +250,7 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
                               PETSC_DECIDE, __i.data(), __j.data(),
                               __val.data(), &__prec);
 
+  // block version matrix
   auto block_row = __row / blockSize;
 
   __i.resize(block_row + 1);
@@ -318,13 +320,19 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
                                   __val.data());
   } else {
     MatCreate(MPI_COMM_WORLD, &__mat);
-    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
+    MatSetSizes(__mat, __row, __col, PETSC_DECIDE, PETSC_DECIDE);
     MatSetType(__mat, MATMPIBAIJ);
     MatSetBlockSize(__mat, blockSize);
     MatSetUp(__mat);
     MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
                                   __val.data());
   }
+
+  // Vec rhs, x;
+  // MatCreateVecs(__mat, &rhs, &x);
+  // for (int i = 0; i < 1000; i++) {
+  //   MatMult(__mat, rhs, x);
+  // }
 
   __isAssembled = true;
 
@@ -652,10 +660,25 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
                               PetscInt blockSize) {
   if (__isAssembled) {
-    Vec _rhs, _x;
+    Vec _rhs, _x, null;
     VecCreateMPIWithArray(PETSC_COMM_WORLD, blockSize, rhs.size(), PETSC_DECIDE,
                           rhs.data(), &_rhs);
     VecDuplicate(_rhs, &_x);
+    VecDuplicate(_rhs, &null);
+
+    PetscScalar *a;
+    VecGetArray(null, &a);
+    for (size_t i = 0; i < rhs.size(); i++) {
+      if (i % blockSize == blockSize - 1)
+        a[i] = 1.0;
+      else
+        a[i] = 0.0;
+    }
+    VecRestoreArray(null, &a);
+
+    MatNullSpace nullspace;
+    MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null, &nullspace);
+    MatSetNullSpace(__mat, nullspace);
 
     KSP _ksp;
     KSPCreate(PETSC_COMM_WORLD, &_ksp);
@@ -666,8 +689,16 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
     PC _pc;
     KSPGetPC(_ksp, &_pc);
-    PCSetFromOptions(_pc);
-    PCSetUp(_pc);
+    PCSetType(_pc, PCSHELL);
+
+    HypreConstConstraintPC *shell_ctx;
+    HypreConstConstraintPCCreate(&shell_ctx);
+
+    PCShellSetApply(_pc, HypreConstConstraintPCApply);
+    PCShellSetContext(_pc, shell_ctx);
+    PCShellSetDestroy(_pc, HypreConstConstraintPCDestroy);
+
+    HypreConstConstraintPCSetUp(_pc, &__mat, blockSize);
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
     KSPSolve(_ksp, _rhs, _x);
@@ -675,11 +706,11 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
     KSPDestroy(&_ksp);
 
-    PetscScalar *a;
     VecGetArray(_x, &a);
     for (size_t i = 0; i < rhs.size(); i++) {
       x[i] = a[i];
     }
+    VecRestoreArray(_x, &a);
 
     VecDestroy(&_rhs);
     VecDestroy(&_x);

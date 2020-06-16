@@ -1,5 +1,5 @@
 # problem domain setup
--Dim 2 -Mx 200 -My 200 -PolynomialOrder 2 -BatchSize 20
+-Dim 2 -Mx 300 -My 300 -PolynomialOrder 2 -BatchSize 1
 -WriteData 0 -AdaptiveRefinement 0 -AdaptiveRefinementTolerance 6e-3 -AdaptiveBaseField Velocity
 
 # problem parameter setup
@@ -10,6 +10,6 @@
 
 # linear solver setup
 -log_view
--ksp_type gmres -ksp_converged_reason -ksp_gmres_restart 30 -ksp_gmres_modifiedgramschmidt 1 -ksp_rtol 1e-8
+-ksp_type gmres -ksp_converged_reason -ksp_gmres_restart 30 -ksp_gmres_modifiedgramschmidt 1
 -pc_type hypre
--pc_hypre_type boomeramg -pc_hypre_boomeramg_interp_type standard -pc_hypre_boomeramg_coarsen_type HMIS -pc_hypre_boomeramg_numfunctions 2 -pc_hypre_boomeramg_nodal_coarsen 0 -pc_hypre_boomeramg_agg_nl 0
+-pc_hypre_type boomeramg -pc_hypre_boomeramg_interp_type standard -pc_hypre_boomeramg_coarsen_type HMIS -pc_hypre_boomeramg_numfunctions 3 -pc_hypre_boomeramg_nodal_coarsen 0 -pc_hypre_boomeramg_agg_nl 0

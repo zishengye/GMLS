@@ -23,3 +23,18 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y);
 PetscErrorCode HypreLUShellPCDestroy(PC pc);
 
 PetscErrorCode HypreLUShellPCDestroyAdaptive(PC pc);
+
+struct HypreConstConstraintPC {
+  KSP ksp_hypre;
+
+  PetscInt block_size;
+  PetscInt offset;
+};
+
+PetscErrorCode HypreConstConstraintPCCreate(HypreConstConstraintPC **pc);
+
+PetscErrorCode HypreConstConstraintPCSetUp(PC pc, Mat *a, PetscInt block_size);
+
+PetscErrorCode HypreConstConstraintPCApply(PC pc, Vec x, Vec y);
+
+PetscErrorCode HypreConstConstraintPCDestroy(PC pc);

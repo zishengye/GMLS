@@ -407,26 +407,21 @@ void GMLS_Solver::StokesEquation() {
   int globalVelocityDof =
       globalParticleNum * __dim + rigidBodyDof * numRigidBody;
   int localPressureDof = localParticleNum;
-  int globalPressureDof = globalParticleNum + fieldDof;
+  int globalPressureDof = globalParticleNum;
 
   if (__myID == __MPISize - 1) {
-    localVelocityDof += velocityDof + rigidBodyDof * numRigidBody;
-    localPressureDof += 1;
+    localVelocityDof += rigidBodyDof * numRigidBody;
   }
 
-  int localRigidBodyOffset = particleNum[__MPISize + 1] * fieldDof + fieldDof;
-  int globalRigidBodyOffset = globalParticleNum * fieldDof + fieldDof;
+  int localRigidBodyOffset = particleNum[__MPISize + 1] * fieldDof;
+  int globalRigidBodyOffset = globalParticleNum * fieldDof;
   int localOutProcessOffset = particleNum[__MPISize + 1] * fieldDof;
   int globalOutProcessOffset = globalParticleNum * fieldDof;
-  int localLagrangeMultiplierOffset =
-      particleNum[__MPISize + 1] * fieldDof + velocityDof;
-  int globalLagrangeMultiplierOffset =
-      globalParticleNum * fieldDof + velocityDof;
 
   int localDof = localVelocityDof + localPressureDof;
   int globalDof = globalVelocityDof + globalPressureDof;
 
-  int outProcessRow = rigidBodyDof * numRigidBody + fieldDof;
+  int outProcessRow = rigidBodyDof * numRigidBody;
 
   if (__adaptive_step == 0)
     _multi.clear();
@@ -476,8 +471,6 @@ void GMLS_Solver::StokesEquation() {
 
         index.push_back(fieldDof * neighborParticleIndex + velocityDof);
       }
-      // Lagrange multiplier
-      index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
     }
@@ -501,8 +494,6 @@ void GMLS_Solver::StokesEquation() {
           index.push_back(fieldDof * neighborParticleIndex + axes);
         }
       }
-      // Lagrange multiplier
-      index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
     }
@@ -534,8 +525,6 @@ void GMLS_Solver::StokesEquation() {
           index.push_back(fieldDof * neighborParticleIndex + axes);
         }
       }
-      // Lagrange multiplier
-      index.push_back(globalLagrangeMultiplierOffset);
 
       A.setColIndex(currentParticleLocalIndex * fieldDof + velocityDof, index);
     }
@@ -545,10 +534,6 @@ void GMLS_Solver::StokesEquation() {
   for (int i = 0; i < localParticleNum; i++) {
     const int currentParticleLocalIndex = i;
     const int currentParticleGlobalIndex = backgroundSourceIndex[i];
-
-    // Lagrange multiplier
-    outProcessIndex[velocityDof].push_back(
-        currentParticleGlobalIndex * fieldDof + velocityDof);
 
     if (particleType[i] >= 4) {
       vector<PetscInt> index;
@@ -571,12 +556,6 @@ void GMLS_Solver::StokesEquation() {
                             attachedRigidBodyIndex[i] * rigidBodyDof + axes];
         it.insert(it.end(), index.begin(), index.end());
       }
-    }
-  }
-
-  if (__myID == __MPISize - 1) {
-    for (int i = 0; i < fieldDof; i++) {
-      outProcessIndex[i].push_back(globalOutProcessOffset + i);
     }
   }
 
@@ -800,29 +779,13 @@ void GMLS_Solver::StokesEquation() {
         A.increment(iPressureLocal, iPressureGlobal, -Aij);
       }
     }
-
-    // Lagrangian multiplier
-    A.increment(iPressureLocal, globalLagrangeMultiplierOffset, 1.0);
-
-    A.outProcessIncrement(localLagrangeMultiplierOffset, iPressureGlobal, 1.0);
     // end of pressure block
   } // end of fluid particle loop
 
-  if (__myID == __MPISize - 1) {
-    // Lagrangian multiplier for pressure
-    // add a penalty factor
-    A.outProcessIncrement(localLagrangeMultiplierOffset,
-                          globalLagrangeMultiplierOffset, globalParticleNum);
-    for (int i = 0; i < velocityDof; i++) {
-      A.outProcessIncrement(localOutProcessOffset + i,
-                            globalOutProcessOffset + i, 1.0);
-    }
-  }
-
   vector<int> idx_neighbor;
 
-  A.FinalAssemble();
-  // A.FinalAssemble(fieldDof);
+  // A.FinalAssemble();
+  A.FinalAssemble(fieldDof);
   A.ExtractNeighborIndex(idx_neighbor, __dim, numRigidBody,
                          localRigidBodyOffset, globalRigidBodyOffset);
 
@@ -964,14 +927,26 @@ void GMLS_Solver::StokesEquation() {
     }
   }
 
+  // make sure pressure term is orthogonal to the constant
+  double rhs_pressure_sum = 0.0;
+  for (int i = 0; i < localParticleNum; i++) {
+    rhs_pressure_sum += rhs[fieldDof * i + velocityDof];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &rhs_pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  rhs_pressure_sum /= globalParticleNum;
+  for (int i = 0; i < localParticleNum; i++) {
+    rhs[fieldDof * i + velocityDof] -= rhs_pressure_sum;
+  }
+
   // A.Write("A.txt");
 
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
   if (numRigidBody == 0) {
     // A.Solve(rhs, res, __dim);
-    A.Solve(rhs, res);
-    // A.Solve(rhs, res, fieldDof);
+    // A.Solve(rhs, res);
+    A.Solve(rhs, res, fieldDof);
   } else {
     if (__adaptive_step != 0)
       InitialGuessFromPreviousAdaptiveStep(I, res);
@@ -990,10 +965,19 @@ void GMLS_Solver::StokesEquation() {
   pressure.resize(localParticleNum);
   velocity.resize(localParticleNum);
 
+  double pressure_sum = 0.0;
   for (int i = 0; i < localParticleNum; i++) {
     pressure[i] = res[fieldDof * i + velocityDof];
+    pressure_sum += pressure[i];
     for (int axes1 = 0; axes1 < __dim; axes1++)
       velocity[i][axes1] = res[fieldDof * i + axes1];
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  double average_pressure = pressure_sum / globalParticleNum;
+  for (int i = 0; i < localParticleNum; i++) {
+    pressure[i] -= average_pressure;
   }
 
   // check data
