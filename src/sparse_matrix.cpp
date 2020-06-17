@@ -328,199 +328,20 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
                                   __val.data());
   }
 
-  // Vec rhs, x;
-  // MatCreateVecs(__mat, &rhs, &x);
-  // for (int i = 0; i < 1000; i++) {
-  //   MatMult(__mat, rhs, x);
-  // }
-
   __isAssembled = true;
+
+  __i.clear();
+  __j.clear();
+  __val.clear();
+
+  __matrix.clear();
+  __out_process_matrix.clear();
 
   return __nnz;
 }
 
-int PetscSparseMatrix::FinalAssemble(int dimension, int globalParticleNum,
-                                     vector<int> &backgroundIndex) {
-  // move data from outProcessIncrement
-  int myid, MPIsize;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
-
-  for (PetscInt row = 0; row < __out_process_row; row++) {
-    int send_count = __out_process_matrix[row].size();
-    vector<int> recv_count(MPIsize);
-
-    MPI_Gather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
-               MPIsize - 1, MPI_COMM_WORLD);
-
-    vector<int> displs(MPIsize + 1);
-    if (myid == MPIsize - 1) {
-      displs[0] = 0;
-      for (int i = 1; i <= MPIsize; i++) {
-        displs[i] = displs[i - 1] + recv_count[i - 1];
-      }
-    }
-
-    vector<PetscInt> recv_j;
-    vector<PetscReal> recv_val;
-
-    recv_j.resize(displs[MPIsize]);
-    recv_val.resize(displs[MPIsize]);
-
-    vector<PetscInt> send_j(send_count);
-    vector<PetscReal> send_val(send_count);
-
-    size_t n = 0;
-    for (vector<entry>::iterator it = __out_process_matrix[row].begin();
-         it != __out_process_matrix[row].end(); it++) {
-      send_j[n] = it->first;
-      send_val[n] = it->second;
-      n++;
-    }
-
-    MPI_Gatherv(send_j.data(), send_count, MPI_UNSIGNED, recv_j.data(),
-                recv_count.data(), displs.data(), MPI_UNSIGNED, MPIsize - 1,
-                MPI_COMM_WORLD);
-    MPI_Gatherv(send_val.data(), send_count, MPI_DOUBLE, recv_val.data(),
-                recv_count.data(), displs.data(), MPI_DOUBLE, MPIsize - 1,
-                MPI_COMM_WORLD);
-
-    // merge data
-    if (myid == MPIsize - 1) {
-      for (int i = 0; i < recv_j.size(); i++) {
-        __matrix[row + __out_process_reduction].push_back(
-            entry(recv_j[i], recv_val[i]));
-      }
-    }
-  }
-
-  __i.resize(__row + 1);
-
-  __nnz = 0;
-  for (int i = 0; i < __row; i++) {
-    __i[i] = 0;
-    __nnz += __matrix[i].size();
-  }
-
-  __j.resize(__nnz);
-  __val.resize(__nnz);
-
-  for (int i = 1; i <= __row; i++) {
-    if (__i[i - 1] == 0) {
-      __i[i] = 0;
-      for (int j = i - 1; j >= 0; j--) {
-        if (__i[j] == 0) {
-          __i[i] += __matrix[j].size();
-        } else {
-          __i[i] += __i[j] + __matrix[j].size();
-          break;
-        }
-      }
-    } else {
-      __i[i] = __i[i - 1] + __matrix[i - 1].size();
-    }
-  }
-
-  for (int i = 0; i < __row; i++) {
-    int count = 0;
-    for (vector<entry>::iterator it = __matrix[i].begin();
-         it != __matrix[i].end(); it++) {
-      __j[__i[i] + count] = (it->first);
-      __val[__i[i] + count] = it->second;
-      count++;
-    }
-  }
-
-  MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE, __Col,
-                            __i.data(), __j.data(), __val.data(), &__mat);
-
-  __isAssembled = true;
-
-  // get block diagonal of velocity block
-  int fieldDof = dimension + 1;
-  int velocityDof = dimension;
-  int pressureDof = 1;
-
-  PetscInt localN1, localN2;
-  MatGetOwnershipRange(__mat, &localN1, &localN2);
-
-  int localParticleNum;
-  if (myid != MPIsize - 1) {
-    localParticleNum = (localN2 - localN1) / fieldDof;
-  } else {
-    localParticleNum = (localN2 - localN1 - 1) / fieldDof;
-  }
-
-  vector<PetscInt> diag_i, diag_j;
-  vector<double> diag_val;
-
-  diag_i.resize(localParticleNum * velocityDof + 1);
-  diag_j.resize(localParticleNum * velocityDof * velocityDof);
-  diag_val.resize(localParticleNum * velocityDof * velocityDof);
-
-  diag_i[0] = 0;
-  for (int i = 0; i < localParticleNum; i++) {
-    for (int j = 0; j < velocityDof; j++) {
-      diag_i[i * velocityDof + j + 1] =
-          diag_i[i * velocityDof + j] + velocityDof;
-    }
-
-    for (int j = 0; j < velocityDof; j++) {
-      for (int k = 0; k < velocityDof; k++) {
-        diag_j[i * velocityDof * velocityDof + j * velocityDof + k] =
-            backgroundIndex[i] * velocityDof + k;
-
-        auto it = lower_bound(__matrix[i * fieldDof + j].begin(),
-                              __matrix[i * fieldDof + j].end(),
-                              entry(backgroundIndex[i] * fieldDof + k, 0.0),
-                              compare_index);
-        if (it->first == backgroundIndex[i] * fieldDof + k)
-          diag_val[i * velocityDof * velocityDof + j * velocityDof + k] =
-              it->second;
-        else
-          diag_val[i * velocityDof * velocityDof + j * velocityDof + k] = 0.0;
-      }
-    }
-  }
-
-  if (dimension == 2)
-    for (int i = 0; i < localParticleNum; i++) {
-      double a = diag_val[i * velocityDof * velocityDof];
-      double b = diag_val[i * velocityDof * velocityDof + 1];
-      double c = diag_val[i * velocityDof * velocityDof + 2];
-      double d = diag_val[i * velocityDof * velocityDof + 3];
-
-      double delta = a * d - b * c;
-
-      diag_val[i * velocityDof * velocityDof] = d / delta;
-      diag_val[i * velocityDof * velocityDof + 1] = -b / delta;
-      diag_val[i * velocityDof * velocityDof + 2] = -c / delta;
-      diag_val[i * velocityDof * velocityDof + 3] = a / delta;
-    }
-
-  // incorrect inversion
-  if (dimension == 3)
-    for (int i = 0; i < localParticleNum; i++) {
-      double a = diag_val[i * velocityDof * velocityDof];
-      double b = diag_val[i * velocityDof * velocityDof + 1];
-      double c = diag_val[i * velocityDof * velocityDof + 2];
-      double d = diag_val[i * velocityDof * velocityDof + 3];
-
-      double delta = a * d - b * c;
-
-      diag_val[i * velocityDof * velocityDof] = d / delta;
-      diag_val[i * velocityDof * velocityDof + 1] = -b / delta;
-      diag_val[i * velocityDof * velocityDof + 2] = -c / delta;
-      diag_val[i * velocityDof * velocityDof + 3] = a / delta;
-    }
-
-  MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, localParticleNum * velocityDof,
-                            localParticleNum * velocityDof, PETSC_DECIDE,
-                            globalParticleNum * velocityDof, diag_i.data(),
-                            diag_j.data(), diag_val.data(), &__diag_block);
-
-  return __nnz;
-}
+int PetscSparseMatrix::FinalAssemble(int blockSize, int num_rigid_body,
+                                     int rigid_body_dof) {}
 
 int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
                                             int dimension, int num_rigid_body,
@@ -682,7 +503,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
     KSP _ksp;
     KSPCreate(PETSC_COMM_WORLD, &_ksp);
-    KSPSetOperators(_ksp, __mat, __prec);
+    KSPSetOperators(_ksp, __mat, __mat);
     KSPSetFromOptions(_ksp);
 
     KSPSetUp(_ksp);

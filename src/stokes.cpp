@@ -416,7 +416,6 @@ void GMLS_Solver::StokesEquation() {
   int localRigidBodyOffset = particleNum[__MPISize + 1] * fieldDof;
   int globalRigidBodyOffset = globalParticleNum * fieldDof;
   int localOutProcessOffset = particleNum[__MPISize + 1] * fieldDof;
-  int globalOutProcessOffset = globalParticleNum * fieldDof;
 
   int localDof = localVelocityDof + localPressureDof;
   int globalDof = globalVelocityDof + globalPressureDof;
@@ -552,8 +551,7 @@ void GMLS_Solver::StokesEquation() {
 
       for (int axes = 0; axes < rigidBodyDof; axes++) {
         vector<PetscInt> &it =
-            outProcessIndex[fieldDof +
-                            attachedRigidBodyIndex[i] * rigidBodyDof + axes];
+            outProcessIndex[attachedRigidBodyIndex[i] * rigidBodyDof + axes];
         it.insert(it.end(), index.begin(), index.end());
       }
     }
@@ -785,9 +783,13 @@ void GMLS_Solver::StokesEquation() {
   vector<int> idx_neighbor;
 
   // A.FinalAssemble();
-  A.FinalAssemble(fieldDof);
-  A.ExtractNeighborIndex(idx_neighbor, __dim, numRigidBody,
-                         localRigidBodyOffset, globalRigidBodyOffset);
+  if (numRigidBody == 0) {
+    A.FinalAssemble(fieldDof);
+  } else {
+    A.FinalAssemble();
+    A.ExtractNeighborIndex(idx_neighbor, __dim, numRigidBody,
+                           localRigidBodyOffset, globalRigidBodyOffset);
+  }
 
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();

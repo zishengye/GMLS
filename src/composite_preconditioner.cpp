@@ -331,13 +331,17 @@ PetscErrorCode HypreConstConstraintPCApply(PC pc, Vec x, Vec y) {
     sum += a[shell->block_size * i + shell->offset];
   }
   MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  VecGetSize(y, &size);
+  VecGetSize(x, &size);
 
   sum /= (size / shell->block_size);
   for (PetscInt i = 0; i < local_particle_num; i++) {
     a[shell->block_size * i + shell->offset] -= sum;
   }
   VecRestoreArray(x, &a);
+
+  int localsize = local_particle_num;
+  MPI_Allreduce(MPI_IN_PLACE, &localsize, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "size: %d\n", localsize);
 
   KSPSolve(shell->ksp_hypre, x, y);
 

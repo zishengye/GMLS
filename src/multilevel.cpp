@@ -417,7 +417,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   int rigidBodyDof = (dimension == 3) ? 6 : 3;
 
   vector<int> idx_field;
-  vector<int> idx_global;
+  vector<int> idx_pressure;
 
   PetscInt localN1, localN2;
   Mat &mat = (*(A_list.end() - 1))->__mat;
@@ -426,6 +426,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   if (myid != mpi_size - 1) {
     int localParticleNum = (localN2 - localN1) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
+    idx_pressure.resize(localParticleNum);
 
     for (int i = 0; i < localParticleNum; i++) {
       for (int j = 0; j < dimension; j++) {
@@ -433,13 +434,14 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
       }
       idx_field[fieldDof * i + velocityDof] =
           localN1 + fieldDof * i + velocityDof;
-    }
 
-    idx_global = idx_field;
+      idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
+    }
   } else {
     int localParticleNum =
         (localN2 - localN1 - 1 - num_rigid_body * rigidBodyDof) / fieldDof + 1;
     idx_field.resize(fieldDof * localParticleNum);
+    idx_pressure.resize(localParticleNum);
 
     for (int i = 0; i < localParticleNum; i++) {
       for (int j = 0; j < dimension; j++) {
@@ -447,12 +449,9 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
       }
       idx_field[fieldDof * i + velocityDof] =
           localN1 + fieldDof * i + velocityDof;
+
+      idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
     }
-
-    idx_global = idx_field;
-
-    // idx_field.push_back(localN1 + fieldDof * localParticleNum +
-    // velocityDof);
   }
 
   IS &isg_field_lag = *isg_field_lag_list[adaptive_step];

@@ -28,12 +28,12 @@ private:
   PetscInt __row, __col, __nnz, __Col, __out_process_row,
       __out_process_reduction;
 
-public:
-  Mat __mat, __diag_block, __neighbor_block, __prec;
-
   std::vector<PetscInt> __i;
   std::vector<PetscInt> __j;
   std::vector<PetscReal> __val;
+
+public:
+  Mat __mat, __diag_block, __neighbor_block, __prec;
 
   PetscSparseMatrix()
       : __isAssembled(false), __row(0), __col(0), __Col(0),
@@ -109,8 +109,7 @@ public:
   int StructureAssemble();
   int FinalAssemble();
   int FinalAssemble(int blockSize);
-  int FinalAssemble(int dimesion, int globalParticleNum,
-                    std::vector<int> &backgroundIndex);
+  int FinalAssemble(int blockSize, int num_rigid_body, int rigid_body_dof);
 
   int ExtractNeighborIndex(std::vector<int> &idx_neighbor, int dimension,
                            int num_rigid_body, int local_rigid_body_offset,
