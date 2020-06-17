@@ -7,19 +7,16 @@
 
 class multilevel {
 private:
-  std::vector<PetscSparseMatrix *> A_list; // coefficient matrix list
-  std::vector<PetscSparseMatrix *> I_list; // interpolation matrix list
-  std::vector<PetscSparseMatrix *> R_list; // restriction matrix list
-  std::vector<Mat *>
-      ff_lag_list; // field with lagrange multiplier sub-matrix list
-  std::vector<Mat *>
-      ff_list; // field without lagrange multiplier sub-matrix list
+  std::vector<PetscSparseMatrix *> A_list;    // coefficient matrix list
+  std::vector<PetscSparseMatrix *> I_list;    // interpolation matrix list
+  std::vector<PetscSparseMatrix *> R_list;    // restriction matrix list
+  std::vector<Mat *> ff_list;                 // field sub-matrix list
   std::vector<Mat *> nn_list;                 // nearfield sub-matrix list
   std::vector<KSP *> ksp_list;                // main ksp list
   std::vector<KSP *> field_smoother_ksp_list; // field value smoother ksp list
-  std::vector<IS *> isg_field_lag_list;
   std::vector<IS *> isg_field_list;
   std::vector<IS *> isg_neighbor_list;
+  std::vector<IS *> isg_pressure_list;
 
   // vector list
   std::vector<Vec *> x_list;
@@ -40,8 +37,11 @@ private:
   std::vector<Vec *> r_neighbor_list;
   std::vector<Vec *> t_neighbor_list;
 
+  std::vector<Vec *> x_pressure_list;
+
   std::vector<VecScatter *> field_scatter_list;
   std::vector<VecScatter *> neighbor_scatter_list;
+  std::vector<VecScatter *> pressure_scatter_list;
 
   Vec x_neighbor, y_neighbor;
 
@@ -75,6 +75,10 @@ public:
     num_rigid_body = _num_rigid_body;
   }
 
+  inline int get_dimension() { return dimension; }
+
+  inline int get_num_rigid_body() { return num_rigid_body; }
+
   PetscSparseMatrix &getA(int num_level) { return *A_list[num_level]; }
   PetscSparseMatrix &getI(int num_level) { return *I_list[num_level]; }
   PetscSparseMatrix &getR(int num_level) { return *R_list[num_level]; }
@@ -91,7 +95,7 @@ public:
   KSP &getFieldBase() { return ksp_field_base; }
   KSP &getNeighborBase() { return ksp_neighbor_base; }
 
-  Mat &getFieldMat(int num_level) { return *ff_lag_list[num_level]; }
+  Mat &getFieldMat(int num_level) { return *ff_list[num_level]; }
 
   Vec *getXNeighbor() { return &x_neighbor; }
   Vec *getYNeighbor() { return &y_neighbor; }
@@ -104,11 +108,10 @@ public:
     ksp_list.push_back(new KSP);
     field_smoother_ksp_list.push_back(new KSP);
 
-    isg_field_lag_list.push_back(new IS);
     isg_field_list.push_back(new IS);
     isg_neighbor_list.push_back(new IS);
+    isg_pressure_list.push_back(new IS);
 
-    ff_lag_list.push_back(new Mat);
     ff_list.push_back(new Mat);
     nn_list.push_back(new Mat);
   }
@@ -143,11 +146,18 @@ public:
   std::vector<Vec *> *GetRNeighborList() { return &r_neighbor_list; }
   std::vector<Vec *> *GetTNeighborList() { return &t_neighbor_list; }
 
+  std::vector<Vec *> *GetXPressureList() { return &x_pressure_list; }
+
   std::vector<VecScatter *> *GetFieldScatterList() {
     return &field_scatter_list;
   }
+
   std::vector<VecScatter *> *GetNeighborScatterList() {
     return &neighbor_scatter_list;
+  }
+
+  std::vector<VecScatter *> *GetPressureScatterList() {
+    return &pressure_scatter_list;
   }
 
   void Solve(std::vector<double> &rhs, std::vector<double> &x,

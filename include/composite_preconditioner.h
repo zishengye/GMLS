@@ -10,6 +10,8 @@ struct HypreLUShellPC {
   multilevel *multi;
 
   int adaptive_level;
+
+  PetscInt local_pressure_size, global_pressure_size;
 };
 
 PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell);

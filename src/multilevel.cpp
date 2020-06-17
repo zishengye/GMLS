@@ -454,13 +454,16 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     }
   }
 
-  IS &isg_field_lag = *isg_field_lag_list[adaptive_step];
+  IS &isg_field_lag = *isg_field_list[adaptive_step];
   IS &isg_neighbor = *isg_neighbor_list[adaptive_step];
+  IS &isg_pressure = *isg_pressure_list[adaptive_step];
 
   ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
                   PETSC_COPY_VALUES, &isg_field_lag);
   ISCreateGeneral(MPI_COMM_WORLD, idx_neighbor.size(), idx_neighbor.data(),
                   PETSC_COPY_VALUES, &isg_neighbor);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_pressure.size(), idx_pressure.data(),
+                  PETSC_COPY_VALUES, &isg_pressure);
 
   Vec _rhs, _x;
   VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
@@ -468,12 +471,14 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, x.size(), PETSC_DECIDE, x.data(),
                         &_x);
 
-  Mat &ff = *ff_lag_list[adaptive_step];
+  Mat &ff = *ff_list[adaptive_step];
   Mat &nn = *nn_list[adaptive_step];
+  Mat pp;
 
   MatCreateSubMatrix(mat, isg_field_lag, isg_field_lag, MAT_INITIAL_MATRIX,
                      &ff);
   MatCreateSubMatrix(mat, isg_neighbor, isg_neighbor, MAT_INITIAL_MATRIX, &nn);
+  MatCreateSubMatrix(mat, isg_pressure, isg_pressure, MAT_INITIAL_MATRIX, &pp);
 
   MatSetBlockSize(ff, fieldDof);
 
@@ -496,6 +501,8 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   r_neighbor_list.push_back(new Vec);
   t_neighbor_list.push_back(new Vec);
 
+  x_pressure_list.push_back(new Vec);
+
   field_relaxation_list.push_back(new KSP);
   neighbor_relaxation_list.push_back(new KSP);
 
@@ -517,6 +524,8 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   MatCreateVecs(nn, NULL, r_neighbor_list[adaptive_step]);
   MatCreateVecs(nn, NULL, t_neighbor_list[adaptive_step]);
 
+  MatCreateVecs(pp, NULL, x_pressure_list[adaptive_step]);
+
   // field vector scatter
   field_scatter_list.push_back(new VecScatter);
   VecScatterCreate(*x_list[adaptive_step], isg_field_lag,
@@ -527,6 +536,10 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   VecScatterCreate(*x_list[adaptive_step], isg_neighbor,
                    *x_neighbor_list[adaptive_step], NULL,
                    neighbor_scatter_list[adaptive_step]);
+  pressure_scatter_list.push_back(new VecScatter);
+  VecScatterCreate(*x_list[adaptive_step], isg_pressure,
+                   *x_pressure_list[adaptive_step], NULL,
+                   pressure_scatter_list[adaptive_step]);
 
   // neighbor vector scatter, only needed on base level
   if (adaptive_step == 0) {
@@ -657,6 +670,8 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     x[i] = a[i];
   }
   VecRestoreArray(_x, &a);
+
+  MatDestroy(&pp);
 
   VecDestroy(&_rhs);
   VecDestroy(&_x);
