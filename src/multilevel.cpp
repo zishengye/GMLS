@@ -52,14 +52,10 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   MPI_Allreduce(&new_local_particle_num, &new_global_particle_num, 1, MPI_INT,
                 MPI_SUM, MPI_COMM_WORLD);
 
-  int old_local_dof = (__myID == __MPISize - 1)
-                          ? field_dof * (old_local_particle_num + 1)
-                          : field_dof * old_local_particle_num;
-  int old_global_dof = field_dof * (old_global_particle_num + 1);
-  int new_local_dof = (__myID == __MPISize - 1)
-                          ? field_dof * (new_local_particle_num + 1)
-                          : field_dof * new_local_particle_num;
-  int new_global_dof = field_dof * (new_global_particle_num + 1);
+  int old_local_dof = field_dof * old_local_particle_num;
+  int old_global_dof = field_dof * old_global_particle_num;
+  int new_local_dof = field_dof * new_local_particle_num;
+  int new_global_dof = field_dof * new_global_particle_num;
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
       old_source_coords_device("old source coordinates",
@@ -211,24 +207,14 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     }
   }
 
-  // lagrange multiplier
-  if (__myID == __MPISize - 1) {
-    index.resize(1);
-    for (int j = 0; j < field_dof; j++) {
-      index[0] = field_dof * old_global_particle_num + j;
-      I.setColIndex(field_dof * new_local_particle_num + j, index);
-    }
-  }
-
   // rigid body
   if (__myID == __MPISize - 1) {
     index.resize(1);
     for (int i = 0; i < num_rigid_body; i++) {
       int local_rigid_body_index_offset =
-          field_dof * (new_local_particle_num + 1) + i * rigid_body_dof;
+          field_dof * new_local_particle_num + i * rigid_body_dof;
       for (int j = 0; j < rigid_body_dof; j++) {
-        index[0] =
-            field_dof * (old_global_particle_num + 1) + i * rigid_body_dof + j;
+        index[0] = field_dof * old_global_particle_num + i * rigid_body_dof + j;
         I.setColIndex(local_rigid_body_index_offset + j, index);
       }
     }
@@ -280,25 +266,15 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     }
   }
 
-  // lagrange multiplier
-  if (__myID == __MPISize - 1) {
-    for (int j = 0; j < field_dof; j++) {
-      I.increment(field_dof * new_local_particle_num + j,
-                  field_dof * old_global_particle_num + j,
-                  old_global_particle_num / new_global_particle_num);
-    }
-  }
-
   // rigid body
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < num_rigid_body; i++) {
       int local_rigid_body_index_offset =
-          field_dof * (new_local_particle_num + 1) + i * rigid_body_dof;
+          field_dof * new_local_particle_num + i * rigid_body_dof;
       for (int j = 0; j < rigid_body_dof; j++) {
-        I.increment(local_rigid_body_index_offset + j,
-                    field_dof * (old_global_particle_num + 1) +
-                        i * rigid_body_dof + j,
-                    1.0);
+        I.increment(
+            local_rigid_body_index_offset + j,
+            field_dof * old_global_particle_num + i * rigid_body_dof + j, 1.0);
       }
     }
   }
@@ -334,24 +310,14 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     }
   }
 
-  // lagrange multiplier
-  if (__myID == __MPISize - 1) {
-    index.resize(1);
-    for (int j = 0; j < field_dof; j++) {
-      index[0] = field_dof * new_global_particle_num + j;
-      R.setColIndex(field_dof * old_local_particle_num + j, index);
-    }
-  }
-
   // rigid body
   if (__myID == __MPISize - 1) {
     index.resize(1);
     for (int i = 0; i < num_rigid_body; i++) {
       int local_rigid_body_index_offset =
-          field_dof * (old_local_particle_num + 1) + i * rigid_body_dof;
+          field_dof * old_local_particle_num + i * rigid_body_dof;
       for (int j = 0; j < rigid_body_dof; j++) {
-        index[0] =
-            field_dof * (new_global_particle_num + 1) + i * rigid_body_dof + j;
+        index[0] = field_dof * new_global_particle_num + i * rigid_body_dof + j;
         R.setColIndex(local_rigid_body_index_offset + j, index);
       }
     }
@@ -374,26 +340,16 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     }
   }
 
-  // lagrange multiplier
-  if (__myID == __MPISize - 1) {
-    for (int j = 0; j < field_dof; j++) {
-      R.increment(field_dof * old_local_particle_num + j,
-                  field_dof * new_global_particle_num + j,
-                  new_global_particle_num / old_global_particle_num);
-    }
-  }
-
   // rigid body
   if (__myID == __MPISize - 1) {
     index.resize(1);
     for (int i = 0; i < num_rigid_body; i++) {
       int local_rigid_body_index_offset =
-          field_dof * (old_local_particle_num + 1) + i * rigid_body_dof;
+          field_dof * old_local_particle_num + i * rigid_body_dof;
       for (int j = 0; j < rigid_body_dof; j++) {
-        R.increment(local_rigid_body_index_offset + j,
-                    field_dof * (new_global_particle_num + 1) +
-                        i * rigid_body_dof + j,
-                    1.0);
+        R.increment(
+            local_rigid_body_index_offset + j,
+            field_dof * new_global_particle_num + i * rigid_body_dof + j, 1.0);
       }
     }
   }

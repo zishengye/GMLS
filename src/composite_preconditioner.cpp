@@ -137,6 +137,36 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
+  PetscReal *a;
+
+  // orthogonalize to constant vector
+  VecScatterBegin(*((*shell->multi->GetPressureScatterList())[0]), x,
+                  *((*shell->multi->GetXPressureList())[0]), INSERT_VALUES,
+                  SCATTER_FORWARD);
+  VecScatterEnd(*((*shell->multi->GetPressureScatterList())[0]), x,
+                *((*shell->multi->GetXPressureList())[0]), INSERT_VALUES,
+                SCATTER_FORWARD);
+
+  PetscReal pressure_sum = 0.0;
+  VecGetArray(*((*shell->multi->GetXPressureList())[0]), &a);
+  for (PetscInt i = 0; i < shell->local_pressure_size; i++) {
+    pressure_sum += a[i];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  pressure_sum /= shell->global_pressure_size;
+  for (PetscInt i = 0; i < shell->local_pressure_size; i++) {
+    a[i] -= pressure_sum;
+  }
+  VecRestoreArray(*((*shell->multi->GetXPressureList())[0]), &a);
+
+  VecScatterBegin(*((*shell->multi->GetPressureScatterList())[0]),
+                  *((*shell->multi->GetXPressureList())[0]), x, INSERT_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(*((*shell->multi->GetPressureScatterList())[0]),
+                *((*shell->multi->GetXPressureList())[0]), x, INSERT_VALUES,
+                SCATTER_REVERSE);
+
   VecCopy(x, *((*shell->multi->GetBList())[shell->adaptive_level - 1]));
 
   // sweep down
@@ -337,6 +367,34 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   }
 
   VecCopy(*((*shell->multi->GetXList())[shell->adaptive_level - 1]), y);
+
+  // orthogonalize to constant vector
+  VecScatterBegin(*((*shell->multi->GetPressureScatterList())[0]), y,
+                  *((*shell->multi->GetXPressureList())[0]), INSERT_VALUES,
+                  SCATTER_FORWARD);
+  VecScatterEnd(*((*shell->multi->GetPressureScatterList())[0]), y,
+                *((*shell->multi->GetXPressureList())[0]), INSERT_VALUES,
+                SCATTER_FORWARD);
+
+  pressure_sum = 0.0;
+  VecGetArray(*((*shell->multi->GetXPressureList())[0]), &a);
+  for (PetscInt i = 0; i < shell->local_pressure_size; i++) {
+    pressure_sum += a[i];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  pressure_sum /= shell->global_pressure_size;
+  for (PetscInt i = 0; i < shell->local_pressure_size; i++) {
+    a[i] -= pressure_sum;
+  }
+  VecRestoreArray(*((*shell->multi->GetXPressureList())[0]), &a);
+
+  VecScatterBegin(*((*shell->multi->GetPressureScatterList())[0]),
+                  *((*shell->multi->GetXPressureList())[0]), y, INSERT_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(*((*shell->multi->GetPressureScatterList())[0]),
+                *((*shell->multi->GetXPressureList())[0]), y, INSERT_VALUES,
+                SCATTER_REVERSE);
 
   return 0;
 }

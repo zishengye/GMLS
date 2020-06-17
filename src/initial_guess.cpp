@@ -25,14 +25,14 @@ void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
     static vector<vec3> &rigid_body_angular_velocity =
         __rigidBody.vector.GetHandle("angular velocity");
 
-    int local_rigid_body_offset = (old_local_particle_num + 1) * field_dof;
+    int local_rigid_body_offset = old_local_particle_num * field_dof;
     int num_rigid_body = rigid_body_velocity.size();
 
     int translation_dof = __dim;
     int rotation_dof = (__dim == 3) ? 3 : 1;
     int rigid_body_dof = translation_dof + rotation_dof;
 
-    previous_result.resize(field_dof * (old_local_particle_num + 1) +
+    previous_result.resize(field_dof * old_local_particle_num +
                            num_rigid_body * rigid_body_dof);
 
     for (int i = 0; i < num_rigid_body; i++) {
