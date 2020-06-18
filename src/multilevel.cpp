@@ -379,8 +379,9 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   Mat &mat = (*(A_list.end() - 1))->__mat;
   MatGetOwnershipRange(mat, &localN1, &localN2);
 
+  int localParticleNum;
   if (myid != mpi_size - 1) {
-    int localParticleNum = (localN2 - localN1) / fieldDof;
+    localParticleNum = (localN2 - localN1) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
     idx_pressure.resize(localParticleNum);
 
@@ -394,8 +395,8 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
       idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
     }
   } else {
-    int localParticleNum =
-        (localN2 - localN1 - 1 - num_rigid_body * rigidBodyDof) / fieldDof + 1;
+    localParticleNum =
+        (localN2 - localN1 - num_rigid_body * rigidBodyDof) / fieldDof;
     idx_field.resize(fieldDof * localParticleNum);
     idx_pressure.resize(localParticleNum);
 
@@ -431,12 +432,8 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   Mat &nn = *nn_list[adaptive_step];
   Mat pp;
 
-  MatCreateSubMatrix(mat, isg_field_lag, isg_field_lag, MAT_INITIAL_MATRIX,
-                     &ff);
   MatCreateSubMatrix(mat, isg_neighbor, isg_neighbor, MAT_INITIAL_MATRIX, &nn);
   MatCreateSubMatrix(mat, isg_pressure, isg_pressure, MAT_INITIAL_MATRIX, &pp);
-
-  MatSetBlockSize(ff, fieldDof);
 
   // setup current level vectors
   x_list.push_back(new Vec);
@@ -496,6 +493,38 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   VecScatterCreate(*x_list[adaptive_step], isg_pressure,
                    *x_pressure_list[adaptive_step], NULL,
                    pressure_scatter_list[adaptive_step]);
+
+  // setup nullspace_field
+  Vec null_whole, null_field;
+  VecDuplicate(_rhs, &null_whole);
+  VecDuplicate(*x_field_list[adaptive_step], &null_field);
+
+  VecSet(null_whole, 0.0);
+  VecSet(null_field, 0.0);
+
+  VecSet(*x_pressure_list[adaptive_step], 1.0);
+
+  VecScatterBegin(*pressure_scatter_list[adaptive_step],
+                  *x_pressure_list[adaptive_step], null_whole, INSERT_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(*pressure_scatter_list[adaptive_step],
+                *x_pressure_list[adaptive_step], null_whole, INSERT_VALUES,
+                SCATTER_REVERSE);
+
+  MatNullSpace nullspace_whole;
+  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_whole,
+                     &nullspace_whole);
+  MatSetNullSpace(mat, nullspace_whole);
+
+  Vec field_pressure;
+  VecGetSubVector(null_field, isg_pressure, &field_pressure);
+  VecSet(field_pressure, 1.0);
+  VecRestoreSubVector(null_field, isg_pressure, &field_pressure);
+
+  MatNullSpace nullspace_field;
+  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_field,
+                     &nullspace_field);
+  MatSetNullSpace(ff, nullspace_field);
 
   // neighbor vector scatter, only needed on base level
   if (adaptive_step == 0) {
@@ -578,26 +607,6 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   PCSetUp(neighbor_relaxation_sub_pc);
 
   KSPSetUp(*neighbor_relaxation_list[adaptive_step]);
-
-  Vec null;
-  VecDuplicate(_rhs, &null);
-
-  VecSet(null, 0.0);
-
-  VecSet(*x_pressure_list[adaptive_step], 1.0);
-
-  VecScatterBegin(*pressure_scatter_list[adaptive_step],
-                  *x_pressure_list[adaptive_step], null, INSERT_VALUES,
-                  SCATTER_REVERSE);
-  VecScatterEnd(*pressure_scatter_list[adaptive_step],
-                *x_pressure_list[adaptive_step], null, INSERT_VALUES,
-                SCATTER_REVERSE);
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  MatNullSpace nullspace;
-  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null, &nullspace);
-  MatSetNullSpace(mat, nullspace);
 
   KSP &_ksp = getKsp(adaptive_step);
   KSPCreate(PETSC_COMM_WORLD, &_ksp);

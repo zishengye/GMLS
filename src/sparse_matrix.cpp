@@ -343,6 +343,206 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
 int PetscSparseMatrix::FinalAssemble(int blockSize, int num_rigid_body,
                                      int rigid_body_dof) {}
 
+int PetscSparseMatrix::FinalAssemble(
+    Mat &mat, int blockSize, int num_rigid_body,
+    int rigid_body_dof) { // move data from outProcessIncrement
+  int myid, MPIsize;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
+
+  for (PetscInt row = 0; row < __out_process_row; row++) {
+    int send_count = __out_process_matrix[row].size();
+    vector<int> recv_count(MPIsize);
+
+    MPI_Gather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
+               MPIsize - 1, MPI_COMM_WORLD);
+
+    vector<int> displs(MPIsize + 1);
+    if (myid == MPIsize - 1) {
+      displs[0] = 0;
+      for (int i = 1; i <= MPIsize; i++) {
+        displs[i] = displs[i - 1] + recv_count[i - 1];
+      }
+    }
+
+    vector<PetscInt> recv_j;
+    vector<PetscReal> recv_val;
+
+    recv_j.resize(displs[MPIsize]);
+    recv_val.resize(displs[MPIsize]);
+
+    vector<PetscInt> send_j(send_count);
+    vector<PetscReal> send_val(send_count);
+
+    size_t n = 0;
+    n = __out_process_matrix[row].size();
+    send_j.resize(n);
+    send_val.resize(n);
+    for (auto i = 0; i < n; i++) {
+      send_j[i] = __out_process_matrix[row][i].first;
+      send_val[i] = __out_process_matrix[row][i].second;
+    }
+
+    MPI_Gatherv(send_j.data(), send_count, MPI_UNSIGNED, recv_j.data(),
+                recv_count.data(), displs.data(), MPI_UNSIGNED, MPIsize - 1,
+                MPI_COMM_WORLD);
+    MPI_Gatherv(send_val.data(), send_count, MPI_DOUBLE, recv_val.data(),
+                recv_count.data(), displs.data(), MPI_DOUBLE, MPIsize - 1,
+                MPI_COMM_WORLD);
+
+    // merge data
+    if (myid == MPIsize - 1) {
+      vector<int> sorted_recv_j = recv_j;
+      sort(sorted_recv_j.begin(), sorted_recv_j.end());
+      sorted_recv_j.erase(unique(sorted_recv_j.begin(), sorted_recv_j.end()),
+                          sorted_recv_j.end());
+
+      __matrix[row + __out_process_reduction].resize(sorted_recv_j.size());
+      for (int i = 0; i < sorted_recv_j.size(); i++) {
+        __matrix[row + __out_process_reduction][i] =
+            entry(sorted_recv_j[i], 0.0);
+      }
+
+      for (int i = 0; i < recv_j.size(); i++) {
+        auto it = lower_bound(__matrix[row + __out_process_reduction].begin(),
+                              __matrix[row + __out_process_reduction].end(),
+                              entry(recv_j[i], recv_val[i]), compare_index);
+
+        it->second += recv_val[i];
+      }
+    }
+  }
+
+  __i.resize(__row + 1);
+
+  __nnz = 0;
+  for (int i = 0; i < __row; i++) {
+    __i[i] = 0;
+    __nnz += __matrix[i].size();
+  }
+
+  __j.resize(__nnz);
+  __val.resize(__nnz);
+
+  for (int i = 1; i <= __row; i++) {
+    if (__i[i - 1] == 0) {
+      __i[i] = 0;
+      for (int j = i - 1; j >= 0; j--) {
+        if (__i[j] == 0) {
+          __i[i] += __matrix[j].size();
+        } else {
+          __i[i] += __i[j] + __matrix[j].size();
+          break;
+        }
+      }
+    } else {
+      __i[i] = __i[i - 1] + __matrix[i - 1].size();
+    }
+  }
+
+  for (int i = 0; i < __row; i++) {
+    for (auto n = 0; n < __matrix[i].size(); n++) {
+      __j[__i[i] + n] = __matrix[i][n].first;
+      __val[__i[i] + n] = __matrix[i][n].second;
+    }
+  }
+
+  if (__Col != 0)
+    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
+                              __Col, __i.data(), __j.data(), __val.data(),
+                              &__mat);
+  else
+    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
+                              PETSC_DECIDE, __i.data(), __j.data(),
+                              __val.data(), &__mat);
+
+  // get block version matrix for field submatrix
+  __Col -= num_rigid_body * rigid_body_dof;
+  if (myid == MPIsize - 1) {
+    __row -= num_rigid_body * rigid_body_dof;
+    __col -= num_rigid_body * rigid_body_dof;
+  }
+
+  auto block_row = __row / blockSize;
+
+  __i.resize(block_row + 1);
+  __j.clear();
+
+  vector<PetscInt> block_col_indices;
+  __i[0] = 0;
+  int nnz_block = 0;
+  for (int i = 0; i < block_row; i++) {
+    block_col_indices.clear();
+    for (int j = 0; j < blockSize; j++) {
+      for (int k = 0; k < __matrix[i * blockSize + j].size(); k++) {
+        if (__matrix[i * blockSize + j][k].first < __Col)
+          block_col_indices.push_back(__matrix[i * blockSize + j][k].first /
+                                      blockSize);
+      }
+    }
+
+    sort(block_col_indices.begin(), block_col_indices.end());
+    block_col_indices.erase(
+        unique(block_col_indices.begin(), block_col_indices.end()),
+        block_col_indices.end());
+
+    nnz_block += block_col_indices.size();
+
+    __i[i + 1] = __i[i] + block_col_indices.size();
+
+    __j.insert(__j.end(), block_col_indices.begin(), block_col_indices.end());
+  }
+
+  auto blockStorage = blockSize * blockSize;
+
+  __val.resize(nnz_block * blockStorage);
+
+  for (int i = 0; i < nnz_block * blockStorage; i++) {
+    __val[i] = 0.0;
+  }
+
+  for (int i = 0; i < __row; i++) {
+    int block_row_index = i / blockSize;
+    int local_row_index = i % blockSize;
+    for (int j = 0; j < __matrix[i].size(); j++) {
+      if (__matrix[i][j].first < __Col) {
+        int block_col_index = __matrix[i][j].first / blockSize;
+        int local_col_index = __matrix[i][j].first % blockSize;
+
+        auto it = lower_bound(__j.begin() + __i[block_row_index],
+                              __j.begin() + __i[block_row_index + 1],
+                              block_col_index);
+
+        auto disp = it - __j.begin();
+        __val[blockStorage * disp + local_col_index +
+              local_row_index * blockSize] = __matrix[i][j].second;
+      }
+    }
+  }
+
+  if (__Col != 0) {
+    MatCreate(MPI_COMM_WORLD, &mat);
+    MatSetSizes(mat, __row, __col, PETSC_DECIDE, __Col);
+    MatSetType(mat, MATMPIBAIJ);
+    MatSetBlockSize(mat, blockSize);
+    MatSetUp(mat);
+    MatMPIBAIJSetPreallocationCSR(mat, blockSize, __i.data(), __j.data(),
+                                  __val.data());
+  } else {
+    MatCreate(MPI_COMM_WORLD, &mat);
+    MatSetSizes(mat, __row, __col, PETSC_DECIDE, PETSC_DECIDE);
+    MatSetType(mat, MATMPIBAIJ);
+    MatSetBlockSize(mat, blockSize);
+    MatSetUp(mat);
+    MatMPIBAIJSetPreallocationCSR(mat, blockSize, __i.data(), __j.data(),
+                                  __val.data());
+  }
+
+  __isAssembled = true;
+
+  return __nnz;
+}
+
 int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
                                             int dimension, int num_rigid_body,
                                             int local_rigid_body_offset,
@@ -350,6 +550,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
   int MPIsize, myId;
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
+
+  int rigid_body_dof = (dimension == 2) ? 3 : 6;
 
   vector<int> rigid_body_block_distribution(MPIsize + 1);
 
@@ -365,8 +567,6 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
       rigid_body_block_distribution[i + 1] =
           rigid_body_block_distribution[i] + rigid_body_average;
   }
-
-  int rigid_body_dof = (dimension == 2) ? 3 : 6;
 
   vector<int> neighborInclusion;
   int neighborInclusionSize;

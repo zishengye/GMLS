@@ -786,7 +786,8 @@ void GMLS_Solver::StokesEquation() {
   if (numRigidBody == 0) {
     A.FinalAssemble(fieldDof);
   } else {
-    A.FinalAssemble();
+    Mat &ff = _multi.getFieldMat(__adaptive_step);
+    A.FinalAssemble(ff, fieldDof, numRigidBody, rigidBodyDof);
     A.ExtractNeighborIndex(idx_neighbor, __dim, numRigidBody,
                            localRigidBodyOffset, globalRigidBodyOffset);
   }

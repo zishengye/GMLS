@@ -110,6 +110,8 @@ public:
   int FinalAssemble();
   int FinalAssemble(int blockSize);
   int FinalAssemble(int blockSize, int num_rigid_body, int rigid_body_dof);
+  int FinalAssemble(Mat &mat, int blockSize, int num_rigid_body,
+                    int rigid_body_dof);
 
   int ExtractNeighborIndex(std::vector<int> &idx_neighbor, int dimension,
                            int num_rigid_body, int local_rigid_body_offset,
