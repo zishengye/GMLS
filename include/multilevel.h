@@ -12,6 +12,7 @@ private:
   std::vector<PetscSparseMatrix *> R_list;    // restriction matrix list
   std::vector<Mat *> ff_list;                 // field sub-matrix list
   std::vector<Mat *> nn_list;                 // nearfield sub-matrix list
+  std::vector<Mat *> nw_list;                 // nearfield-whole sub-matrix list
   std::vector<KSP *> ksp_list;                // main ksp list
   std::vector<KSP *> field_smoother_ksp_list; // field value smoother ksp list
   std::vector<IS *> isg_field_list;
@@ -96,6 +97,7 @@ public:
   KSP &getNeighborBase() { return ksp_neighbor_base; }
 
   Mat &getFieldMat(int num_level) { return *ff_list[num_level]; }
+  Mat &getNeighborWholeMat(int num_level) { return *nw_list[num_level]; }
 
   Vec *getXNeighbor() { return &x_neighbor; }
   Vec *getYNeighbor() { return &y_neighbor; }
@@ -114,6 +116,7 @@ public:
 
     ff_list.push_back(new Mat);
     nn_list.push_back(new Mat);
+    nw_list.push_back(new Mat);
   }
 
   void clear() {

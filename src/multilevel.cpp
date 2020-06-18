@@ -430,10 +430,12 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   Mat &ff = *ff_list[adaptive_step];
   Mat &nn = *nn_list[adaptive_step];
+  Mat &nw = *nw_list[adaptive_step];
   Mat pp;
 
   MatCreateSubMatrix(mat, isg_neighbor, isg_neighbor, MAT_INITIAL_MATRIX, &nn);
   MatCreateSubMatrix(mat, isg_pressure, isg_pressure, MAT_INITIAL_MATRIX, &pp);
+  MatCreateSubMatrix(mat, isg_neighbor, NULL, MAT_INITIAL_MATRIX, &nw);
 
   // setup current level vectors
   x_list.push_back(new Vec);

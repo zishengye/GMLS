@@ -74,26 +74,25 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
                 SCATTER_REVERSE);
 
   // stage 2
-  MatMult(shell->multi->getA(0).__mat, y, *(*shell->multi->GetRList())[0]);
-  VecAXPY(*(*shell->multi->GetRList())[0], -1.0, x);
-  VecScale(*(*shell->multi->GetRList())[0], -1.0);
+  MatMult(shell->multi->getNeighborWholeMat(0), y,
+          *shell->multi->getXNeighbor());
 
-  VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[0]),
-                  *((*shell->multi->GetRList())[0]),
-                  *shell->multi->getXNeighbor(), INSERT_VALUES,
+  VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[0]), x,
+                  *shell->multi->getYNeighbor(), INSERT_VALUES,
                   SCATTER_FORWARD);
-  VecScatterEnd(*((*shell->multi->GetNeighborScatterList())[0]),
-                *((*shell->multi->GetRList())[0]),
-                *shell->multi->getXNeighbor(), INSERT_VALUES, SCATTER_FORWARD);
+  VecScatterEnd(*((*shell->multi->GetNeighborScatterList())[0]), x,
+                *shell->multi->getYNeighbor(), INSERT_VALUES, SCATTER_FORWARD);
 
-  KSPSolve(shell->multi->getNeighborBase(), *shell->multi->getXNeighbor(),
-           *shell->multi->getYNeighbor());
+  VecAXPY(*shell->multi->getYNeighbor(), -1.0, *shell->multi->getXNeighbor());
+
+  KSPSolve(shell->multi->getNeighborBase(), *shell->multi->getYNeighbor(),
+           *shell->multi->getXNeighbor());
 
   VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[0]),
-                  *shell->multi->getYNeighbor(), y, ADD_VALUES,
+                  *shell->multi->getXNeighbor(), y, ADD_VALUES,
                   SCATTER_REVERSE);
   VecScatterEnd(*((*shell->multi->GetNeighborScatterList())[0]),
-                *shell->multi->getYNeighbor(), y, ADD_VALUES, SCATTER_REVERSE);
+                *shell->multi->getXNeighbor(), y, ADD_VALUES, SCATTER_REVERSE);
 
   // orthogonalize to constant vector
   VecScatterBegin(*((*shell->multi->GetPressureScatterList())[0]), y,
@@ -184,22 +183,21 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                   SCATTER_REVERSE);
 
     // neighbor part smoothing
-    MatMult(shell->multi->getA(i).__mat, *((*shell->multi->GetXList())[i]),
-            *((*shell->multi->GetRList())[i]));
-
-    VecAXPY(*((*shell->multi->GetRList())[i]), -1.0,
-            *((*shell->multi->GetBList())[i]));
-
-    VecScale(*((*shell->multi->GetRList())[i]), -1.0);
+    MatMult(shell->multi->getNeighborWholeMat(i),
+            *((*shell->multi->GetXList())[i]),
+            *((*shell->multi->GetXNeighborList())[i]));
 
     VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[i]),
-                    *((*shell->multi->GetRList())[i]),
+                    *((*shell->multi->GetBList())[i]),
                     *((*shell->multi->GetBNeighborList())[i]), INSERT_VALUES,
                     SCATTER_FORWARD);
     VecScatterEnd(*((*shell->multi->GetNeighborScatterList())[i]),
-                  *((*shell->multi->GetRList())[i]),
+                  *((*shell->multi->GetBList())[i]),
                   *((*shell->multi->GetBNeighborList())[i]), INSERT_VALUES,
                   SCATTER_FORWARD);
+
+    VecAXPY(*((*shell->multi->GetBNeighborList())[i]), -1.0,
+            *((*shell->multi->GetXNeighborList())[i]));
 
     KSPSolve(shell->multi->getNeighborRelaxation(i),
              *((*shell->multi->GetBNeighborList())[i]),
@@ -230,6 +228,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   }
 
   // solve on coarest-level
+  // stage 1
   VecSet(*((*shell->multi->GetXList())[0]), 0.0);
   VecScatterBegin(*((*shell->multi->GetFieldScatterList())[0]),
                   *((*shell->multi->GetBList())[0]),
@@ -253,29 +252,28 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                 SCATTER_REVERSE);
 
   // stage 2
-  MatMult(shell->multi->getA(0).__mat, *((*shell->multi->GetXList())[0]),
-          *(*shell->multi->GetRList())[0]);
-  VecAXPY(*(*shell->multi->GetRList())[0], -1.0,
-          *((*shell->multi->GetBList())[0]));
-  VecScale(*(*shell->multi->GetRList())[0], -1.0);
+  MatMult(shell->multi->getNeighborWholeMat(0),
+          *((*shell->multi->GetXList())[0]), *shell->multi->getXNeighbor());
 
   VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[0]),
-                  *((*shell->multi->GetRList())[0]),
-                  *shell->multi->getXNeighbor(), INSERT_VALUES,
+                  *((*shell->multi->GetBList())[0]),
+                  *shell->multi->getYNeighbor(), INSERT_VALUES,
                   SCATTER_FORWARD);
   VecScatterEnd(*((*shell->multi->GetNeighborScatterList())[0]),
-                *((*shell->multi->GetRList())[0]),
-                *shell->multi->getXNeighbor(), INSERT_VALUES, SCATTER_FORWARD);
+                *((*shell->multi->GetBList())[0]),
+                *shell->multi->getYNeighbor(), INSERT_VALUES, SCATTER_FORWARD);
 
-  KSPSolve(shell->multi->getNeighborBase(), *shell->multi->getXNeighbor(),
-           *shell->multi->getYNeighbor());
+  VecAXPY(*shell->multi->getYNeighbor(), -1.0, *shell->multi->getXNeighbor());
+
+  KSPSolve(shell->multi->getNeighborBase(), *shell->multi->getYNeighbor(),
+           *shell->multi->getXNeighbor());
 
   VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[0]),
-                  *shell->multi->getYNeighbor(),
+                  *shell->multi->getXNeighbor(),
                   *((*shell->multi->GetXList())[0]), ADD_VALUES,
                   SCATTER_REVERSE);
   VecScatterEnd(*((*shell->multi->GetNeighborScatterList())[0]),
-                *shell->multi->getYNeighbor(),
+                *shell->multi->getXNeighbor(),
                 *((*shell->multi->GetXList())[0]), ADD_VALUES, SCATTER_REVERSE);
 
   // sweep up
@@ -321,22 +319,21 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                   SCATTER_REVERSE);
 
     // neighbor part smoothing
-    MatMult(shell->multi->getA(i).__mat, *((*shell->multi->GetXList())[i]),
-            *((*shell->multi->GetRList())[i]));
-
-    VecAXPY(*((*shell->multi->GetRList())[i]), -1.0,
-            *((*shell->multi->GetBList())[i]));
-
-    VecScale(*((*shell->multi->GetRList())[i]), -1.0);
+    MatMult(shell->multi->getNeighborWholeMat(i),
+            *((*shell->multi->GetXList())[i]),
+            *((*shell->multi->GetXNeighborList())[i]));
 
     VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[i]),
-                    *((*shell->multi->GetRList())[i]),
+                    *((*shell->multi->GetBList())[i]),
                     *((*shell->multi->GetBNeighborList())[i]), INSERT_VALUES,
                     SCATTER_FORWARD);
     VecScatterEnd(*((*shell->multi->GetNeighborScatterList())[i]),
-                  *((*shell->multi->GetRList())[i]),
+                  *((*shell->multi->GetBList())[i]),
                   *((*shell->multi->GetBNeighborList())[i]), INSERT_VALUES,
                   SCATTER_FORWARD);
+
+    VecAXPY(*((*shell->multi->GetBNeighborList())[i]), -1.0,
+            *((*shell->multi->GetXNeighborList())[i]));
 
     KSPSolve(shell->multi->getNeighborRelaxation(i),
              *((*shell->multi->GetBNeighborList())[i]),
