@@ -565,8 +565,17 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   PC neighbor_relaxation_pc;
   KSPGetPC(*neighbor_relaxation_list[adaptive_step], &neighbor_relaxation_pc);
-  PCSetType(neighbor_relaxation_pc, PCLU);
+  PCSetType(neighbor_relaxation_pc, PCBJACOBI);
   PCSetUp(neighbor_relaxation_pc);
+  KSP *neighbor_relaxation_sub_ksp;
+  PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
+                     &neighbor_relaxation_sub_ksp);
+  KSPSetType(neighbor_relaxation_sub_ksp[0], KSPPREONLY);
+  PC neighbor_relaxation_sub_pc;
+  KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
+  PCSetType(neighbor_relaxation_sub_pc, PCLU);
+  PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERMUMPS);
+  PCSetUp(neighbor_relaxation_sub_pc);
 
   KSPSetUp(*neighbor_relaxation_list[adaptive_step]);
 
