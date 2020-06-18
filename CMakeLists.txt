@@ -23,6 +23,6 @@ link_libraries("-lkokkos")
 
 file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
-add_compile_options(-O3 -w -fopenmp -fPIC)
+add_compile_options(-O3 -w -fopenmp -fPIC -march=broadwell)
 
 add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
