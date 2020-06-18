@@ -535,6 +535,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
     VecDestroy(&_rhs);
     VecDestroy(&_x);
+    VecDestroy(&null);
   }
 }
 

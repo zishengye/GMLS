@@ -572,6 +572,26 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   KSPSetUp(*neighbor_relaxation_list[adaptive_step]);
 
+  Vec null;
+  VecDuplicate(_rhs, &null);
+
+  VecSet(null, 0.0);
+
+  VecSet(*x_pressure_list[adaptive_step], 1.0);
+
+  VecScatterBegin(*pressure_scatter_list[adaptive_step],
+                  *x_pressure_list[adaptive_step], null, INSERT_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(*pressure_scatter_list[adaptive_step],
+                *x_pressure_list[adaptive_step], null, INSERT_VALUES,
+                SCATTER_REVERSE);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  MatNullSpace nullspace;
+  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null, &nullspace);
+  MatSetNullSpace(mat, nullspace);
+
   KSP &_ksp = getKsp(adaptive_step);
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
   KSPSetOperators(_ksp, mat, mat);
