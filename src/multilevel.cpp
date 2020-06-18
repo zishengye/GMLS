@@ -561,8 +561,6 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPCreate(MPI_COMM_WORLD, neighbor_relaxation_list[adaptive_step]);
 
   KSPSetType(*neighbor_relaxation_list[adaptive_step], KSPPREONLY);
-  KSPSetTolerances(*neighbor_relaxation_list[adaptive_step], 1e-50, 1e-50, 1e10,
-                   1);
   KSPSetOperators(*neighbor_relaxation_list[adaptive_step], nn, nn);
 
   PC neighbor_relaxation_pc;
