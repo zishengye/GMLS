@@ -58,6 +58,8 @@ private:
 
   int field_dof, velocity_dof, pressure_dof;
 
+  std::vector<std::vector<int>> connectivity;
+
 public:
   multilevel() {}
 
@@ -124,6 +126,7 @@ public:
     A_list.clear();
     I_list.clear();
     R_list.clear();
+    connectivity.clear();
   }
 
   void InitialGuessFromPreviousAdaptiveStep(std::vector<double> &initial_guess);
@@ -162,6 +165,8 @@ public:
   std::vector<VecScatter *> *GetPressureScatterList() {
     return &pressure_scatter_list;
   }
+
+  std::vector<std::vector<int>> &GetConnectivity() { return connectivity; }
 
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
              std::vector<int> &idx_neighbor);

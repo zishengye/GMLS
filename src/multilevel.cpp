@@ -516,7 +516,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   MatNullSpace nullspace_whole;
   MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_whole,
                      &nullspace_whole);
-  MatSetNullSpace(mat, nullspace_whole);
+  MatSetNearNullSpace(mat, nullspace_whole);
 
   Vec field_pressure;
   VecGetSubVector(null_field, isg_pressure, &field_pressure);
@@ -526,7 +526,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   MatNullSpace nullspace_field;
   MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_field,
                      &nullspace_field);
-  MatSetNullSpace(ff, nullspace_field);
+  MatSetNearNullSpace(ff, nullspace_field);
 
   // neighbor vector scatter, only needed on base level
   if (adaptive_step == 0) {

@@ -553,6 +553,15 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
 
   int rigid_body_dof = (dimension == 2) ? 3 : 6;
 
+  // vector<int> unsplit_rigid_body;
+  // for (int i = 0; i < num_rigid_body; i++)
+  //   unsplit_rigid_body.push_back(i);
+
+  // while (unsplit_rigid_body.size() > 0) {
+  //   auto i = unsplit_rigid_body[0];
+  //   unsplit_rigid_body.erase(unsplit_rigid_body.begin());
+  // }
+
   vector<int> rigid_body_block_distribution(MPIsize + 1);
 
   int rigid_body_average = num_rigid_body / MPIsize;
