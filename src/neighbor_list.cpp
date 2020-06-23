@@ -453,6 +453,8 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<int> &sendData,
       MPI_Put(sendDataBlock.data(), sendCount, MPI_INT, destinationIndex[i],
               neighborOffset[i], sendCount, MPI_INT, __neighborWinParticleSwap);
 
+      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
+
       // MPI_Win_flush_all(__neighborWinParticleSwap);
     }
     MPI_Barrier(MPI_COMM_WORLD);
@@ -499,6 +501,8 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
       MPI_Put(sendDataBlock.data(), sendCount, MPI_DOUBLE, destinationIndex[i],
               neighborOffset[i], sendCount, MPI_DOUBLE,
               __neighborWinParticleSwap);
+
+      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
 
       // MPI_Win_flush_all(__neighborWinParticleSwap);
 
@@ -551,6 +555,8 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
       MPI_Put(sendDataBlock.data(), sendCount * 3, MPI_DOUBLE,
               destinationIndex[i], neighborOffset[i] * 3, sendCount * 3,
               MPI_DOUBLE, __neighborWinParticleSwap);
+
+      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
 
       // MPI_Win_flush_all(__neighborWinParticleSwap);
 
@@ -612,6 +618,8 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vector<double>> &sendData,
       MPI_Put(sendDataBlock.data(), sendCount * unitLength, MPI_DOUBLE,
               destinationIndex[i], neighborOffset[i] * unitLength,
               sendCount * unitLength, MPI_DOUBLE, __neighborWinParticleSwap);
+
+      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
 
       // MPI_Win_flush_all(__neighborWinParticleSwap);
 
