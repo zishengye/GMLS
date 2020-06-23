@@ -85,6 +85,11 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
                                __adaptive_base_field)) == 1) {
       __adaptive_base_field = "Pressure";
     }
+
+    if ((SearchCommand<int>(argc, argv, "-MaxAdaptiveLevel",
+                            __maxAdaptiveLevel)) == 1) {
+      __maxAdaptiveLevel = 4;
+    }
   }
 
   // default manifold flag is off

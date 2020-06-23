@@ -41,6 +41,7 @@ private:
   int __writeData;
   int __batchSize;
   int __adaptiveRefinement;
+  int __maxAdaptiveLevel;
   double __adaptiveRefinementTolerance;
   int __adaptive_step;
   std::string __adaptive_base_field;
