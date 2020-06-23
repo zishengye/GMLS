@@ -674,7 +674,7 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
           auto it =
               lower_bound(maximum_group.begin(), maximum_group.end(), item);
           if (*it != item) {
-            maximum_group.push_back(item);
+            maximum_group.insert(it, item);
 
             if (ungroup_rigid_body.size() != 0) {
               auto rm_it = lower_bound(ungroup_rigid_body.begin(),
