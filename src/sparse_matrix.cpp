@@ -695,7 +695,6 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
 
     // distribute rigid body among processes
     int rigid_body_average = num_rigid_body / MPIsize;
-    int rigid_body_residual = num_rigid_body % MPIsize;
 
     int process_index = 0;
     int left_num_rigid_body = num_rigid_body;
