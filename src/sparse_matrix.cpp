@@ -736,7 +736,7 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
     if (myId == MPIsize - 1) {
       neighborInclusion.clear();
 
-      // select neighbor col
+      // select neighbor column
       for (int j = 0; j < rigid_body_block_distribution[i].size(); j++) {
         neighborInclusion.insert(
             neighborInclusion.end(),
@@ -746,7 +746,31 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
             __j.begin() + __i[local_rigid_body_offset +
                               (rigid_body_block_distribution[i][j] + 1) *
                                   rigid_body_dof]);
+      }
 
+      for (int j = 0; j < neighborInclusion.size(); j++) {
+        neighborInclusion[j] /= field_dof;
+      }
+
+      sort(neighborInclusion.begin(), neighborInclusion.end());
+
+      neighborInclusion.erase(
+          unique(neighborInclusion.begin(), neighborInclusion.end()),
+          neighborInclusion.end());
+
+      vector<int> tempNeighborInclusion = move(neighborInclusion);
+
+      neighborInclusion.reserve(tempNeighborInclusion.size() * field_dof +
+                                rigid_body_block_distribution[i].size() *
+                                    rigid_body_dof);
+
+      for (auto neighbor : tempNeighborInclusion) {
+        for (int j = 0; j < field_dof; j++) {
+          neighborInclusion.push_back(neighbor * field_dof + j);
+        }
+      }
+
+      for (int j = 0; j < rigid_body_block_distribution[i].size(); j++) {
         for (int k = 0; k < rigid_body_dof; k++) {
           neighborInclusion.push_back(
               global_rigid_body_offset +
@@ -756,13 +780,7 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
 
       sort(neighborInclusion.begin(), neighborInclusion.end());
 
-      neighborInclusion.erase(
-          unique(neighborInclusion.begin(), neighborInclusion.end()),
-          neighborInclusion.end());
-
       neighborInclusionSize = neighborInclusion.size();
-
-      cout << neighborInclusionSize << endl;
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
