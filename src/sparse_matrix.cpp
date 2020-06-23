@@ -597,9 +597,6 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
         for (int k = __i[local_rigid_body_offset + i * rigid_body_dof + j];
              k < __i[local_rigid_body_offset + i * rigid_body_dof + j + 1];
              k++) {
-          if (__j[k] > global_rigid_body_offset)
-            break;
-
           size_t neighbor_index =
               lower_bound(neighborInclusion.begin(), neighborInclusion.end(),
                           __j[k] / field_dof) -
@@ -739,7 +736,7 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
     if (myId == MPIsize - 1) {
       neighborInclusion.clear();
 
-      // selec neighbor col
+      // select neighbor col
       for (int j = 0; j < rigid_body_block_distribution[i].size(); j++) {
         neighborInclusion.insert(
             neighborInclusion.end(),
