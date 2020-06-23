@@ -6,6 +6,11 @@
 
 using namespace std;
 
+// group size comparison
+inline bool compare_group(vector<int> group1, vector<int> group2) {
+  return group1.size() > group2.size();
+}
+
 int PetscSparseMatrix::Write(string fileName) {
   ofstream output(fileName, ios::trunc);
 
@@ -557,89 +562,212 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
   int rigid_body_dof = (dimension == 2) ? 3 : 6;
+  int field_dof = dimension + 1;
 
-  // // first transpose the matrix
+  // first transpose the matrix
   vector<int> neighborInclusion;
 
-  // neighborInclusion.clear();
-  // neighborInclusion.insert(
-  //     neighborInclusion.end(), __j.begin() + __i[local_rigid_body_offset],
-  //     __j.begin() +
-  //         __i[local_rigid_body_offset + num_rigid_body * rigid_body_dof]);
+  vector<vector<int>> rigid_body_block_distribution(MPIsize);
 
-  // sort(neighborInclusion.begin(), neighborInclusion.end());
+  if (myId == MPIsize - 1) {
+    neighborInclusion.clear();
+    neighborInclusion.insert(
+        neighborInclusion.end(), __j.begin() + __i[local_rigid_body_offset],
+        __j.begin() +
+            __i[local_rigid_body_offset + num_rigid_body * rigid_body_dof]);
 
-  // neighborInclusion.resize(
-  //     distance(neighborInclusion.begin(),
-  //              unique(neighborInclusion.begin(), neighborInclusion.end())));
+    for (int i = 0; i < neighborInclusion.size(); i++) {
+      if (neighborInclusion[i] > global_rigid_body_offset)
+        neighborInclusion[i] = neighborInclusion[0];
+      else
+        neighborInclusion[i] /= field_dof;
+    }
 
-  // vector<int> transpose_i, transpose_j;
-  // transpose_i.resize(neighborInclusion.size() + 1);
+    sort(neighborInclusion.begin(), neighborInclusion.end());
 
-  vector<int> rigid_body_block_distribution(MPIsize + 1);
+    neighborInclusion.erase(
+        unique(neighborInclusion.begin(), neighborInclusion.end()),
+        neighborInclusion.end());
 
-  int rigid_body_average = num_rigid_body / MPIsize;
-  int rigid_body_residual = num_rigid_body % MPIsize;
+    vector<vector<int>> transpose_mat;
+    transpose_mat.resize(neighborInclusion.size());
 
-  rigid_body_block_distribution[0] = 0;
-  for (int i = 0; i < MPIsize; i++) {
-    if (i < rigid_body_residual)
-      rigid_body_block_distribution[i + 1] =
-          rigid_body_block_distribution[i] + rigid_body_average + 1;
-    else
-      rigid_body_block_distribution[i + 1] =
-          rigid_body_block_distribution[i] + rigid_body_average;
+    for (int i = 0; i < num_rigid_body; i++) {
+      for (int j = 0; j < rigid_body_dof; j++) {
+        for (int k = __i[local_rigid_body_offset + i * rigid_body_dof + j];
+             k < __i[local_rigid_body_offset + i * rigid_body_dof + j + 1];
+             k++) {
+          if (__j[k] > global_rigid_body_offset)
+            break;
+
+          size_t neighbor_index =
+              lower_bound(neighborInclusion.begin(), neighborInclusion.end(),
+                          __j[k] / field_dof) -
+              neighborInclusion.begin();
+
+          if (transpose_mat[neighbor_index].size() == 0) {
+            transpose_mat[neighbor_index].push_back(i);
+          } else {
+            auto it = lower_bound(transpose_mat[neighbor_index].begin(),
+                                  transpose_mat[neighbor_index].end(), i);
+            if (*it != i) {
+              transpose_mat[neighbor_index].insert(it, i);
+            }
+          }
+        }
+      }
+    }
+
+    // get the connectivity of rigid body here
+    vector<vector<int>> connectivity;
+    connectivity.resize(num_rigid_body);
+    for (int i = 0; i < transpose_mat.size(); i++) {
+      if (transpose_mat[i].size() > 1) {
+        for (int j = 0; j < transpose_mat[i].size() - 1; j++) {
+          int rigid_body_index1 = transpose_mat[i][j];
+          for (int k = j + 1; k < transpose_mat[i].size(); k++) {
+            int rigid_body_index2 = transpose_mat[i][k];
+
+            // make connection between two rigid body
+            if (connectivity[rigid_body_index1].size() == 0) {
+              connectivity[rigid_body_index1].push_back(rigid_body_index2);
+            } else {
+              auto it = lower_bound(connectivity[rigid_body_index1].begin(),
+                                    connectivity[rigid_body_index1].end(),
+                                    rigid_body_index2);
+              if (*it != rigid_body_index2) {
+                connectivity[rigid_body_index1].insert(it, rigid_body_index2);
+              }
+            }
+
+            if (connectivity[rigid_body_index2].size() == 0) {
+              connectivity[rigid_body_index2].push_back(rigid_body_index1);
+            } else {
+              auto it = lower_bound(connectivity[rigid_body_index2].begin(),
+                                    connectivity[rigid_body_index2].end(),
+                                    rigid_body_index1);
+              if (*it != rigid_body_index1) {
+                connectivity[rigid_body_index2].insert(it, rigid_body_index1);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // make rigid body group split
+    vector<vector<int>> connected_group;
+    vector<int> ungroup_rigid_body;
+
+    ungroup_rigid_body.reserve(num_rigid_body);
+    for (int i = 0; i < num_rigid_body; i++)
+      ungroup_rigid_body.push_back(i);
+
+    while (ungroup_rigid_body.size() > 0) {
+      vector<int> maximum_group;
+      maximum_group.push_back(ungroup_rigid_body[0]);
+      ungroup_rigid_body.erase(ungroup_rigid_body.begin());
+
+      int maximum_group_index = 0;
+      while (maximum_group_index != maximum_group.size()) {
+        for (auto item : connectivity[maximum_group[maximum_group_index]]) {
+          auto it =
+              lower_bound(maximum_group.begin(), maximum_group.end(), item);
+          if (*it != item) {
+            maximum_group.push_back(item);
+
+            if (ungroup_rigid_body.size() != 0) {
+              auto rm_it = lower_bound(ungroup_rigid_body.begin(),
+                                       ungroup_rigid_body.end(), item);
+              if (*rm_it == item)
+                ungroup_rigid_body.erase(rm_it);
+            }
+          }
+        }
+
+        maximum_group_index++;
+      }
+
+      connected_group.push_back(maximum_group);
+    }
+
+    sort(connected_group.begin(), connected_group.end(), compare_group);
+
+    // distribute rigid body among processes
+    int rigid_body_average = num_rigid_body / MPIsize;
+    int rigid_body_residual = num_rigid_body % MPIsize;
+
+    int process_index = 0;
+    int left_num_rigid_body = num_rigid_body;
+    while (connected_group.size() != 0) {
+      vector<int> process_group;
+      int selected_num_rigid_body = connected_group[0].size();
+      left_num_rigid_body -= connected_group[0].size();
+      int connected_group_index = 1;
+      while (connected_group_index < connected_group.size()) {
+        if (((MPIsize - process_index - 1) * rigid_body_average >=
+                 left_num_rigid_body &&
+             selected_num_rigid_body >= rigid_body_average) ||
+            (selected_num_rigid_body >= rigid_body_average + 1)) {
+          break;
+        }
+
+        selected_num_rigid_body +=
+            connected_group[connected_group_index].size();
+        left_num_rigid_body -= connected_group[connected_group_index].size();
+        connected_group_index++;
+      }
+
+      for (int i = 0; i < connected_group_index; i++) {
+        process_group.insert(process_group.end(), connected_group[i].begin(),
+                             connected_group[i].end());
+      }
+
+      rigid_body_block_distribution[process_index] = process_group;
+      process_index++;
+
+      // remove from connected_group
+      connected_group.erase(connected_group.begin(),
+                            connected_group.begin() + connected_group_index);
+    }
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
+
   int neighborInclusionSize;
-
-  int localN1, localN2;
-  MatGetOwnershipRange(__mat, &localN1, &localN2);
-
-  int field_dof = dimension + 1;
 
   for (int i = 0; i < MPIsize; i++) {
     if (myId == MPIsize - 1) {
       neighborInclusion.clear();
-      neighborInclusion.insert(
-          neighborInclusion.end(),
-          __j.begin() + __i[local_rigid_body_offset +
-                            rigid_body_block_distribution[i] * rigid_body_dof],
-          __j.begin() +
-              __i[local_rigid_body_offset +
-                  rigid_body_block_distribution[i + 1] * rigid_body_dof]);
 
-      sort(neighborInclusion.begin(), neighborInclusion.end());
+      // selec neighbor col
+      for (int j = 0; j < rigid_body_block_distribution[i].size(); j++) {
+        neighborInclusion.insert(
+            neighborInclusion.end(),
+            __j.begin() +
+                __i[local_rigid_body_offset +
+                    rigid_body_block_distribution[i][j] * rigid_body_dof],
+            __j.begin() + __i[local_rigid_body_offset +
+                              (rigid_body_block_distribution[i][j] + 1) *
+                                  rigid_body_dof]);
 
-      neighborInclusion.resize(
-          distance(neighborInclusion.begin(),
-                   unique(neighborInclusion.begin(), neighborInclusion.end())));
-
-      auto neighborInclusionTemp = move(neighborInclusion);
-
-      neighborInclusion.clear();
-
-      for (auto neighbor : neighborInclusionTemp) {
-        if (neighbor % field_dof == 0) {
-          int neighbor_index = neighbor / field_dof;
-          for (int i = 0; i < field_dof; i++) {
-            neighborInclusion.push_back(neighbor_index * field_dof + i);
-          }
+        for (int k = 0; k < rigid_body_dof; k++) {
+          neighborInclusion.push_back(
+              global_rigid_body_offset +
+              rigid_body_block_distribution[i][j] * rigid_body_dof + k);
         }
       }
 
-      for (int j = rigid_body_block_distribution[i] * rigid_body_dof;
-           j < rigid_body_block_distribution[i + 1] * rigid_body_dof; j++) {
-        neighborInclusion.push_back(global_rigid_body_offset + j);
-      }
-
       sort(neighborInclusion.begin(), neighborInclusion.end());
 
-      auto it = unique(neighborInclusion.begin(), neighborInclusion.end());
-      neighborInclusion.resize(distance(neighborInclusion.begin(), it));
+      neighborInclusion.erase(
+          unique(neighborInclusion.begin(), neighborInclusion.end()),
+          neighborInclusion.end());
 
       neighborInclusionSize = neighborInclusion.size();
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     if (i != MPIsize - 1) {
       if (myId == MPIsize - 1) {
