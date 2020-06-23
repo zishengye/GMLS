@@ -825,100 +825,105 @@ void GMLS_Solver::StokesEquation() {
     res[i] = 0.0;
   }
 
-  for (int i = 0; i < localParticleNum; i++) {
-    if (particleType[i] != 0 && particleType[i] < 4) {
-      // 2-d Taylor-Green vortex-like flow
-      if (__dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+  if (numRigidBody == 0) {
+    for (int i = 0; i < localParticleNum; i++) {
+      if (particleType[i] != 0 && particleType[i] < 4) {
+        // 2-d Taylor-Green vortex-like flow
+        if (__dim == 2) {
+          double x = coord[i][0];
+          double y = coord[i][1];
 
-        rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
-        rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
+          rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y);
+          rhs[fieldDof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
 
-        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-            DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
-            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+          const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+          const double bi =
+              pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+                  DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
+                  neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
 
-        rhs[fieldDof * i + velocityDof] =
-            -4.0 * pow(M_PI, 2.0) *
-                (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y) -
-                  normal[i][1] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
+          rhs[fieldDof * i + velocityDof] =
+              -4.0 * pow(M_PI, 2.0) *
+                  (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
+              bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                        sin(M_PI * y) -
+                    normal[i][1] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                        cos(M_PI * y)) +
+              bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+                    normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
 
-        // 2-d cavity flow
-        // rhs[fieldDof * i] =
-        //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
-      }
+          // 2-d cavity flow
+          // rhs[fieldDof * i] =
+          //     1.0 * double(abs(coord[i][1] - __boundingBox[1][1]) < 1e-5);
+        }
 
-      // 3-d Taylor-Green vortex-like flow
-      if (__dim == 3) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
+        // 3-d Taylor-Green vortex-like flow
+        if (__dim == 3) {
+          double x = coord[i][0];
+          double y = coord[i][1];
+          double z = coord[i][2];
 
-        rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-        rhs[fieldDof * i + 1] =
-            -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-        rhs[fieldDof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+          rhs[fieldDof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+          rhs[fieldDof * i + 1] =
+              -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+          rhs[fieldDof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
 
-        const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
-        const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-            DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
-            neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+          const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+          const double bi =
+              pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+                  DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
+                  neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
 
-        rhs[fieldDof * i + velocityDof] =
-            -4.0 * pow(M_PI, 2.0) *
-                (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
-                 cos(2.0 * M_PI * z)) +
-            bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y) * sin(M_PI * z) -
-                  normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y) * sin(M_PI * z) +
-                  normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      sin(M_PI * y) * cos(M_PI * z)) +
-            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
-                  normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
-      }
-    } else if (particleType[i] == 0) {
-      if (__dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+          rhs[fieldDof * i + velocityDof] =
+              -4.0 * pow(M_PI, 2.0) *
+                  (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
+                   cos(2.0 * M_PI * z)) +
+              bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                        sin(M_PI * y) * sin(M_PI * z) -
+                    normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                        cos(M_PI * y) * sin(M_PI * z) +
+                    normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                        sin(M_PI * y) * cos(M_PI * z)) +
+              bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+                    normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
+                    normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
+        }
+      } else if (particleType[i] == 0) {
+        if (__dim == 2) {
+          double x = coord[i][0];
+          double y = coord[i][1];
 
-        rhs[fieldDof * i] =
-            2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
-            2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[fieldDof * i + 1] =
-            -2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
-            2.0 * M_PI * sin(2.0 * M_PI * y);
+          rhs[fieldDof * i] =
+              2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
+              2.0 * M_PI * sin(2.0 * M_PI * x);
+          rhs[fieldDof * i + 1] =
+              -2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
+              2.0 * M_PI * sin(2.0 * M_PI * y);
 
-        rhs[fieldDof * i + velocityDof] =
-            -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
-      }
+          rhs[fieldDof * i + velocityDof] =
+              -4.0 * pow(M_PI, 2.0) *
+              (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
+        }
 
-      if (__dim == 3) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
+        if (__dim == 3) {
+          double x = coord[i][0];
+          double y = coord[i][1];
+          double z = coord[i][2];
 
-        rhs[fieldDof * i] =
-            3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z) +
-            2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[fieldDof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
-                                    cos(M_PI * y) * sin(M_PI * z) +
-                                2.0 * M_PI * sin(2.0 * M_PI * y);
-        rhs[fieldDof * i + 2] =
-            3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
-            2.0 * M_PI * sin(2.0 * M_PI * z);
+          rhs[fieldDof * i] = 3.0 * pow(M_PI, 2) * cos(M_PI * x) *
+                                  sin(M_PI * y) * sin(M_PI * z) +
+                              2.0 * M_PI * sin(2.0 * M_PI * x);
+          rhs[fieldDof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
+                                      cos(M_PI * y) * sin(M_PI * z) +
+                                  2.0 * M_PI * sin(2.0 * M_PI * y);
+          rhs[fieldDof * i + 2] = 3.0 * pow(M_PI, 2) * sin(M_PI * x) *
+                                      sin(M_PI * y) * cos(M_PI * z) +
+                                  2.0 * M_PI * sin(2.0 * M_PI * z);
 
-        rhs[fieldDof * i + velocityDof] =
-            -4.0 * pow(M_PI, 2.0) *
-            (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
+          rhs[fieldDof * i + velocityDof] =
+              -4.0 * pow(M_PI, 2.0) *
+              (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
+        }
       }
     }
   }
