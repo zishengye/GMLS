@@ -143,6 +143,12 @@ void GMLS_Solver::InitDomainDecomposition() {
   InitNeighborList();
 }
 
+void GMLS_Solver::FinalizeDomainDecomposition() {
+  MPI_Win_free(&__neighborWinCount);
+  MPI_Win_free(&__neighborWinIndex);
+  MPI_Win_free(&__neighborWinOffset);
+}
+
 void GMLS_Solver::InitParticle() {
   __background.vector.Register("coord");
   __background.vector.Register("source coord");
@@ -194,7 +200,7 @@ void GMLS_Solver::ClearParticle() {
 
   backgroundCoord.clear();
   sourceCoord.clear();
-  backgroundCoord.clear();
+  backgroundIndex.clear();
   sourceIndex.clear();
 
   coord.clear();

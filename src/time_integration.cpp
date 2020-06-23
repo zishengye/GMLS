@@ -35,6 +35,7 @@ void GMLS_Solver::TimeIntegration() {
   if (__equationType == "Stokes" && __manifoldOrder == 0) {
     __equationSolverInitialization = &GMLS_Solver::StokesEquationInitialization;
     __equationSolver = &GMLS_Solver::StokesEquation;
+    __equationSolverFinalization = &GMLS_Solver::StokesEquationFinalization;
   }
 
   if (__equationType == "Poisson" && __manifoldOrder == 0) {
@@ -56,6 +57,8 @@ void GMLS_Solver::TimeIntegration() {
   if (__timeIntegrationMethod == "RK4") {
     RungeKuttaIntegration();
   }
+
+  FinalizeDomainDecomposition();
 
   Clear();
 }
@@ -105,6 +108,8 @@ void GMLS_Solver::ForwardEulerIntegration() {
       WriteDataTimeStep();
     }
   }
+
+  (this->*__equationSolverFinalization)();
 }
 
 void GMLS_Solver::RungeKuttaIntegration() {
@@ -278,4 +283,6 @@ void GMLS_Solver::RungeKuttaIntegration() {
       WriteDataTimeStep();
     }
   }
+
+  (this->*__equationSolverFinalization)();
 }

@@ -24,6 +24,16 @@ void GMLS_Solver::StokesEquationInitialization() {
   *all_velocity = nullptr;
 }
 
+void GMLS_Solver::StokesEquationFinalization() {
+  auto all_pressure = __gmls.GetPointer("pressure basis");
+  auto neumann_pressure = __gmls.GetPointer("pressure basis neumann boundary");
+  auto all_velocity = __gmls.GetPointer("velocity basis");
+
+  delete *all_pressure;
+  delete *neumann_pressure;
+  delete *all_velocity;
+}
+
 void GMLS_Solver::StokesEquation() {
   static vector<vec3> &backgroundSourceCoord =
       __background.vector.GetHandle("source coord");
@@ -422,8 +432,9 @@ void GMLS_Solver::StokesEquation() {
 
   int outProcessRow = rigidBodyDof * numRigidBody;
 
-  if (__adaptive_step == 0)
+  if (__adaptive_step == 0) {
     _multi.clear();
+  }
 
   _multi.add_new_level();
 

@@ -224,6 +224,7 @@ private:
 
   // domain decomposition
   void InitDomainDecomposition();
+  void FinalizeDomainDecomposition();
   void InitDomainDecompositionManifold();
 
   // neighborlist
@@ -306,6 +307,7 @@ private:
   void DiffusionEquationManifold();
   void StokesEquation();
   void StokesEquationInitialization();
+  void StokesEquationFinalization();
   void NavierStokesEquation();
 
   // equation multigrid solving
@@ -319,6 +321,7 @@ private:
   // function pointer
   void (GMLS_Solver::*__equationSolver)(void);
   void (GMLS_Solver::*__equationSolverInitialization)(void);
+  void (GMLS_Solver::*__equationSolverFinalization)(void);
   void (GMLS_Solver::*__particleUniformInitializer)(void);
   void (GMLS_Solver::*__splitMerger)(void);
 

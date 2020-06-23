@@ -355,6 +355,9 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   }
 
   R.FinalAssemble();
+
+  delete old_to_new_pressusre_basis;
+  delete old_to_new_velocity_basis;
 }
 
 void multilevel::InitialGuessFromPreviousAdaptiveStep(
@@ -676,6 +679,9 @@ void multilevel::clear() {
   for (int i = 0; i < current_adaptive_level; i++) {
     KSPDestroy(field_relaxation_list[i]);
     KSPDestroy(neighbor_relaxation_list[i]);
+
+    delete field_relaxation_list[i];
+    delete neighbor_relaxation_list[i];
   }
   field_relaxation_list.clear();
   neighbor_relaxation_list.clear();
@@ -694,7 +700,6 @@ void multilevel::clear() {
   for (int i = 0; i < current_adaptive_level; i++) {
     MatSetNearNullSpace(A_list[i]->__mat, NULL);
     delete A_list[i];
-
     delete I_list[i];
     delete R_list[i];
 
@@ -702,6 +707,72 @@ void multilevel::clear() {
     MatDestroy(ff_list[i]);
     MatDestroy(nn_list[i]);
     MatDestroy(nw_list[i]);
+
+    delete ff_list[i];
+    delete nn_list[i];
+    delete nw_list[i];
+
+    VecDestroy(x_list[i]);
+    VecDestroy(y_list[i]);
+    VecDestroy(b_list[i]);
+    VecDestroy(r_list[i]);
+    VecDestroy(t_list[i]);
+
+    delete x_list[i];
+    delete y_list[i];
+    delete b_list[i];
+    delete r_list[i];
+    delete t_list[i];
+
+    VecDestroy(x_field_list[i]);
+    VecDestroy(y_field_list[i]);
+    VecDestroy(b_field_list[i]);
+    VecDestroy(r_field_list[i]);
+    VecDestroy(t_field_list[i]);
+
+    delete x_field_list[i];
+    delete y_field_list[i];
+    delete b_field_list[i];
+    delete r_field_list[i];
+    delete t_field_list[i];
+
+    VecDestroy(x_neighbor_list[i]);
+    VecDestroy(y_neighbor_list[i]);
+    VecDestroy(b_neighbor_list[i]);
+    VecDestroy(r_neighbor_list[i]);
+    VecDestroy(t_neighbor_list[i]);
+
+    delete x_neighbor_list[i];
+    delete y_neighbor_list[i];
+    delete b_neighbor_list[i];
+    delete r_neighbor_list[i];
+    delete t_neighbor_list[i];
+
+    VecDestroy(x_pressure_list[i]);
+
+    delete x_pressure_list[i];
+
+    ISDestroy(isg_field_list[i]);
+    ISDestroy(isg_neighbor_list[i]);
+    ISDestroy(isg_pressure_list[i]);
+
+    delete isg_field_list[i];
+    delete isg_neighbor_list[i];
+    delete isg_pressure_list[i];
+
+    VecScatterDestroy(field_scatter_list[i]);
+    VecScatterDestroy(neighbor_scatter_list[i]);
+    VecScatterDestroy(pressure_scatter_list[i]);
+
+    delete field_scatter_list[i];
+    delete neighbor_scatter_list[i];
+    delete pressure_scatter_list[i];
+
+    MatNullSpaceDestroy(nullspace_whole_list[i]);
+    MatNullSpaceDestroy(nullspace_field_list[i]);
+
+    delete nullspace_whole_list[i];
+    delete nullspace_field_list[i];
   }
 
   A_list.clear();
@@ -712,103 +783,35 @@ void multilevel::clear() {
   nn_list.clear();
   nw_list.clear();
 
-  // vector clearance
-  for (int i = 0; i < x_list.size(); i++)
-    VecDestroy(x_list[i]);
   x_list.clear();
-
-  for (int i = 0; i < y_list.size(); i++)
-    VecDestroy(y_list[i]);
   y_list.clear();
-
-  for (int i = 0; i < b_list.size(); i++)
-    VecDestroy(b_list[i]);
   b_list.clear();
-
-  for (int i = 0; i < r_list.size(); i++)
-    VecDestroy(r_list[i]);
   r_list.clear();
-
-  for (int i = 0; i < t_list.size(); i++)
-    VecDestroy(t_list[i]);
   t_list.clear();
 
-  for (int i = 0; i < x_field_list.size(); i++)
-    VecDestroy(x_field_list[i]);
   x_field_list.clear();
-
-  for (int i = 0; i < y_field_list.size(); i++)
-    VecDestroy(y_field_list[i]);
   y_field_list.clear();
-
-  for (int i = 0; i < b_field_list.size(); i++)
-    VecDestroy(b_field_list[i]);
   b_field_list.clear();
-
-  for (int i = 0; i < r_field_list.size(); i++)
-    VecDestroy(r_field_list[i]);
   r_field_list.clear();
-
-  for (int i = 0; i < t_field_list.size(); i++)
-    VecDestroy(t_field_list[i]);
   t_field_list.clear();
 
-  for (int i = 0; i < x_neighbor_list.size(); i++)
-    VecDestroy(x_neighbor_list[i]);
   x_neighbor_list.clear();
-
-  for (int i = 0; i < y_neighbor_list.size(); i++)
-    VecDestroy(y_neighbor_list[i]);
   y_neighbor_list.clear();
-
-  for (int i = 0; i < b_neighbor_list.size(); i++)
-    VecDestroy(b_neighbor_list[i]);
   b_neighbor_list.clear();
-
-  for (int i = 0; i < r_neighbor_list.size(); i++)
-    VecDestroy(r_neighbor_list[i]);
   r_neighbor_list.clear();
-
-  for (int i = 0; i < t_neighbor_list.size(); i++)
-    VecDestroy(t_neighbor_list[i]);
   t_neighbor_list.clear();
 
-  for (int i = 0; i < x_pressure_list.size(); i++)
-    VecDestroy(x_pressure_list[i]);
   x_pressure_list.clear();
 
-  // is clearance
-  for (int i = 0; i < isg_field_list.size(); i++)
-    ISDestroy(isg_field_list[i]);
   isg_field_list.clear();
-
-  for (int i = 0; i < isg_neighbor_list.size(); i++)
-    ISDestroy(isg_neighbor_list[i]);
   isg_neighbor_list.clear();
-
-  for (int i = 0; i < isg_pressure_list.size(); i++)
-    ISDestroy(isg_pressure_list[i]);
   isg_pressure_list.clear();
 
-  // vec scatter clearance
-  for (int i = 0; i < field_scatter_list.size(); i++)
-    VecScatterDestroy(field_scatter_list[i]);
   field_scatter_list.clear();
-
-  for (int i = 0; i < neighbor_scatter_list.size(); i++)
-    VecScatterDestroy(neighbor_scatter_list[i]);
   neighbor_scatter_list.clear();
-
-  for (int i = 0; i < pressure_scatter_list.size(); i++)
-    VecScatterDestroy(pressure_scatter_list[i]);
   pressure_scatter_list.clear();
 
-  for (int i = 0; i < nullspace_whole_list.size(); i++)
-    MatNullSpaceDestroy(nullspace_whole_list[i]);
   nullspace_whole_list.clear();
-
-  for (int i = 0; i < nullspace_field_list.size(); i++)
-    MatNullSpaceDestroy(nullspace_field_list[i]);
   nullspace_field_list.clear();
 
   current_adaptive_level = 0;

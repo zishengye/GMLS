@@ -11,31 +11,36 @@
 
 #include "vec3.h"
 
-template <class T>
-class infoEntity {
- private:
-  std::map<std::string, T*> __entity;
+template <class T> class infoEntity {
+private:
+  std::map<std::string, T *> __entity;
 
- public:
+public:
   infoEntity() {}
 
-  T& Register(std::string entityName) {
+  T &Register(std::string entityName) {
     __entity.insert(std::make_pair(entityName, new T));
 
     return *__entity.at(entityName);
   }
 
-  T& Register(std::string entityName, T* entity) {
+  T &Register(std::string entityName, T *entity) {
     __entity.insert(std::make_pair(entityName, entity));
 
     return *entity;
   }
 
-  T& GetHandle(std::string entityName) { return *__entity.at(entityName); }
-  T* GetPointer(std::string entityName) { return __entity.at(entityName); }
+  T &GetHandle(std::string entityName) { return *__entity.at(entityName); }
+  T *GetPointer(std::string entityName) { return __entity.at(entityName); }
+
+  ~infoEntity() {
+    for (auto it = __entity.begin(); it != __entity.end(); it++) {
+      delete it->second;
+    }
+  }
 };
 
-typedef infoEntity<Compadre::GMLS*> gmlsInfo;
+typedef infoEntity<Compadre::GMLS *> gmlsInfo;
 
 struct GeneralInfo {
   infoEntity<std::vector<vec3>> vector;
