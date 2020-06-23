@@ -761,6 +761,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
           neighborInclusion.end());
 
       neighborInclusionSize = neighborInclusion.size();
+
+      cout << neighborInclusionSize << endl;
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
