@@ -513,7 +513,8 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
                 *x_pressure_list[adaptive_step], null_whole, INSERT_VALUES,
                 SCATTER_REVERSE);
 
-  MatNullSpace nullspace_whole;
+  nullspace_whole_list.push_back(new MatNullSpace);
+  MatNullSpace &nullspace_whole = *nullspace_whole_list[adaptive_step];
   MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_whole,
                      &nullspace_whole);
   MatSetNearNullSpace(mat, nullspace_whole);
@@ -523,7 +524,8 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   VecSet(field_pressure, 1.0);
   VecRestoreSubVector(null_field, isg_pressure, &field_pressure);
 
-  MatNullSpace nullspace_field;
+  nullspace_field_list.push_back(new MatNullSpace);
+  MatNullSpace &nullspace_field = *nullspace_field_list[adaptive_step];
   MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_field,
                      &nullspace_field);
   MatSetNearNullSpace(ff, nullspace_field);
@@ -532,11 +534,6 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   if (adaptive_step == 0) {
     MatCreateVecs(nn, NULL, &x_neighbor);
     MatCreateVecs(nn, NULL, &y_neighbor);
-
-    neighbor_scatter_list.push_back(new VecScatter);
-
-    VecScatterCreate(*x_list[adaptive_step], isg_neighbor, x_neighbor, NULL,
-                     neighbor_scatter_list[adaptive_step]);
   }
 
   // setup preconditioner for base level
@@ -569,6 +566,7 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     PCSetType(bjacobi_pc, PCLU);
     PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
     PCSetUp(bjacobi_pc);
+    KSPSetUp(bjacobi_ksp[0]);
 
     KSPSetUp(ksp_field_base);
     KSPSetUp(ksp_neighbor_base);
@@ -607,10 +605,11 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   PCSetType(neighbor_relaxation_sub_pc, PCLU);
   PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERMUMPS);
   PCSetUp(neighbor_relaxation_sub_pc);
+  KSPSetUp(neighbor_relaxation_sub_ksp[0]);
 
   KSPSetUp(*neighbor_relaxation_list[adaptive_step]);
 
-  KSP &_ksp = getKsp(adaptive_step);
+  KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
   KSPSetOperators(_ksp, mat, mat);
   KSPSetFromOptions(_ksp);
@@ -648,15 +647,8 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-  // if (adaptive_step < 2)
-
   KSPSolve(_ksp, _rhs, _x);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
-
-  // if (adatptive_step > 0) {
-  //   VecAXPY(_x, -1.0, x_initial);
-  //   VecAbs(_x);
-  // }
 
   PetscScalar *a;
   VecGetArray(_x, &a);
@@ -665,8 +657,159 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   }
   VecRestoreArray(_x, &a);
 
+  KSPDestroy(&_ksp);
+
   MatDestroy(&pp);
 
   VecDestroy(&_rhs);
   VecDestroy(&_x);
+  VecDestroy(&null_field);
+  VecDestroy(&null_whole);
+
+  if (current_adaptive_level > 1)
+    VecDestroy(&x_initial);
+}
+
+void multilevel::clear() {
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  for (int i = 0; i < current_adaptive_level; i++) {
+    KSPDestroy(field_relaxation_list[i]);
+    KSPDestroy(neighbor_relaxation_list[i]);
+  }
+  field_relaxation_list.clear();
+  neighbor_relaxation_list.clear();
+
+  if (base_level_initialized) {
+    KSPDestroy(&ksp_field_base);
+    KSPDestroy(&ksp_neighbor_base);
+
+    VecDestroy(&x_neighbor);
+    VecDestroy(&y_neighbor);
+
+    base_level_initialized = false;
+  }
+
+  // mat clearance
+  for (int i = 0; i < current_adaptive_level; i++) {
+    MatSetNearNullSpace(A_list[i]->__mat, NULL);
+    delete A_list[i];
+
+    delete I_list[i];
+    delete R_list[i];
+
+    MatSetNearNullSpace(*ff_list[i], NULL);
+    MatDestroy(ff_list[i]);
+    MatDestroy(nn_list[i]);
+    MatDestroy(nw_list[i]);
+  }
+
+  A_list.clear();
+  I_list.clear();
+  R_list.clear();
+
+  ff_list.clear();
+  nn_list.clear();
+  nw_list.clear();
+
+  // vector clearance
+  for (int i = 0; i < x_list.size(); i++)
+    VecDestroy(x_list[i]);
+  x_list.clear();
+
+  for (int i = 0; i < y_list.size(); i++)
+    VecDestroy(y_list[i]);
+  y_list.clear();
+
+  for (int i = 0; i < b_list.size(); i++)
+    VecDestroy(b_list[i]);
+  b_list.clear();
+
+  for (int i = 0; i < r_list.size(); i++)
+    VecDestroy(r_list[i]);
+  r_list.clear();
+
+  for (int i = 0; i < t_list.size(); i++)
+    VecDestroy(t_list[i]);
+  t_list.clear();
+
+  for (int i = 0; i < x_field_list.size(); i++)
+    VecDestroy(x_field_list[i]);
+  x_field_list.clear();
+
+  for (int i = 0; i < y_field_list.size(); i++)
+    VecDestroy(y_field_list[i]);
+  y_field_list.clear();
+
+  for (int i = 0; i < b_field_list.size(); i++)
+    VecDestroy(b_field_list[i]);
+  b_field_list.clear();
+
+  for (int i = 0; i < r_field_list.size(); i++)
+    VecDestroy(r_field_list[i]);
+  r_field_list.clear();
+
+  for (int i = 0; i < t_field_list.size(); i++)
+    VecDestroy(t_field_list[i]);
+  t_field_list.clear();
+
+  for (int i = 0; i < x_neighbor_list.size(); i++)
+    VecDestroy(x_neighbor_list[i]);
+  x_neighbor_list.clear();
+
+  for (int i = 0; i < y_neighbor_list.size(); i++)
+    VecDestroy(y_neighbor_list[i]);
+  y_neighbor_list.clear();
+
+  for (int i = 0; i < b_neighbor_list.size(); i++)
+    VecDestroy(b_neighbor_list[i]);
+  b_neighbor_list.clear();
+
+  for (int i = 0; i < r_neighbor_list.size(); i++)
+    VecDestroy(r_neighbor_list[i]);
+  r_neighbor_list.clear();
+
+  for (int i = 0; i < t_neighbor_list.size(); i++)
+    VecDestroy(t_neighbor_list[i]);
+  t_neighbor_list.clear();
+
+  for (int i = 0; i < x_pressure_list.size(); i++)
+    VecDestroy(x_pressure_list[i]);
+  x_pressure_list.clear();
+
+  // is clearance
+  for (int i = 0; i < isg_field_list.size(); i++)
+    ISDestroy(isg_field_list[i]);
+  isg_field_list.clear();
+
+  for (int i = 0; i < isg_neighbor_list.size(); i++)
+    ISDestroy(isg_neighbor_list[i]);
+  isg_neighbor_list.clear();
+
+  for (int i = 0; i < isg_pressure_list.size(); i++)
+    ISDestroy(isg_pressure_list[i]);
+  isg_pressure_list.clear();
+
+  // vec scatter clearance
+  for (int i = 0; i < field_scatter_list.size(); i++)
+    VecScatterDestroy(field_scatter_list[i]);
+  field_scatter_list.clear();
+
+  for (int i = 0; i < neighbor_scatter_list.size(); i++)
+    VecScatterDestroy(neighbor_scatter_list[i]);
+  neighbor_scatter_list.clear();
+
+  for (int i = 0; i < pressure_scatter_list.size(); i++)
+    VecScatterDestroy(pressure_scatter_list[i]);
+  pressure_scatter_list.clear();
+
+  for (int i = 0; i < nullspace_whole_list.size(); i++)
+    MatNullSpaceDestroy(nullspace_whole_list[i]);
+  nullspace_whole_list.clear();
+
+  for (int i = 0; i < nullspace_field_list.size(); i++)
+    MatNullSpaceDestroy(nullspace_field_list[i]);
+  nullspace_field_list.clear();
+
+  current_adaptive_level = 0;
 }

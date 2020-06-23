@@ -7,14 +7,12 @@
 
 class multilevel {
 private:
-  std::vector<PetscSparseMatrix *> A_list;    // coefficient matrix list
-  std::vector<PetscSparseMatrix *> I_list;    // interpolation matrix list
-  std::vector<PetscSparseMatrix *> R_list;    // restriction matrix list
-  std::vector<Mat *> ff_list;                 // field sub-matrix list
-  std::vector<Mat *> nn_list;                 // nearfield sub-matrix list
-  std::vector<Mat *> nw_list;                 // nearfield-whole sub-matrix list
-  std::vector<KSP *> ksp_list;                // main ksp list
-  std::vector<KSP *> field_smoother_ksp_list; // field value smoother ksp list
+  std::vector<PetscSparseMatrix *> A_list; // coefficient matrix list
+  std::vector<PetscSparseMatrix *> I_list; // interpolation matrix list
+  std::vector<PetscSparseMatrix *> R_list; // restriction matrix list
+  std::vector<Mat *> ff_list;              // field sub-matrix list
+  std::vector<Mat *> nn_list;              // nearfield sub-matrix list
+  std::vector<Mat *> nw_list;              // nearfield-whole sub-matrix list
   std::vector<IS *> isg_field_list;
   std::vector<IS *> isg_neighbor_list;
   std::vector<IS *> isg_pressure_list;
@@ -50,6 +48,9 @@ private:
   std::vector<KSP *> field_relaxation_list;
   std::vector<KSP *> neighbor_relaxation_list;
 
+  std::vector<MatNullSpace *> nullspace_whole_list;
+  std::vector<MatNullSpace *> nullspace_field_list;
+
   KSP ksp_field_base, ksp_neighbor_base;
 
   int myid, mpi_size;
@@ -58,10 +59,12 @@ private:
 
   int field_dof, velocity_dof, pressure_dof;
 
-  std::vector<std::vector<int>> connectivity;
+  bool base_level_initialized;
+
+  int current_adaptive_level;
 
 public:
-  multilevel() {}
+  multilevel() : base_level_initialized(false), current_adaptive_level(0) {}
 
   ~multilevel() {}
 
@@ -85,10 +88,6 @@ public:
   PetscSparseMatrix &getA(int num_level) { return *A_list[num_level]; }
   PetscSparseMatrix &getI(int num_level) { return *I_list[num_level]; }
   PetscSparseMatrix &getR(int num_level) { return *R_list[num_level]; }
-  KSP &getKsp(int num_level) { return *ksp_list[num_level]; }
-  KSP &getSmootherKsp(int num_level) {
-    return *field_smoother_ksp_list[num_level];
-  }
   KSP &getFieldRelaxation(int num_level) {
     return *field_relaxation_list[num_level];
   }
@@ -105,12 +104,12 @@ public:
   Vec *getYNeighbor() { return &y_neighbor; }
 
   void add_new_level() {
+    base_level_initialized = true;
+    current_adaptive_level++;
+
     A_list.push_back(new PetscSparseMatrix());
     I_list.push_back(new PetscSparseMatrix());
     R_list.push_back(new PetscSparseMatrix());
-
-    ksp_list.push_back(new KSP);
-    field_smoother_ksp_list.push_back(new KSP);
 
     isg_field_list.push_back(new IS);
     isg_neighbor_list.push_back(new IS);
@@ -121,13 +120,7 @@ public:
     nw_list.push_back(new Mat);
   }
 
-  void clear() {
-    MPI_Barrier(MPI_COMM_WORLD);
-    A_list.clear();
-    I_list.clear();
-    R_list.clear();
-    connectivity.clear();
-  }
+  void clear();
 
   void InitialGuessFromPreviousAdaptiveStep(std::vector<double> &initial_guess);
 
@@ -165,8 +158,6 @@ public:
   std::vector<VecScatter *> *GetPressureScatterList() {
     return &pressure_scatter_list;
   }
-
-  std::vector<std::vector<int>> &GetConnectivity() { return connectivity; }
 
   void Solve(std::vector<double> &rhs, std::vector<double> &x,
              std::vector<int> &idx_neighbor);

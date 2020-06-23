@@ -389,6 +389,15 @@ PetscErrorCode HypreLUShellPCDestroy(PC pc) {
   return 0;
 }
 
+PetscErrorCode HypreLUShellPCDestroyAdaptive(PC pc) {
+  HypreLUShellPC *shell;
+  PCShellGetContext(pc, (void **)&shell);
+
+  PetscFree(shell);
+
+  return 0;
+}
+
 PetscErrorCode HypreConstConstraintPCCreate(HypreConstConstraintPC **pc) {
   HypreConstConstraintPC *newctx;
 

@@ -33,7 +33,7 @@ private:
   std::vector<PetscReal> __val;
 
 public:
-  Mat __mat, __diag_block, __neighbor_block, __prec;
+  Mat __mat;
 
   PetscSparseMatrix()
       : __isAssembled(false), __row(0), __col(0), __Col(0),
@@ -61,13 +61,6 @@ public:
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
     __out_process_matrix.resize(out_process_row);
-  }
-
-  PetscSparseMatrix(const PetscSparseMatrix &mat)
-      : __isAssembled(false), __row(mat.__row), __col(mat.__col),
-        __Col(mat.__Col), __out_process_row(mat.__out_process_row),
-        __out_process_reduction(mat.__out_process_reduction) {
-    resize(__row, __col, __Col, __out_process_row, __out_process_reduction);
   }
 
   ~PetscSparseMatrix() {

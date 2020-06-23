@@ -211,50 +211,6 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     }
   }
 
-  // non-block version matrix
-  __i.resize(__row + 1);
-
-  __nnz = 0;
-  for (int i = 0; i < __row; i++) {
-    __i[i] = 0;
-    __nnz += __matrix[i].size();
-  }
-
-  __j.resize(__nnz);
-  __val.resize(__nnz);
-
-  for (int i = 1; i <= __row; i++) {
-    if (__i[i - 1] == 0) {
-      __i[i] = 0;
-      for (int j = i - 1; j >= 0; j--) {
-        if (__i[j] == 0) {
-          __i[i] += __matrix[j].size();
-        } else {
-          __i[i] += __i[j] + __matrix[j].size();
-          break;
-        }
-      }
-    } else {
-      __i[i] = __i[i - 1] + __matrix[i - 1].size();
-    }
-  }
-
-  for (int i = 0; i < __row; i++) {
-    for (auto n = 0; n < __matrix[i].size(); n++) {
-      __j[__i[i] + n] = __matrix[i][n].first;
-      __val[__i[i] + n] = __matrix[i][n].second;
-    }
-  }
-
-  if (__Col != 0)
-    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
-                              __Col, __i.data(), __j.data(), __val.data(),
-                              &__prec);
-  else
-    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
-                              PETSC_DECIDE, __i.data(), __j.data(),
-                              __val.data(), &__prec);
-
   // block version matrix
   auto block_row = __row / blockSize;
 
