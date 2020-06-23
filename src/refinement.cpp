@@ -17,7 +17,7 @@ bool pairCompare(const std::pair<int, double> &firstElem,
 }
 
 bool GMLS_Solver::NeedRefinement() {
-  if (__adaptiveRefinement != 0) {
+  if (__adaptiveRefinement != 0 && __adaptive_step < __maxAdaptiveLevel) {
     // prepare stage
 
     PetscPrintf(PETSC_COMM_WORLD, "\nstart of adaptive refinement\n");
