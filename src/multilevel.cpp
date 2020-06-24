@@ -641,10 +641,72 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     HypreLUShellPCSetUp(_pc, this, _x);
   }
 
-  Vec x_initial;
-  if (A_list.size() > 1) {
-    VecDuplicate(_x, &x_initial);
-    VecCopy(_x, x_initial);
+  // pre-smooth
+  if (adaptive_step > 0) {
+    MatMult(mat, _x, *r_list[adaptive_step]);
+    VecAXPY(*r_list[adaptive_step], -1.0, _rhs);
+    VecScale(*r_list[adaptive_step], -1.0);
+
+    // field part smoothing
+    VecScatterBegin(*field_scatter_list[adaptive_step], *r_list[adaptive_step],
+                    *r_field_list[adaptive_step], INSERT_VALUES,
+                    SCATTER_FORWARD);
+    VecScatterEnd(*field_scatter_list[adaptive_step], *r_list[adaptive_step],
+                  *r_field_list[adaptive_step], INSERT_VALUES, SCATTER_FORWARD);
+
+    KSPSolve(*field_relaxation_list[adaptive_step],
+             *r_field_list[adaptive_step], *x_field_list[adaptive_step]);
+
+    VecScatterBegin(*field_scatter_list[adaptive_step],
+                    *x_field_list[adaptive_step], _x, ADD_VALUES,
+                    SCATTER_REVERSE);
+    VecScatterEnd(*field_scatter_list[adaptive_step],
+                  *x_field_list[adaptive_step], _x, ADD_VALUES,
+                  SCATTER_REVERSE);
+
+    // neighbor part smoothing
+    MatMult(nw, *x_list[adaptive_step], *x_neighbor_list[adaptive_step]);
+
+    VecScatterBegin(*neighbor_scatter_list[adaptive_step], _rhs,
+                    *b_neighbor_list[adaptive_step], INSERT_VALUES,
+                    SCATTER_FORWARD);
+    VecScatterEnd(*neighbor_scatter_list[adaptive_step], _rhs,
+                  *b_neighbor_list[adaptive_step], INSERT_VALUES,
+                  SCATTER_FORWARD);
+
+    VecAXPY(*b_neighbor_list[adaptive_step], -1.0,
+            *x_neighbor_list[adaptive_step]);
+
+    KSPSolve(*neighbor_relaxation_list[adaptive_step],
+             *b_neighbor_list[adaptive_step], *x_neighbor_list[adaptive_step]);
+
+    VecScatterBegin(*neighbor_scatter_list[adaptive_step],
+                    *x_neighbor_list[adaptive_step], _x, ADD_VALUES,
+                    SCATTER_REVERSE);
+    VecScatterEnd(*neighbor_scatter_list[adaptive_step],
+                  *x_neighbor_list[adaptive_step], _x, ADD_VALUES,
+                  SCATTER_REVERSE);
+
+    // orthogonalize to constant vector
+    VecScatterBegin(*pressure_scatter_list[adaptive_step], _x,
+                    *x_pressure_list[adaptive_step], INSERT_VALUES,
+                    SCATTER_FORWARD);
+    VecScatterEnd(*pressure_scatter_list[adaptive_step], _x,
+                  *x_pressure_list[adaptive_step], INSERT_VALUES,
+                  SCATTER_FORWARD);
+
+    PetscReal pressure_sum;
+    PetscInt size;
+    VecSum(*x_pressure_list[adaptive_step], &pressure_sum);
+    VecGetSize(*x_pressure_list[adaptive_step], &size);
+    VecSet(*x_pressure_list[adaptive_step], -pressure_sum / size);
+
+    VecScatterBegin(*pressure_scatter_list[adaptive_step],
+                    *x_pressure_list[adaptive_step], _x, ADD_VALUES,
+                    SCATTER_REVERSE);
+    VecScatterEnd(*pressure_scatter_list[adaptive_step],
+                  *x_pressure_list[adaptive_step], _x, ADD_VALUES,
+                  SCATTER_REVERSE);
   }
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
@@ -668,9 +730,6 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   VecDestroy(&_x);
   VecDestroy(&null_field);
   VecDestroy(&null_whole);
-
-  if (current_adaptive_level > 1)
-    VecDestroy(&x_initial);
 }
 
 void multilevel::clear() {

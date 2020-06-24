@@ -128,17 +128,9 @@ void GMLS_Solver::SetDomainBoundary() {
 void GMLS_Solver::InitDomainDecomposition() {
   if (__dim == 3) {
     ProcessSplit(__nX, __nY, __nZ, __nI, __nJ, __nK, __MPISize, __myID);
-    BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
-                     __particleSize0, __domainBoundingBox, __domainCount,
-                     __domain, __nX, __nY, __nZ, __nI, __nJ, __nK);
   } else if (__dim == 2) {
     ProcessSplit(__nX, __nY, __nI, __nJ, __MPISize, __myID);
-    BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
-                     __particleSize0, __domainBoundingBox, __domainCount,
-                     __domain, __nX, __nY, __nI, __nJ);
   }
-
-  SetDomainBoundary();
 
   InitNeighborList();
 }
@@ -222,6 +214,34 @@ void GMLS_Solver::ClearParticle() {
 
 void GMLS_Solver::InitUniformParticleField() {
   static vector<vec3> &coord = __field.vector.GetHandle("coord");
+
+  // adaptively adjust uniform particle distribution
+  static vector<vec3> &rigidBodyPosition =
+      __rigidBody.vector.GetHandle("position");
+  static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
+
+  double minDistance = 2.0;
+  for (int i = 0; i < rigidBodyPosition.size() - 1; i++) {
+    for (int j = i + 1; j < rigidBodyPosition.size(); j++) {
+      auto dis = rigidBodyPosition[i] - rigidBodyPosition[j];
+      if ((dis.mag() - rigidBodySize[i] - rigidBodySize[j]) < minDistance) {
+        minDistance = (dis.mag() - rigidBodySize[i] - rigidBodySize[j]);
+      }
+    }
+  }
+
+  if (__dim == 3) {
+    BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
+                     __particleSize0, __domainBoundingBox, __domainCount,
+                     __domain, __nX, __nY, __nZ, __nI, __nJ, __nK,
+                     0.5 * minDistance);
+  } else if (__dim == 2) {
+    BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
+                     __particleSize0, __domainBoundingBox, __domainCount,
+                     __domain, __nX, __nY, __nI, __nJ, 0.5 * minDistance);
+  }
+
+  SetDomainBoundary();
 
   ClearParticle();
 
@@ -344,7 +364,7 @@ void GMLS_Solver::InitFieldParticle() {
 
     // fluid particle
     yPos = __domain[0][1] + __particleSize0[1] / 2.0;
-    for (int j = 0; j < __domainCount[1]; j++) {
+    while (yPos < __domain[1][1] - 1e-5) {
       // left
       if (__domainBoundaryType[3] != 0) {
         xPos = __domain[0][0];
@@ -355,7 +375,7 @@ void GMLS_Solver::InitFieldParticle() {
       }
 
       xPos = __domain[0][0] + __particleSize0[0] / 2.0;
-      for (int i = 0; i < __domainCount[0]; i++) {
+      while (xPos < __domain[1][0] - 1e-5) {
         vec3 pos = vec3(xPos, yPos, zPos);
         InsertParticle(pos, 0, __particleSize0, normal, localIndex, 0, vol);
         xPos += __particleSize0[0];

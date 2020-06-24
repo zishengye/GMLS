@@ -1,8 +1,8 @@
 #pragma once
 
-#include <tgmath.h>
 #include <cmath>
 #include <iostream>
+#include <tgmath.h>
 #include <vector>
 
 #include "vec3.h"
@@ -55,27 +55,36 @@ static void BoundingBoxSplit(vec3 &boundingBoxSize,
                              std::vector<vec3> &boundingBox, vec3 &particleSize,
                              vec3 *domainBoundingBox, triple<int> &domainCount,
                              std::vector<vec3> &domain, int nX, int nY, int nI,
-                             int nJ) {
+                             int nJ, double minDis) {
   for (int i = 0; i < 2; i++) {
     particleSize[i] = boundingBoxSize[i] / boundingBoxCount[i];
+  }
+
+  int countMultiplier = 1;
+  while (particleSize[0] > minDis) {
+    particleSize *= 0.5;
+    countMultiplier *= 2;
   }
 
   std::vector<int> _countX;
   std::vector<int> _countY;
 
+  auto actualBoundingBoxCount = boundingBoxCount;
+  actualBoundingBoxCount *= countMultiplier;
+
   for (int i = 0; i < nX; i++) {
-    if (boundingBoxCount[0] % nX > i) {
-      _countX.push_back(boundingBoxCount[0] / nX + 1);
+    if (actualBoundingBoxCount[0] % nX > i) {
+      _countX.push_back(actualBoundingBoxCount[0] / nX + 1);
     } else {
-      _countX.push_back(boundingBoxCount[0] / nX);
+      _countX.push_back(actualBoundingBoxCount[0] / nX);
     }
   }
 
   for (int i = 0; i < nY; i++) {
-    if (boundingBoxCount[1] % nY > i) {
-      _countY.push_back(boundingBoxCount[1] / nY + 1);
+    if (actualBoundingBoxCount[1] % nY > i) {
+      _countY.push_back(actualBoundingBoxCount[1] / nY + 1);
     } else {
-      _countY.push_back(boundingBoxCount[1] / nY);
+      _countY.push_back(actualBoundingBoxCount[1] / nY);
     }
   }
 
@@ -112,10 +121,13 @@ static void BoundingBoxSplit(vec3 &boundingBoxSize,
                              std::vector<vec3> &boundingBox, vec3 &particleSize,
                              vec3 *domainBoundingBox, triple<int> &domainCount,
                              std::vector<vec3> &domain, int nX, int nY, int nZ,
-                             int nI, int nJ, int nK) {
+                             int nI, int nJ, int nK, double minDis) {
   for (int i = 0; i < 3; i++) {
     particleSize[i] = boundingBoxSize[i] / boundingBoxCount[i];
   }
+
+  while (particleSize[0] > minDis)
+    particleSize *= 0.5;
 
   std::vector<int> _countX;
   std::vector<int> _countY;

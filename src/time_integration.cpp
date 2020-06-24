@@ -157,6 +157,9 @@ void GMLS_Solver::RungeKuttaIntegration() {
     }
 
     for (int i = 0; i < 4; i++) {
+      PetscPrintf(PETSC_COMM_WORLD, "=============================\n");
+      PetscPrintf(PETSC_COMM_WORLD, "Current Runge-Kutta step: %d\n", i);
+      PetscPrintf(PETSC_COMM_WORLD, "=============================\n");
       PetscPrintf(PETSC_COMM_WORLD, "\nGenerating uniform particle field...\n");
       if (__manifoldOrder > 0) {
         InitUniformParticleManifoldField();
