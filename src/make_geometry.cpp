@@ -431,19 +431,251 @@ void GMLS_Solver::InitFieldParticle() {
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = 0;
-    double zPos = __domain[0][2] + __particleSize0[2] / 2.0;
-    while (zPos < __domain[1][2] - 1e-5) {
-      double yPos = __domain[0][1] + __particleSize0[1] / 2.0;
-      while (yPos < __domain[1][1] - 1e-5) {
-        double xPos = __domain[0][0] + __particleSize0[0] / 2.0;
-        while (xPos < __domain[1][0] - 1e-5) {
-          vec3 pos = vec3(xPos, yPos, zPos);
-          InsertParticle(pos, 0, __particleSize0, normal, localIndex, 0, vol);
-          xPos += __particleSize0[0];
-        }
-        yPos += __particleSize0[1];
+
+    // x-y, z=-z0 face
+    if (__domainBoundaryType[3] != 0) {
+      zPos = __domain[0][2];
+
+      xPos = __domain[0][0];
+      yPos = __domain[0][1];
+      if (__domainBoundaryType[2] != 0 && __domainBoundaryType[4] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(sqrt(3) / 3.0, sqrt(3) / 3.0, sqrt(3) / 3.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
       }
+
+      yPos += 0.5 * __particleSize0[1];
+      if (__domainBoundaryType[2] != 0) {
+        while (yPos < __domain[1][1] - 1e-5) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(sqrt(2.0) / 2.0, 0.0, sqrt(2.0) / 2.0);
+          InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+          yPos += __particleSize0[1];
+        }
+      }
+
+      yPos = __domain[1][1];
+      if (__domainBoundaryType[1] != 0 && __domainBoundaryType[2] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(sqrt(3) / 3.0, -sqrt(3) / 3.0, sqrt(3) / 3.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
+      }
+
+      xPos += 0.5 * __particleSize0[0];
+      while (xPos < __domain[1][0] - 1e-5) {
+        yPos = __domain[0][1];
+        if (__domainBoundaryType[4] != 0) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(0.0, sqrt(2.0) / 2.0, sqrt(2.0) / 2.0);
+          InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+        }
+
+        yPos += 0.5 * __particleSize0[1];
+        while (yPos < __domain[1][1] - 1e-5) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(0.0, 0.0, 1.0);
+          InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
+          yPos += __particleSize0[1];
+        }
+
+        yPos = __domain[1][1];
+        if (__domainBoundaryType[1] != 0) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(0.0, -sqrt(2.0) / 2.0, sqrt(2.0) / 2.0);
+          InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+        }
+
+        xPos += __particleSize0[0];
+      }
+
+      xPos = __domain[1][0];
+      yPos = __domain[0][1];
+      if (__domainBoundaryType[0] != 0 && __domainBoundaryType[4] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(-sqrt(3) / 3.0, sqrt(3) / 3.0, sqrt(3) / 3.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
+      }
+
+      yPos += 0.5 * __particleSize0[1];
+      if (__domainBoundaryType[0] != 0) {
+        while (yPos < __domain[1][1] - 1e-5) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(-sqrt(2.0) / 2.0, 0.0, sqrt(2.0) / 2.0);
+          InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+          yPos += __particleSize0[1];
+        }
+      }
+
+      yPos = __domain[1][1];
+      if (__domainBoundaryType[0] != 0 && __domainBoundaryType[1] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(-sqrt(3) / 3.0, -sqrt(3) / 3.0, sqrt(3) / 3.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
+      }
+    }
+
+    zPos = __domain[0][2] + __particleSize0[2] / 2.0;
+    while (zPos < __domain[1][2] - 1e-5) {
+      yPos = __domain[0][1];
+      xPos = __domain[0][0];
+      if (__domainBoundaryType[2] != 0 && __domainBoundaryType[4] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+      }
+
+      yPos += 0.5 * __particleSize0[1];
+      if (__domainBoundaryType[2] != 0) {
+        while (yPos < __domain[1][1] - 1e-5) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(1.0, 0.0, 0.0);
+          InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
+          yPos += __particleSize0[1];
+        }
+      }
+
+      yPos = __domain[1][1];
+      if (__domainBoundaryType[1] != 0 && __domainBoundaryType[2] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+      }
+
+      xPos += 0.5 * __particleSize0[0];
+      while (xPos < __domain[1][0] - 1e-5) {
+        yPos = __domain[0][1];
+        if (__domainBoundaryType[4] != 0) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(0.0, 1.0, 0.0);
+          InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
+        }
+
+        yPos += __particleSize0[1] / 2.0;
+        while (yPos < __domain[1][1] - 1e-5) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(1.0, 0.0, 0.0);
+          InsertParticle(pos, 0, __particleSize0, normal, localIndex, 0, vol);
+          yPos += __particleSize0[1];
+        }
+
+        yPos = __domain[1][1];
+        if (__domainBoundaryType[1] != 0) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(0.0, -1.0, 0.0);
+          InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
+        }
+
+        xPos += __particleSize0[0];
+      }
+
+      yPos = __domain[0][1];
+      xPos = __domain[1][0];
+      if (__domainBoundaryType[0] != 0 && __domainBoundaryType[4] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(-sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+      }
+
+      yPos += 0.5 * __particleSize0[1];
+      if (__domainBoundaryType[0] != 0) {
+        while (yPos < __domain[1][1] - 1e-5) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(-1.0, 0.0, 0.0);
+          InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
+          yPos += __particleSize0[1];
+        }
+      }
+
+      yPos = __domain[1][1];
+      if (__domainBoundaryType[0] != 0 && __domainBoundaryType[1] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(-sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
+        InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+      }
+
       zPos += __particleSize0[2];
+    }
+
+    // x-y, z=+z0 face
+    if (__domainBoundaryType[5] != 0) {
+      zPos = __domain[1][2];
+
+      xPos = __domain[0][0];
+      yPos = __domain[0][1];
+      if (__domainBoundaryType[2] != 0 && __domainBoundaryType[4] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(sqrt(3) / 3.0, sqrt(3) / 3.0, -sqrt(3) / 3.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
+      }
+
+      yPos += 0.5 * __particleSize0[1];
+      if (__domainBoundaryType[2] != 0) {
+        while (yPos < __domain[1][1] - 1e-5) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(sqrt(2.0) / 2.0, 0.0, -sqrt(2.0) / 2.0);
+          InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+          yPos += __particleSize0[1];
+        }
+      }
+
+      yPos = __domain[1][1];
+      if (__domainBoundaryType[1] != 0 && __domainBoundaryType[2] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(sqrt(3) / 3.0, -sqrt(3) / 3.0, -sqrt(3) / 3.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
+      }
+
+      xPos += 0.5 * __particleSize0[0];
+      while (xPos < __domain[1][0] - 1e-5) {
+        yPos = __domain[0][1];
+        if (__domainBoundaryType[4] != 0) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(0.0, sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0);
+          InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+        }
+
+        yPos += 0.5 * __particleSize0[1];
+        while (yPos < __domain[1][1] - 1e-5) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(0.0, 0.0, -1.0);
+          InsertParticle(pos, 3, __particleSize0, normal, localIndex, 0, vol);
+          yPos += __particleSize0[1];
+        }
+
+        yPos = __domain[1][1];
+        if (__domainBoundaryType[1] != 0) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(0.0, -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0);
+          InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+        }
+
+        xPos += __particleSize0[0];
+      }
+
+      xPos = __domain[1][0];
+      yPos = __domain[0][1];
+      if (__domainBoundaryType[0] != 0 && __domainBoundaryType[4] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(-sqrt(3) / 3.0, sqrt(3) / 3.0, -sqrt(3) / 3.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
+      }
+
+      yPos += 0.5 * __particleSize0[1];
+      if (__domainBoundaryType[0] != 0) {
+        while (yPos < __domain[1][1] - 1e-5) {
+          vec3 pos = vec3(xPos, yPos, zPos);
+          normal = vec3(-sqrt(2.0) / 2.0, 0.0, -sqrt(2.0) / 2.0);
+          InsertParticle(pos, 2, __particleSize0, normal, localIndex, 0, vol);
+          yPos += __particleSize0[1];
+        }
+      }
+
+      yPos = __domain[1][1];
+      if (__domainBoundaryType[0] != 0 && __domainBoundaryType[1] != 0) {
+        vec3 pos = vec3(xPos, yPos, zPos);
+        normal = vec3(-sqrt(3) / 3.0, -sqrt(3) / 3.0, -sqrt(3) / 3.0);
+        InsertParticle(pos, 1, __particleSize0, normal, localIndex, 0, vol);
+      }
     }
   }
 }
