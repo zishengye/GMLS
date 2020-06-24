@@ -220,9 +220,11 @@ void GMLS_Solver::InitUniformParticleField() {
       __rigidBody.vector.GetHandle("position");
   static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
 
+  const int rigid_body_num = rigidBodyPosition.size();
+
   double minDistance = 2.0;
-  for (int i = 0; i < rigidBodyPosition.size() - 1; i++) {
-    for (int j = i + 1; j < rigidBodyPosition.size(); j++) {
+  for (int i = 0; i < rigid_body_num - 1; i++) {
+    for (int j = i + 1; j < rigid_body_num; j++) {
       auto dis = rigidBodyPosition[i] - rigidBodyPosition[j];
       if ((dis.mag() - rigidBodySize[i] - rigidBodySize[j]) < minDistance) {
         minDistance = (dis.mag() - rigidBodySize[i] - rigidBodySize[j]);
@@ -430,11 +432,11 @@ void GMLS_Solver::InitFieldParticle() {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = 0;
     double zPos = __domain[0][2] + __particleSize0[2] / 2.0;
-    for (int k = 0; k < __domainCount[2]; k++) {
+    while (zPos < __domain[1][2] - 1e-5) {
       double yPos = __domain[0][1] + __particleSize0[1] / 2.0;
-      for (int j = 0; j < __domainCount[1]; j++) {
+      while (yPos < __domain[1][1] - 1e-5) {
         double xPos = __domain[0][0] + __particleSize0[0] / 2.0;
-        for (int i = 0; i < __domainCount[0]; i++) {
+        while (xPos < __domain[1][0] - 1e-5) {
           vec3 pos = vec3(xPos, yPos, zPos);
           InsertParticle(pos, 0, __particleSize0, normal, localIndex, 0, vol);
           xPos += __particleSize0[0];
