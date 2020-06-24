@@ -50,20 +50,22 @@ static void ProcessSplit(int &nX, int &nY, int &nZ, int &nI, int &nJ, int &nK,
   nK = ID / (nX * nY);
 }
 
-static void BoundingBoxSplit(vec3 &boundingBoxSize,
-                             triple<int> &boundingBoxCount,
-                             std::vector<vec3> &boundingBox, vec3 &particleSize,
-                             vec3 *domainBoundingBox, triple<int> &domainCount,
-                             std::vector<vec3> &domain, int nX, int nY, int nI,
-                             int nJ, double minDis) {
+static int BoundingBoxSplit(vec3 &boundingBoxSize,
+                            triple<int> &boundingBoxCount,
+                            std::vector<vec3> &boundingBox, vec3 &particleSize,
+                            vec3 *domainBoundingBox, triple<int> &domainCount,
+                            std::vector<vec3> &domain, int nX, int nY, int nI,
+                            int nJ, double minDis) {
   for (int i = 0; i < 2; i++) {
     particleSize[i] = boundingBoxSize[i] / boundingBoxCount[i];
   }
 
   int countMultiplier = 1;
+  int addedLevel = 0;
   while (particleSize[0] > minDis) {
     particleSize *= 0.5;
     countMultiplier *= 2;
+    addedLevel++;
   }
 
   std::vector<int> _countX;
@@ -113,15 +115,15 @@ static void BoundingBoxSplit(vec3 &boundingBoxSize,
   domainBoundingBox[1][1] =
       boundingBoxSize[1] / nY * (nJ + 1) + boundingBox[0][1];
 
-  return;
+  return addedLevel;
 }
 
-static void BoundingBoxSplit(vec3 &boundingBoxSize,
-                             triple<int> &boundingBoxCount,
-                             std::vector<vec3> &boundingBox, vec3 &particleSize,
-                             vec3 *domainBoundingBox, triple<int> &domainCount,
-                             std::vector<vec3> &domain, int nX, int nY, int nZ,
-                             int nI, int nJ, int nK, double minDis) {
+static int BoundingBoxSplit(vec3 &boundingBoxSize,
+                            triple<int> &boundingBoxCount,
+                            std::vector<vec3> &boundingBox, vec3 &particleSize,
+                            vec3 *domainBoundingBox, triple<int> &domainCount,
+                            std::vector<vec3> &domain, int nX, int nY, int nZ,
+                            int nI, int nJ, int nK, double minDis) {
   for (int i = 0; i < 3; i++) {
     particleSize[i] = boundingBoxSize[i] / boundingBoxCount[i];
   }
@@ -191,5 +193,5 @@ static void BoundingBoxSplit(vec3 &boundingBoxSize,
   domainBoundingBox[1][2] =
       boundingBoxSize[2] / nZ * (nK + 1) + boundingBox[0][2];
 
-  return;
+  return 0;
 }
