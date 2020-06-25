@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <map>
 #include <string>
 #include <vector>
@@ -355,6 +356,8 @@ private:
   void WriteDataTimeStep();
   void WriteDataAdaptiveStep();
   void WriteDataAdaptiveGeometry();
+
+  std::ofstream __logFile;
 
 public:
   GMLS_Solver(int argc, char **argv);
