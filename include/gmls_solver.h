@@ -357,8 +357,6 @@ private:
   void WriteDataAdaptiveStep();
   void WriteDataAdaptiveGeometry();
 
-  std::ofstream __logFile;
-
 public:
   GMLS_Solver(int argc, char **argv);
 

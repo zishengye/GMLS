@@ -9,6 +9,11 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   // [default setup]
   __successInitialized = false;
 
+  // change stdout to log file
+  freopen("nsmpi.log", "w", stdout);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
   // MPI setup
   MPI_Comm_size(MPI_COMM_WORLD, &__MPISize);
   MPI_Comm_rank(MPI_COMM_WORLD, &__myID);
@@ -190,9 +195,8 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", __eta);
   if (__adaptiveRefinement) {
     PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: on\n");
-    PetscPrintf(PETSC_COMM_WORLD,
-                "==> Adaptive refinement tolerance: "
-                "%f\n",
+    PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement tolerance: "
+                                  "%f\n",
                 __adaptiveRefinementTolerance);
   } else {
     PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: off\n");

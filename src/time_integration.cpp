@@ -65,10 +65,6 @@ void GMLS_Solver::TimeIntegration() {
 }
 
 void GMLS_Solver::ForwardEulerIntegration() {
-  if (__myID == 0) {
-    __logFile.open("nsmpi.log");
-  }
-
   (this->*__equationSolverInitialization)();
 
   for (double t = 0; t < __finalTime + 1e-5; t += __dt) {
@@ -77,14 +73,6 @@ void GMLS_Solver::ForwardEulerIntegration() {
     PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
     PetscPrintf(PETSC_COMM_WORLD, "==> Current time: %f s\n", t);
     PetscPrintf(PETSC_COMM_WORLD, "==> current time step: %f s\n", __dt);
-
-    if (__myID == 0) {
-      __logFile << "===================================\n"
-                << "==== Start of time integration ====\n"
-                << "===================================\n"
-                << "==> Current time: " << t << "s\n"
-                << "==> current time step: " << __dt << "s\n";
-    }
 
     PetscPrintf(PETSC_COMM_WORLD, "\nGenerating uniform particle field...\n");
     if (__manifoldOrder > 0) {
@@ -110,9 +98,6 @@ void GMLS_Solver::ForwardEulerIntegration() {
       if (__writeData)
         WriteDataAdaptiveGeometry();
       PetscPrintf(PETSC_COMM_WORLD, "Adaptive level: %d\n", __adaptive_step);
-      if (__myID == 0) {
-        __logFile << "Adaptive level: " << __adaptive_step << endl;
-      }
       (this->*__equationSolver)();
     } while (NeedRefinement());
 
@@ -126,16 +111,9 @@ void GMLS_Solver::ForwardEulerIntegration() {
   }
 
   (this->*__equationSolverFinalization)();
-
-  if (__myID == 0)
-    __logFile.close();
 }
 
 void GMLS_Solver::RungeKuttaIntegration() {
-  if (__myID == 0) {
-    __logFile.open("nsmpi.log");
-  }
-
   (this->*__equationSolverInitialization)();
 
   vector<vec3> &rigidBodyPosition = __rigidBody.vector.GetHandle("position");
@@ -172,14 +150,6 @@ void GMLS_Solver::RungeKuttaIntegration() {
     PetscPrintf(PETSC_COMM_WORLD, "==> Current time: %f s\n", t);
     PetscPrintf(PETSC_COMM_WORLD, "==> current time step: %f s\n", __dt);
 
-    if (__myID == 0) {
-      __logFile << "===================================\n"
-                << "==== Start of time integration ====\n"
-                << "===================================\n"
-                << "==> Current time: " << t << "s\n"
-                << "==> current time step: " << __dt << "s\n";
-    }
-
     for (int num = 0; num < numRigidBody; num++) {
       for (int j = 0; j < 3; j++) {
         position0[num][j] = rigidBodyPosition[num][j];
@@ -192,12 +162,6 @@ void GMLS_Solver::RungeKuttaIntegration() {
       PetscPrintf(PETSC_COMM_WORLD, "Current Runge-Kutta step: %d\n", i);
       PetscPrintf(PETSC_COMM_WORLD, "=============================\n");
       PetscPrintf(PETSC_COMM_WORLD, "\nGenerating uniform particle field...\n");
-
-      if (__myID == 0) {
-        cout << "=============================\n"
-             << "Current Runge-Kutta step: " << i << endl
-             << "=============================\n";
-      }
 
       if (__manifoldOrder > 0) {
         InitUniformParticleManifoldField();
@@ -220,9 +184,6 @@ void GMLS_Solver::RungeKuttaIntegration() {
         if (__writeData)
           WriteDataAdaptiveGeometry();
         PetscPrintf(PETSC_COMM_WORLD, "Adaptive level: %d\n", __adaptive_step);
-        if (__myID == 0) {
-          __logFile << "Adaptive level: " << __adaptive_step << endl;
-        }
         (this->*__equationSolver)();
       } while (NeedRefinement());
 
@@ -329,7 +290,4 @@ void GMLS_Solver::RungeKuttaIntegration() {
   }
 
   (this->*__equationSolverFinalization)();
-
-  if (__myID == 0)
-    __logFile.close();
 }
