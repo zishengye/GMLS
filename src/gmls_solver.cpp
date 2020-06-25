@@ -104,7 +104,9 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
 
   // [optional command]
   if (SearchCommand<string>(argc, argv, "-rigid_body_input",
-                            __rigidBodyInputFileName) == 1) {
+                            __rigidBodyInputFileName) == 0) {
+    __rigidBodyInclusion = true;
+  } else {
     __rigidBodyInclusion = false;
   }
 
