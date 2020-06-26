@@ -239,10 +239,10 @@ void GMLS_Solver::InitUniformParticleField() {
                      __domain, __nX, __nY, __nZ, __nI, __nJ, __nK,
                      0.5 * minDistance);
   } else if (__dim == 2) {
-    addedLevel =
-        BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
-                         __particleSize0, __domainBoundingBox, __domainCount,
-                         __domain, __nX, __nY, __nI, __nJ, 0.5 * minDistance);
+    addedLevel = BoundingBoxSplit(
+        __boundingBoxSize, __boundingBoxCount, __boundingBox, __particleSize0,
+        __domainBoundingBox, __domainCount, __domain, __nX, __nY, __nI, __nJ,
+        0.5 * minDistance, __maxAdaptiveLevel);
   }
 
   __maxAdaptiveLevel = 4 - addedLevel;
@@ -1364,8 +1364,9 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
 
         bool insert = false;
         for (int i = -1; i < 2; i += 2) {
-          vec3 newPos = oldCoord + vec3(normal[tag][1], -normal[tag][0], 0.0) *
-                                       i * particleSize[tag][0] * 0.5;
+          vec3 newPos = oldCoord +
+                        vec3(normal[tag][1], -normal[tag][0], 0.0) * i *
+                            particleSize[tag][0] * 0.5;
 
           if (!insert) {
             coord[tag] = newPos;

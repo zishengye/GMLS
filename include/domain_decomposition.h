@@ -55,14 +55,14 @@ static int BoundingBoxSplit(vec3 &boundingBoxSize,
                             std::vector<vec3> &boundingBox, vec3 &particleSize,
                             vec3 *domainBoundingBox, triple<int> &domainCount,
                             std::vector<vec3> &domain, int nX, int nY, int nI,
-                            int nJ, double minDis) {
+                            int nJ, double minDis, int maxLevel) {
   for (int i = 0; i < 2; i++) {
     particleSize[i] = boundingBoxSize[i] / boundingBoxCount[i];
   }
 
   int countMultiplier = 1;
   int addedLevel = 0;
-  while (particleSize[0] > minDis) {
+  while (particleSize[0] > minDis && addedLevel < maxLevel) {
     particleSize *= 0.5;
     countMultiplier *= 2;
     addedLevel++;
