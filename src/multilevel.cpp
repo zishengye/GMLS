@@ -363,8 +363,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 void multilevel::InitialGuessFromPreviousAdaptiveStep(
     std::vector<double> &initial_guess) {}
 
-void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
-                       std::vector<int> &idx_neighbor) {
+int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
+                      std::vector<int> &idx_neighbor) {
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nstart of linear system solving setup\n");
 
@@ -714,6 +714,12 @@ void multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   KSPSolve(_ksp, _rhs, _x);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
+
+  KSPConvergedReason reason;
+  KSPGetConvergedReason(_ksp, &reason);
+
+  if (reason < 0)
+    return -1;
 
   PetscScalar *a;
   VecGetArray(_x, &a);

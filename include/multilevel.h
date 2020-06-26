@@ -159,8 +159,8 @@ public:
     return &pressure_scatter_list;
   }
 
-  void Solve(std::vector<double> &rhs, std::vector<double> &x,
-             std::vector<int> &idx_neighbor);
+  int Solve(std::vector<double> &rhs, std::vector<double> &x,
+            std::vector<int> &idx_neighbor);
 };
 
 #endif

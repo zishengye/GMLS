@@ -220,14 +220,34 @@ void GMLS_Solver::InitUniformParticleField() {
       __rigidBody.vector.GetHandle("position");
   static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
 
+  // ensure enough particles between boundaries
   const int rigid_body_num = rigidBodyPosition.size();
 
   double minDistance = 2.0;
+  // check between rigid body boundaries
   for (int i = 0; i < rigid_body_num - 1; i++) {
     for (int j = i + 1; j < rigid_body_num; j++) {
       auto dis = rigidBodyPosition[i] - rigidBodyPosition[j];
       if ((dis.mag() - rigidBodySize[i] - rigidBodySize[j]) < minDistance) {
         minDistance = (dis.mag() - rigidBodySize[i] - rigidBodySize[j]);
+      }
+    }
+  }
+
+  // check between rigid body and bounding box boundaries
+  for (int i = 0; i < rigid_body_num; i++) {
+    for (int j = 0; j < __dim; j++) {
+      if (abs(rigidBodyPosition[i][j] - __boundingBox[0][j]) -
+              rigidBodySize[i] <
+          minDistance) {
+        minDistance = abs(rigidBodyPosition[i][j] - __boundingBox[0][j]) -
+                      rigidBodySize[i];
+      }
+      if (abs(__boundingBox[1][j] - rigidBodyPosition[i][j]) -
+              rigidBodySize[i] <
+          minDistance) {
+        minDistance = abs(__boundingBox[1][j] - rigidBodyPosition[i][j]) -
+                      rigidBodySize[i];
       }
     }
   }
@@ -1364,9 +1384,8 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
 
         bool insert = false;
         for (int i = -1; i < 2; i += 2) {
-          vec3 newPos = oldCoord +
-                        vec3(normal[tag][1], -normal[tag][0], 0.0) * i *
-                            particleSize[tag][0] * 0.5;
+          vec3 newPos = oldCoord + vec3(normal[tag][1], -normal[tag][0], 0.0) *
+                                       i * particleSize[tag][0] * 0.5;
 
           if (!insert) {
             coord[tag] = newPos;

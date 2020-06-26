@@ -942,7 +942,7 @@ void GMLS_Solver::StokesEquation() {
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
       rhs[localRigidBodyOffset + i * rigidBodyDof + translationDof] =
-          0.1 * pow(-1, i + 1);
+          pow(-1, i + 1);
     }
   }
 
@@ -971,7 +971,9 @@ void GMLS_Solver::StokesEquation() {
       InitialGuessFromPreviousAdaptiveStep(I, res);
     // A.Solve(rhs, res, idx_neighbor, __dim, numRigidBody, __adaptive_step, I,
     // R);
-    _multi.Solve(rhs, res, idx_neighbor);
+    if (_multi.Solve(rhs, res, idx_neighbor) != 0) {
+      WriteDataAdaptiveGeometry();
+    }
   }
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();

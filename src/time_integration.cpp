@@ -131,6 +131,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
   vector<vec3> &rigidBodyVelocity = __rigidBody.vector.GetHandle("velocity");
   vector<vec3> &rigidBodyAngularVelocity =
       __rigidBody.vector.GetHandle("angular velocity");
+  vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
 
   int numRigidBody = rigidBodyVelocity.size();
 
@@ -156,7 +157,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
   // ode45 algorithm parameter
   double t, dt, dtMin, rtol, atol, err, norm_y;
   rtol = 1e-3;
-  atol = 1e-6;
+  atol = 1e-10;
   dt = __dtMax;
   t = 0;
   dtMin = 1e-10;
@@ -486,8 +487,6 @@ void GMLS_Solver::RungeKuttaIntegration() {
         }
       }
       err = sqrt(err) / numRigidBody;
-
-      PetscPrintf(MPI_COMM_WORLD, "err: %f\n", err);
 
       if (err > rtol) {
         noFail = false;
