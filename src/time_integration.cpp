@@ -150,6 +150,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
   atol = 1e-6;
   dt = __dtMax;
   t = 0;
+  dtMin = 1e-5;
 
   // constants for integration
   const double a21 = static_cast<double>(1) / static_cast<double>(5);
@@ -353,11 +354,12 @@ void GMLS_Solver::RungeKuttaIntegration() {
                         velocity_k4[num][j] * b4 + velocity_k5[num][j] * b5 +
                         velocity_k6[num][j] * b6);
               rigidBodyOrientation[num][j] =
-                  orientation0[num][j] + dt * (angularVelocity_k1[num][j] * b1 +
-                                               angularVelocity_k3[num][j] * b3 +
-                                               angularVelocity_k4[num][j] * b4 +
-                                               angularVelocity_k5[num][j] * b5 +
-                                               angularVelocity_k6[num][j] * b6);
+                  orientation0[num][j] +
+                  dt * (angularVelocity_k1[num][j] * b1 +
+                        angularVelocity_k3[num][j] * b3 +
+                        angularVelocity_k4[num][j] * b4 +
+                        angularVelocity_k5[num][j] * b5 +
+                        angularVelocity_k6[num][j] * b6);
             }
           }
           break;
@@ -472,7 +474,9 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
         PetscPrintf(PETSC_COMM_WORLD,
                     "Current time step test failed. Error is %f\n", err);
+        // increase time step
         dt = dt * max(0.8 * pow(err / rtol, -0.2), 0.1);
+        dt = max(dt, dtMin);
       }
     }
 
