@@ -146,7 +146,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
   // ode45 algorithm parameter
   double t, dt, dtMin, rtol, atol, err, norm_y;
-  rtol = 1e-3;
+  rtol = 1e-4;
   atol = 1e-8;
   dt = __dtMax;
   t = 0;
@@ -354,11 +354,12 @@ void GMLS_Solver::RungeKuttaIntegration() {
                         velocity_k4[num][j] * b4 + velocity_k5[num][j] * b5 +
                         velocity_k6[num][j] * b6);
               rigidBodyOrientation[num][j] =
-                  orientation0[num][j] + dt * (angularVelocity_k1[num][j] * b1 +
-                                               angularVelocity_k3[num][j] * b3 +
-                                               angularVelocity_k4[num][j] * b4 +
-                                               angularVelocity_k5[num][j] * b5 +
-                                               angularVelocity_k6[num][j] * b6);
+                  orientation0[num][j] +
+                  dt * (angularVelocity_k1[num][j] * b1 +
+                        angularVelocity_k3[num][j] * b3 +
+                        angularVelocity_k4[num][j] * b4 +
+                        angularVelocity_k5[num][j] * b5 +
+                        angularVelocity_k6[num][j] * b6);
             }
           }
           break;
