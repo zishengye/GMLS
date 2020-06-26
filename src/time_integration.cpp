@@ -8,6 +8,8 @@ inline double correct_radius(double x) {
     x -= 2.0 * M_PI;
   while (x < 0.0)
     x += 2.0 * M_PI;
+
+  return x;
 }
 
 void GMLS_Solver::TimeIntegration() {
@@ -153,11 +155,11 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
   // ode45 algorithm parameter
   double t, dt, dtMin, rtol, atol, err, norm_y;
-  rtol = 1e-4;
-  atol = 1e-8;
+  rtol = 1e-3;
+  atol = 1e-6;
   dt = __dtMax;
   t = 0;
-  dtMin = 1e-5;
+  dtMin = 1e-10;
 
   // constants for integration
   const double a21 = static_cast<double>(1) / static_cast<double>(5);
@@ -229,7 +231,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
   for (int num = 0; num < numRigidBody; num++) {
     for (int j = 0; j < 3; j++) {
       velocity_k1[num][j] = rigidBodyVelocity[num][j];
-      angularVelocity_k1[num][j] = rigidBodyAngularVelocity[num][j];
+      angularVelocity_k1[num][j] =
+          correct_radius(rigidBodyAngularVelocity[num][j]);
     }
   }
 
@@ -245,6 +248,12 @@ void GMLS_Solver::RungeKuttaIntegration() {
       for (int j = 0; j < 3; j++) {
         output << rigidBodyOrientation[num][j] << '\t';
       }
+      for (int j = 0; j < 3; j++) {
+        output << rigidBodyVelocity[num][j] << '\t';
+      }
+      for (int j = 0; j < 3; j++) {
+        output << rigidBodyAngularVelocity[num][j] << '\t';
+      }
     }
     output << endl;
     output.close();
@@ -254,23 +263,23 @@ void GMLS_Solver::RungeKuttaIntegration() {
   while (t < __finalTime - 1e-5) {
     bool noFail = true;
 
-    // ensure end exact at final time
+    // ensure end exactly at final time
     dt = min(dt, __finalTime - t);
 
-    err = 1;
+    for (int num = 0; num < numRigidBody; num++) {
+      for (int j = 0; j < 3; j++) {
+        position0[num][j] = rigidBodyPosition[num][j];
+        orientation0[num][j] = correct_radius(rigidBodyOrientation[num][j]);
+      }
+    }
+
+    err = 100;
     while (err > rtol) {
       PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
       PetscPrintf(PETSC_COMM_WORLD, "==== Start of time integration ====\n");
       PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
       PetscPrintf(PETSC_COMM_WORLD, "==> Current time: %f s\n", t);
       PetscPrintf(PETSC_COMM_WORLD, "==> current test time step: %f s\n", dt);
-
-      for (int num = 0; num < numRigidBody; num++) {
-        for (int j = 0; j < 3; j++) {
-          position0[num][j] = rigidBodyPosition[num][j];
-          orientation0[num][j] = correct_radius(rigidBodyOrientation[num][j]);
-        }
-      }
 
       for (int i = 1; i < 7; i++) {
         PetscPrintf(PETSC_COMM_WORLD, "=============================\n");
@@ -403,8 +412,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k2[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k2[num][j] =
-                  correct_radius(rigidBodyAngularVelocity[num][j]);
+              angularVelocity_k2[num][j] = rigidBodyAngularVelocity[num][j];
             }
           }
           break;
@@ -412,8 +420,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k3[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k3[num][j] =
-                  correct_radius(rigidBodyAngularVelocity[num][j]);
+              angularVelocity_k3[num][j] = rigidBodyAngularVelocity[num][j];
             }
           }
           break;
@@ -421,8 +428,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k4[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k4[num][j] =
-                  correct_radius(rigidBodyAngularVelocity[num][j]);
+              angularVelocity_k4[num][j] = rigidBodyAngularVelocity[num][j];
             }
           }
           break;
@@ -430,8 +436,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k5[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k5[num][j] =
-                  correct_radius(rigidBodyAngularVelocity[num][j]);
+              angularVelocity_k5[num][j] = rigidBodyAngularVelocity[num][j];
             }
           }
           break;
@@ -439,8 +444,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k6[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k6[num][j] =
-                  correct_radius(rigidBodyAngularVelocity[num][j]);
+              angularVelocity_k6[num][j] = rigidBodyAngularVelocity[num][j];
             }
           }
           break;
@@ -448,8 +452,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k7[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k7[num][j] =
-                  correct_radius(rigidBodyAngularVelocity[num][j]);
+              angularVelocity_k7[num][j] = rigidBodyAngularVelocity[num][j];
             }
           }
           break;
@@ -458,30 +461,33 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
       // estimate local error
       err = 0.0;
-      norm_y = 0.0;
       for (int num = 0; num < numRigidBody; num++) {
-        for (int j = 0; j < 3; j++) {
-          double velocity_err =
-              dc1 * velocity_k1[num][j] + dc3 * velocity_k3[num][j] +
-              dc4 * velocity_k4[num][j] + dc5 * velocity_k5[num][j] +
-              dc6 * velocity_k6[num][j] + dc7 * velocity_k7[num][j];
-          double angularVelocity_err =
-              correct_radius(dc1 * angularVelocity_k1[num][j] +
-                             dc3 * angularVelocity_k3[num][j] +
-                             dc4 * angularVelocity_k4[num][j] +
-                             dc5 * angularVelocity_k5[num][j] +
-                             dc6 * angularVelocity_k6[num][j] +
-                             dc7 * angularVelocity_k7[num][j]);
+        if (__dim == 2) {
+          for (int j = 0; j < 2; j++) {
+            double velocity_err =
+                dt *
+                (dc1 * velocity_k1[num][j] + dc3 * velocity_k3[num][j] +
+                 dc4 * velocity_k4[num][j] + dc5 * velocity_k5[num][j] +
+                 dc6 * velocity_k6[num][j] + dc7 * velocity_k7[num][j]) /
+                __boundingBoxSize[j];
 
-          err += velocity_err * velocity_err +
-                 angularVelocity_err * angularVelocity_err;
+            err += velocity_err * velocity_err;
+          }
+          double angularVelocity_err = dt *
+                                       (dc1 * angularVelocity_k1[num][0] +
+                                        dc3 * angularVelocity_k3[num][0] +
+                                        dc4 * angularVelocity_k4[num][0] +
+                                        dc5 * angularVelocity_k5[num][0] +
+                                        dc6 * angularVelocity_k6[num][0] +
+                                        dc7 * angularVelocity_k7[num][0]) /
+                                       (2.0 * M_PI);
 
-          norm_y += rigidBodyPosition[num][j] * rigidBodyPosition[num][j] +
-                    rigidBodyOrientation[num][j] * rigidBodyOrientation[num][j];
+          err += angularVelocity_err * angularVelocity_err;
         }
       }
-      norm_y = sqrt(norm_y);
-      err = dt * sqrt(err) / norm_y;
+      err = sqrt(err) / numRigidBody;
+
+      PetscPrintf(MPI_COMM_WORLD, "err: %f\n", err);
 
       if (err > rtol) {
         noFail = false;
@@ -534,6 +540,12 @@ void GMLS_Solver::RungeKuttaIntegration() {
         }
         for (int j = 0; j < 3; j++) {
           output << rigidBodyOrientation[num][j] << '\t';
+        }
+        for (int j = 0; j < 3; j++) {
+          output << rigidBodyVelocity[num][j] << '\t';
+        }
+        for (int j = 0; j < 3; j++) {
+          output << rigidBodyAngularVelocity[num][j] << '\t';
         }
       }
       output << endl;

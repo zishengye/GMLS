@@ -942,7 +942,7 @@ void GMLS_Solver::StokesEquation() {
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
       rhs[localRigidBodyOffset + i * rigidBodyDof + translationDof] =
-          pow(-1, i + 1);
+          0.1 * pow(-1, i + 1);
     }
   }
 
