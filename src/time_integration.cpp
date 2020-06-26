@@ -145,9 +145,9 @@ void GMLS_Solver::RungeKuttaIntegration() {
   vector<vec3> angularVelocity_k7(numRigidBody);
 
   // ode45 algorithm parameter
-  double t, dt, dtMin, rtol, atol, err, err_y;
-  rtol = 1e-3;
-  atol = 1e-6;
+  double t, dt, dtMin, rtol, atol, err, norm_y;
+  rtol = 1e-5;
+  atol = 1e-10;
   dt = __dtMax;
   t = 0;
   dtMin = 1e-5;
@@ -354,12 +354,11 @@ void GMLS_Solver::RungeKuttaIntegration() {
                         velocity_k4[num][j] * b4 + velocity_k5[num][j] * b5 +
                         velocity_k6[num][j] * b6);
               rigidBodyOrientation[num][j] =
-                  orientation0[num][j] +
-                  dt * (angularVelocity_k1[num][j] * b1 +
-                        angularVelocity_k3[num][j] * b3 +
-                        angularVelocity_k4[num][j] * b4 +
-                        angularVelocity_k5[num][j] * b5 +
-                        angularVelocity_k6[num][j] * b6);
+                  orientation0[num][j] + dt * (angularVelocity_k1[num][j] * b1 +
+                                               angularVelocity_k3[num][j] * b3 +
+                                               angularVelocity_k4[num][j] * b4 +
+                                               angularVelocity_k5[num][j] * b5 +
+                                               angularVelocity_k6[num][j] * b6);
             }
           }
           break;
@@ -445,7 +444,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
       // estimate local error
       err = 0.0;
-      err_y = 0.0;
+      norm_y = 0.0;
       for (int num = 0; num < numRigidBody; num++) {
         for (int j = 0; j < 3; j++) {
           double velocity_err =
@@ -462,12 +461,12 @@ void GMLS_Solver::RungeKuttaIntegration() {
           err += velocity_err * velocity_err +
                  angularVelocity_err * angularVelocity_err;
 
-          err_y += rigidBodyPosition[num][j] * rigidBodyPosition[num][j] +
-                   rigidBodyOrientation[num][j] * rigidBodyOrientation[num][j];
+          norm_y += rigidBodyPosition[num][j] * rigidBodyPosition[num][j] +
+                    rigidBodyOrientation[num][j] * rigidBodyOrientation[num][j];
         }
       }
-      err_y = sqrt(err_y);
-      err = dt * sqrt(err) / err_y;
+      norm_y = sqrt(norm_y);
+      err = dt * sqrt(err) / norm_y;
 
       if (err > rtol) {
         noFail = false;
@@ -477,6 +476,9 @@ void GMLS_Solver::RungeKuttaIntegration() {
         // increase time step
         dt = dt * max(0.8 * pow(err / rtol, -0.2), 0.1);
         dt = max(dt, dtMin);
+      } else {
+        PetscPrintf(PETSC_COMM_WORLD,
+                    "Current time step test succeeded. Error is %f\n", err);
       }
     }
 
@@ -491,6 +493,9 @@ void GMLS_Solver::RungeKuttaIntegration() {
         angularVelocity_k1[num][j] = velocity_k7[num][j];
       }
     }
+
+    // increase time
+    t += dt;
 
     // increase time step
     if (noFail) {
