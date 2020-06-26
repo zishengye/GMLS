@@ -146,8 +146,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
   // ode45 algorithm parameter
   double t, dt, dtMin, rtol, atol, err, norm_y;
-  rtol = 1e-5;
-  atol = 1e-10;
+  rtol = 1e-3;
+  atol = 1e-8;
   dt = __dtMax;
   t = 0;
   dtMin = 1e-5;
