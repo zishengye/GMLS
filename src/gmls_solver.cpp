@@ -148,9 +148,9 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   }
 
   // time step
-  if ((SearchCommand<double>(argc, argv, "-dt", __dt)) == 1) {
+  if ((SearchCommand<double>(argc, argv, "-dt", __dtMax)) == 1) {
     return;
-  } else if (__dt < 0.0) {
+  } else if (__dtMax < 0.0) {
     return;
   }
 
@@ -175,7 +175,7 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   PetscPrintf(PETSC_COMM_WORLD, "==> Dimension: %d\n", __dim);
   PetscPrintf(PETSC_COMM_WORLD, "==> Governing equation: %s\n",
               __equationType.c_str());
-  PetscPrintf(PETSC_COMM_WORLD, "==> Time interval: %fs\n", __dt);
+  PetscPrintf(PETSC_COMM_WORLD, "==> Time interval: %fs\n", __dtMax);
   PetscPrintf(PETSC_COMM_WORLD, "==> Final time: %fs\n", __finalTime);
   PetscPrintf(PETSC_COMM_WORLD, "==> Polynomial order: %d\n",
               __polynomialOrder);
@@ -195,8 +195,9 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", __eta);
   if (__adaptiveRefinement) {
     PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: on\n");
-    PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement tolerance: "
-                                  "%f\n",
+    PetscPrintf(PETSC_COMM_WORLD,
+                "==> Adaptive refinement tolerance: "
+                "%f\n",
                 __adaptiveRefinementTolerance);
   } else {
     PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: off\n");

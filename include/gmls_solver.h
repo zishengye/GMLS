@@ -52,7 +52,7 @@ private:
   int __dim;
 
   double __finalTime;
-  double __dt;
+  double __dtMax;
 
   // solver step info
   double __recoveryGradUerror;
