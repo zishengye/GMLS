@@ -3,6 +3,13 @@
 using namespace std;
 using namespace Compadre;
 
+inline double correct_radius(double x) {
+  while (x > 2.0 * M_PI)
+    x -= 2.0 * M_PI;
+  while (x < 0.0)
+    x += 2.0 * M_PI;
+}
+
 void GMLS_Solver::TimeIntegration() {
   InitParticle();
 
@@ -261,7 +268,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
       for (int num = 0; num < numRigidBody; num++) {
         for (int j = 0; j < 3; j++) {
           position0[num][j] = rigidBodyPosition[num][j];
-          orientation0[num][j] = rigidBodyOrientation[num][j];
+          orientation0[num][j] = correct_radius(rigidBodyOrientation[num][j]);
         }
       }
 
@@ -278,8 +285,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
             for (int j = 0; j < 3; j++) {
               rigidBodyPosition[num][j] =
                   position0[num][j] + dt * velocity_k1[num][j] * a21;
-              rigidBodyOrientation[num][j] =
-                  orientation0[num][j] + dt * angularVelocity_k1[num][j] * a21;
+              rigidBodyOrientation[num][j] = correct_radius(
+                  orientation0[num][j] + dt * angularVelocity_k1[num][j] * a21);
             }
           }
           break;
@@ -290,9 +297,9 @@ void GMLS_Solver::RungeKuttaIntegration() {
                   position0[num][j] +
                   dt * (velocity_k1[num][j] * a31 + velocity_k2[num][j] * a32);
               rigidBodyOrientation[num][j] =
-                  orientation0[num][j] +
-                  dt * (angularVelocity_k1[num][j] * a31 +
-                        angularVelocity_k2[num][j] * a32);
+                  correct_radius(orientation0[num][j] +
+                                 dt * (angularVelocity_k1[num][j] * a31 +
+                                       angularVelocity_k2[num][j] * a32));
             }
           }
           break;
@@ -304,10 +311,10 @@ void GMLS_Solver::RungeKuttaIntegration() {
                   dt * (velocity_k1[num][j] * a41 + velocity_k2[num][j] * a42 +
                         velocity_k3[num][j] * a43);
               rigidBodyOrientation[num][j] =
-                  orientation0[num][j] +
-                  dt * (angularVelocity_k1[num][j] * a41 +
-                        angularVelocity_k2[num][j] * a42 +
-                        angularVelocity_k3[num][j] * a43);
+                  correct_radius(orientation0[num][j] +
+                                 dt * (angularVelocity_k1[num][j] * a41 +
+                                       angularVelocity_k2[num][j] * a42 +
+                                       angularVelocity_k3[num][j] * a43));
             }
           }
           break;
@@ -319,11 +326,11 @@ void GMLS_Solver::RungeKuttaIntegration() {
                   dt * (velocity_k1[num][j] * a51 + velocity_k2[num][j] * a52 +
                         velocity_k3[num][j] * a53 + velocity_k4[num][j] * a54);
               rigidBodyOrientation[num][j] =
-                  orientation0[num][j] +
-                  dt * (angularVelocity_k1[num][j] * a51 +
-                        angularVelocity_k2[num][j] * a52 +
-                        angularVelocity_k3[num][j] * a53 +
-                        angularVelocity_k4[num][j] * a54);
+                  correct_radius(orientation0[num][j] +
+                                 dt * (angularVelocity_k1[num][j] * a51 +
+                                       angularVelocity_k2[num][j] * a52 +
+                                       angularVelocity_k3[num][j] * a53 +
+                                       angularVelocity_k4[num][j] * a54));
             }
           }
           break;
@@ -336,12 +343,12 @@ void GMLS_Solver::RungeKuttaIntegration() {
                         velocity_k3[num][j] * a63 + velocity_k4[num][j] * a64 +
                         velocity_k5[num][j] * a65);
               rigidBodyOrientation[num][j] =
-                  orientation0[num][j] +
-                  dt * (angularVelocity_k1[num][j] * a61 +
-                        angularVelocity_k2[num][j] * a62 +
-                        angularVelocity_k3[num][j] * a63 +
-                        angularVelocity_k4[num][j] * a64 +
-                        angularVelocity_k5[num][j] * a65);
+                  correct_radius(orientation0[num][j] +
+                                 dt * (angularVelocity_k1[num][j] * a61 +
+                                       angularVelocity_k2[num][j] * a62 +
+                                       angularVelocity_k3[num][j] * a63 +
+                                       angularVelocity_k4[num][j] * a64 +
+                                       angularVelocity_k5[num][j] * a65));
             }
           }
           break;
@@ -354,11 +361,12 @@ void GMLS_Solver::RungeKuttaIntegration() {
                         velocity_k4[num][j] * b4 + velocity_k5[num][j] * b5 +
                         velocity_k6[num][j] * b6);
               rigidBodyOrientation[num][j] =
-                  orientation0[num][j] + dt * (angularVelocity_k1[num][j] * b1 +
-                                               angularVelocity_k3[num][j] * b3 +
-                                               angularVelocity_k4[num][j] * b4 +
-                                               angularVelocity_k5[num][j] * b5 +
-                                               angularVelocity_k6[num][j] * b6);
+                  correct_radius(orientation0[num][j] +
+                                 dt * (angularVelocity_k1[num][j] * b1 +
+                                       angularVelocity_k3[num][j] * b3 +
+                                       angularVelocity_k4[num][j] * b4 +
+                                       angularVelocity_k5[num][j] * b5 +
+                                       angularVelocity_k6[num][j] * b6));
             }
           }
           break;
@@ -395,7 +403,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k2[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k2[num][j] = rigidBodyAngularVelocity[num][j];
+              angularVelocity_k2[num][j] =
+                  correct_radius(rigidBodyAngularVelocity[num][j]);
             }
           }
           break;
@@ -403,7 +412,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k3[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k3[num][j] = rigidBodyAngularVelocity[num][j];
+              angularVelocity_k3[num][j] =
+                  correct_radius(rigidBodyAngularVelocity[num][j]);
             }
           }
           break;
@@ -411,7 +421,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k4[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k4[num][j] = rigidBodyAngularVelocity[num][j];
+              angularVelocity_k4[num][j] =
+                  correct_radius(rigidBodyAngularVelocity[num][j]);
             }
           }
           break;
@@ -419,7 +430,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k5[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k5[num][j] = rigidBodyAngularVelocity[num][j];
+              angularVelocity_k5[num][j] =
+                  correct_radius(rigidBodyAngularVelocity[num][j]);
             }
           }
           break;
@@ -427,7 +439,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k6[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k6[num][j] = rigidBodyAngularVelocity[num][j];
+              angularVelocity_k6[num][j] =
+                  correct_radius(rigidBodyAngularVelocity[num][j]);
             }
           }
           break;
@@ -435,7 +448,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               velocity_k7[num][j] = rigidBodyVelocity[num][j];
-              angularVelocity_k7[num][j] = rigidBodyAngularVelocity[num][j];
+              angularVelocity_k7[num][j] =
+                  correct_radius(rigidBodyAngularVelocity[num][j]);
             }
           }
           break;
@@ -451,12 +465,13 @@ void GMLS_Solver::RungeKuttaIntegration() {
               dc1 * velocity_k1[num][j] + dc3 * velocity_k3[num][j] +
               dc4 * velocity_k4[num][j] + dc5 * velocity_k5[num][j] +
               dc6 * velocity_k6[num][j] + dc7 * velocity_k7[num][j];
-          double angularVelocity_err = dc1 * angularVelocity_k1[num][j] +
-                                       dc3 * angularVelocity_k3[num][j] +
-                                       dc4 * angularVelocity_k4[num][j] +
-                                       dc5 * angularVelocity_k5[num][j] +
-                                       dc6 * angularVelocity_k6[num][j] +
-                                       dc7 * angularVelocity_k7[num][j];
+          double angularVelocity_err =
+              correct_radius(dc1 * angularVelocity_k1[num][j] +
+                             dc3 * angularVelocity_k3[num][j] +
+                             dc4 * angularVelocity_k4[num][j] +
+                             dc5 * angularVelocity_k5[num][j] +
+                             dc6 * angularVelocity_k6[num][j] +
+                             dc7 * angularVelocity_k7[num][j]);
 
           err += velocity_err * velocity_err +
                  angularVelocity_err * angularVelocity_err;
@@ -490,7 +505,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
     for (int num = 0; num < numRigidBody; num++) {
       for (int j = 0; j < 3; j++) {
         velocity_k1[num][j] = velocity_k7[num][j];
-        angularVelocity_k1[num][j] = velocity_k7[num][j];
+        angularVelocity_k1[num][j] = angularVelocity_k7[num][j];
       }
     }
 
