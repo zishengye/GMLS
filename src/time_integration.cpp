@@ -474,14 +474,12 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
             err += velocity_err * velocity_err;
           }
-          double angularVelocity_err = dt *
-                                       (dc1 * angularVelocity_k1[num][0] +
-                                        dc3 * angularVelocity_k3[num][0] +
-                                        dc4 * angularVelocity_k4[num][0] +
-                                        dc5 * angularVelocity_k5[num][0] +
-                                        dc6 * angularVelocity_k6[num][0] +
-                                        dc7 * angularVelocity_k7[num][0]) /
-                                       (2.0 * M_PI);
+          double angularVelocity_err = dt * (dc1 * angularVelocity_k1[num][0] +
+                                             dc3 * angularVelocity_k3[num][0] +
+                                             dc4 * angularVelocity_k4[num][0] +
+                                             dc5 * angularVelocity_k5[num][0] +
+                                             dc6 * angularVelocity_k6[num][0] +
+                                             dc7 * angularVelocity_k7[num][0]);
 
           err += angularVelocity_err * angularVelocity_err;
         }

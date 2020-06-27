@@ -1,6 +1,8 @@
 #include "gmls_solver.h"
 #include "sparse_matrix.h"
 
+#include <iomanip>
+
 using namespace std;
 using namespace Compadre;
 
@@ -973,6 +975,18 @@ void GMLS_Solver::StokesEquation() {
     // R);
     if (_multi.Solve(rhs, res, idx_neighbor) != 0) {
       WriteDataAdaptiveGeometry();
+
+      ofstream output;
+      if (__myID == 0) {
+        output.open("traj_new.txt", ios::trunc);
+        for (int num = 0; num < numRigidBody; num++) {
+          for (int j = 0; j < 2; j++) {
+            output << setprecision(15) << rigidBodyPosition[num][j] << '\t';
+          }
+          output << 0.10 << '\t' << 1 << endl;
+        }
+        output.close();
+      }
     }
   }
   MPI_Barrier(MPI_COMM_WORLD);
