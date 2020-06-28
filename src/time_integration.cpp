@@ -239,6 +239,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
   // setup output file
   ofstream output;
+  ofstream output_runge_kutta;
   if (__myID == 0) {
     output.open("traj.txt", ios::trunc);
     output << t << '\t';
@@ -258,6 +259,9 @@ void GMLS_Solver::RungeKuttaIntegration() {
     }
     output << endl;
     output.close();
+
+    output_runge_kutta.open("traj_runge_kutta.txt", ios::trunc);
+    output_runge_kutta.close();
   }
 
   // main loop
@@ -380,6 +384,26 @@ void GMLS_Solver::RungeKuttaIntegration() {
             }
           }
           break;
+        }
+
+        if (__myID == 0) {
+          output_runge_kutta.open("traj_runge_kutta.txt", ios::app);
+          for (int num = 0; num < numRigidBody; num++) {
+            for (int j = 0; j < 3; j++) {
+              output_runge_kutta << rigidBodyPosition[num][j] << '\t';
+            }
+            for (int j = 0; j < 3; j++) {
+              output_runge_kutta << rigidBodyOrientation[num][j] << '\t';
+            }
+            for (int j = 0; j < 3; j++) {
+              output_runge_kutta << rigidBodyVelocity[num][j] << '\t';
+            }
+            for (int j = 0; j < 3; j++) {
+              output_runge_kutta << rigidBodyAngularVelocity[num][j] << '\t';
+            }
+          }
+          output_runge_kutta << endl;
+          output_runge_kutta.close();
         }
 
         if (__manifoldOrder > 0) {
