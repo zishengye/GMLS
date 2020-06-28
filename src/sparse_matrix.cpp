@@ -648,13 +648,6 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
       connected_group.push_back(maximum_group);
     }
 
-    for (int i = 0; i < connected_group.size(); i++) {
-      for (int j = 0; j < connected_group[i].size(); j++) {
-        cout << connected_group[i][j] << '\t';
-      }
-      cout << endl;
-    }
-
     sort(connected_group.begin(), connected_group.end(), compare_group);
 
     // distribute rigid body among processes
