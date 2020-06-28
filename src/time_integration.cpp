@@ -504,7 +504,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
     PetscPrintf(PETSC_COMM_WORLD, "==== End of time integration ====\n");
     PetscPrintf(PETSC_COMM_WORLD, "=================================\n\n");
 
-    // reset for k1
+    // reset k1 for next step
     for (int num = 0; num < numRigidBody; num++) {
       for (int j = 0; j < 3; j++) {
         velocity_k1[num][j] = velocity_k7[num][j];

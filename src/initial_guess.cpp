@@ -79,4 +79,19 @@ void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
 
   VecDestroy(&initial_guess_vec);
   VecDestroy(&previous_result_vec);
+
+  // zero-average pressure
+  double pressure_sum = 0.0;
+  int global_particle_num;
+  for (int i = 0; i < new_local_particle_num; i++) {
+    pressure_sum += initial_guess[field_dof * i + velocity_dof];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(&new_local_particle_num, &global_particle_num, 1, MPI_INT,
+                MPI_SUM, MPI_COMM_WORLD);
+  pressure_sum /= global_particle_num;
+  for (int i = 0; i < new_local_particle_num; i++) {
+    initial_guess[field_dof * i + velocity_dof] -= pressure_sum;
+  }
 }

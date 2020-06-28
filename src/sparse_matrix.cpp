@@ -618,12 +618,14 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
 
     while (ungroup_rigid_body.size() > 0) {
       vector<int> maximum_group;
+      vector<int> search_stack;
       maximum_group.push_back(ungroup_rigid_body[0]);
+      search_stack.push_back(ungroup_rigid_body[0]);
       ungroup_rigid_body.erase(ungroup_rigid_body.begin());
 
-      int maximum_group_index = 0;
-      while (maximum_group_index != maximum_group.size()) {
-        for (auto item : connectivity[maximum_group[maximum_group_index]]) {
+      int search_stack_index = 0;
+      while (search_stack_index < search_stack.size()) {
+        for (auto item : connectivity[search_stack[search_stack_index]]) {
           auto it =
               lower_bound(maximum_group.begin(), maximum_group.end(), item);
           if (*it != item) {
@@ -632,16 +634,25 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
             if (ungroup_rigid_body.size() != 0) {
               auto rm_it = lower_bound(ungroup_rigid_body.begin(),
                                        ungroup_rigid_body.end(), item);
-              if (*rm_it == item)
+              if (*rm_it == item) {
                 ungroup_rigid_body.erase(rm_it);
+                search_stack.push_back(item);
+              }
             }
           }
         }
 
-        maximum_group_index++;
+        search_stack_index++;
       }
 
       connected_group.push_back(maximum_group);
+    }
+
+    for (int i = 0; i < connected_group.size(); i++) {
+      for (int j = 0; j < connected_group[i].size(); j++) {
+        cout << connected_group[i][j] << '\t';
+      }
+      cout << endl;
     }
 
     sort(connected_group.begin(), connected_group.end(), compare_group);
@@ -762,6 +773,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
 
     MPI_Barrier(MPI_COMM_WORLD);
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
