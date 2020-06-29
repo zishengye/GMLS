@@ -214,80 +214,111 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
           xPos = -half_side_length;
           yPos = -half_side_length;
 
-          vec3 normal = vec3(-sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
+          vec3 norm = vec3(-sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
+          vec3 normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                             sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           vec3 pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                           sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                      rigidBodyCoord[n];
           vec3 pCoord = vec3(0.0, 0.0, 0.0);
-
-          InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol, true,
-                         n, pCoord);
+          if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
+              pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
+            InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
 
           xPos += 0.5 * h;
-          normal = vec3(0.0, -1.0, 0.0);
+          norm = vec3(0.0, -1.0, 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           while (xPos < half_side_length) {
             pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                        sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                   rigidBodyCoord[n];
-            InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
-                           true, n, pCoord);
+            if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
+                pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
+              InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
+                             true, n, pCoord);
             xPos += h;
           }
 
           xPos = half_side_length;
-          normal = vec3(sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
+          norm = vec3(sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                      sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                 rigidBodyCoord[n];
-          InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol, true,
-                         n, pCoord);
+          if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
+              pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
+            InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
 
           yPos += 0.5 * h;
-          normal = vec3(1.0, 0.0, 0.0);
+          norm = vec3(1.0, 0.0, 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           while (yPos < half_side_length) {
             pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                        sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                   rigidBodyCoord[n];
-            InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
-                           true, n, pCoord);
+            if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
+                pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
+              InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
+                             true, n, pCoord);
             yPos += h;
           }
 
           yPos = half_side_length;
-          normal = vec3(sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
+          norm = vec3(sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                      sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                 rigidBodyCoord[n];
-          InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol, true,
-                         n, pCoord);
+          if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
+              pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
+            InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
 
           xPos -= 0.5 * h;
-          normal = vec3(0.0, 1.0, 0.0);
+          norm = vec3(0.0, 1.0, 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           while (xPos > -half_side_length) {
             pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                        sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                   rigidBodyCoord[n];
-            InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
-                           true, n, pCoord);
+            if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
+                pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
+              InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
+                             true, n, pCoord);
             xPos -= h;
           }
 
           xPos = -half_side_length;
-          normal = vec3(-sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
+          norm = vec3(-sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                      sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                 rigidBodyCoord[n];
-          InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol, true,
-                         n, pCoord);
+          if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
+              pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
+            InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
 
           yPos -= 0.5 * h;
-          normal = vec3(-1.0, 0.0, 0.0);
+          norm = vec3(-1.0, 0.0, 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           while (yPos > -half_side_length) {
             pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                        sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                   rigidBodyCoord[n];
-            InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
-                           true, n, pCoord);
+            if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
+                pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
+              InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
+                             true, n, pCoord);
             yPos -= h;
           }
         }

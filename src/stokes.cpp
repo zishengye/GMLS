@@ -651,14 +651,30 @@ void GMLS_Solver::StokesEquation() {
                       -rci[(axes1 + 2) % translationDof]);
         }
 
-        vec3 dA = (__dim == 3)
-                      ? (normal[i] * particleSize[i][0] * particleSize[i][1])
-                      : (normal[i] * particleSize[i][0]);
+        vec3 dA;
+        if (particleType[i] == 4) {
+          // corner point
+          dA = vec3(0.0, 0.0, 0.0);
+        } else {
+          dA = (__dim == 3)
+                   ? (normal[i] * particleSize[i][0] * particleSize[i][1])
+                   : (normal[i] * particleSize[i][0]);
+        }
 
         // apply pressure
         for (int axes1 = 0; axes1 < translationDof; axes1++) {
           A.outProcessIncrement(currentRigidBodyLocalOffset + axes1,
                                 iPressureGlobal, -dA[axes1]);
+        }
+
+        for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+          A.outProcessIncrement(currentRigidBodyLocalOffset + translationDof +
+                                    axes1,
+                                iPressureGlobal,
+                                -rci[(axes1 + 1) % translationDof] *
+                                        dA[(axes1 + 2) % translationDof] +
+                                    rci[(axes1 + 2) % translationDof] *
+                                        dA[(axes1 + 1) % translationDof]);
         }
 
         for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
