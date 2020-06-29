@@ -229,11 +229,14 @@ void GMLS_Solver::RungeKuttaIntegration() {
     (this->*__equationSolver)();
   } while (NeedRefinement());
 
+  if (__writeData != 0) {
+    WriteDataTimeStep();
+  }
+
   for (int num = 0; num < numRigidBody; num++) {
     for (int j = 0; j < 3; j++) {
       velocity_k1[num][j] = rigidBodyVelocity[num][j];
-      angularVelocity_k1[num][j] =
-          correct_radius(rigidBodyAngularVelocity[num][j]);
+      angularVelocity_k1[num][j] = rigidBodyAngularVelocity[num][j];
     }
   }
 

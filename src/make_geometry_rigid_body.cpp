@@ -15,6 +15,7 @@ void GMLS_Solver::InitRigidBody() {
   vector<vec3> &rigidBodyAngularVelocity =
       __rigidBody.vector.Register("angular velocity");
   vector<double> &rigidBodySize = __rigidBody.scalar.Register("size");
+  vector<int> &rigidBodyType = __rigidBody.index.Register("type");
 
   if (__rigidBodyInclusion) {
     ifstream input(__rigidBodyInputFileName, ios::in);
@@ -25,19 +26,33 @@ void GMLS_Solver::InitRigidBody() {
 
     while (!input.eof()) {
       vec3 xyz;
+      vec3 rxyz;
       double size;
       int type;
+      input >> type;
+      input >> size;
       for (int i = 0; i < __dim; i++) {
         input >> xyz[i];
       }
-      rigidBodyPosition.push_back(xyz);
-      input >> size;
-      input >> type;
-      rigidBodySize.push_back(size);
 
-      rigidBodyOrientation.push_back(vec3(0.0, 0.0, 0.0));
+      int rotation_dof = (__dim == 3) ? 3 : 1;
+      for (int i = 0; i < rotation_dof; i++) {
+        input >> rxyz[i];
+      }
+
+      rigidBodyType.push_back(type);
+      rigidBodySize.push_back(size);
+      rigidBodyPosition.push_back(xyz);
+      rigidBodyOrientation.push_back(rxyz);
+
       rigidBodyVelocity.push_back(vec3(0.0, 0.0, 0.0));
       rigidBodyAngularVelocity.push_back(vec3(0.0, 0.0, 0.0));
+
+      /* rigid body type
+      type 1: circle in 2d, sphere in 3d
+      type 2: square in 2d, cubic in 3d
+      type 3: equilateral triangle in 2d, tetrahedron in 3d
+       */
     }
 
     _multi.set_num_rigid_body(rigidBodyPosition.size());
@@ -51,15 +66,53 @@ void GMLS_Solver::InitRigidBody() {
 int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h) {
   static vector<vec3> &rigidBodyCoord =
       __rigidBody.vector.GetHandle("position");
+  static vector<vec3> &rigidBodyOrientation =
+      __rigidBody.vector.GetHandle("orientation");
   static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
+  static auto &rigidBodyType = __rigidBody.index.GetHandle("type");
 
   for (size_t i = 0; i < rigidBodyCoord.size(); i++) {
-    vec3 dis = pos - rigidBodyCoord[i];
-    if (dis.mag() < rigidBodySize[i] - 1.5 * h) {
-      return -1;
-    }
-    if (dis.mag() < rigidBodySize[i] + 0.25 * h) {
-      return i;
+    switch (rigidBodyType[i]) {
+    case 1:
+      // circle in 2d, sphere in 3d
+      {
+        vec3 dis = pos - rigidBodyCoord[i];
+        if (dis.mag() < rigidBodySize[i] - 1.5 * h) {
+          return -1;
+        }
+        if (dis.mag() < rigidBodySize[i] + 0.25 * h) {
+          return i;
+        }
+      }
+      break;
+
+    case 2:
+      // square in 2d, cubic in 3d
+      {
+        if (__dim == 2) {
+          double half_side_length =
+              rigidBodySize[i] * static_cast<double>(sqrt(2.0) / 2.0);
+          double theta = rigidBodyOrientation[i][0];
+
+          vec3 abs_dis = pos - rigidBodyCoord[i];
+          // rotate back
+          vec3 dis =
+              vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
+                   -sin(theta) * abs_dis[0] + cos(theta) * abs_dis[1], 0.0);
+
+          if (abs(dis[0]) < half_side_length - 1.5 * h &&
+              abs(dis[1]) < half_side_length - 1.5 * h) {
+            return -1;
+          }
+          if (abs(dis[0]) < half_side_length + 0.25 * h &&
+              abs(dis[1]) < half_side_length + 0.25 * h) {
+            return i;
+          }
+        }
+        if (__dim == 3) {
+        }
+      }
+      break;
     }
   }
 
@@ -69,7 +122,10 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h) {
 void GMLS_Solver::InitRigidBodySurfaceParticle() {
   static vector<vec3> &rigidBodyCoord =
       __rigidBody.vector.GetHandle("position");
+  static vector<vec3> &rigidBodyOrientation =
+      __rigidBody.vector.GetHandle("orientation");
   static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
+  static auto &rigidBodyType = __rigidBody.index.GetHandle("type");
   static vector<vec3> &fluidCoord = __field.vector.GetHandle("coord");
 
   int localIndex = fluidCoord.size();
@@ -98,7 +154,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
           if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
               pos[1] >= __domain[0][1] && pos[1] < __domain[1][1] &&
               pos[2] >= __domain[0][2] && pos[2] < __domain[1][2])
-            InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol,
+            InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
                            true, n, pCoord);
         }
       }
@@ -106,27 +162,137 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
   }
 
   if (__dim == 2) {
-    double h = __particleSize0[0];
-    double vol = pow(h, 2);
 
     for (size_t n = 0; n < rigidBodyCoord.size(); n++) {
-      double r = rigidBodySize[n];
-      int M_theta = round(2 * M_PI * r / h);
-      if (M_theta % 2 == 1)
-        M_theta++;
-      double d_theta = 2 * M_PI * r / M_theta;
+      switch (rigidBodyType[n]) {
+      case 1:
+        // circle
+        {
+          double h = __particleSize0[0];
+          double vol = pow(h, 2);
 
-      vec3 particleSize = vec3(d_theta, 0, 0);
+          double r = rigidBodySize[n];
 
-      for (int i = 0; i < M_theta; ++i) {
-        double theta = 2 * M_PI * (i + 0.5) / M_theta;
-        vec3 pCoord = vec3(theta, 0.0, 0.0);
-        vec3 normal = vec3(cos(theta), sin(theta), 0.0);
-        vec3 pos = normal * r + rigidBodyCoord[n];
-        if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
-            pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
+          int M_theta = round(2 * M_PI * r / h);
+          if (M_theta % 2 == 1)
+            M_theta++;
+          double d_theta = 2 * M_PI * r / M_theta;
+
+          vec3 particleSize = vec3(d_theta, 0, 0);
+
+          for (int i = 0; i < M_theta; ++i) {
+            double theta = 2 * M_PI * (i + 0.5) / M_theta;
+            vec3 pCoord = vec3(theta, 0.0, 0.0);
+            vec3 normal = vec3(cos(theta), sin(theta), 0.0);
+            vec3 pos = normal * r + rigidBodyCoord[n];
+            if (pos[0] >= __domain[0][0] && pos[0] < __domain[1][0] &&
+                pos[1] >= __domain[0][1] && pos[1] < __domain[1][1])
+              InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
+                             true, n, pCoord);
+          }
+        }
+
+        break;
+
+      case 2:
+        // square
+        {
+          double half_side_length =
+              rigidBodySize[n] * static_cast<double>(sqrt(2.0) / 2.0);
+          double theta = rigidBodyOrientation[n][0];
+
+          int particleNumPerSize = rigidBodySize[n] *
+                                   static_cast<double>(sqrt(2.0)) /
+                                   __particleSize0[0];
+
+          double h = rigidBodySize[n] * static_cast<double>(sqrt(2.0)) /
+                     particleNumPerSize;
+          vec3 particleSize = vec3(h, h, 0.0);
+          double vol = pow(h, 2.0);
+
+          double xPos, yPos;
+          xPos = -half_side_length;
+          yPos = -half_side_length;
+
+          vec3 normal = vec3(-sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
+          vec3 pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
+                          sin(theta) * xPos + cos(theta) * yPos, 0.0) +
+                     rigidBodyCoord[n];
+          vec3 pCoord = vec3(0.0, 0.0, 0.0);
+
           InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol, true,
                          n, pCoord);
+
+          xPos += 0.5 * h;
+          normal = vec3(0.0, -1.0, 0.0);
+          while (xPos < half_side_length) {
+            pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
+                       sin(theta) * xPos + cos(theta) * yPos, 0.0) +
+                  rigidBodyCoord[n];
+            InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
+            xPos += h;
+          }
+
+          xPos = half_side_length;
+          normal = vec3(sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
+          pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
+                     sin(theta) * xPos + cos(theta) * yPos, 0.0) +
+                rigidBodyCoord[n];
+          InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol, true,
+                         n, pCoord);
+
+          yPos += 0.5 * h;
+          normal = vec3(1.0, 0.0, 0.0);
+          while (yPos < half_side_length) {
+            pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
+                       sin(theta) * xPos + cos(theta) * yPos, 0.0) +
+                  rigidBodyCoord[n];
+            InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
+            yPos += h;
+          }
+
+          yPos = half_side_length;
+          normal = vec3(sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
+          pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
+                     sin(theta) * xPos + cos(theta) * yPos, 0.0) +
+                rigidBodyCoord[n];
+          InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol, true,
+                         n, pCoord);
+
+          xPos -= 0.5 * h;
+          normal = vec3(0.0, 1.0, 0.0);
+          while (xPos > -half_side_length) {
+            pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
+                       sin(theta) * xPos + cos(theta) * yPos, 0.0) +
+                  rigidBodyCoord[n];
+            InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
+            xPos -= h;
+          }
+
+          xPos = -half_side_length;
+          normal = vec3(-sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
+          pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
+                     sin(theta) * xPos + cos(theta) * yPos, 0.0) +
+                rigidBodyCoord[n];
+          InsertParticle(pos, 4, particleSize, normal, localIndex, 0, vol, true,
+                         n, pCoord);
+
+          yPos -= 0.5 * h;
+          normal = vec3(-1.0, 0.0, 0.0);
+          while (yPos > -half_side_length) {
+            pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
+                       sin(theta) * xPos + cos(theta) * yPos, 0.0) +
+                  rigidBodyCoord[n];
+            InsertParticle(pos, 5, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
+            yPos -= h;
+          }
+        }
+
+        break;
       }
     }
   }
@@ -146,6 +312,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
 
   static auto &rigidBodyCoord = __rigidBody.vector.GetHandle("position");
   static auto &rigidBodySize = __rigidBody.scalar.GetHandle("size");
+  static auto &rigidBodyType = __rigidBody.index.GetHandle("type");
 
   int localIndex = coord.size();
 
