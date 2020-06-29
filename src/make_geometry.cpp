@@ -257,12 +257,12 @@ void GMLS_Solver::InitUniformParticleField() {
     BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
                      __particleSize0, __domainBoundingBox, __domainCount,
                      __domain, __nX, __nY, __nZ, __nI, __nJ, __nK,
-                     0.5 * minDistance);
+                     0.25 * minDistance);
   } else if (__dim == 2) {
     addedLevel = BoundingBoxSplit(
         __boundingBoxSize, __boundingBoxCount, __boundingBox, __particleSize0,
         __domainBoundingBox, __domainCount, __domain, __nX, __nY, __nI, __nJ,
-        0.5 * minDistance, __maxAdaptiveLevel);
+        0.25 * minDistance, __maxAdaptiveLevel);
   }
 
   __maxAdaptiveLevel = 4 - addedLevel;
