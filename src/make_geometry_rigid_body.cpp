@@ -398,40 +398,86 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
 
   if (__dim == 2) {
     for (auto tag : splitTag) {
-      splitList[tag].clear();
+      switch (rigidBodyType[attachedRigidBodyIndex[tag]]) {
+      case 1:
+        // cicle
+        {
+          splitList[tag].clear();
 
-      const double thetaDelta = particleSize[tag][0] * 0.25 /
-                                rigidBodySize[attachedRigidBodyIndex[tag]];
+          const double thetaDelta = particleSize[tag][0] * 0.25 /
+                                    rigidBodySize[attachedRigidBodyIndex[tag]];
 
-      double theta = pCoord[tag][0];
+          double theta = pCoord[tag][0];
 
-      vec3 newNormal = vec3(
-          cos(theta) * cos(thetaDelta) - sin(theta) * sin(thetaDelta),
-          cos(theta) * sin(thetaDelta) + sin(theta) * cos(thetaDelta), 0.0);
-      vec3 newPos = newNormal * rigidBodySize[attachedRigidBodyIndex[tag]] +
-                    rigidBodyCoord[attachedRigidBodyIndex[tag]];
+          vec3 newNormal = vec3(
+              cos(theta) * cos(thetaDelta) - sin(theta) * sin(thetaDelta),
+              cos(theta) * sin(thetaDelta) + sin(theta) * cos(thetaDelta), 0.0);
+          vec3 newPos = newNormal * rigidBodySize[attachedRigidBodyIndex[tag]] +
+                        rigidBodyCoord[attachedRigidBodyIndex[tag]];
 
-      coord[tag] = newPos;
-      particleSize[tag][0] /= 2.0;
-      volume[tag] /= 4.0;
-      normal[tag] = newNormal;
-      pCoord[tag] = vec3(theta + thetaDelta, 0.0, 0.0);
-      adaptive_level[tag] = __adaptive_step;
+          coord[tag] = newPos;
+          particleSize[tag][0] /= 2.0;
+          volume[tag] /= 4.0;
+          normal[tag] = newNormal;
+          pCoord[tag] = vec3(theta + thetaDelta, 0.0, 0.0);
+          adaptive_level[tag] = __adaptive_step;
 
-      splitList[tag].push_back(tag);
+          splitList[tag].push_back(tag);
 
-      newNormal = vec3(
-          cos(theta) * cos(-thetaDelta) - sin(theta) * sin(-thetaDelta),
-          cos(theta) * sin(-thetaDelta) + sin(theta) * cos(-thetaDelta), 0.0);
-      newPos = newNormal * rigidBodySize[attachedRigidBodyIndex[tag]] +
-               rigidBodyCoord[attachedRigidBodyIndex[tag]];
+          newNormal = vec3(
+              cos(theta) * cos(-thetaDelta) - sin(theta) * sin(-thetaDelta),
+              cos(theta) * sin(-thetaDelta) + sin(theta) * cos(-thetaDelta),
+              0.0);
+          newPos = newNormal * rigidBodySize[attachedRigidBodyIndex[tag]] +
+                   rigidBodyCoord[attachedRigidBodyIndex[tag]];
 
-      InsertParticle(newPos, particleType[tag], particleSize[tag], newNormal,
-                     localIndex, __adaptive_step, volume[tag], true,
-                     attachedRigidBodyIndex[tag],
-                     vec3(theta - thetaDelta, 0.0, 0.0));
+          InsertParticle(newPos, particleType[tag], particleSize[tag],
+                         newNormal, localIndex, __adaptive_step, volume[tag],
+                         true, attachedRigidBodyIndex[tag],
+                         vec3(theta - thetaDelta, 0.0, 0.0));
 
-      splitList[tag].push_back(localIndex - 1);
+          splitList[tag].push_back(localIndex - 1);
+        }
+
+        break;
+      case 2:
+        // square
+        {
+          splitList[tag].clear();
+          if (particleType[tag] == 4) {
+            // corner particle
+            splitList[tag].push_back(tag);
+
+            particleSize[tag] *= 0.5;
+            volume[tag] /= 4.0;
+            adaptive_level[tag] = __adaptive_step;
+          } else {
+            // side particle
+            splitList[tag].push_back(tag);
+
+            particleSize[tag] *= 0.5;
+            volume[tag] /= 4.0;
+            adaptive_level[tag] = __adaptive_step;
+
+            vec3 oldPos = coord[tag];
+
+            vec3 delta = vec3(-normal[tag][1], normal[tag][0], 0.0) * 0.5 *
+                         particleSize[tag][0];
+            coord[tag] = oldPos + delta;
+
+            vec3 newPos = oldPos - delta;
+
+            InsertParticle(newPos, particleType[tag], particleSize[tag],
+                           normal[tag], localIndex, __adaptive_step,
+                           volume[tag], true, attachedRigidBodyIndex[tag],
+                           pCoord[tag]);
+
+            splitList[tag].push_back(localIndex - 1);
+          }
+        }
+
+        break;
+      }
     }
   }
 }
