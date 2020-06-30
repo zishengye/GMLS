@@ -181,16 +181,21 @@ bool GMLS_Solver::NeedRefinement() {
                     calDivFreeBasisGrad(
                         axes1, axes2, dX[0], dX[1], __polynomialOrder,
                         backgroundEpsilon[neighborParticleIndex],
-                        backgroundCoefficients[neighborParticleIndex]) /
-                    neighborLists(i, 0);
+                        backgroundCoefficients[neighborParticleIndex]);
               if (__dim == 3)
                 recoveredVelocityGradient[i][axes1 * __dim + axes2] +=
                     calDivFreeBasisGrad(
                         axes1, axes2, dX[0], dX[1], dX[2], __polynomialOrder,
                         backgroundEpsilon[neighborParticleIndex],
-                        backgroundCoefficients[neighborParticleIndex]) /
-                    neighborLists(i, 0);
+                        backgroundCoefficients[neighborParticleIndex]);
             }
+          }
+        }
+
+        for (int axes1 = 0; axes1 < __dim; axes1++) {
+          for (int axes2 = 0; axes2 < __dim; axes2++) {
+            recoveredVelocityGradient[i][axes1 * __dim + axes2] /=
+                neighborLists(i, 0);
           }
         }
       }
@@ -261,14 +266,6 @@ bool GMLS_Solver::NeedRefinement() {
               }
             }
           }
-          // for (int axes = 0; axes < gradientComponentNum; axes++) {
-          //   error[i] +=
-          //       pow(reconstructedVelocityGradient[axes] -
-          //               backgroundRecoveredVelocityGradient[neighborParticleIndex]
-          //                                                  [axes],
-          //           2) *
-          //       backgroundVolume[neighborParticleIndex];
-          // }
         }
 
         error[i] = error[i] / totalNeighborVol * volume[i];
@@ -289,9 +286,6 @@ bool GMLS_Solver::NeedRefinement() {
             }
           }
         }
-        // for (int axes = 0; axes < gradientComponentNum; axes++) {
-        //   localDirectGradientNorm += pow(gradient(i, axes), 2) * volume[i];
-        // }
       }
     }
 
@@ -476,6 +470,7 @@ bool GMLS_Solver::NeedRefinement() {
       }
     }
 
+    splitTag.clear();
     for (int i = 0; i < split_max_index; i++) {
       splitTag.push_back(chopper[i].first);
     }
@@ -484,8 +479,12 @@ bool GMLS_Solver::NeedRefinement() {
       error[i] = sqrt(error[i]);
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
+
     if (__writeData)
       WriteDataAdaptiveStep();
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     int localSplitParticleNum = splitTag.size();
     int globalSplitParticleNum;

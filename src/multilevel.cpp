@@ -126,11 +126,12 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                     old_to_new_neighbor_lists);
   Kokkos::deep_copy(old_epsilon_device, old_epsilon);
 
-  auto old_to_new_pressusre_basis = new GMLS(
-      ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
+  auto old_to_new_pressusre_basis =
+      new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder,
+               dimension, "LU", "STANDARD");
   auto old_to_new_velocity_basis =
-      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 2,
-               dimension, "SVD", "STANDARD");
+      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
+               __polynomialOrder, dimension, "SVD", "STANDARD");
 
   // old to new pressure field transition
   old_to_new_pressusre_basis->setProblemData(
