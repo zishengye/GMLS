@@ -289,6 +289,8 @@ private:
   // adaptive refinement
   void SplitParticle(std::vector<int> &splitTag);
 
+  int __autoRefinement;
+
   std::vector<int> fieldParticleSplitTag;
   std::vector<std::vector<int>> splitList;
 

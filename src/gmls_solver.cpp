@@ -97,6 +97,11 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     }
   }
 
+  if ((SearchCommand<int>(argc, argv, "-AutoRefinement", __autoRefinement)) ==
+      1) {
+    __autoRefinement = 0;
+  }
+
   // default manifold flag is off
   if ((SearchCommand<int>(argc, argv, "-ManifoldOrder", __manifoldOrder)) ==
       1) {
@@ -195,10 +200,10 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", __eta);
   if (__adaptiveRefinement) {
     PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: on\n");
-    PetscPrintf(PETSC_COMM_WORLD,
-                "==> Adaptive refinement tolerance: "
-                "%f\n",
+    PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement tolerance:  %f\n",
                 __adaptiveRefinementTolerance);
+    PetscPrintf(PETSC_COMM_WORLD, "==> Maximum adaptive refinement level: %d\n",
+                __maxAdaptiveLevel);
   } else {
     PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: off\n");
   }

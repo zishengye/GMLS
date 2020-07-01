@@ -17,7 +17,7 @@ bool pairCompare(const std::pair<int, double> &firstElem,
 }
 
 bool GMLS_Solver::NeedRefinement() {
-  if (__adaptiveRefinement != 0 && __adaptive_step < __maxAdaptiveLevel) {
+  if (__adaptiveRefinement != 0) {
     // prepare stage
 
     PetscPrintf(PETSC_COMM_WORLD, "\nstart of adaptive refinement\n");
@@ -386,7 +386,8 @@ bool GMLS_Solver::NeedRefinement() {
         "Total error for gradient of velocity: %f, with tolerance: %f\n",
         globalError, __adaptiveRefinementTolerance);
 
-    if (globalError < __adaptiveRefinementTolerance)
+    if (globalError < __adaptiveRefinementTolerance ||
+        __adaptive_step >= __maxAdaptiveLevel)
       return false;
 
     // mark stage
