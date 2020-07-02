@@ -130,8 +130,8 @@ static int BoundingBoxSplit(vec3 &boundingBoxSize,
     particleSize[i] = boundingBoxSize[i] / boundingBoxCount[i];
   }
 
-  while (particleSize[0] > minDis)
-    particleSize *= 0.5;
+  // while (particleSize[0] > minDis)
+  //   particleSize *= 0.5;
 
   std::vector<int> _countX;
   std::vector<int> _countY;

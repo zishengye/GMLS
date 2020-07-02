@@ -45,6 +45,7 @@ void GMLS_Solver::StokesEquation() {
   static vector<vec3> &normal = __field.vector.GetHandle("normal");
   static vector<vec3> &particleSize = __field.vector.GetHandle("size");
   static vector<int> &particleNum = __field.index.GetHandle("particle number");
+  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
   static vector<int> &particleType = __field.index.GetHandle("particle type");
 
   static vector<int> &attachedRigidBodyIndex =

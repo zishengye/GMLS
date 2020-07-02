@@ -254,7 +254,7 @@ void GMLS_Solver::InitUniformParticleField() {
     }
   }
 
-  int addedLevel;
+  int addedLevel = 0;
   if (__dim == 3) {
     BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
                      __particleSize0, __domainBoundingBox, __domainCount,
@@ -1319,7 +1319,8 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
           for (int k = -1; k < 2; k += 2) {
             vec3 newPos = origin + vec3(i * xDelta, j * yDelta, k * zDelta);
             if (!insert) {
-              if (IsInRigidBody(newPos, xDelta) == -2) {
+              int idx = IsInRigidBody(newPos, xDelta);
+              if (idx == -2) {
                 coord[tag] = newPos;
                 particleSize[tag][0] /= 2.0;
                 particleSize[tag][1] /= 2.0;
@@ -1330,6 +1331,11 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
                 splitList[tag].push_back(tag);
 
                 insert = true;
+              } else if (idx > -1) {
+                _gapCoord.push_back(newPos);
+                _gapNormal.push_back(normal[tag]);
+                _gapParticleSize.push_back(particleSize[tag]);
+                _gapParticleType.push_back(particleType[tag]);
               }
             } else {
               double vol = volume[tag];
@@ -1372,6 +1378,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
         particleSize[tag][0] /= 2.0;
         particleSize[tag][1] /= 2.0;
         volume[tag] /= 4.0;
+        adaptive_level[tag] = __adaptive_step;
       } else {
         splitList[tag].clear();
 
