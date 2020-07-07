@@ -10,13 +10,16 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   __successInitialized = false;
 
   // change stdout to log file
-  freopen("nsmpi.log", "w", stdout);
 
   MPI_Barrier(MPI_COMM_WORLD);
 
   // MPI setup
   MPI_Comm_size(MPI_COMM_WORLD, &__MPISize);
   MPI_Comm_rank(MPI_COMM_WORLD, &__myID);
+
+  if (__myID == 0) {
+    freopen("nsmpi.log", "w", stdout);
+  }
 
   char processor_name[MPI_MAX_PROCESSOR_NAME];
   int name_len;
@@ -209,6 +212,8 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   }
 
   __successInitialized = true;
+
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void GMLS_Solver::Clear() { _multi.clear(); }

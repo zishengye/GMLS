@@ -329,7 +329,6 @@ void GMLS_Solver::BuildNeighborList() {
           MPI_Win_lock(MPI_LOCK_SHARED, destination, 0, __neighborWinIndex);
           MPI_Put(&__myID, 1, MPI_INT, destination, sendOffset[index], 1,
                   MPI_INT, __neighborWinIndex);
-
           MPI_Win_unlock(destination, __neighborWinIndex);
           // MPI_Win_flush(destinationIndex[index], __neighborWinIndex);
 
@@ -505,8 +504,6 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
       MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
 
       // MPI_Win_flush_all(__neighborWinParticleSwap);
-
-      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
     }
     MPI_Barrier(MPI_COMM_WORLD);
   }
@@ -559,8 +556,6 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
       MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
 
       // MPI_Win_flush_all(__neighborWinParticleSwap);
-
-      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
     }
     MPI_Barrier(MPI_COMM_WORLD);
   }
@@ -622,8 +617,6 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vector<double>> &sendData,
       MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
 
       // MPI_Win_flush_all(__neighborWinParticleSwap);
-
-      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
     }
     MPI_Barrier(MPI_COMM_WORLD);
   }
