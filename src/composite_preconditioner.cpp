@@ -423,6 +423,8 @@ PetscErrorCode HypreConstConstraintPCSetUp(PC pc, Mat *a, PetscInt block_size) {
 
   shell->block_size = block_size;
   shell->offset = block_size - 1;
+
+  return 0;
 }
 
 PetscErrorCode HypreConstConstraintPCApply(PC pc, Vec x, Vec y) {
@@ -468,6 +470,8 @@ PetscErrorCode HypreConstConstraintPCApply(PC pc, Vec x, Vec y) {
     a[shell->block_size * i + shell->offset] -= sum;
   }
   VecRestoreArray(y, &a);
+
+  return 0;
 }
 
 PetscErrorCode HypreConstConstraintPCDestroy(PC pc) {
@@ -475,4 +479,6 @@ PetscErrorCode HypreConstConstraintPCDestroy(PC pc) {
   PCShellGetContext(pc, (void **)&shell);
 
   KSPDestroy(&shell->ksp_hypre);
+
+  return 0;
 }
