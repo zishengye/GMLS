@@ -834,8 +834,6 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     KSPSetOperators(_ksp, __mat, __mat);
     KSPSetFromOptions(_ksp);
 
-    KSPSetUp(_ksp);
-
     PC _pc;
     KSPGetPC(_ksp, &_pc);
     PCSetType(_pc, PCSHELL);
@@ -848,6 +846,8 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     PCShellSetDestroy(_pc, HypreConstConstraintPCDestroy);
 
     HypreConstConstraintPCSetUp(_pc, &__mat, blockSize);
+
+    KSPSetUp(_ksp);
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
     KSPSolve(_ksp, _rhs, _x);

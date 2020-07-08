@@ -421,6 +421,8 @@ PetscErrorCode HypreConstConstraintPCSetUp(PC pc, Mat *a, PetscInt block_size) {
   PCSetFromOptions(pc_hypre);
   PCSetUp(pc_hypre);
 
+  KSPSetUp(shell->ksp_hypre);
+
   shell->block_size = block_size;
   shell->offset = block_size - 1;
 
