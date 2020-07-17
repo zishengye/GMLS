@@ -12,6 +12,10 @@ int main(int argc, char *argv[]) {
   vector<string> strings;
   SearchCommand<string>(argc, argv, "-input", inputFileName);
 
+  for (int i = 1; i < argc; i++) {
+    cstrings.push_back(argv[i]);
+  }
+
   if (!GetInputFile(inputFileName, strings, cstrings)) {
     return -1;
   }

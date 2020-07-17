@@ -17,16 +17,19 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &__MPISize);
   MPI_Comm_rank(MPI_COMM_WORLD, &__myID);
 
-  if (__myID == 0) {
-    freopen("nsmpi.log", "w", stdout);
-  }
-
   char processor_name[MPI_MAX_PROCESSOR_NAME];
   int name_len;
   MPI_Get_processor_name(processor_name, &name_len);
   // SerialOperation([processor_name, this]() {
   //   cout << "[Process " << __myID << "], on " << processor_name << endl;
   // });
+
+  string outputFileName;
+  if (SearchCommand<string>(argc, argv, "-OutputFile", outputFileName) == 0) {
+    if (__myID == 0) {
+      freopen(outputFileName.data(), "w", stdout);
+    }
+  }
 
   // default dimension is 3
   if (SearchCommand<int>(argc, argv, "-Dim", __dim) == 1) {
