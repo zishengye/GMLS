@@ -208,7 +208,7 @@ private:
   vec3 __domainBoundingBox[2];
   vec3 __boundingBoxSize;
 
-  std::vector<vec3> __domain;
+  vec3 __domain[2];
   std::vector<vec3> __boundingBox;
 
   std::vector<int> __boundingBoxBoundaryType;
