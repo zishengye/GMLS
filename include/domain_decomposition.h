@@ -56,8 +56,6 @@ static int BoundingBoxSplit(vec3 &boundingBoxSize,
                             vec3 *domainBoundingBox, triple<int> &domainCount,
                             std::vector<vec3> &domain, int nX, int nY, int nI,
                             int nJ, double minDis, int maxLevel) {
-  domain.clear();
-
   for (int i = 0; i < 2; i++) {
     particleSize[i] = boundingBoxSize[i] / boundingBoxCount[i];
   }
@@ -107,8 +105,10 @@ static int BoundingBoxSplit(vec3 &boundingBoxSize,
   double xEnd = xStart + _countX[nI] * particleSize[0];
   double yEnd = yStart + _countY[nJ] * particleSize[1];
 
-  domain.push_back(vec3(xStart, yStart, 0.0));
-  domain.push_back(vec3(xEnd, yEnd, 0.0));
+  domain[0][0] = xStart;
+  domain[0][1] = yStart;
+  domain[1][0] = xEnd;
+  domain[1][1] = yEnd;
 
   domainBoundingBox[0][0] = boundingBoxSize[0] / nX * nI + boundingBox[0][0];
   domainBoundingBox[0][1] = boundingBoxSize[1] / nY * nJ + boundingBox[0][1];
@@ -182,8 +182,12 @@ static int BoundingBoxSplit(vec3 &boundingBoxSize,
   double yEnd = yStart + _countY[nJ] * particleSize[1];
   double zEnd = zStart + _countZ[nK] * particleSize[2];
 
-  domain.push_back(vec3(xStart, yStart, zStart));
-  domain.push_back(vec3(xEnd, yEnd, zEnd));
+  domain[0][0] = xStart;
+  domain[0][1] = yStart;
+  domain[0][2] = zStart;
+  domain[1][0] = xEnd;
+  domain[1][1] = yEnd;
+  domain[1][2] = zStart;
 
   domainBoundingBox[0][0] = boundingBoxSize[0] / nX * nI + boundingBox[0][0];
   domainBoundingBox[0][1] = boundingBoxSize[1] / nY * nJ + boundingBox[0][1];
