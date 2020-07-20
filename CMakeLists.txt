@@ -27,6 +27,6 @@ link_libraries(${MPI_CXX_LIBRARIES})
 
 file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
-add_compile_options(-O3 -w -fopenmp -fPIC -march=broadwell)
+add_compile_options(-O3 -w -fopenmp -fPIC -march=broadwell -Werror)
 
 add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
