@@ -12,18 +12,17 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                                                            PetscSparseMatrix &R,
                                                            int num_rigid_body,
                                                            int dimension) {
-  static auto &coord = __field.vector.GetHandle("coord");
-  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
-  static auto &background_coord = __background.vector.GetHandle("source coord");
-  static auto &background_index = __background.index.GetHandle("source index");
-  static auto &particleType = __field.index.GetHandle("particle type");
+  auto &coord = __field.vector.GetHandle("coord");
+  auto &adaptive_level = __field.index.GetHandle("adaptive level");
+  auto &background_coord = __background.vector.GetHandle("source coord");
+  auto &background_index = __background.index.GetHandle("source index");
+  auto &particleType = __field.index.GetHandle("particle type");
 
-  static auto &old_coord = __field.vector.GetHandle("old coord");
-  static auto &old_particle_type = __field.index.GetHandle("old particle type");
-  static auto &old_background_coord =
+  auto &old_coord = __field.vector.GetHandle("old coord");
+  auto &old_particle_type = __field.index.GetHandle("old particle type");
+  auto &old_background_coord =
       __background.vector.GetHandle("old source coord");
-  static auto &old_background_index =
-      __background.index.GetHandle("old source index");
+  auto &old_background_index = __background.index.GetHandle("old source index");
 
   vector<int> recvParticleType;
   DataSwapAmongNeighbor(particleType, recvParticleType);

@@ -37,18 +37,18 @@ void GMLS_Solver::StokesEquationFinalization() {
 }
 
 void GMLS_Solver::StokesEquation() {
-  static vector<vec3> &backgroundSourceCoord =
+  vector<vec3> &backgroundSourceCoord =
       __background.vector.GetHandle("source coord");
-  static vector<int> &backgroundSourceIndex =
+  vector<int> &backgroundSourceIndex =
       __background.index.GetHandle("source index");
-  static vector<vec3> &coord = __field.vector.GetHandle("coord");
-  static vector<vec3> &normal = __field.vector.GetHandle("normal");
-  static vector<vec3> &particleSize = __field.vector.GetHandle("size");
-  static vector<int> &particleNum = __field.index.GetHandle("particle number");
-  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
-  static vector<int> &particleType = __field.index.GetHandle("particle type");
+  vector<vec3> &coord = __field.vector.GetHandle("coord");
+  vector<vec3> &normal = __field.vector.GetHandle("normal");
+  vector<vec3> &particleSize = __field.vector.GetHandle("size");
+  vector<int> &particleNum = __field.index.GetHandle("particle number");
+  auto &adaptive_level = __field.index.GetHandle("adaptive level");
+  vector<int> &particleType = __field.index.GetHandle("particle type");
 
-  static vector<int> &attachedRigidBodyIndex =
+  vector<int> &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
 
   auto all_pressure = __gmls.GetPointer("pressure basis");
@@ -84,13 +84,11 @@ void GMLS_Solver::StokesEquation() {
   GMLS &pressureNeumannBoundaryBasis = **neumann_pressure;
   GMLS &velocityBasis = **all_velocity;
 
-  static vector<vec3> &rigidBodyPosition =
-      __rigidBody.vector.GetHandle("position");
-  static vector<vec3> &rigidBodyOrientation =
+  vector<vec3> &rigidBodyPosition = __rigidBody.vector.GetHandle("position");
+  vector<vec3> &rigidBodyOrientation =
       __rigidBody.vector.GetHandle("orientation");
-  static vector<vec3> &rigidBodyVelocity =
-      __rigidBody.vector.GetHandle("velocity");
-  static vector<vec3> &rigidBodyAngularVelocity =
+  vector<vec3> &rigidBodyVelocity = __rigidBody.vector.GetHandle("velocity");
+  vector<vec3> &rigidBodyAngularVelocity =
       __rigidBody.vector.GetHandle("angular velocity");
 
   int &localParticleNum = particleNum[0];
@@ -1012,8 +1010,8 @@ void GMLS_Solver::StokesEquation() {
               tEnd - tStart);
 
   // copy data
-  static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
-  static vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
+  vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
+  vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
   pressure.resize(localParticleNum);
   velocity.resize(localParticleNum);
 
@@ -1179,12 +1177,11 @@ void GMLS_Solver::StokesEquation() {
   }
 
   if (__adaptiveRefinement) {
-    static auto &old_coord = __field.vector.GetHandle("old coord");
-    static auto &old_particle_type =
-        __field.index.GetHandle("old particle type");
-    static auto &old_background_coord =
+    auto &old_coord = __field.vector.GetHandle("old coord");
+    auto &old_particle_type = __field.index.GetHandle("old particle type");
+    auto &old_background_coord =
         __background.vector.GetHandle("old source coord");
-    static auto &old_background_index =
+    auto &old_background_index =
         __background.index.GetHandle("old source index");
     old_coord = coord;
     old_particle_type = particleType;

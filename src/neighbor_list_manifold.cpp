@@ -34,15 +34,14 @@ void GMLS_Solver::InitNeighborListManifold() {
 }
 
 void GMLS_Solver::BuildNeighborListManifold() {
-  static vector<int> &neighborFlag =
-      __neighbor.index.GetHandle("neighbor flag");
-  static vector<vec3> &backgroundSourceCoord =
+  vector<int> &neighborFlag = __neighbor.index.GetHandle("neighbor flag");
+  vector<vec3> &backgroundSourceCoord =
       __background.vector.GetHandle("source coord");
-  static vector<int> &backgroundSourceIndex =
+  vector<int> &backgroundSourceIndex =
       __background.index.GetHandle("source index");
-  static vector<vec3> &coord = __field.vector.GetHandle("coord");
-  static vector<int> &globalIndex = __field.index.GetHandle("global index");
-  static vector<int> &particleNum = __field.index.GetHandle("particle number");
+  vector<vec3> &coord = __field.vector.GetHandle("coord");
+  vector<int> &globalIndex = __field.index.GetHandle("global index");
+  vector<int> &particleNum = __field.index.GetHandle("particle number");
 
   PetscPrintf(PETSC_COMM_WORLD, "\nBuilding neighbor list...\n");
   // set up neighbor list for communication

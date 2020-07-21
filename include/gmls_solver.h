@@ -128,18 +128,16 @@ private:
                             double vol, bool rigidBodyParticle = false,
                             int rigidBodyIndex = -1,
                             vec3 pCoord = vec3(0.0, 0.0, 0.0)) {
-    static std::vector<vec3> &_coord = __field.vector.GetHandle("coord");
-    static std::vector<vec3> &_normal = __field.vector.GetHandle("normal");
-    static std::vector<vec3> &_particleSize = __field.vector.GetHandle("size");
-    static std::vector<vec3> &_pCoord =
+    std::vector<vec3> &_coord = __field.vector.GetHandle("coord");
+    std::vector<vec3> &_normal = __field.vector.GetHandle("normal");
+    std::vector<vec3> &_particleSize = __field.vector.GetHandle("size");
+    std::vector<vec3> &_pCoord =
         __field.vector.GetHandle("parameter coordinate");
-    static auto &_volume = __field.scalar.GetHandle("volume");
-    static std::vector<int> &_globalIndex =
-        __field.index.GetHandle("global index");
-    static auto &_adaptive_level = __field.index.GetHandle("adaptive level");
-    static std::vector<int> &_particleType =
-        __field.index.GetHandle("particle type");
-    static std::vector<int> &_attachedRigidBodyIndex =
+    auto &_volume = __field.scalar.GetHandle("volume");
+    std::vector<int> &_globalIndex = __field.index.GetHandle("global index");
+    auto &_adaptive_level = __field.index.GetHandle("adaptive level");
+    std::vector<int> &_particleType = __field.index.GetHandle("particle type");
+    std::vector<int> &_attachedRigidBodyIndex =
         __field.index.GetHandle("attached rigid body index");
 
     _coord.push_back(X);
@@ -158,22 +156,22 @@ private:
                      double vol, bool rigidBodyParticle = false,
                      int rigidBodyIndex = -1,
                      vec3 pCoord = vec3(0.0, 0.0, 0.0)) {
-    static auto &_coord = __field.vector.GetHandle("coord");
-    static auto &_normal = __field.vector.GetHandle("normal");
-    static auto &_particleSize = __field.vector.GetHandle("size");
-    static auto &_pCoord = __field.vector.GetHandle("parameter coordinate");
-    static auto &_volume = __field.scalar.GetHandle("volume");
-    static auto &_globalIndex = __field.index.GetHandle("global index");
-    static auto &_adaptive_level = __field.index.GetHandle("adaptive level");
-    static auto &_particleType = __field.index.GetHandle("particle type");
-    static auto &_attachedRigidBodyIndex =
+    auto &_coord = __field.vector.GetHandle("coord");
+    auto &_normal = __field.vector.GetHandle("normal");
+    auto &_particleSize = __field.vector.GetHandle("size");
+    auto &_pCoord = __field.vector.GetHandle("parameter coordinate");
+    auto &_volume = __field.scalar.GetHandle("volume");
+    auto &_globalIndex = __field.index.GetHandle("global index");
+    auto &_adaptive_level = __field.index.GetHandle("adaptive level");
+    auto &_particleType = __field.index.GetHandle("particle type");
+    auto &_attachedRigidBodyIndex =
         __field.index.GetHandle("attached rigid body index");
 
-    static auto &_gapCoord = __gap.vector.GetHandle("coord");
-    static auto &_gapNormal = __gap.vector.GetHandle("normal");
-    static auto &_gapParticleSize = __gap.vector.GetHandle("size");
-    static auto &_gapParticleType = __gap.index.GetHandle("particle type");
-    static auto &_gap_particle_adaptive_level =
+    auto &_gapCoord = __gap.vector.GetHandle("coord");
+    auto &_gapNormal = __gap.vector.GetHandle("normal");
+    auto &_gapParticleSize = __gap.vector.GetHandle("size");
+    auto &_gapParticleType = __gap.index.GetHandle("particle type");
+    auto &_gap_particle_adaptive_level =
         __gap.index.GetHandle("adaptive level");
 
     int idx = IsInRigidBody(X, particleSize[0]);
@@ -261,7 +259,7 @@ private:
 
   template <typename Cond>
   bool PutParticleInNeighborList(int neighborBlockNum, Cond cond) {
-    static std::vector<int> &neighborFlag =
+    std::vector<int> &neighborFlag =
         __neighbor.index.GetHandle("neighbor flag");
     return neighborFlag[neighborBlockNum] && cond();
   }

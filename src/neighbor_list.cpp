@@ -85,15 +85,14 @@ void GMLS_Solver::InitNeighborList() {
 }
 
 void GMLS_Solver::BuildNeighborList() {
-  static vector<int> &neighborFlag =
-      __neighbor.index.GetHandle("neighbor flag");
-  static vector<vec3> &backgroundSourceCoord =
+  vector<int> &neighborFlag = __neighbor.index.GetHandle("neighbor flag");
+  vector<vec3> &backgroundSourceCoord =
       __background.vector.GetHandle("source coord");
-  static vector<int> &backgroundSourceIndex =
+  vector<int> &backgroundSourceIndex =
       __background.index.GetHandle("source index");
-  static vector<vec3> &coord = __field.vector.GetHandle("coord");
-  static vector<int> &globalIndex = __field.index.GetHandle("global index");
-  static vector<int> &particleNum = __field.index.GetHandle("particle number");
+  vector<vec3> &coord = __field.vector.GetHandle("coord");
+  vector<int> &globalIndex = __field.index.GetHandle("global index");
+  vector<int> &particleNum = __field.index.GetHandle("particle number");
 
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nBuilding neighbor list...\n");
@@ -302,12 +301,11 @@ void GMLS_Solver::BuildNeighborList() {
     }
   }
 
-  static vector<int> &neighborCount =
-      __neighbor.index.GetHandle("neighbor count");
-  static vector<int> &destinationIndex =
+  vector<int> &neighborCount = __neighbor.index.GetHandle("neighbor count");
+  vector<int> &destinationIndex =
       __neighbor.index.GetHandle("destination index");
-  static vector<int> &sendOffset = __neighbor.index.GetHandle("send offset");
-  static vector<int> &sendCount = __neighbor.index.GetHandle("send count");
+  vector<int> &sendOffset = __neighbor.index.GetHandle("send offset");
+  vector<int> &sendCount = __neighbor.index.GetHandle("send count");
 
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -381,7 +379,7 @@ void GMLS_Solver::BuildNeighborList() {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  static vector<int> &offset = __neighbor.index.GetHandle("offset");
+  vector<int> &offset = __neighbor.index.GetHandle("offset");
 
   for (int i = 0; i < neighborNum; i++) {
     offset[i + 1] = offset[i] + neighborCount[i];
@@ -420,11 +418,10 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<int> &sendData,
                                         vector<int> &recvData) {
   MPI_Barrier(MPI_COMM_WORLD);
 
-  static vector<int> &neighborFlag =
-      __neighbor.index.GetHandle("neighbor flag");
+  vector<int> &neighborFlag = __neighbor.index.GetHandle("neighbor flag");
 
-  static vector<int> &offset = __neighbor.index.GetHandle("offset");
-  static const int neighborNum = pow(3, __dim);
+  vector<int> &offset = __neighbor.index.GetHandle("offset");
+  const int neighborNum = pow(3, __dim);
   int totalNeighborParticleNum = offset[neighborNum];
 
   recvData.resize(totalNeighborParticleNum);
@@ -468,11 +465,10 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
                                         vector<double> &recvData) {
   MPI_Barrier(MPI_COMM_WORLD);
 
-  static vector<int> &neighborFlag =
-      __neighbor.index.GetHandle("neighbor flag");
+  vector<int> &neighborFlag = __neighbor.index.GetHandle("neighbor flag");
 
-  static vector<int> &offset = __neighbor.index.GetHandle("offset");
-  static const int neighborNum = pow(3, __dim);
+  vector<int> &offset = __neighbor.index.GetHandle("offset");
+  const int neighborNum = pow(3, __dim);
   int totalNeighborParticleNum = offset[neighborNum];
 
   recvData.resize(totalNeighborParticleNum);
@@ -517,11 +513,10 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
                                         vector<vec3> &recvData) {
   MPI_Barrier(MPI_COMM_WORLD);
 
-  static vector<int> &neighborFlag =
-      __neighbor.index.GetHandle("neighbor flag");
+  vector<int> &neighborFlag = __neighbor.index.GetHandle("neighbor flag");
 
-  static vector<int> &offset = __neighbor.index.GetHandle("offset");
-  static const int neighborNum = pow(3, __dim);
+  vector<int> &offset = __neighbor.index.GetHandle("offset");
+  const int neighborNum = pow(3, __dim);
   int totalNeighborParticleNum = offset[neighborNum];
 
   vector<double> tempRecvData(totalNeighborParticleNum * 3);
@@ -577,11 +572,10 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vector<double>> &sendData,
                                         const int unitLength = 1) {
   MPI_Barrier(MPI_COMM_WORLD);
 
-  static vector<int> &neighborFlag =
-      __neighbor.index.GetHandle("neighbor flag");
+  vector<int> &neighborFlag = __neighbor.index.GetHandle("neighbor flag");
 
-  static vector<int> &offset = __neighbor.index.GetHandle("offset");
-  static const int neighborNum = pow(3, __dim);
+  vector<int> &offset = __neighbor.index.GetHandle("offset");
+  const int neighborNum = pow(3, __dim);
   int totalNeighborParticleNum = offset[neighborNum];
 
   vector<double> tempRecvData(totalNeighborParticleNum * unitLength);

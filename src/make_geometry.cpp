@@ -198,27 +198,27 @@ void GMLS_Solver::InitParticle() {
 }
 
 void GMLS_Solver::ClearParticle() {
-  static auto &backgroundCoord = __background.vector.GetHandle("coord");
-  static auto &sourceCoord = __background.vector.GetHandle("source coord");
-  static auto &backgroundIndex = __background.index.GetHandle("index");
-  static auto &sourceIndex = __background.index.GetHandle("source index");
+  auto &backgroundCoord = __background.vector.GetHandle("coord");
+  auto &sourceCoord = __background.vector.GetHandle("source coord");
+  auto &backgroundIndex = __background.index.GetHandle("index");
+  auto &sourceIndex = __background.index.GetHandle("source index");
 
-  static auto &coord = __field.vector.GetHandle("coord");
-  static auto &normal = __field.vector.GetHandle("normal");
-  static auto &size = __field.vector.GetHandle("size");
-  static auto &pCoord = __field.vector.GetHandle("parameter coordinate");
-  static auto &volume = __field.scalar.GetHandle("volume");
-  static auto &particleType = __field.index.GetHandle("particle type");
-  static auto &globalIndex = __field.index.GetHandle("global index");
-  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
-  static auto &attachedRigidBodyIndex =
+  auto &coord = __field.vector.GetHandle("coord");
+  auto &normal = __field.vector.GetHandle("normal");
+  auto &size = __field.vector.GetHandle("size");
+  auto &pCoord = __field.vector.GetHandle("parameter coordinate");
+  auto &volume = __field.scalar.GetHandle("volume");
+  auto &particleType = __field.index.GetHandle("particle type");
+  auto &globalIndex = __field.index.GetHandle("global index");
+  auto &adaptive_level = __field.index.GetHandle("adaptive level");
+  auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
-  static auto &particleNum = __field.index.GetHandle("particle number");
+  auto &particleNum = __field.index.GetHandle("particle number");
 
-  static auto &gapCoord = __gap.vector.GetHandle("coord");
-  static auto &gapNormal = __gap.vector.GetHandle("normal");
-  static auto &gapParticleSize = __gap.vector.GetHandle("size");
-  static auto &gapParticleType = __gap.index.GetHandle("particle type");
+  auto &gapCoord = __gap.vector.GetHandle("coord");
+  auto &gapNormal = __gap.vector.GetHandle("normal");
+  auto &gapParticleSize = __gap.vector.GetHandle("size");
+  auto &gapParticleType = __gap.index.GetHandle("particle type");
 
   backgroundCoord.clear();
   sourceCoord.clear();
@@ -243,12 +243,11 @@ void GMLS_Solver::ClearParticle() {
 }
 
 void GMLS_Solver::InitUniformParticleField() {
-  static vector<vec3> &coord = __field.vector.GetHandle("coord");
+  vector<vec3> &coord = __field.vector.GetHandle("coord");
 
   // adaptively adjust uniform particle distribution
-  static vector<vec3> &rigidBodyPosition =
-      __rigidBody.vector.GetHandle("position");
-  static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
+  vector<vec3> &rigidBodyPosition = __rigidBody.vector.GetHandle("position");
+  vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
 
   // ensure enough particles between boundaries
   const int rigid_body_num = rigidBodyPosition.size();
@@ -443,15 +442,15 @@ void GMLS_Solver::InitUniformParticleField() {
 }
 
 void GMLS_Solver::ParticleIndex() {
-  static auto &coord = __field.vector.GetHandle("coord");
-  static auto &normal = __field.vector.GetHandle("normal");
-  static auto &particleSize = __field.vector.GetHandle("size");
-  static auto &pCoord = __field.vector.GetHandle("parameter coordinate");
-  static auto &volume = __field.scalar.GetHandle("volume");
-  static auto &globalIndex = __field.index.GetHandle("global index");
-  static auto &particleType = __field.index.GetHandle("particle type");
-  static vector<int> &particleNum = __field.index.GetHandle("particle number");
-  static auto &attachedRigidBodyIndex =
+  auto &coord = __field.vector.GetHandle("coord");
+  auto &normal = __field.vector.GetHandle("normal");
+  auto &particleSize = __field.vector.GetHandle("size");
+  auto &pCoord = __field.vector.GetHandle("parameter coordinate");
+  auto &volume = __field.scalar.GetHandle("volume");
+  auto &globalIndex = __field.index.GetHandle("global index");
+  auto &particleType = __field.index.GetHandle("particle type");
+  vector<int> &particleNum = __field.index.GetHandle("particle number");
+  auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
 
   particleNum.resize(2 + __MPISize);
@@ -865,7 +864,7 @@ void GMLS_Solver::InitFieldParticle() {
 }
 
 void GMLS_Solver::InitFieldBoundaryParticle() {
-  static vector<vec3> &coord = __field.vector.GetHandle("coord");
+  vector<vec3> &coord = __field.vector.GetHandle("coord");
 
   double xPos, yPos, zPos;
   vec3 normal;
@@ -1275,9 +1274,9 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   // split gap particle
   auto &gapCoord = __gap.vector.GetHandle("coord");
 
-  static vector<vec3> &backgroundSourceCoord =
+  vector<vec3> &backgroundSourceCoord =
       __background.vector.GetHandle("source coord");
-  static vector<int> &backgroundSourceIndex =
+  vector<int> &backgroundSourceIndex =
       __background.index.GetHandle("source index");
 
   int numSourceCoords = backgroundSourceCoord.size();
@@ -1327,7 +1326,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
 
   Kokkos::deep_copy(neighborListsDevice, neighborLists);
 
-  static vector<int> &particleNum = __field.index.GetHandle("particle number");
+  vector<int> &particleNum = __field.index.GetHandle("particle number");
   int &localParticleNum = particleNum[0];
 
   fieldParticleSplitTag.resize(localParticleNum);
@@ -1408,20 +1407,20 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
 }
 
 void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
-  static auto &coord = __field.vector.GetHandle("coord");
-  static auto &normal = __field.vector.GetHandle("normal");
-  static auto &particleSize = __field.vector.GetHandle("size");
-  static auto &globalIndex = __field.index.GetHandle("global index");
-  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
-  static auto &particleType = __field.index.GetHandle("particle type");
-  static auto &attachedRigidBodyIndex =
+  auto &coord = __field.vector.GetHandle("coord");
+  auto &normal = __field.vector.GetHandle("normal");
+  auto &particleSize = __field.vector.GetHandle("size");
+  auto &globalIndex = __field.index.GetHandle("global index");
+  auto &adaptive_level = __field.index.GetHandle("adaptive level");
+  auto &particleType = __field.index.GetHandle("particle type");
+  auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
-  static auto &volume = __field.scalar.GetHandle("volume");
+  auto &volume = __field.scalar.GetHandle("volume");
 
-  static auto &_gapCoord = __gap.vector.GetHandle("coord");
-  static auto &_gapNormal = __gap.vector.GetHandle("normal");
-  static auto &_gapParticleSize = __gap.vector.GetHandle("size");
-  static auto &_gapParticleType = __gap.index.GetHandle("particle type");
+  auto &_gapCoord = __gap.vector.GetHandle("coord");
+  auto &_gapNormal = __gap.vector.GetHandle("normal");
+  auto &_gapParticleSize = __gap.vector.GetHandle("size");
+  auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
   int localIndex = coord.size();
 
@@ -1517,16 +1516,16 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
 }
 
 void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
-  static auto &coord = __field.vector.GetHandle("coord");
-  static auto &normal = __field.vector.GetHandle("normal");
-  static auto &particleSize = __field.vector.GetHandle("size");
-  static auto &pCoord = __field.vector.GetHandle("parameter coordinate");
-  static auto &globalIndex = __field.index.GetHandle("global index");
-  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
-  static auto &particleType = __field.index.GetHandle("particle type");
-  static auto &attachedRigidBodyIndex =
+  auto &coord = __field.vector.GetHandle("coord");
+  auto &normal = __field.vector.GetHandle("normal");
+  auto &particleSize = __field.vector.GetHandle("size");
+  auto &pCoord = __field.vector.GetHandle("parameter coordinate");
+  auto &globalIndex = __field.index.GetHandle("global index");
+  auto &adaptive_level = __field.index.GetHandle("adaptive level");
+  auto &particleType = __field.index.GetHandle("particle type");
+  auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
-  static auto &volume = __field.scalar.GetHandle("volume");
+  auto &volume = __field.scalar.GetHandle("volume");
 
   int localIndex = coord.size();
 
@@ -1579,17 +1578,16 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
 }
 
 void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
-  static auto &coord = __field.vector.GetHandle("coord");
+  auto &coord = __field.vector.GetHandle("coord");
 
   int localIndex = coord.size();
 
   // gap particles
-  static auto &_gapCoord = __gap.vector.GetHandle("coord");
-  static auto &_gapNormal = __gap.vector.GetHandle("normal");
-  static auto &_gapParticleSize = __gap.vector.GetHandle("size");
-  static auto &_gapParticleType = __gap.index.GetHandle("particle type");
-  static auto &_gap_particle_adaptive_level =
-      __gap.index.GetHandle("adaptive level");
+  auto &_gapCoord = __gap.vector.GetHandle("coord");
+  auto &_gapNormal = __gap.vector.GetHandle("normal");
+  auto &_gapParticleSize = __gap.vector.GetHandle("size");
+  auto &_gapParticleType = __gap.index.GetHandle("particle type");
+  auto &_gap_particle_adaptive_level = __gap.index.GetHandle("adaptive level");
 
   auto oldGapCoord = move(_gapCoord);
   auto oldGapNormal = move(_gapNormal);

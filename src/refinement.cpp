@@ -22,21 +22,19 @@ bool GMLS_Solver::NeedRefinement() {
 
     PetscPrintf(PETSC_COMM_WORLD, "\nstart of adaptive refinement\n");
 
-    static vector<int> &particleNum =
-        __field.index.GetHandle("particle number");
+    vector<int> &particleNum = __field.index.GetHandle("particle number");
     int &localParticleNum = particleNum[0];
     int &globalParticleNum = particleNum[1];
 
     GMLS &pressureBasis = *__gmls.GetHandle("pressure basis");
     GMLS &velocityBasis = *__gmls.GetHandle("velocity basis");
 
-    static auto &backgroundSourceCoord =
-        __background.vector.GetHandle("source coord");
-    static auto &coord = __field.vector.GetHandle("coord");
+    auto &backgroundSourceCoord = __background.vector.GetHandle("source coord");
+    auto &coord = __field.vector.GetHandle("coord");
 
-    static auto &volume = __field.scalar.GetHandle("volume");
+    auto &volume = __field.scalar.GetHandle("volume");
 
-    static vector<int> &offset = __neighbor.index.GetHandle("offset");
+    vector<int> &offset = __neighbor.index.GetHandle("offset");
     int neighborNum = pow(3, __dim);
     int totalNeighborParticleNum = offset[neighborNum];
 
@@ -91,8 +89,7 @@ bool GMLS_Solver::NeedRefinement() {
       auto neighborLists = velocityBasis.getNeighborLists();
 
       // communicate velocity field
-      static vector<vec3> &velocity =
-          __field.vector.GetHandle("fluid velocity");
+      vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
       vector<vec3> recvVelocity;
       DataSwapAmongNeighbor(velocity, recvVelocity);
       vector<vec3> backgroundVelocity;

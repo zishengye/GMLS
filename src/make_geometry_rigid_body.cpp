@@ -64,12 +64,11 @@ void GMLS_Solver::InitRigidBody() {
 }
 
 int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h) {
-  static vector<vec3> &rigidBodyCoord =
-      __rigidBody.vector.GetHandle("position");
-  static vector<vec3> &rigidBodyOrientation =
+  vector<vec3> &rigidBodyCoord = __rigidBody.vector.GetHandle("position");
+  vector<vec3> &rigidBodyOrientation =
       __rigidBody.vector.GetHandle("orientation");
-  static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
-  static auto &rigidBodyType = __rigidBody.index.GetHandle("type");
+  vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
+  auto &rigidBodyType = __rigidBody.index.GetHandle("type");
 
   for (size_t i = 0; i < rigidBodyCoord.size(); i++) {
     switch (rigidBodyType[i]) {
@@ -120,13 +119,12 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h) {
 }
 
 void GMLS_Solver::InitRigidBodySurfaceParticle() {
-  static vector<vec3> &rigidBodyCoord =
-      __rigidBody.vector.GetHandle("position");
-  static vector<vec3> &rigidBodyOrientation =
+  vector<vec3> &rigidBodyCoord = __rigidBody.vector.GetHandle("position");
+  vector<vec3> &rigidBodyOrientation =
       __rigidBody.vector.GetHandle("orientation");
-  static vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
-  static auto &rigidBodyType = __rigidBody.index.GetHandle("type");
-  static vector<vec3> &fluidCoord = __field.vector.GetHandle("coord");
+  vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
+  auto &rigidBodyType = __rigidBody.index.GetHandle("type");
+  vector<vec3> &fluidCoord = __field.vector.GetHandle("coord");
 
   int localIndex = fluidCoord.size();
   if (__dim == 3) {
@@ -329,20 +327,20 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
 }
 
 void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
-  static auto &coord = __field.vector.GetHandle("coord");
-  static auto &normal = __field.vector.GetHandle("normal");
-  static auto &particleSize = __field.vector.GetHandle("size");
-  static auto &pCoord = __field.vector.GetHandle("parameter coordinate");
-  static auto &globalIndex = __field.index.GetHandle("global index");
-  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
-  static auto &particleType = __field.index.GetHandle("particle type");
-  static auto &attachedRigidBodyIndex =
+  auto &coord = __field.vector.GetHandle("coord");
+  auto &normal = __field.vector.GetHandle("normal");
+  auto &particleSize = __field.vector.GetHandle("size");
+  auto &pCoord = __field.vector.GetHandle("parameter coordinate");
+  auto &globalIndex = __field.index.GetHandle("global index");
+  auto &adaptive_level = __field.index.GetHandle("adaptive level");
+  auto &particleType = __field.index.GetHandle("particle type");
+  auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
-  static auto &volume = __field.scalar.GetHandle("volume");
+  auto &volume = __field.scalar.GetHandle("volume");
 
-  static auto &rigidBodyCoord = __rigidBody.vector.GetHandle("position");
-  static auto &rigidBodySize = __rigidBody.scalar.GetHandle("size");
-  static auto &rigidBodyType = __rigidBody.index.GetHandle("type");
+  auto &rigidBodyCoord = __rigidBody.vector.GetHandle("position");
+  auto &rigidBodySize = __rigidBody.scalar.GetHandle("size");
+  auto &rigidBodyType = __rigidBody.index.GetHandle("type");
 
   int localIndex = coord.size();
 

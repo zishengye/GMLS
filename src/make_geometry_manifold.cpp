@@ -73,18 +73,13 @@ void GMLS_Solver::InitDomainDecompositionManifold() {
 }
 
 void GMLS_Solver::InitUniformParticleManifoldField() {
-  static vector<vec3> &coord = __field.vector.GetHandle("coord");
-  static vector<int> &globalIndex = __field.index.GetHandle("global index");
-  static vector<int> &particleNum = __field.index.GetHandle("particle number");
+  vector<vec3> &coord = __field.vector.GetHandle("coord");
+  vector<int> &globalIndex = __field.index.GetHandle("global index");
+  vector<int> &particleNum = __field.index.GetHandle("particle number");
   ClearParticle();
 
   InitFieldParticleManifold();
   InitFieldBoundaryParticleManifold();
-
-  SerialOperation([this]() {
-    cout << "[Proc " << this->__myID << "]: generated " << coord.size()
-         << " particles." << endl;
-  });
 
   particleNum.resize(2 + __MPISize);
 
@@ -151,8 +146,8 @@ void GMLS_Solver::InitFieldParticleManifold() {
 }
 
 void GMLS_Solver::InitFieldBoundaryParticleManifold() {
-  static vector<vec3> &coord = __field.vector.GetHandle("coord");
-  static vector<vec3> &chartCoord = __field.vector.GetHandle("chart coord");
+  vector<vec3> &coord = __field.vector.GetHandle("coord");
+  vector<vec3> &chartCoord = __field.vector.GetHandle("chart coord");
 
   double xPos, yPos;
   vec3 normal;

@@ -5,10 +5,10 @@ using namespace std;
 void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
     PetscSparseMatrix &I, vector<double> &initial_guess) {
   // set initial guess for field values
-  static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
-  static vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
+  vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
+  vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
 
-  static auto &coord = __field.vector.GetHandle("coord");
+  auto &coord = __field.vector.GetHandle("coord");
 
   vector<double> previous_result;
 
@@ -20,9 +20,9 @@ void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
   int new_local_particle_num = coord.size();
 
   if (__myID == __MPISize - 1) {
-    static vector<vec3> &rigid_body_velocity =
+    vector<vec3> &rigid_body_velocity =
         __rigidBody.vector.GetHandle("velocity");
-    static vector<vec3> &rigid_body_angular_velocity =
+    vector<vec3> &rigid_body_angular_velocity =
         __rigidBody.vector.GetHandle("angular velocity");
 
     int local_rigid_body_offset = old_local_particle_num * field_dof;
