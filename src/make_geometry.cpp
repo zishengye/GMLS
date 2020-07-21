@@ -1,4 +1,3 @@
-#include "domain_decomposition.h"
 #include "gmls_solver.h"
 
 #include <iostream>
@@ -127,9 +126,40 @@ void GMLS_Solver::SetDomainBoundary() {
 
 void GMLS_Solver::InitDomainDecomposition() {
   if (__dim == 3) {
-    ProcessSplit(__nX, __nY, __nZ, __nI, __nJ, __nK, __MPISize, __myID);
+    __nX = cbrt(__MPISize);
+    bool splitFound = false;
+    while (__nX > 0 && splitFound == false) {
+      __nY = __nX;
+      while (__nY > 0 && splitFound == false) {
+        __nZ = __MPISize / (__nX * __nY);
+        if (__MPISize == (__nX * __nY * __nZ)) {
+          splitFound = true;
+          break;
+        } else {
+          __nY--;
+        }
+      }
+      if (splitFound == false) {
+        __nX--;
+      }
+    }
+
+    __nI = (__myID % (__nX * __nY)) % __nX;
+    __nJ = (__myID % (__nX * __nY)) / __nX;
+    __nK = __myID / (__nX * __nY);
   } else if (__dim == 2) {
-    ProcessSplit(__nX, __nY, __nI, __nJ, __MPISize, __myID);
+    __nX = sqrt(__MPISize);
+    while (__nX > 0) {
+      __nY = __MPISize / __nX;
+      if (__MPISize == __nX * __nY) {
+        break;
+      } else {
+        __nX--;
+      }
+    }
+
+    __nI = __myID % __nX;
+    __nJ = __myID / __nX;
   }
 
   InitNeighborList();
@@ -260,18 +290,146 @@ void GMLS_Solver::InitUniformParticleField() {
   __domainBoundingBox.resize(2);
 
   if (__dim == 3) {
-    BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
-                     __particleSize0, __domainBoundingBox, __domainCount,
-                     __domain, __nX, __nY, __nZ, __nI, __nJ, __nK,
-                     0.25 * minDistance);
-  } else if (__dim == 2) {
-    addedLevel = BoundingBoxSplit(
-        __boundingBoxSize, __boundingBoxCount, __boundingBox, __particleSize0,
-        __domainBoundingBox, __domainCount, __domain, __nX, __nY, __nI, __nJ,
-        0.25 * minDistance, __maxAdaptiveLevel);
-  }
+    for (int i = 0; i < 3; i++) {
+      __particleSize0[i] = __boundingBoxSize[i] / __boundingBoxCount[i];
+    }
 
-  __maxAdaptiveLevel = 4 - addedLevel;
+    // while (particleSize[0] > minDis)
+    //   particleSize *= 0.5;
+
+    std::vector<int> _countX;
+    std::vector<int> _countY;
+    std::vector<int> _countZ;
+
+    for (int i = 0; i < __nX; i++) {
+      if (__boundingBoxCount[0] % __nX > i) {
+        _countX.push_back(__boundingBoxCount[0] / __nX + 1);
+      } else {
+        _countX.push_back(__boundingBoxCount[0] / __nX);
+      }
+    }
+
+    for (int i = 0; i < __nY; i++) {
+      if (__boundingBoxCount[1] % __nY > i) {
+        _countY.push_back(__boundingBoxCount[1] / __nY + 1);
+      } else {
+        _countY.push_back(__boundingBoxCount[1] / __nY);
+      }
+    }
+
+    for (int i = 0; i < __nZ; i++) {
+      if (__boundingBoxCount[2] % __nZ > i) {
+        _countZ.push_back(__boundingBoxCount[2] / __nZ + 1);
+      } else {
+        _countZ.push_back(__boundingBoxCount[2] / __nZ);
+      }
+    }
+
+    __domainCount[0] = _countX[__nI];
+    __domainCount[1] = _countY[__nJ];
+    __domainCount[2] = _countZ[__nK];
+
+    double xStart = __boundingBox[0][0];
+    double yStart = __boundingBox[0][1];
+    double zStart = __boundingBox[0][2];
+    for (int i = 0; i < __nI; i++) {
+      xStart += _countX[i] * __particleSize0[0];
+    }
+    for (int i = 0; i < __nJ; i++) {
+      yStart += _countY[i] * __particleSize0[1];
+    }
+    for (int i = 0; i < __nK; i++) {
+      zStart += _countZ[i] * __particleSize0[2];
+    }
+
+    double xEnd = xStart + _countX[__nI] * __particleSize0[0];
+    double yEnd = yStart + _countY[__nJ] * __particleSize0[1];
+    double zEnd = zStart + _countZ[__nK] * __particleSize0[2];
+
+    __domain[0][0] = xStart;
+    __domain[0][1] = yStart;
+    __domain[0][2] = zStart;
+    __domain[1][0] = xEnd;
+    __domain[1][1] = yEnd;
+    __domain[1][2] = zStart;
+
+    __domainBoundingBox[0][0] =
+        __boundingBoxSize[0] / __nX * __nI + __boundingBox[0][0];
+    __domainBoundingBox[0][1] =
+        __boundingBoxSize[1] / __nY * __nJ + __boundingBox[0][1];
+    __domainBoundingBox[0][2] =
+        __boundingBoxSize[2] / __nZ * __nK + __boundingBox[0][2];
+    __domainBoundingBox[1][0] =
+        __boundingBoxSize[0] / __nX * (__nI + 1) + __boundingBox[0][0];
+    __domainBoundingBox[1][1] =
+        __boundingBoxSize[1] / __nY * (__nJ + 1) + __boundingBox[0][1];
+    __domainBoundingBox[1][2] =
+        __boundingBoxSize[2] / __nZ * (__nK + 1) + __boundingBox[0][2];
+  } else if (__dim == 2) {
+    for (int i = 0; i < 2; i++) {
+      __particleSize0[i] = __boundingBoxSize[i] / __boundingBoxCount[i];
+    }
+
+    int countMultiplier = 1;
+    int addedLevel = 0;
+    while (__particleSize0[0] > minDistance &&
+           addedLevel < __maxAdaptiveLevel) {
+      __particleSize0 *= 0.5;
+      countMultiplier *= 2;
+      addedLevel++;
+    }
+
+    std::vector<int> _countX;
+    std::vector<int> _countY;
+
+    auto actualBoundingBoxCount = __boundingBoxCount;
+    actualBoundingBoxCount *= countMultiplier;
+
+    for (int i = 0; i < __nX; i++) {
+      if (actualBoundingBoxCount[0] % __nX > i) {
+        _countX.push_back(actualBoundingBoxCount[0] / __nX + 1);
+      } else {
+        _countX.push_back(actualBoundingBoxCount[0] / __nX);
+      }
+    }
+
+    for (int i = 0; i < __nY; i++) {
+      if (actualBoundingBoxCount[1] % __nY > i) {
+        _countY.push_back(actualBoundingBoxCount[1] / __nY + 1);
+      } else {
+        _countY.push_back(actualBoundingBoxCount[1] / __nY);
+      }
+    }
+
+    __domainCount[0] = _countX[__nI];
+    __domainCount[1] = _countY[__nJ];
+
+    double xStart = __boundingBox[0][0];
+    double yStart = __boundingBox[0][1];
+    for (int i = 0; i < __nI; i++) {
+      xStart += _countX[i] * __particleSize0[0];
+    }
+    for (int i = 0; i < __nJ; i++) {
+      yStart += _countY[i] * __particleSize0[1];
+    }
+
+    double xEnd = xStart + _countX[__nI] * __particleSize0[0];
+    double yEnd = yStart + _countY[__nJ] * __particleSize0[1];
+
+    __domain[0][0] = xStart;
+    __domain[0][1] = yStart;
+    __domain[1][0] = xEnd;
+    __domain[1][1] = yEnd;
+
+    __domainBoundingBox[0][0] =
+        __boundingBoxSize[0] / __nX * __nI + __boundingBox[0][0];
+    __domainBoundingBox[0][1] =
+        __boundingBoxSize[1] / __nY * __nJ + __boundingBox[0][1];
+    __domainBoundingBox[1][0] =
+        __boundingBoxSize[0] / __nX * (__nI + 1) + __boundingBox[0][0];
+    __domainBoundingBox[1][1] =
+        __boundingBoxSize[1] / __nY * (__nJ + 1) + __boundingBox[0][1];
+  }
 
   SetDomainBoundary();
 
