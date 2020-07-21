@@ -67,11 +67,6 @@ void GMLS_Solver::SetDomainBoundaryManifold() {
 }
 
 void GMLS_Solver::InitDomainDecompositionManifold() {
-  ProcessSplit(__nX, __nY, __nI, __nJ, __MPISize, __myID);
-  // BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
-  //                  __particleSize0, __domainBoundingBox, __domainCount,
-  //                  __domain, __nX, __nY, __nI, __nJ, 0.5);
-
   SetDomainBoundaryManifold();
 
   InitNeighborListManifold();
