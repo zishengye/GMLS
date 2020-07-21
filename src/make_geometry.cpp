@@ -256,6 +256,9 @@ void GMLS_Solver::InitUniformParticleField() {
 
   int addedLevel = 0;
 
+  __domain.resize(2);
+  __domainBoundingBox.resize(2);
+
   if (__dim == 3) {
     BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
                      __particleSize0, __domainBoundingBox, __domainCount,

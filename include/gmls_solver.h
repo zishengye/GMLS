@@ -206,11 +206,11 @@ private:
   triple<int> __domainCount;
   triple<int> __boundingBoxCount;
 
-  vec3 __domainBoundingBox[2];
   vec3 __boundingBoxSize;
 
-  vec3 __domain[2];
+  std::vector<vec3> __domain;
   std::vector<vec3> __boundingBox;
+  std::vector<vec3> __domainBoundingBox;
 
   std::vector<int> __boundingBoxBoundaryType;
   std::vector<int> __domainBoundaryType;
