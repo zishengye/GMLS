@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _GMLS_SOLVER_H_
+#define _GMLS_SOLVER_H_
 
 #include <cstdio>
 #include <cstdlib>
@@ -366,3 +367,5 @@ public:
 
   bool IsSuccessInit() { return __successInitialized; }
 };
+
+#endif

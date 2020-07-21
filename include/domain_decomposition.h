@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _DOMAIN_DECOMPOSITION_H_
+#define _DOMAIN_DECOMPOSITION_H_
 
 #include <cmath>
 #include <iostream>
@@ -201,3 +202,5 @@ static int BoundingBoxSplit(vec3 &boundingBoxSize,
 
   return 0;
 }
+
+#endif

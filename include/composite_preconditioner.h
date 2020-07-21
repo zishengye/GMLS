@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _COMPOSITE_PRECONDITIONER_H_
+#define _COMPOSITE_PRECONDITIONER_H_
 
 #include <petscksp.h>
 
@@ -40,3 +41,5 @@ PetscErrorCode HypreConstConstraintPCSetUp(PC pc, Mat *a, PetscInt block_size);
 PetscErrorCode HypreConstConstraintPCApply(PC pc, Vec x, Vec y);
 
 PetscErrorCode HypreConstConstraintPCDestroy(PC pc);
+
+#endif

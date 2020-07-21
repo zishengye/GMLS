@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _DIVERGENCE_FREE_H_
+#define _DIVERGENCE_FREE_H_
 
 #include <cmath>
 #include <vector>
@@ -357,3 +358,5 @@ inline double calStaggeredScalarGrad(const int outputAxes, const double dx,
 
   return grad;
 }
+
+#endif

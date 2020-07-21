@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _VEC3_H_
+#define _VEC3_H_
 
 #include <fstream>
 #include <vector>
@@ -85,3 +86,5 @@ template <class T> double maxmag(std::vector<triple<T>> maxof) {
 }
 
 typedef triple<double> vec3;
+
+#endif

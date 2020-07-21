@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _MANIFOLD_H_
+#define _MANIFOLD_H_
 
 #include <cmath>
 #include <iostream>
@@ -27,3 +28,5 @@ inline vec3 ManifoldNorm(double xScalar, double y) {
 
   return normal;
 }
+
+#endif

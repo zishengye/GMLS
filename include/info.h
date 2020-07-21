@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _INFO_H_
+#define _INFO_H_
 
 #include <cstdio>
 #include <cstdlib>
@@ -53,3 +54,5 @@ struct QueueInfo {
   infoEntity<std::list<double>> scalar;
   infoEntity<std::list<int>> index;
 };
+
+#endif
