@@ -6,8 +6,6 @@ using namespace std;
 using namespace Compadre;
 
 int main(int argc, char *argv[]) {
-  MPI_Init(&argc, &argv);
-
   // get info from input file
   string inputFileName;
   vector<char *> cstrings;
