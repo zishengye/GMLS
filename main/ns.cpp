@@ -1,57 +1,26 @@
-#include "get_input_file.h"
-#include "gmls_solver.h"
-#include "search_command.h"
+#include "parser.hpp"
+#include "solver.hpp"
 
 using namespace std;
-using namespace Compadre;
 
 int main(int argc, char *argv[]) {
   MPI_Init(&argc, &argv);
 
-  // get info from input file
-  string inputFileName;
-  vector<char *> cstrings;
-  vector<string> strings;
-  SearchCommand<string>(argc, argv, "-input", inputFileName);
+  parser par(argc, argv);
 
-  for (int i = 1; i < argc; i++) {
-    cstrings.push_back(argv[i]);
-  }
+  int full_argc = par.size();
+  char **full_argv = par.data();
 
-  if (!GetInputFile(inputFileName, strings, cstrings)) {
-    return -1;
-  }
-
-  int inputCommandCount = cstrings.size();
-  char **inputCommand = cstrings.data();
-
-  PetscErrorCode ierr;
-
-  ierr = PetscInitialize(&inputCommandCount, &inputCommand, NULL, NULL);
-  if (ierr)
-    return ierr;
-
-  double tStart, tEnd;
-  tStart = MPI_Wtime();
-
-  Kokkos::initialize(inputCommandCount, inputCommand);
-
-  GMLS_Solver ns(inputCommandCount, inputCommand);
-
-  if (!ns.IsSuccessInit()) {
-    return -1;
-  }
-
-  ns.TimeIntegration();
-
-  tEnd = MPI_Wtime();
-
-  PetscPrintf(MPI_COMM_WORLD, "Program execution duration: %fs\n",
-              tEnd - tStart);
-
-  Kokkos::finalize();
+  PetscInitialize(&full_argc, &full_argv, NULL, NULL);
 
   PetscFinalize();
 
+  network net;
+  solver s(make_shared<network>(net));
+
+  s.attach_parser(make_shared<parser>(par));
+
   MPI_Finalize();
+
+  return 0;
 }
