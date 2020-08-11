@@ -59,29 +59,21 @@ void GMLS_Solver::InitNeighborList() {
     }
   }
 
-  vector<int> &neighborCount = __neighbor.index.Register("neighbor count");
-  vector<int> &neighborIndex = __neighbor.index.Register("neighbor index");
-  vector<int> &neighborOffset = __neighbor.index.Register("neighbor offset");
   vector<int> &destinationIndex =
       __neighbor.index.Register("destination index");
-  vector<int> &sendOffset = __neighbor.index.Register("send offset");
   vector<int> &sendCount = __neighbor.index.Register("send count");
-  vector<int> &offset = __neighbor.index.Register("offset");
+  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
+  vector<int> &recvCount = __neighbor.index.Register("recv count");
 
-  neighborCount.resize(neighborNum);
-  neighborIndex.resize(neighborNum);
-  neighborOffset.resize(neighborNum);
   destinationIndex.resize(neighborNum);
-  sendOffset.resize(neighborNum);
   sendCount.resize(neighborNum);
-  offset.resize(neighborNum + 1);
+  recvOffset.resize(neighborNum + 1);
+  recvCount.resize(neighborNum);
 
-  MPI_Win_create(neighborCount.data(), neighborNum * sizeof(int), sizeof(int),
-                 MPI_INFO_NULL, MPI_COMM_WORLD, &__neighborWinCount);
-  MPI_Win_create(neighborIndex.data(), neighborNum * sizeof(int), sizeof(int),
-                 MPI_INFO_NULL, MPI_COMM_WORLD, &__neighborWinIndex);
-  MPI_Win_create(neighborOffset.data(), neighborNum * sizeof(int), sizeof(int),
-                 MPI_INFO_NULL, MPI_COMM_WORLD, &__neighborWinOffset);
+  for (int i = 0; i < neighborNum; i++)
+    recvCount[i] = 0;
+  for (int i = 0; i < neighborNum + 1; i++)
+    recvOffset[i] = 0;
 }
 
 void GMLS_Solver::BuildNeighborList() {
@@ -302,12 +294,11 @@ void GMLS_Solver::BuildNeighborList() {
     }
   }
 
-  static vector<int> &neighborCount =
-      __neighbor.index.GetHandle("neighbor count");
   static vector<int> &destinationIndex =
       __neighbor.index.GetHandle("destination index");
-  static vector<int> &sendOffset = __neighbor.index.GetHandle("send offset");
-  static vector<int> &sendCount = __neighbor.index.GetHandle("send count");
+  vector<int> &sendCount = __neighbor.index.Register("send count");
+  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
+  vector<int> &recvCount = __neighbor.index.Register("recv count");
 
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -315,37 +306,44 @@ void GMLS_Solver::BuildNeighborList() {
     int offsetX[3] = {-1, 0, 1};
     int offsetY[3] = {-1, 0, 1};
 
+    int count = 0;
+    MPI_Request send_request[9];
+    MPI_Request recv_request[9];
+    MPI_Status status[9];
+
     for (int i = 0; i < 3; i++) {
       for (int j = 0; j < 3; j++) {
         int index = i + j * 3;
         if (neighborFlag[index] == true) {
           int destination = (__nI + offsetX[i]) + (__nJ + offsetY[j]) * __nX;
-          int xScalar = (i == 1) ? 1 : (i + 2) % 4;
-          int y = (j == 1) ? 1 : (j + 2) % 4;
-          sendOffset[index] = xScalar + y * 3;
+
           sendCount[index] = __neighborSendParticleIndex[index].size();
           destinationIndex[index] = destination;
 
-          MPI_Win_lock(MPI_LOCK_SHARED, destination, 0, __neighborWinIndex);
-          MPI_Put(&__myID, 1, MPI_INT, destination, sendOffset[index], 1,
-                  MPI_INT, __neighborWinIndex);
-          MPI_Win_unlock(destination, __neighborWinIndex);
-          // MPI_Win_flush(destinationIndex[index], __neighborWinIndex);
+          MPI_Isend(sendCount.data() + index, 1, MPI_INT,
+                    destinationIndex[index], 0, MPI_COMM_WORLD,
+                    send_request + count);
+          MPI_Irecv(recvCount.data() + index, 1, MPI_INT,
+                    destinationIndex[index], 0, MPI_COMM_WORLD,
+                    recv_request + count);
 
-          MPI_Win_lock(MPI_LOCK_SHARED, destination, 0, __neighborWinCount);
-          MPI_Put(&sendCount[index], 1, MPI_INT, destination, sendOffset[index],
-                  1, MPI_INT, __neighborWinCount);
-          MPI_Win_unlock(destination, __neighborWinCount);
-          // MPI_Win_flush(destinationIndex[i + j * 3], __neighborWinCount);
+          count++;
         }
-        MPI_Barrier(MPI_COMM_WORLD);
       }
     }
+
+    MPI_Waitall(count, send_request, status);
+    MPI_Waitall(count, recv_request, status);
   }
   if (__dim == 3) {
     int offsetX[3] = {-1, 0, 1};
     int offsetY[3] = {-1, 0, 1};
     int offsetZ[3] = {-1, 0, 1};
+
+    int count = 0;
+    MPI_Request send_request[27];
+    MPI_Request recv_request[27];
+    MPI_Status status[27];
 
     for (int i = 0; i < 3; i++) {
       for (int j = 0; j < 3; j++) {
@@ -357,49 +355,31 @@ void GMLS_Solver::BuildNeighborList() {
             int xScalar = (i == 1) ? 1 : (i + 2) % 4;
             int y = (j == 1) ? 1 : (j + 2) % 4;
             int z = (k == 1) ? 1 : (k + 2) % 4;
-            sendOffset[index] = xScalar + y * 3 + z * 9;
-            sendCount[index] = __neighborSendParticleIndex[index].size();
-            destinationIndex[index] = destination;
 
-            MPI_Win_lock(MPI_LOCK_SHARED, destination, 0, __neighborWinIndex);
-            MPI_Put(&__myID, 1, MPI_INT, destination, sendOffset[index], 1,
-                    MPI_INT, __neighborWinIndex);
-            MPI_Win_unlock(destination, __neighborWinIndex);
-            // MPI_Win_flush(destinationIndex[index], __neighborWinIndex);
+            MPI_Isend(sendCount.data() + index, 1, MPI_INT,
+                      destinationIndex[index], 0, MPI_COMM_WORLD,
+                      send_request + count);
+            MPI_Irecv(recvCount.data() + index, 1, MPI_INT,
+                      destinationIndex[index], 0, MPI_COMM_WORLD,
+                      recv_request + count);
 
-            MPI_Win_lock(MPI_LOCK_SHARED, destination, 0, __neighborWinCount);
-            MPI_Put(&sendCount[index], 1, MPI_INT, destination,
-                    sendOffset[index], 1, MPI_INT, __neighborWinCount);
-            MPI_Win_unlock(destination, __neighborWinCount);
-            // MPI_Win_flush(destinationIndex[index], __neighborWinCount);
+            count++;
           }
-          MPI_Barrier(MPI_COMM_WORLD);
         }
       }
     }
+
+    MPI_Waitall(count, send_request, status);
+    MPI_Waitall(count, recv_request, status);
   }
+
+  recvOffset[0] = 0;
+  for (int i = 0; i < neighborNum; i++)
+    recvOffset[i + 1] = recvOffset[i] + recvCount[i];
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  static vector<int> &offset = __neighbor.index.GetHandle("offset");
-
-  for (int i = 0; i < neighborNum; i++) {
-    offset[i + 1] = offset[i] + neighborCount[i];
-
-    if (neighborFlag[i] == true) {
-      MPI_Win_lock(MPI_LOCK_SHARED, destinationIndex[i], 0,
-                   __neighborWinOffset);
-      MPI_Put(&offset[i], 1, MPI_INT, destinationIndex[i], sendOffset[i], 1,
-              MPI_INT, __neighborWinOffset);
-      MPI_Win_unlock(destinationIndex[i], __neighborWinOffset);
-    }
-    // MPI_Win_flush_all(__neighborWinOffset);
-    MPI_Barrier(MPI_COMM_WORLD);
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  int totalNeighborParticleNum = offset[neighborNum];
+  int totalNeighborParticleNum = recvOffset[neighborNum];
 
   vector<vec3> recvParticleCoord;
   vector<int> recvParticleIndex;
@@ -423,45 +403,50 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<int> &sendData,
   static vector<int> &neighborFlag =
       __neighbor.index.GetHandle("neighbor flag");
 
-  static vector<int> &offset = __neighbor.index.GetHandle("offset");
+  vector<int> &destinationIndex =
+      __neighbor.index.GetHandle("destination index");
+  vector<int> &sendCount = __neighbor.index.Register("send count");
+  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
+  vector<int> &recvCount = __neighbor.index.Register("recv count");
+
   static const int neighborNum = pow(3, __dim);
-  int totalNeighborParticleNum = offset[neighborNum];
+  int totalNeighborParticleNum = recvOffset[neighborNum];
 
   recvData.resize(totalNeighborParticleNum);
 
-  vector<int> &destinationIndex =
-      __neighbor.index.GetHandle("destination index");
-  vector<int> &neighborOffset = __neighbor.index.GetHandle("neighbor offset");
-
-  MPI_Win_create(recvData.data(), totalNeighborParticleNum * sizeof(int),
-                 sizeof(int), MPI_INFO_NULL, MPI_COMM_WORLD,
-                 &__neighborWinParticleSwap);
-
-  vector<int> sendDataBlock;
+  vector<vector<int>> sendDataBlock(neighborNum);
 
   for (int i = 0; i < neighborNum; i++) {
     if (neighborFlag[i] == true) {
-      sendDataBlock.resize(0);
-      int sendCount = __neighborSendParticleIndex[i].size();
-      for (int j = 0; j < sendCount; j++) {
-        sendDataBlock.push_back(sendData[__neighborSendParticleIndex[i][j]]);
+      sendDataBlock[i].resize(sendCount[i]);
+      for (int j = 0; j < sendCount[i]; j++) {
+        sendDataBlock[i][j] = sendData[__neighborSendParticleIndex[i][j]];
       }
-      MPI_Win_lock(MPI_LOCK_SHARED, destinationIndex[i], 0,
-                   __neighborWinParticleSwap);
-
-      MPI_Put(sendDataBlock.data(), sendCount, MPI_INT, destinationIndex[i],
-              neighborOffset[i], sendCount, MPI_INT, __neighborWinParticleSwap);
-
-      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
-
-      // MPI_Win_flush_all(__neighborWinParticleSwap);
     }
-    MPI_Barrier(MPI_COMM_WORLD);
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  vector<MPI_Request> send_request(neighborNum);
+  vector<MPI_Request> recv_request(neighborNum);
+  vector<MPI_Status> status(neighborNum);
 
-  MPI_Win_free(&__neighborWinParticleSwap);
+  int count = 0;
+
+  for (int i = 0; i < neighborNum; i++) {
+    if (neighborFlag[i] == true) {
+      MPI_Isend(sendDataBlock[i].data(), sendCount[i], MPI_INT,
+                destinationIndex[i], 0, MPI_COMM_WORLD,
+                send_request.data() + count);
+      MPI_Irecv(recvData.data() + recvOffset[i], recvCount[i], MPI_INT,
+                destinationIndex[i], 0, MPI_COMM_WORLD,
+                recv_request.data() + count);
+      count++;
+    }
+  }
+
+  MPI_Waitall(count, send_request.data(), status.data());
+  MPI_Waitall(count, recv_request.data(), status.data());
+
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
@@ -471,46 +456,50 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
   static vector<int> &neighborFlag =
       __neighbor.index.GetHandle("neighbor flag");
 
-  static vector<int> &offset = __neighbor.index.GetHandle("offset");
+  vector<int> &destinationIndex =
+      __neighbor.index.GetHandle("destination index");
+  vector<int> &sendCount = __neighbor.index.Register("send count");
+  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
+  vector<int> &recvCount = __neighbor.index.Register("recv count");
+
   static const int neighborNum = pow(3, __dim);
-  int totalNeighborParticleNum = offset[neighborNum];
+  int totalNeighborParticleNum = recvOffset[neighborNum];
 
   recvData.resize(totalNeighborParticleNum);
 
-  vector<int> &destinationIndex =
-      __neighbor.index.GetHandle("destination index");
-  vector<int> &neighborOffset = __neighbor.index.GetHandle("neighbor offset");
-
-  MPI_Win_create(recvData.data(), totalNeighborParticleNum * sizeof(double),
-                 sizeof(double), MPI_INFO_NULL, MPI_COMM_WORLD,
-                 &__neighborWinParticleSwap);
-
-  vector<double> sendDataBlock;
+  vector<vector<double>> sendDataBlock(neighborNum);
 
   for (int i = 0; i < neighborNum; i++) {
     if (neighborFlag[i] == true) {
-      sendDataBlock.resize(0);
-      int sendCount = __neighborSendParticleIndex[i].size();
-      for (int j = 0; j < sendCount; j++) {
-        sendDataBlock.push_back(sendData[__neighborSendParticleIndex[i][j]]);
+      sendDataBlock[i].resize(sendCount[i]);
+      for (int j = 0; j < sendCount[i]; j++) {
+        sendDataBlock[i][j] = sendData[__neighborSendParticleIndex[i][j]];
       }
-      MPI_Win_lock(MPI_LOCK_SHARED, destinationIndex[i], 0,
-                   __neighborWinParticleSwap);
-
-      MPI_Put(sendDataBlock.data(), sendCount, MPI_DOUBLE, destinationIndex[i],
-              neighborOffset[i], sendCount, MPI_DOUBLE,
-              __neighborWinParticleSwap);
-
-      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
-
-      // MPI_Win_flush_all(__neighborWinParticleSwap);
     }
-    MPI_Barrier(MPI_COMM_WORLD);
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  vector<MPI_Request> send_request(neighborNum);
+  vector<MPI_Request> recv_request(neighborNum);
+  vector<MPI_Status> status(neighborNum);
 
-  MPI_Win_free(&__neighborWinParticleSwap);
+  int count = 0;
+
+  for (int i = 0; i < neighborNum; i++) {
+    if (neighborFlag[i] == true) {
+      MPI_Isend(sendDataBlock[i].data(), sendCount[i], MPI_DOUBLE,
+                destinationIndex[i], 0, MPI_COMM_WORLD,
+                send_request.data() + count);
+      MPI_Irecv(recvData.data() + recvOffset[i], recvCount[i], MPI_DOUBLE,
+                destinationIndex[i], 0, MPI_COMM_WORLD,
+                recv_request.data() + count);
+      count++;
+    }
+  }
+
+  MPI_Waitall(count, send_request.data(), status.data());
+  MPI_Waitall(count, recv_request.data(), status.data());
+
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
@@ -520,49 +509,51 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
   static vector<int> &neighborFlag =
       __neighbor.index.GetHandle("neighbor flag");
 
-  static vector<int> &offset = __neighbor.index.GetHandle("offset");
+  vector<int> &destinationIndex =
+      __neighbor.index.GetHandle("destination index");
+  vector<int> &sendCount = __neighbor.index.Register("send count");
+  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
+  vector<int> &recvCount = __neighbor.index.Register("recv count");
+
   static const int neighborNum = pow(3, __dim);
-  int totalNeighborParticleNum = offset[neighborNum];
+  int totalNeighborParticleNum = recvOffset[neighborNum];
 
   vector<double> tempRecvData(totalNeighborParticleNum * 3);
 
-  vector<int> &destinationIndex =
-      __neighbor.index.GetHandle("destination index");
-  vector<int> &neighborOffset = __neighbor.index.GetHandle("neighbor offset");
-
-  MPI_Win_create(tempRecvData.data(),
-                 totalNeighborParticleNum * sizeof(double) * 3, sizeof(double),
-                 MPI_INFO_NULL, MPI_COMM_WORLD, &__neighborWinParticleSwap);
-
-  vector<double> sendDataBlock;
+  vector<vector<double>> sendDataBlock(neighborNum);
 
   for (int i = 0; i < neighborNum; i++) {
     if (neighborFlag[i] == true) {
-      sendDataBlock.resize(0);
-      int sendCount = __neighborSendParticleIndex[i].size();
-      for (int j = 0; j < sendCount; j++) {
+      sendDataBlock[i].resize(sendCount[i] * 3);
+      for (int j = 0; j < sendCount[i]; j++) {
         for (int k = 0; k < 3; k++) {
-          sendDataBlock.push_back(
-              sendData[__neighborSendParticleIndex[i][j]][k]);
+          sendDataBlock[i][j * 3 + k] =
+              sendData[__neighborSendParticleIndex[i][j]][k];
         }
       }
-      MPI_Win_lock(MPI_LOCK_SHARED, destinationIndex[i], 0,
-                   __neighborWinParticleSwap);
-
-      MPI_Put(sendDataBlock.data(), sendCount * 3, MPI_DOUBLE,
-              destinationIndex[i], neighborOffset[i] * 3, sendCount * 3,
-              MPI_DOUBLE, __neighborWinParticleSwap);
-
-      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
-
-      // MPI_Win_flush_all(__neighborWinParticleSwap);
     }
-    MPI_Barrier(MPI_COMM_WORLD);
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  vector<MPI_Request> send_request(neighborNum);
+  vector<MPI_Request> recv_request(neighborNum);
+  vector<MPI_Status> status(neighborNum);
 
-  MPI_Win_free(&__neighborWinParticleSwap);
+  int count = 0;
+
+  for (int i = 0; i < neighborNum; i++) {
+    if (neighborFlag[i] == true) {
+      MPI_Isend(sendDataBlock[i].data(), sendCount[i] * 3, MPI_DOUBLE,
+                destinationIndex[i], 0, MPI_COMM_WORLD,
+                send_request.data() + count);
+      MPI_Irecv(tempRecvData.data() + recvOffset[i] * 3, recvCount[i] * 3,
+                MPI_DOUBLE, destinationIndex[i], 0, MPI_COMM_WORLD,
+                recv_request.data() + count);
+      count++;
+    }
+  }
+
+  MPI_Waitall(count, send_request.data(), status.data());
+  MPI_Waitall(count, recv_request.data(), status.data());
 
   recvData.resize(totalNeighborParticleNum);
   for (int i = 0; i < totalNeighborParticleNum; i++) {
@@ -570,6 +561,8 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
       recvData[i][j] = tempRecvData[i * 3 + j];
     }
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void GMLS_Solver::DataSwapAmongNeighbor(vector<vector<double>> &sendData,
@@ -580,50 +573,51 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vector<double>> &sendData,
   static vector<int> &neighborFlag =
       __neighbor.index.GetHandle("neighbor flag");
 
-  static vector<int> &offset = __neighbor.index.GetHandle("offset");
+  vector<int> &destinationIndex =
+      __neighbor.index.GetHandle("destination index");
+  vector<int> &sendCount = __neighbor.index.Register("send count");
+  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
+  vector<int> &recvCount = __neighbor.index.Register("recv count");
+
   static const int neighborNum = pow(3, __dim);
-  int totalNeighborParticleNum = offset[neighborNum];
+  int totalNeighborParticleNum = recvOffset[neighborNum];
 
   vector<double> tempRecvData(totalNeighborParticleNum * unitLength);
 
-  vector<int> &destinationIndex =
-      __neighbor.index.GetHandle("destination index");
-  vector<int> &neighborOffset = __neighbor.index.GetHandle("neighbor offset");
-
-  MPI_Win_create(tempRecvData.data(),
-                 totalNeighborParticleNum * sizeof(double) * unitLength,
-                 sizeof(double), MPI_INFO_NULL, MPI_COMM_WORLD,
-                 &__neighborWinParticleSwap);
-
-  vector<double> sendDataBlock;
+  vector<vector<double>> sendDataBlock(neighborNum);
 
   for (int i = 0; i < neighborNum; i++) {
     if (neighborFlag[i] == true) {
-      sendDataBlock.resize(0);
-      int sendCount = __neighborSendParticleIndex[i].size();
-      for (int j = 0; j < sendCount; j++) {
+      sendDataBlock[i].resize(sendCount[i] * unitLength);
+      for (int j = 0; j < sendCount[i]; j++) {
         for (int k = 0; k < unitLength; k++) {
-          sendDataBlock.push_back(
-              sendData[__neighborSendParticleIndex[i][j]][k]);
+          sendDataBlock[i][j * unitLength + k] =
+              sendData[__neighborSendParticleIndex[i][j]][k];
         }
       }
-      MPI_Win_lock(MPI_LOCK_SHARED, destinationIndex[i], 0,
-                   __neighborWinParticleSwap);
-
-      MPI_Put(sendDataBlock.data(), sendCount * unitLength, MPI_DOUBLE,
-              destinationIndex[i], neighborOffset[i] * unitLength,
-              sendCount * unitLength, MPI_DOUBLE, __neighborWinParticleSwap);
-
-      MPI_Win_unlock(destinationIndex[i], __neighborWinParticleSwap);
-
-      // MPI_Win_flush_all(__neighborWinParticleSwap);
     }
-    MPI_Barrier(MPI_COMM_WORLD);
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  vector<MPI_Request> send_request(neighborNum);
+  vector<MPI_Request> recv_request(neighborNum);
+  vector<MPI_Status> status(neighborNum);
 
-  MPI_Win_free(&__neighborWinParticleSwap);
+  int count = 0;
+
+  for (int i = 0; i < neighborNum; i++) {
+    if (neighborFlag[i] == true) {
+      MPI_Isend(sendDataBlock[i].data(), sendCount[i] * unitLength, MPI_DOUBLE,
+                destinationIndex[i], 0, MPI_COMM_WORLD,
+                send_request.data() + count);
+      MPI_Irecv(tempRecvData.data() + recvOffset[i] * unitLength,
+                recvCount[i] * unitLength, MPI_DOUBLE, destinationIndex[i], 0,
+                MPI_COMM_WORLD, recv_request.data() + count);
+      count++;
+    }
+  }
+
+  MPI_Waitall(count, send_request.data(), status.data());
+  MPI_Waitall(count, recv_request.data(), status.data());
 
   recvData.resize(totalNeighborParticleNum);
   for (int i = 0; i < totalNeighborParticleNum; i++) {

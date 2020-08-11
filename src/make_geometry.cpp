@@ -135,11 +135,7 @@ void GMLS_Solver::InitDomainDecomposition() {
   InitNeighborList();
 }
 
-void GMLS_Solver::FinalizeDomainDecomposition() {
-  MPI_Win_free(&__neighborWinCount);
-  MPI_Win_free(&__neighborWinIndex);
-  MPI_Win_free(&__neighborWinOffset);
-}
+void GMLS_Solver::FinalizeDomainDecomposition() {}
 
 void GMLS_Solver::InitParticle() {
   __background.vector.Register("coord");
@@ -787,7 +783,7 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
         yPos -= __particleSize0[1];
       }
     }
-  } // end of 2d construction
+  }  // end of 2d construction
   if (__dim == 3) {
     double vol = __particleSize0[0] * __particleSize0[1] * __particleSize0[2];
     int localIndex = coord.size();
