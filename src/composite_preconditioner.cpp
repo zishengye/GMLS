@@ -87,6 +87,9 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
 
   KSPSolve(shell->multi->getNeighborBase(), *shell->multi->getYNeighbor(),
            *shell->multi->getXNeighbor());
+  KSPConvergedReason reason;
+  KSPGetConvergedReason(shell->multi->getNeighborBase(), &reason);
+  PetscPrintf(PETSC_COMM_WORLD, "converged reason: %d\n", reason);
 
   VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[0]),
                   *shell->multi->getXNeighbor(), y, ADD_VALUES,
