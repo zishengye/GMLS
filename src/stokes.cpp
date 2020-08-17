@@ -991,8 +991,6 @@ void GMLS_Solver::StokesEquation() {
     // A.Solve(rhs, res, idx_neighbor, __dim, numRigidBody, __adaptive_step, I,
     // R);
     if (_multi.Solve(rhs, res, idx_neighbor) != 0) {
-      WriteDataAdaptiveGeometry();
-
       ofstream output;
       if (__myID == 0) {
         output.open("traj_new.txt", ios::trunc);
