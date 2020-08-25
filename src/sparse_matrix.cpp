@@ -650,41 +650,74 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
 
     sort(connected_group.begin(), connected_group.end(), compare_group);
 
+    PetscInt *ptr;
+    MatGetOwnershipRanges(__mat, (const PetscInt **)(&ptr));
+    vector<int> row_range(MPIsize);
+    for (int i = 0; i < MPIsize; i++)
+      row_range[i] = ptr[i];
+
     // distribute rigid body among processes
-    int rigid_body_average = num_rigid_body / MPIsize;
+    for (int i = 0; i < connected_group.size(); i++) {
+      neighborInclusion.clear();
 
-    int process_index = 0;
-    int left_num_rigid_body = num_rigid_body;
-    while (connected_group.size() != 0) {
-      vector<int> process_group;
-      int selected_num_rigid_body = connected_group[0].size();
-      left_num_rigid_body -= connected_group[0].size();
-      int connected_group_index = 1;
-      while (connected_group_index < connected_group.size()) {
-        if (((MPIsize - process_index - 1) * rigid_body_average >=
-                 left_num_rigid_body &&
-             selected_num_rigid_body >= rigid_body_average) ||
-            (selected_num_rigid_body >= rigid_body_average + 1)) {
-          break;
+      // select neighbor column
+      for (int j = 0; j < connected_group[i].size(); j++) {
+        neighborInclusion.insert(
+            neighborInclusion.end(),
+            __j.begin() + __i[local_rigid_body_offset +
+                              connected_group[i][j] * rigid_body_dof],
+            __j.begin() + __i[local_rigid_body_offset +
+                              (connected_group[i][j] + 1) * rigid_body_dof]);
+      }
+
+      for (int j = 0; j < neighborInclusion.size(); j++) {
+        neighborInclusion[j] /= field_dof;
+      }
+
+      sort(neighborInclusion.begin(), neighborInclusion.end());
+
+      neighborInclusion.erase(
+          unique(neighborInclusion.begin(), neighborInclusion.end()),
+          neighborInclusion.end());
+
+      vector<int> tempNeighborInclusion = move(neighborInclusion);
+
+      neighborInclusion.reserve(tempNeighborInclusion.size() * field_dof);
+
+      for (auto neighbor : tempNeighborInclusion) {
+        for (int j = 0; j < field_dof; j++) {
+          neighborInclusion.push_back(neighbor * field_dof + j);
         }
-
-        selected_num_rigid_body +=
-            connected_group[connected_group_index].size();
-        left_num_rigid_body -= connected_group[connected_group_index].size();
-        connected_group_index++;
       }
 
-      for (int i = 0; i < connected_group_index; i++) {
-        process_group.insert(process_group.end(), connected_group[i].begin(),
-                             connected_group[i].end());
+      sort(neighborInclusion.begin(), neighborInclusion.end());
+
+      vector<int> count_per_process(MPIsize);
+      for (int j = 0; j < MPIsize; j++) {
+        count_per_process[j] = 0;
+      }
+      for (int j = 0; j < neighborInclusion.size(); j++) {
+        auto pos = upper_bound(row_range.begin(), row_range.end(),
+                               neighborInclusion[j]);
+        if (*pos == neighborInclusion[j])
+          count_per_process[pos - row_range.begin()]++;
+        else
+          count_per_process[pos - row_range.begin() - 1]++;
       }
 
-      rigid_body_block_distribution[process_index] = process_group;
-      process_index++;
+      int process_index = 0;
+      int max_count = 0;
+      for (int j = 0; j < MPIsize; j++) {
+        if (count_per_process[j] > max_count) {
+          process_index = j;
+          max_count = count_per_process[j];
+        }
+      }
 
-      // remove from connected_group
-      connected_group.erase(connected_group.begin(),
-                            connected_group.begin() + connected_group_index);
+      for (int j = 0; j < connected_group[i].size(); j++) {
+        rigid_body_block_distribution[process_index].push_back(
+            connected_group[i][j]);
+      }
     }
   }
 
