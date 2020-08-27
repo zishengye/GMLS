@@ -11,12 +11,14 @@ struct HypreLUShellPC {
 
   int adaptive_level;
 
-  PetscInt local_pressure_size, global_pressure_size;
+  PetscInt local_particle_num, global_particle_num, field_dof;
 };
 
 PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell);
 
-PetscErrorCode HypreLUShellPCSetUp(PC pc, multilevel *multi, Vec x);
+PetscErrorCode HypreLUShellPCSetUp(PC pc, multilevel *multi, Vec x,
+                                   PetscInt local_particle_num,
+                                   PetscInt field_dof);
 
 PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y);
 

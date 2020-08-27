@@ -419,11 +419,11 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   IS &isg_neighbor = *isg_neighbor_list[adaptive_step];
   IS &isg_pressure = *isg_pressure_list[adaptive_step];
 
-  ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
+  ISCreateGeneral(MPI_COMM_SELF, idx_field.size(), idx_field.data(),
                   PETSC_COPY_VALUES, &isg_field_lag);
   ISCreateGeneral(MPI_COMM_WORLD, idx_neighbor.size(), idx_neighbor.data(),
                   PETSC_COPY_VALUES, &isg_neighbor);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_pressure.size(), idx_pressure.data(),
+  ISCreateGeneral(MPI_COMM_SELF, idx_pressure.size(), idx_pressure.data(),
                   PETSC_COPY_VALUES, &isg_pressure);
 
   Vec _rhs, _x;
@@ -630,7 +630,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, this, _x);
+    HypreLUShellPCSetUp(_pc, this, _x, localParticleNum, fieldDof);
   } else {
     MPI_Barrier(MPI_COMM_WORLD);
     PetscPrintf(PETSC_COMM_WORLD, "start of multilevel preconditioner setup\n");
@@ -639,7 +639,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, this, _x);
+    HypreLUShellPCSetUp(_pc, this, _x, localParticleNum, fieldDof);
   }
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
