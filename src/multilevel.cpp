@@ -613,9 +613,11 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 
   KSPSetUp(*neighbor_relaxation_list[adaptive_step]);
 
+  Mat shell_mat = (*(A_list.end() - 1))->__shell_mat;
+
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
-  KSPSetOperators(_ksp, mat, mat);
+  KSPSetOperators(_ksp, shell_mat, shell_mat);
   KSPSetFromOptions(_ksp);
 
   PC _pc;

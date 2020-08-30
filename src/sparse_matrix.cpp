@@ -504,6 +504,57 @@ int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
                               PETSC_DECIDE, __i.data(), __j.data(),
                               __val.data(), &__mat);
 
+  MatCreateShell(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE, __Col, &__ctx,
+                 &__shell_mat);
+  MatShellSetOperation(__shell_mat, MATOP_MULT,
+                       (void (*)(void))fluid_colloid_matrix_mult);
+
+  vector<PetscInt> colloid_part_i;
+  vector<PetscInt> colloid_part_j;
+  vector<PetscReal> colloid_part_val;
+
+  colloid_part_i.resize(__out_process_row + 1);
+  colloid_part_i[0] = 0;
+  for (int i = 0; i < __out_process_row; i++) {
+    colloid_part_i[i + 1] = colloid_part_i[i] + __out_process_matrix[i].size();
+  }
+  colloid_part_j.resize(colloid_part_i[__out_process_row]);
+  colloid_part_val.resize(colloid_part_i[__out_process_row]);
+
+  PetscInt local_size = __row;
+  if (myid == MPIsize - 1)
+    local_size -= num_rigid_body * rigid_body_dof;
+
+  auto colloid_part_j_it = colloid_part_j.begin();
+  auto colloid_part_val_it = colloid_part_val.begin();
+  for (int i = 0; i < __out_process_row; i++) {
+    for (int j = 0; j < __out_process_matrix[i].size(); j++) {
+      *colloid_part_j_it = __out_process_matrix[i][j].first;
+      *colloid_part_val_it = __out_process_matrix[i][j].second;
+
+      colloid_part_j_it++;
+      colloid_part_val_it++;
+    }
+  }
+
+  VecCreateMPI(PETSC_COMM_WORLD, num_rigid_body * rigid_body_dof, PETSC_DECIDE,
+               &(__ctx.colloid_vec));
+  VecCreateMPI(PETSC_COMM_WORLD, local_size, PETSC_DECIDE, &(__ctx.fluid_vec));
+  __ctx.fluid_local_size = local_size;
+  __ctx.rigid_body_size = num_rigid_body * rigid_body_dof;
+
+  __ctx.myid = myid;
+  __ctx.mpisize = MPIsize;
+
+  MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __out_process_row, __col,
+                            PETSC_DECIDE, __Col, colloid_part_i.data(),
+                            colloid_part_j.data(), colloid_part_val.data(),
+                            &(__ctx.colloid_part));
+
+  MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, local_size, __col, PETSC_DECIDE,
+                            __Col, __i.data(), __j.data(), __val.data(),
+                            &(__ctx.fluid_part));
+
   __isAssembled = true;
 
   return __nnz;
@@ -1513,4 +1564,33 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   MatDestroy(&ff);
   MatDestroy(&nn);
   MatDestroy(&gg);
+}
+
+PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y) {
+  fluid_colloid_matrix_context *ctx;
+  MatShellGetContext(mat, &ctx);
+
+  PetscReal *a, *b;
+
+  VecGetArray(y, &a);
+
+  MatMult(ctx->colloid_part, x, ctx->colloid_vec);
+
+  VecGetArray(ctx->colloid_vec, &b);
+
+  MPI_Reduce(b, a + ctx->fluid_local_size, ctx->rigid_body_size, MPI_DOUBLE,
+             MPI_SUM, ctx->mpisize - 1, MPI_COMM_WORLD);
+
+  VecRestoreArray(ctx->colloid_vec, &b);
+
+  MatMult(ctx->fluid_part, x, ctx->fluid_vec);
+
+  VecGetArray(ctx->fluid_vec, &b);
+  for (int i = 0; i < ctx->fluid_local_size; i++)
+    a[i] = b[i];
+
+  VecRestoreArray(y, &a);
+  VecRestoreArray(ctx->fluid_vec, &b);
+
+  return 0;
 }

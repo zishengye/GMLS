@@ -80,16 +80,11 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   MatMult(shell->multi->getNeighborWholeMat(0), y,
           *shell->multi->getXNeighbor());
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  time_begin = MPI_Wtime();
   VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[0]), x,
                   *shell->multi->getYNeighbor(), INSERT_VALUES,
                   SCATTER_FORWARD);
   VecScatterEnd(*((*shell->multi->GetNeighborScatterList())[0]), x,
                 *shell->multi->getYNeighbor(), INSERT_VALUES, SCATTER_FORWARD);
-  MPI_Barrier(MPI_COMM_WORLD);
-  time_end = MPI_Wtime();
-  PetscPrintf(MPI_COMM_WORLD, "collect neighbor: %f\n", time_end - time_begin);
 
   VecAXPY(*shell->multi->getYNeighbor(), -1.0, *shell->multi->getXNeighbor());
 

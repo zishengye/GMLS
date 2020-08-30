@@ -17,8 +17,25 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
   return (i.first < j.first);
 }
 
+struct fluid_colloid_matrix_context {
+  Mat fluid_part;
+  Mat colloid_part;
+  VecScatter fluid_part_vec;
+  Vec fluid_vec;
+  Vec colloid_vec;
+
+  PetscInt fluid_local_size;
+  PetscInt rigid_body_size;
+
+  int myid, mpisize;
+};
+
+PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y);
+
 class PetscSparseMatrix {
 private:
+  fluid_colloid_matrix_context __ctx;
+
   bool __isAssembled;
 
   typedef std::pair<PetscInt, double> entry;
@@ -33,7 +50,7 @@ private:
   std::vector<PetscReal> __val;
 
 public:
-  Mat __mat;
+  Mat __mat, __shell_mat;
 
   PetscSparseMatrix()
       : __isAssembled(false), __row(0), __col(0), __Col(0),
