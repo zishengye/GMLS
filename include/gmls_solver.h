@@ -20,6 +20,7 @@
 #include "info.h"
 #include "multilevel.h"
 #include "search_command.h"
+#include "space_tree.hpp"
 #include "sparse_matrix.h"
 #include "vec3.h"
 
@@ -28,7 +29,7 @@ int SearchCommand(int argc, char **argv, const std::string &commandName,
                   T &res);
 
 class GMLS_Solver {
- private:
+private:
   // MPI setting
   int __myID;
   int __MPISize;
@@ -79,6 +80,8 @@ class GMLS_Solver {
   GeneralInfo __eq;
 
   GeneralInfo __gap;
+
+  space_tree _tree;
 
   // rigid body info
   GeneralInfo __rigidBody;
@@ -329,8 +332,7 @@ class GMLS_Solver {
   void RungeKuttaIntegration();
 
   // operator
-  template <typename Func>
-  void SerialOperation(Func operation) {
+  template <typename Func> void SerialOperation(Func operation) {
     for (int i = 0; i < __MPISize; i++) {
       if (i == __myID) {
         operation();
@@ -339,8 +341,7 @@ class GMLS_Solver {
     }
   }
 
-  template <typename Func>
-  void MasterOperation(int master, Func operation) {
+  template <typename Func> void MasterOperation(int master, Func operation) {
     if (master == __myID) {
       operation();
     }
@@ -356,7 +357,7 @@ class GMLS_Solver {
   void WriteDataAdaptiveStep();
   void WriteDataAdaptiveGeometry();
 
- public:
+public:
   GMLS_Solver(int argc, char **argv);
 
   void TimeIntegration();
