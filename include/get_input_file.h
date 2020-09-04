@@ -1,4 +1,5 @@
-#pragma once
+#ifndef GET_INPUT_FILE_H
+#define GET_INPUT_FILE_H
 
 #include <fstream>
 #include <iostream>
@@ -29,3 +30,5 @@ bool GetInputFile(std::string inputFileName, std::vector<std::string> &strings,
 
   return true;
 }
+
+#endif

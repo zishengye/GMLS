@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SPARSE_MATRIX_H
+#define SPARSE_MATRIX_H
 
 #include <algorithm>
 #include <assert.h>
@@ -198,3 +199,5 @@ void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
                 << std::endl;
   }
 }
+
+#endif
