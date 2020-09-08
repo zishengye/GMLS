@@ -18,7 +18,14 @@ class space_tree {
 private:
   int _dim, _manifold_dim, _manifold_order;
 
-  std::vector<std::vector<particle>> _particle_set;
+  std::vector<std::vector<particle> *> _particle_set;
+
+  int _id, _mpi_size;
+
+protected:
+  void init_nonmanifold(int particle_num, int particle_num_min);
+
+  void init_manifold() {}
 
 public:
   space_tree() : _manifold_dim(0), _manifold_order(0) {}
@@ -33,7 +40,15 @@ public:
     _manifold_dim = manifold_dim;
   }
 
-  void init(int particle_num, int particle_num_min) {}
+  void init(int particle_num, int particle_num_min) {
+    MPI_Comm_size(MPI_COMM_WORLD, &_mpi_size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &_id);
+
+    if (_manifold_dim != 0)
+      init_manifold();
+    else
+      init_nonmanifold(particle_num, particle_num_min);
+  }
 };
 
 #endif
