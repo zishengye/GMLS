@@ -545,3 +545,5 @@ lib/
 benchmark/
 
 *.txt
+
+bin/

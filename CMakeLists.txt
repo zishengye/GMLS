@@ -8,7 +8,7 @@ find_package(MPI)
 set(CMAKE_CXX_STANDARD 11)
 
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/build)
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/)
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
 include_directories("${PROJECT_SOURCE_DIR}/include/")
 include_directories("/opt/kokkos/include/")
@@ -30,3 +30,4 @@ file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 add_compile_options(-O3 -w -fopenmp -fPIC -march=broadwell)
 
 add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
+add_executable(test_geometry ${sources} ${PROJECT_SOURCE_DIR}/test/test_geometry.cpp)
