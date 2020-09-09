@@ -14,8 +14,10 @@ struct particle {
   vec3 particle_size;
   vec3 p_coord;
 
-  int volume;
-  int global_index;
+  double volume;
+
+  std::size_t global_index;
+
   int particle_type;
   int attached_rigid_body_index;
   int particle_adaptive_level;
@@ -45,6 +47,8 @@ private:
   std::vector<std::vector<particle> *> _background_particle_set;
   std::vector<gap_particle> _gap_particle_set;
 
+  std::vector<std::size_t> _global_particle_count;
+
   triple<int> _global_particle_num;
   triple<int> _local_particle_num;
   triple<int> _local_particle_num_min;
@@ -59,6 +63,8 @@ protected:
 
   void update_nonmanifold();
   void update_manifold();
+
+  size_t global_indexing(std::vector<particle> &current_particle_set);
 
   void update_uniform_nonmanifold(std::vector<particle> &current_particle_set,
                                   vec3 &current_particle_size,
