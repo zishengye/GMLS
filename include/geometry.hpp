@@ -53,6 +53,8 @@ private:
   triple<int> _local_particle_num;
   triple<int> _local_particle_num_min;
 
+  std::vector<bool> _neighbor_flag;
+
 protected:
   std::vector<int> _local_bounding_box_boundary_type;
 
@@ -64,11 +66,27 @@ protected:
   void update_nonmanifold();
   void update_manifold();
 
+  void refine_nonmanifold(std::vector<int> &local_refinement_idnex);
+  void refine_manifold();
+
   size_t global_indexing(std::vector<particle> &current_particle_set);
 
   void update_uniform_nonmanifold(std::vector<particle> &current_particle_set,
                                   vec3 &current_particle_size,
                                   int particle_level);
+
+  void
+  setup_background_nonmanifold(std::vector<particle> &current_particle_set,
+                               std::vector<particle> &background_particle_set);
+  void setup_background_manifold();
+
+  void setup_block_neighbor_nonmanifold();
+  void setup_block_neighbor_manifold();
+
+  void
+  setup_hierarchy_nonmanifold(std::vector<particle> &coarse_level_particle_set,
+                              std::vector<particle> &fine_level_particle_set,
+                              std::vector<std::vector<size_t>> &hierarchy);
 
 public:
   geometry() : _manifold_dimension(0), _manifold_order(0) {
@@ -116,7 +134,7 @@ public:
   }
 
   // ouput
-  void write_all_init_level(std::string output_filename_prefix = "");
+  void write_all_level(std::string output_filename_prefix = "");
 
   void init() {
     MPI_Comm_size(MPI_COMM_WORLD, &_mpi_size);
@@ -135,6 +153,21 @@ public:
     } else {
       update_nonmanifold();
     }
+  }
+
+  void refine(std::vector<int> &local_refinement_index) {
+    if (_manifold_dimension != 0) {
+    } else {
+      refine_nonmanifold(local_refinement_index);
+    }
+  }
+
+  // data access
+  std::shared_ptr<std::vector<particle>> get_current_particle_set() {
+    size_t finest_layer = _particle_set.size() - 1;
+
+    return std::make_shared<std::vector<particle>>(
+        *_particle_set[finest_layer]);
   }
 };
 

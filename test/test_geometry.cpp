@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
   geo_2d.set_local_y_particle_num_min(25);
   geo_2d.init();
   geo_2d.update();
-  geo_2d.write_all_init_level("2d_test_result");
+  geo_2d.write_all_level("2d_test_result");
 
   geometry geo_3d;
   geo_3d.set_dimension(3);
