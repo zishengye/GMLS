@@ -18,6 +18,11 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
   return (i.first < j.first);
 }
 
+// group size comparison
+inline bool compare_group(std::vector<int> group1, std::vector<int> group2) {
+  return group1.size() > group2.size();
+}
+
 struct fluid_colloid_matrix_context {
   Mat fluid_part;
   Mat colloid_part;

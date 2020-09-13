@@ -270,9 +270,6 @@ void GMLS_Solver::InitUniformParticleField() {
 
   ClearParticle();
 
-  _tree.set_dimension(__dim);
-  _tree.init(__domainCount[0], 25);
-
   InitFieldParticle();
   // InitFieldBoundaryParticle();
   InitRigidBodySurfaceParticle();

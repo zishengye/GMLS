@@ -169,6 +169,18 @@ public:
     return std::make_shared<std::vector<particle>>(
         *_particle_set[finest_layer]);
   }
+
+  std::shared_ptr<std::vector<particle>> get_particle_set(size_t layer) {
+    return std::make_shared<std::vector<particle>>(*_particle_set[layer]);
+  }
+
+  std::shared_ptr<std::vector<particle>>
+  get_background_particle_set(size_t layer) {
+    return std::make_shared<std::vector<particle>>(
+        *_background_particle_set[layer]);
+  }
+
+  size_t get_num_layer() { return _particle_set.size(); }
 };
 
 class space_tree {

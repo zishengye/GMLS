@@ -17,10 +17,10 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Timer.hpp>
 
+#include "geometry.hpp"
 #include "info.h"
 #include "multilevel.h"
 #include "search_command.h"
-#include "space_tree.hpp"
 #include "sparse_matrix.h"
 #include "vec3.h"
 
@@ -80,8 +80,6 @@ private:
   GeneralInfo __eq;
 
   GeneralInfo __gap;
-
-  space_tree _tree;
 
   // rigid body info
   GeneralInfo __rigidBody;

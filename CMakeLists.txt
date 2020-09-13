@@ -31,3 +31,4 @@ add_compile_options(-O3 -w -fopenmp -fPIC -march=broadwell)
 
 add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
 add_executable(test_geometry ${sources} ${PROJECT_SOURCE_DIR}/test/test_geometry.cpp)
+add_executable(test_stokes ${sources} ${PROJECT_SOURCE_DIR}/test/test_stokes.cpp)
