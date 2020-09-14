@@ -30,6 +30,8 @@ PetscErrorCode HypreLUShellPCDestroy(PC pc);
 PetscErrorCode HypreLUShellPCDestroyAdaptive(PC pc);
 
 struct HypreConstConstraintPC {
+  multilevel *multi;
+
   KSP ksp_hypre;
 
   PetscInt block_size;

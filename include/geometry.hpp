@@ -46,6 +46,7 @@ private:
   std::vector<std::vector<particle> *> _particle_set;
   std::vector<std::vector<particle> *> _background_particle_set;
   std::vector<gap_particle> _gap_particle_set;
+  std::vector<std::vector<std::vector<std::size_t>>> _hierarchy;
 
   std::vector<std::size_t> _global_particle_count;
 
@@ -178,6 +179,12 @@ public:
   get_background_particle_set(size_t layer) {
     return std::make_shared<std::vector<particle>>(
         *_background_particle_set[layer]);
+  }
+
+  std::shared_ptr<std::vector<std::vector<std::size_t>>>
+  get_hierarchy(std::size_t layer) {
+    return std::make_shared<std::vector<std::vector<std::size_t>>>(
+        _hierarchy[layer]);
   }
 
   size_t get_num_layer() { return _particle_set.size(); }

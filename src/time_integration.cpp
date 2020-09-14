@@ -69,8 +69,7 @@ void GMLS_Solver::TimeIntegration() {
 
   FinalizeDomainDecomposition();
 
-  if (__rigidBodyInclusion)
-    Clear();
+  Clear();
 }
 
 void GMLS_Solver::ForwardEulerIntegration() {

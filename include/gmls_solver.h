@@ -81,6 +81,8 @@ private:
 
   GeneralInfo __gap;
 
+  std::shared_ptr<geometry> _geo;
+
   // rigid body info
   GeneralInfo __rigidBody;
 

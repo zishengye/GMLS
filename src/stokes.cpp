@@ -984,7 +984,7 @@ void GMLS_Solver::StokesEquation() {
   if (numRigidBody == 0) {
     // A.Solve(rhs, res, __dim);
     // A.Solve(rhs, res);
-    A.Solve(rhs, res, fieldDof);
+    _multi.Solve(rhs, res);
   } else {
     if (__adaptive_step != 0)
       InitialGuessFromPreviousAdaptiveStep(I, res);

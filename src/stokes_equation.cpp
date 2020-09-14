@@ -471,15 +471,253 @@ void stokes_equation::build_matrix(
   MPI_Barrier(MPI_COMM_WORLD);
 }
 
+void stokes_equation::build_interpolation(
+    std::shared_ptr<std::vector<particle>> coarse_grid_particle_set,
+    std::shared_ptr<std::vector<particle>> fine_grid_particle_set,
+    std::shared_ptr<sparse_matrix> interpolation) {
+  int velocity_dof = _dimension;
+  int field_dof = _dimension + 1;
+  int coarse_grid_particle_num = coarse_grid_particle_set->size();
+  int fine_grid_particle_num = fine_grid_particle_set->size();
+
+  int coarse_grid_dof = coarse_grid_particle_num * field_dof;
+  int fine_grid_dof = fine_grid_particle_num * field_dof;
+
+  int coarse_grid_dof_global;
+  MPI_Allreduce(&coarse_grid_dof, &coarse_grid_dof_global, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  std::vector<particle> &coarse_grid_list = *coarse_grid_particle_set;
+  std::vector<particle> &fine_grid_list = *fine_grid_particle_set;
+
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coord_device(
+      "old source coordinates", coarse_grid_particle_num, 3);
+  Kokkos::View<double **>::HostMirror source_coord =
+      Kokkos::create_mirror_view(source_coord_device);
+
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> target_coord_device(
+      "new target coordinates", fine_grid_particle_num, 3);
+  Kokkos::View<double **>::HostMirror target_coord =
+      Kokkos::create_mirror_view(target_coord_device);
+
+  for (int i = 0; i < coarse_grid_particle_num; i++) {
+    for (int j = 0; j < _dimension; j++)
+      source_coord(i, j) = coarse_grid_list[i].coord[j];
+  }
+
+  for (int i = 0; i < fine_grid_particle_num; i++) {
+    for (int j = 0; j < _dimension; j++)
+      target_coord(i, j) = fine_grid_list[i].coord[j];
+  }
+
+  Kokkos::deep_copy(source_coord_device, source_coord);
+  Kokkos::deep_copy(target_coord_device, target_coord);
+
+  auto interpolation_point_search(
+      CreatePointCloudSearch(source_coord_device, _dimension));
+
+  int estimated_num_neighbors = pow(2, _dimension) * pow(2 * 2.5, _dimension);
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_lists_device(
+      "old to new neighbor lists", fine_grid_particle_num,
+      estimated_num_neighbors);
+  Kokkos::View<int **>::HostMirror neighbor_lists =
+      Kokkos::create_mirror_view(neighbor_lists_device);
+
+  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
+      "h supports", fine_grid_particle_num);
+  Kokkos::View<double *>::HostMirror epsilon =
+      Kokkos::create_mirror_view(epsilon_device);
+
+  auto neighbor_needed = Compadre::GMLS::getNP(
+      2, _dimension, DivergenceFreeVectorTaylorPolynomial);
+  interpolation_point_search.generateNeighborListsFromKNNSearch(
+      false, target_coord, neighbor_lists, epsilon, neighbor_needed, 1.2);
+
+  Kokkos::deep_copy(neighbor_lists_device, neighbor_lists);
+  Kokkos::deep_copy(epsilon_device, epsilon);
+
+  auto pressure_basis = new GMLS(ScalarTaylorPolynomial, PointSample, 2,
+                                 _dimension, "LU", "STANDARD");
+  auto velocity_basis =
+      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 2,
+               _dimension, "SVD", "STANDARD");
+
+  // pressure field
+  pressure_basis->setProblemData(neighbor_lists_device, source_coord_device,
+                                 target_coord_device, epsilon_device);
+
+  pressure_basis->addTargets(ScalarPointEvaluation);
+
+  pressure_basis->setWeightingType(WeightingFunctionType::Power);
+  pressure_basis->setWeightingPower(4);
+  pressure_basis->setOrderOfQuadraturePoints(2);
+  pressure_basis->setDimensionOfQuadraturePoints(1);
+  pressure_basis->setQuadratureType("LINE");
+
+  pressure_basis->generateAlphas(1);
+
+  auto pressure_alphas = pressure_basis->getAlphas();
+
+  // old to new velocity field transition
+  velocity_basis->setProblemData(neighbor_lists_device, source_coord_device,
+                                 target_coord_device, epsilon_device);
+
+  velocity_basis->addTargets(VectorPointEvaluation);
+
+  velocity_basis->generateAlphas(1);
+
+  auto velocity_alphas = velocity_basis->getAlphas();
+
+  interpolation->resize(fine_grid_dof, coarse_grid_dof, coarse_grid_dof_global);
+
+  vector<PetscInt> index;
+  // compute matrix graph
+  for (int i = 0; i < fine_grid_particle_num; i++) {
+    // velocity interpolation
+    index.resize(neighbor_lists(i, 0) * velocity_dof);
+    for (int j = 0; j < neighbor_lists(i, 0); j++) {
+      for (int k = 0; k < velocity_dof; k++) {
+        index[j * velocity_dof + k] =
+            field_dof *
+                coarse_grid_list[neighbor_lists(i, j + 1)].global_index +
+            k;
+      }
+    }
+
+    for (int k = 0; k < velocity_dof; k++) {
+      interpolation->setColIndex(field_dof * i + k, index);
+    }
+
+    // pressure interpolation
+    index.resize(neighbor_lists(i, 0));
+    for (int j = 0; j < neighbor_lists(i, 0); j++)
+      index[j] =
+          field_dof * coarse_grid_list[neighbor_lists(i, j + 1)].global_index +
+          velocity_dof;
+    interpolation->setColIndex(field_dof * i + velocity_dof, index);
+  }
+
+  // compute interpolation matrix entity
+  const auto pressure_alphas_index =
+      pressure_basis->getAlphaColumnOffset(ScalarPointEvaluation, 0, 0, 0, 0);
+  vector<int> velocity_alphas_index(pow(_dimension, 2));
+  for (int axes1 = 0; axes1 < _dimension; axes1++)
+    for (int axes2 = 0; axes2 < _dimension; axes2++)
+      velocity_alphas_index[axes1 * _dimension + axes2] =
+          velocity_basis->getAlphaColumnOffset(VectorPointEvaluation, axes1, 0,
+                                               axes2, 0);
+
+  for (int i = 0; i < fine_grid_particle_num; i++) {
+    // velocity interpolation
+    for (int j = 0; j < neighbor_lists(i, 0); j++) {
+      for (int axes1 = 0; axes1 < _dimension; axes1++)
+        for (int axes2 = 0; axes2 < _dimension; axes2++)
+          interpolation->increment(
+              field_dof * i + axes1,
+              field_dof *
+                      coarse_grid_list[neighbor_lists(i, j + 1)].global_index +
+                  axes2,
+              velocity_alphas(
+                  i, velocity_alphas_index[axes1 * _dimension + axes2], j));
+    }
+
+    // pressure interpolation
+    for (int j = 0; j < neighbor_lists(i, 0); j++) {
+      interpolation->increment(
+          field_dof * i + velocity_dof,
+          field_dof * coarse_grid_list[neighbor_lists(i, j + 1)].global_index +
+              velocity_dof,
+          pressure_alphas(i, pressure_alphas_index, j));
+    }
+  }
+
+  interpolation->FinalAssemble();
+}
+
+void stokes_equation::build_restriction(
+    std::shared_ptr<std::vector<particle>> coarse_grid_particle_set,
+    std::shared_ptr<std::vector<particle>> fine_grid_particle_set,
+    std::shared_ptr<sparse_matrix> restriction,
+    std::shared_ptr<std::vector<std::vector<std::size_t>>> hierarchy) {
+  int field_dof = _dimension + 1;
+  int coarse_grid_particle_num = coarse_grid_particle_set->size();
+  int fine_grid_particle_num = fine_grid_particle_set->size();
+
+  int coarse_grid_dof = coarse_grid_particle_num * field_dof;
+  int fine_grid_dof = fine_grid_particle_num * field_dof;
+
+  int fine_grid_dof_global;
+  MPI_Allreduce(&fine_grid_dof, &fine_grid_dof_global, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  vector<PetscInt> index;
+
+  std::vector<std::vector<std::size_t>> &hierarchy_list = *hierarchy;
+  std::vector<particle> &coarse_grid_list = *coarse_grid_particle_set;
+  std::vector<particle> &fine_grid_list = *fine_grid_particle_set;
+
+  restriction->resize(coarse_grid_dof, fine_grid_dof, fine_grid_dof_global);
+  // compute restriction matrix graph
+  for (int i = 0; i < coarse_grid_particle_num; i++) {
+    index.resize(hierarchy_list[i].size());
+    for (int j = 0; j < field_dof; j++) {
+      for (int k = 0; k < hierarchy_list[i].size(); k++) {
+        index[k] = fine_grid_list[hierarchy_list[i][k]].global_index;
+      }
+
+      restriction->setColIndex(field_dof * i + j, index);
+    }
+  }
+
+  for (int i = 0; i < coarse_grid_particle_num; i++) {
+    for (int j = 0; j < field_dof; j++) {
+      for (int k = 0; k < hierarchy_list[i].size(); k++) {
+        restriction->increment(
+            field_dof * i + j,
+            fine_grid_list[hierarchy_list[i][k]].global_index,
+            1.0 / hierarchy_list[i].size());
+      }
+    }
+  }
+
+  restriction->FinalAssemble();
+}
+
 void stokes_equation::build_coarse_level_matrix() {
   size_t particle_set_num_layer = _geo->get_num_layer() - 1;
 
   _ff.resize(particle_set_num_layer);
+  _x.resize(particle_set_num_layer);
+  _y.resize(particle_set_num_layer);
 
   for (size_t i = 0; i < particle_set_num_layer; i++) {
     _ff[i] = make_shared<sparse_matrix>();
     build_matrix(_geo->get_particle_set(i),
                  _geo->get_background_particle_set(i), _ff[i]);
+
+    _x[i] = make_shared<Vec>();
+    _y[i] = make_shared<Vec>();
+    MatCreateVecs(_ff[i]->__mat, _x[i].get(), NULL);
+    MatCreateVecs(_ff[i]->__mat, _y[i].get(), NULL);
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+}
+
+void stokes_equation::build_interpolation_restriction_operators() {
+  size_t particle_set_num_layer = _geo->get_num_layer() - 1;
+
+  _interpolation.resize(particle_set_num_layer);
+  _restriction.resize(particle_set_num_layer);
+
+  for (size_t i = 0; i < particle_set_num_layer; i++) {
+    _interpolation[i] = make_shared<sparse_matrix>();
+    _restriction[i] = make_shared<sparse_matrix>();
+    build_interpolation(_geo->get_particle_set(i),
+                        _geo->get_particle_set(i + 1), _interpolation[i]);
+    build_restriction(_geo->get_particle_set(i), _geo->get_particle_set(i + 1),
+                      _restriction[i], _geo->get_hierarchy(i));
   }
 
   MPI_Barrier(MPI_COMM_WORLD);

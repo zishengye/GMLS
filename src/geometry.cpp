@@ -102,8 +102,12 @@ void geometry::update_nonmanifold() {
   }
 
   // build hierarchy
-  vector<vector<size_t>> hierarchy;
-  setup_hierarchy_nonmanifold(*_particle_set[0], *_particle_set[1], hierarchy);
+  int layer_num = _particle_set.size() - 1;
+  _hierarchy.resize(layer_num);
+  for (int i = 0; i < layer_num; i++) {
+    setup_hierarchy_nonmanifold(*_particle_set[i], *_particle_set[i + 1],
+                                _hierarchy[i]);
+  }
 }
 
 void geometry::update_manifold() {}

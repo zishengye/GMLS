@@ -14,6 +14,9 @@
 
 #include <petscksp.h>
 
+#ifndef _COMPARE_
+#define _COMPARE_
+
 inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
   return (i.first < j.first);
 }
@@ -22,6 +25,8 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
 inline bool compare_group(std::vector<int> group1, std::vector<int> group2) {
   return group1.size() > group2.size();
 }
+
+#endif
 
 class sparse_matrix {
 protected:

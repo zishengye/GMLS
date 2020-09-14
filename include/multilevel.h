@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "sparse_matrix.h"
+#include "stokes_equation.hpp"
 
 class multilevel {
 private:
@@ -64,6 +65,8 @@ private:
   int current_adaptive_level;
 
 public:
+  stokes_equation _stokes;
+
   multilevel() : base_level_initialized(false), current_adaptive_level(0) {}
 
   ~multilevel() {}
@@ -159,6 +162,7 @@ public:
     return &pressure_scatter_list;
   }
 
+  int Solve(std::vector<double> &rhs, std::vector<double> &x);
   int Solve(std::vector<double> &rhs, std::vector<double> &x,
             std::vector<int> &idx_neighbor);
 };

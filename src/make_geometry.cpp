@@ -161,6 +161,18 @@ void GMLS_Solver::InitParticle() {
   __gap.vector.Register("volume");
   __gap.index.Register("particle type");
   __gap.index.Register("adaptive level");
+
+  _geo->set_dimension(__dim);
+  _geo->set_global_x_particle_num(__boundingBoxCount[0]);
+  _geo->set_global_y_particle_num(__boundingBoxCount[1]);
+  _geo->set_global_z_particle_num(__boundingBoxCount[2]);
+  _geo->set_local_x_particle_num_min(25);
+  _geo->set_local_y_particle_num_min(25);
+  _geo->set_local_z_particle_num_min(25);
+  _geo->init();
+
+  _multi._stokes.set_dimension(__dim);
+  _multi._stokes.add_geometry(_geo);
 }
 
 void GMLS_Solver::ClearParticle() {
@@ -275,6 +287,8 @@ void GMLS_Solver::InitUniformParticleField() {
   InitRigidBodySurfaceParticle();
 
   ParticleIndex();
+
+  _geo->update();
 }
 
 void GMLS_Solver::ParticleIndex() {

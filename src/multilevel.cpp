@@ -364,6 +364,70 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 void multilevel::InitialGuessFromPreviousAdaptiveStep(
     std::vector<double> &initial_guess) {}
 
+int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x) {
+  Vec _rhs, _x, null;
+  PetscInt blockSize = dimension + 1;
+  VecCreateMPIWithArray(PETSC_COMM_WORLD, blockSize, rhs.size(), PETSC_DECIDE,
+                        rhs.data(), &_rhs);
+  VecDuplicate(_rhs, &_x);
+  VecDuplicate(_rhs, &null);
+
+  Mat &mat = (*(A_list.end() - 1))->__mat;
+
+  PetscScalar *a;
+  VecGetArray(null, &a);
+  for (size_t i = 0; i < rhs.size(); i++) {
+    if (i % blockSize == blockSize - 1)
+      a[i] = 1.0;
+    else
+      a[i] = 0.0;
+  }
+  VecRestoreArray(null, &a);
+
+  MatNullSpace nullspace;
+  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null, &nullspace);
+  MatSetNullSpace(mat, nullspace);
+
+  KSP _ksp;
+  KSPCreate(PETSC_COMM_WORLD, &_ksp);
+  KSPSetOperators(_ksp, mat, mat);
+  KSPSetFromOptions(_ksp);
+
+  PC _pc;
+  KSPGetPC(_ksp, &_pc);
+  PCSetType(_pc, PCSHELL);
+
+  HypreConstConstraintPC *shell_ctx;
+  HypreConstConstraintPCCreate(&shell_ctx);
+
+  PCShellSetApply(_pc, HypreConstConstraintPCApply);
+  PCShellSetContext(_pc, shell_ctx);
+  PCShellSetDestroy(_pc, HypreConstConstraintPCDestroy);
+
+  _stokes.build_coarse_level_matrix();
+  _stokes.build_interpolation_restriction_operators();
+
+  HypreConstConstraintPCSetUp(_pc, &mat, blockSize);
+
+  KSPSetUp(_ksp);
+
+  PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
+  KSPSolve(_ksp, _rhs, _x);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  KSPDestroy(&_ksp);
+
+  VecGetArray(_x, &a);
+  for (size_t i = 0; i < rhs.size(); i++) {
+    x[i] = a[i];
+  }
+  VecRestoreArray(_x, &a);
+
+  VecDestroy(&_rhs);
+  VecDestroy(&_x);
+  VecDestroy(&null);
+}
+
 int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
                       std::vector<int> &idx_neighbor) {
   MPI_Barrier(MPI_COMM_WORLD);
@@ -677,143 +741,145 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
 void multilevel::clear() {
   MPI_Barrier(MPI_COMM_WORLD);
 
-  for (int i = 0; i < current_adaptive_level; i++) {
-    KSPDestroy(field_relaxation_list[i]);
-    KSPDestroy(neighbor_relaxation_list[i]);
+  // for (int i = 0; i < current_adaptive_level; i++) {
+  //   KSPDestroy(field_relaxation_list[i]);
+  //   KSPDestroy(neighbor_relaxation_list[i]);
 
-    delete field_relaxation_list[i];
-    delete neighbor_relaxation_list[i];
-  }
-  field_relaxation_list.clear();
-  neighbor_relaxation_list.clear();
+  //   delete field_relaxation_list[i];
+  //   delete neighbor_relaxation_list[i];
+  // }
+  // field_relaxation_list.clear();
+  // neighbor_relaxation_list.clear();
 
-  if (base_level_initialized) {
-    KSPDestroy(&ksp_field_base);
-    KSPDestroy(&ksp_neighbor_base);
+  // if (base_level_initialized) {
+  //   KSPDestroy(&ksp_field_base);
+  //   KSPDestroy(&ksp_neighbor_base);
 
-    VecDestroy(&x_neighbor);
-    VecDestroy(&y_neighbor);
+  //   VecDestroy(&x_neighbor);
+  //   VecDestroy(&y_neighbor);
 
-    base_level_initialized = false;
-  }
+  //   base_level_initialized = false;
+  // }
 
-  // mat clearance
-  for (int i = 0; i < current_adaptive_level; i++) {
-    MatSetNearNullSpace(A_list[i]->__mat, NULL);
-    delete A_list[i];
-    delete I_list[i];
-    delete R_list[i];
+  // // mat clearance
+  // for (int i = 0; i < current_adaptive_level; i++) {
+  //   MatSetNearNullSpace(A_list[i]->__mat, NULL);
+  //   delete A_list[i];
+  //   delete I_list[i];
+  //   delete R_list[i];
 
-    MatSetNearNullSpace(*ff_list[i], NULL);
-    MatDestroy(ff_list[i]);
-    MatDestroy(nn_list[i]);
-    MatDestroy(nw_list[i]);
+  //   MatSetNearNullSpace(*ff_list[i], NULL);
+  //   MatDestroy(ff_list[i]);
+  //   MatDestroy(nn_list[i]);
+  //   MatDestroy(nw_list[i]);
 
-    delete ff_list[i];
-    delete nn_list[i];
-    delete nw_list[i];
+  //   delete ff_list[i];
+  //   delete nn_list[i];
+  //   delete nw_list[i];
 
-    VecDestroy(x_list[i]);
-    VecDestroy(y_list[i]);
-    VecDestroy(b_list[i]);
-    VecDestroy(r_list[i]);
-    VecDestroy(t_list[i]);
+  //   VecDestroy(x_list[i]);
+  //   VecDestroy(y_list[i]);
+  //   VecDestroy(b_list[i]);
+  //   VecDestroy(r_list[i]);
+  //   VecDestroy(t_list[i]);
 
-    delete x_list[i];
-    delete y_list[i];
-    delete b_list[i];
-    delete r_list[i];
-    delete t_list[i];
+  //   delete x_list[i];
+  //   delete y_list[i];
+  //   delete b_list[i];
+  //   delete r_list[i];
+  //   delete t_list[i];
 
-    VecDestroy(x_field_list[i]);
-    VecDestroy(y_field_list[i]);
-    VecDestroy(b_field_list[i]);
-    VecDestroy(r_field_list[i]);
-    VecDestroy(t_field_list[i]);
+  //   VecDestroy(x_field_list[i]);
+  //   VecDestroy(y_field_list[i]);
+  //   VecDestroy(b_field_list[i]);
+  //   VecDestroy(r_field_list[i]);
+  //   VecDestroy(t_field_list[i]);
 
-    delete x_field_list[i];
-    delete y_field_list[i];
-    delete b_field_list[i];
-    delete r_field_list[i];
-    delete t_field_list[i];
+  //   delete x_field_list[i];
+  //   delete y_field_list[i];
+  //   delete b_field_list[i];
+  //   delete r_field_list[i];
+  //   delete t_field_list[i];
 
-    VecDestroy(x_neighbor_list[i]);
-    VecDestroy(y_neighbor_list[i]);
-    VecDestroy(b_neighbor_list[i]);
-    VecDestroy(r_neighbor_list[i]);
-    VecDestroy(t_neighbor_list[i]);
+  //   VecDestroy(x_neighbor_list[i]);
+  //   VecDestroy(y_neighbor_list[i]);
+  //   VecDestroy(b_neighbor_list[i]);
+  //   VecDestroy(r_neighbor_list[i]);
+  //   VecDestroy(t_neighbor_list[i]);
 
-    delete x_neighbor_list[i];
-    delete y_neighbor_list[i];
-    delete b_neighbor_list[i];
-    delete r_neighbor_list[i];
-    delete t_neighbor_list[i];
+  //   delete x_neighbor_list[i];
+  //   delete y_neighbor_list[i];
+  //   delete b_neighbor_list[i];
+  //   delete r_neighbor_list[i];
+  //   delete t_neighbor_list[i];
 
-    VecDestroy(x_pressure_list[i]);
+  //   VecDestroy(x_pressure_list[i]);
 
-    delete x_pressure_list[i];
+  //   delete x_pressure_list[i];
 
-    ISDestroy(isg_field_list[i]);
-    ISDestroy(isg_neighbor_list[i]);
-    ISDestroy(isg_pressure_list[i]);
+  //   ISDestroy(isg_field_list[i]);
+  //   ISDestroy(isg_neighbor_list[i]);
+  //   ISDestroy(isg_pressure_list[i]);
 
-    delete isg_field_list[i];
-    delete isg_neighbor_list[i];
-    delete isg_pressure_list[i];
+  //   delete isg_field_list[i];
+  //   delete isg_neighbor_list[i];
+  //   delete isg_pressure_list[i];
 
-    VecScatterDestroy(field_scatter_list[i]);
-    VecScatterDestroy(neighbor_scatter_list[i]);
-    VecScatterDestroy(pressure_scatter_list[i]);
+  //   VecScatterDestroy(field_scatter_list[i]);
+  //   VecScatterDestroy(neighbor_scatter_list[i]);
+  //   VecScatterDestroy(pressure_scatter_list[i]);
 
-    delete field_scatter_list[i];
-    delete neighbor_scatter_list[i];
-    delete pressure_scatter_list[i];
+  //   delete field_scatter_list[i];
+  //   delete neighbor_scatter_list[i];
+  //   delete pressure_scatter_list[i];
 
-    MatNullSpaceDestroy(nullspace_whole_list[i]);
-    MatNullSpaceDestroy(nullspace_field_list[i]);
+  //   MatNullSpaceDestroy(nullspace_whole_list[i]);
+  //   MatNullSpaceDestroy(nullspace_field_list[i]);
 
-    delete nullspace_whole_list[i];
-    delete nullspace_field_list[i];
-  }
+  //   delete nullspace_whole_list[i];
+  //   delete nullspace_field_list[i];
+  // }
 
-  A_list.clear();
-  I_list.clear();
-  R_list.clear();
+  // A_list.clear();
+  // I_list.clear();
+  // R_list.clear();
 
-  ff_list.clear();
-  nn_list.clear();
-  nw_list.clear();
+  // ff_list.clear();
+  // nn_list.clear();
+  // nw_list.clear();
 
-  x_list.clear();
-  y_list.clear();
-  b_list.clear();
-  r_list.clear();
-  t_list.clear();
+  // x_list.clear();
+  // y_list.clear();
+  // b_list.clear();
+  // r_list.clear();
+  // t_list.clear();
 
-  x_field_list.clear();
-  y_field_list.clear();
-  b_field_list.clear();
-  r_field_list.clear();
-  t_field_list.clear();
+  // x_field_list.clear();
+  // y_field_list.clear();
+  // b_field_list.clear();
+  // r_field_list.clear();
+  // t_field_list.clear();
 
-  x_neighbor_list.clear();
-  y_neighbor_list.clear();
-  b_neighbor_list.clear();
-  r_neighbor_list.clear();
-  t_neighbor_list.clear();
+  // x_neighbor_list.clear();
+  // y_neighbor_list.clear();
+  // b_neighbor_list.clear();
+  // r_neighbor_list.clear();
+  // t_neighbor_list.clear();
 
-  x_pressure_list.clear();
+  // x_pressure_list.clear();
 
-  isg_field_list.clear();
-  isg_neighbor_list.clear();
-  isg_pressure_list.clear();
+  // isg_field_list.clear();
+  // isg_neighbor_list.clear();
+  // isg_pressure_list.clear();
 
-  field_scatter_list.clear();
-  neighbor_scatter_list.clear();
-  pressure_scatter_list.clear();
+  // field_scatter_list.clear();
+  // neighbor_scatter_list.clear();
+  // pressure_scatter_list.clear();
 
-  nullspace_whole_list.clear();
-  nullspace_field_list.clear();
+  // nullspace_whole_list.clear();
+  // nullspace_field_list.clear();
+
+  _stokes.clear();
 
   current_adaptive_level = 0;
 }

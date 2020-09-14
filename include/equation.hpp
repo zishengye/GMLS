@@ -9,7 +9,6 @@
 
 class equation {
 protected:
-  std::shared_ptr<geometry> _geo;
   int _dimension;
 
 public:
@@ -19,6 +18,8 @@ public:
   void set_dimension(int dimension) { _dimension = dimension; }
 
   void add_geometry(std::shared_ptr<geometry> geo) { _geo = geo; }
+
+  std::shared_ptr<geometry> _geo;
 };
 
 #endif

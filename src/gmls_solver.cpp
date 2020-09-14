@@ -4,7 +4,7 @@
 
 using namespace std;
 
-GMLS_Solver::GMLS_Solver(int argc, char **argv) {
+GMLS_Solver::GMLS_Solver(int argc, char **argv) : _geo(new geometry) {
   __adaptive_step = 0;
   // [default setup]
   __successInitialized = false;
