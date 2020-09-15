@@ -32,10 +32,16 @@ PetscErrorCode HypreLUShellPCDestroyAdaptive(PC pc);
 struct HypreConstConstraintPC {
   multilevel *multi;
 
-  KSP ksp_hypre;
+  KSP ksp_base;
+
+  std::vector<KSP> ksp_sor;
 
   PetscInt block_size;
   PetscInt offset;
+
+  Mat *a;
+
+  int num_layer;
 };
 
 PetscErrorCode HypreConstConstraintPCCreate(HypreConstConstraintPC **pc);

@@ -812,6 +812,9 @@ void GMLS_Solver::StokesEquation() {
 
   vector<int> idx_neighbor;
 
+  // if (__myID == 0)
+  //   A.Write("B.txt");
+
   // A.FinalAssemble();
   if (numRigidBody == 0) {
     A.FinalAssemble(fieldDof);
@@ -976,8 +979,6 @@ void GMLS_Solver::StokesEquation() {
   for (int i = 0; i < localParticleNum; i++) {
     rhs[fieldDof * i + velocityDof] -= rhs_pressure_sum;
   }
-
-  // A.Write("A.txt");
 
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();

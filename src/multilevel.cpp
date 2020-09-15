@@ -400,14 +400,25 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x) {
   HypreConstConstraintPC *shell_ctx;
   HypreConstConstraintPCCreate(&shell_ctx);
 
+  shell_ctx->multi = this;
+
   PCShellSetApply(_pc, HypreConstConstraintPCApply);
   PCShellSetContext(_pc, shell_ctx);
   PCShellSetDestroy(_pc, HypreConstConstraintPCDestroy);
+
+  double tStart, tEnd;
+  MPI_Barrier(MPI_COMM_WORLD);
+  tStart = MPI_Wtime();
 
   _stokes.build_coarse_level_matrix();
   _stokes.build_interpolation_restriction_operators();
 
   HypreConstConstraintPCSetUp(_pc, &mat, blockSize);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  tEnd = MPI_Wtime();
+  PetscPrintf(MPI_COMM_WORLD, "preconditioner setup time: %fs\n",
+              tEnd - tStart);
 
   KSPSetUp(_ksp);
 

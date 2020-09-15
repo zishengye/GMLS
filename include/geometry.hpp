@@ -190,20 +190,21 @@ public:
   size_t get_num_layer() { return _particle_set.size(); }
 };
 
+struct space_tree_leaf {
+  size_t index;
+  vec3 position;
+};
+struct space_tree_node {
+  vec3 center_point;
+  vec3 domain_low, domain_high;
+  double radius;
+  int level;
+  std::vector<std::shared_ptr<space_tree_node>> children;
+  std::vector<space_tree_leaf> leaf;
+};
+
 class space_tree {
 private:
-  struct space_tree_leaf {
-    size_t index;
-    vec3 position;
-  };
-  struct space_tree_node {
-    vec3 center_point;
-    vec3 domain_low, domain_high;
-    int level;
-    std::vector<std::shared_ptr<space_tree_node>> children;
-    std::vector<space_tree_leaf> leaf;
-  };
-
   std::shared_ptr<space_tree_node> _root;
 
   int _dimension;
@@ -221,6 +222,8 @@ public:
   void add_leaf(std::vector<particle> &source);
 
   size_t find_nearest_neighbor(vec3 &position);
+
+  std::vector<space_tree_leaf> find_nearest_leaf(vec3 &position);
 
   void write_tree();
 };

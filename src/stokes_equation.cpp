@@ -104,10 +104,17 @@ void stokes_equation::build_matrix(
   Kokkos::View<double *>::HostMirror neumann_epsilon =
       Kokkos::create_mirror_view(neumann_epsilon_device);
 
-  double search_radius = 2.5 * target_particle[0].particle_size[0];
+  double search_radius = 2.5 * target_particle[0].particle_size[0] + 1e-5;
 
   point_cloud_search.generateNeighborListsFromRadiusSearch(
-      false, target_coord, neighbor_list, epsilon, search_radius, 0.0);
+      false, target_coord, neighbor_list, epsilon, search_radius,
+      search_radius);
+
+  // auto neighbor_needed = Compadre::GMLS::getNP(
+  //     2, _dimension, DivergenceFreeVectorTaylorPolynomial);
+
+  // point_cloud_search.generateNeighborListsFromKNNSearch(
+  //     false, target_coord, neighbor_list, epsilon, neighbor_needed, 1.5);
 
   for (size_t i = 0; i < num_target_coord; i++) {
     if (target_particle[i].particle_type != 0) {
@@ -407,7 +414,7 @@ void stokes_equation::build_matrix(
             const double Lij = velocity_alpha(
                 i, velocity_curl_curl_index[axes1 * _dimension + axes2], j);
 
-            gradient += source_particle[i].normal[axes1] * Lij;
+            gradient += target_particle[i].normal[axes1] * Lij;
           }
           A.increment(index_pressure_local, index_neighbor_velocity_global,
                       bi * gradient);
@@ -663,7 +670,8 @@ void stokes_equation::build_restriction(
     index.resize(hierarchy_list[i].size());
     for (int j = 0; j < field_dof; j++) {
       for (int k = 0; k < hierarchy_list[i].size(); k++) {
-        index[k] = fine_grid_list[hierarchy_list[i][k]].global_index;
+        index[k] =
+            fine_grid_list[hierarchy_list[i][k]].global_index * field_dof + j;
       }
 
       restriction->setColIndex(field_dof * i + j, index);
@@ -675,7 +683,7 @@ void stokes_equation::build_restriction(
       for (int k = 0; k < hierarchy_list[i].size(); k++) {
         restriction->increment(
             field_dof * i + j,
-            fine_grid_list[hierarchy_list[i][k]].global_index,
+            fine_grid_list[hierarchy_list[i][k]].global_index * field_dof + j,
             1.0 / hierarchy_list[i].size());
       }
     }
@@ -690,6 +698,7 @@ void stokes_equation::build_coarse_level_matrix() {
   _ff.resize(particle_set_num_layer);
   _x.resize(particle_set_num_layer);
   _y.resize(particle_set_num_layer);
+  _r.resize(particle_set_num_layer);
 
   for (size_t i = 0; i < particle_set_num_layer; i++) {
     _ff[i] = make_shared<sparse_matrix>();
@@ -698,8 +707,10 @@ void stokes_equation::build_coarse_level_matrix() {
 
     _x[i] = make_shared<Vec>();
     _y[i] = make_shared<Vec>();
+    _r[i] = make_shared<Vec>();
     MatCreateVecs(_ff[i]->__mat, _x[i].get(), NULL);
     MatCreateVecs(_ff[i]->__mat, _y[i].get(), NULL);
+    MatCreateVecs(_ff[i]->__mat, _r[i].get(), NULL);
   }
 
   MPI_Barrier(MPI_COMM_WORLD);

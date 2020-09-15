@@ -5,6 +5,11 @@
 
 using namespace std;
 
+double dis(vec3 &pos1, vec3 &pos2) {
+  return sqrt(pow(pos1[0] - pos2[0], 2) + pow(pos1[1] - pos2[1], 2) +
+              pow(pos1[2] - pos2[2], 2));
+}
+
 void geometry::set_local_bounding_box_boundary() {
   if (_dimension == 2) {
     // four eages as boundaries
@@ -90,8 +95,6 @@ void geometry::update_nonmanifold() {
     for (int i = 0; i < 3; i++) {
       current_global_particle_num[i] /= 2;
     }
-
-    current_particle_level--;
   } while (current_local_particle_num[0] > _local_particle_num_min[0]);
 
   // build background
@@ -261,7 +264,7 @@ void geometry::setup_background_nonmanifold(
     std::vector<particle> &current_particle_set,
     std::vector<particle> &background_particle_set) {
   background_particle_set = current_particle_set;
-  double cutoff_distance = 1.5 * current_particle_set[0].particle_size[0];
+  double cutoff_distance = 4.5 * current_particle_set[0].particle_size[0];
 
   vector<bool> is_neighbor;
   int neighbor_num = pow(3, _dimension);
@@ -524,7 +527,7 @@ void geometry::setup_block_neighbor_nonmanifold() {
                 new_coord[0] + new_coord[1] * _global_block_size[0];
             if (destination >= 0 && destination != _id &&
                 destination < _mpi_size) {
-              _neighbor_flag[i + j * 3] = false;
+              _neighbor_flag[i + j * 3] = true;
             }
           }
         }
@@ -576,12 +579,24 @@ void geometry::setup_hierarchy_nonmanifold(
   tree.add_leaf(coarse_level_particle_set);
 
   for (size_t i = 0; i < fine_level_particle_set.size(); i++) {
-    size_t nearest_neighbor_index =
-        tree.find_nearest_neighbor(fine_level_particle_set[i].coord);
-    if (coarse_level_particle_set[nearest_neighbor_index].particle_type ==
-        fine_level_particle_set[i].particle_type) {
-      hierarchy[nearest_neighbor_index].push_back(i);
+    auto nearest_leaf =
+        tree.find_nearest_leaf(fine_level_particle_set[i].coord);
+    double distance = 10;
+    int index = 0;
+    for (int j = 0; j < nearest_leaf.size(); j++) {
+      int current_index = nearest_leaf[j].index;
+      if (coarse_level_particle_set[current_index].particle_type ==
+          fine_level_particle_set[i].particle_type) {
+        double new_distance =
+            dis(coarse_level_particle_set[current_index].coord,
+                fine_level_particle_set[i].coord);
+        if (new_distance < distance) {
+          distance = new_distance;
+          index = j;
+        }
+      }
     }
+    hierarchy[nearest_leaf[index].index].push_back(i);
   }
 }
 
@@ -724,6 +739,7 @@ void space_tree::make_tree(int level, vec3 &domain_low, vec3 &domain_high) {
   _root->center_point[2] = 0.5 * (domain_low[2] + domain_high[2]);
   _root->domain_low = domain_low;
   _root->domain_high = domain_high;
+  _root->radius = 0.5 * (domain_high[0] - domain_low[0]);
 
   int current_level = 0;
   while (current_level < level) {
@@ -731,7 +747,7 @@ void space_tree::make_tree(int level, vec3 &domain_low, vec3 &domain_high) {
     for (int i = 0; i < current_queue_size; i++) {
       size_t children_size = (_dimension == 2) ? 4 : 8;
 
-      auto working_item = working_queue.front();
+      auto &working_item = working_queue.front();
       working_item->level = current_level;
       working_item->children.resize(children_size);
 
@@ -748,6 +764,7 @@ void space_tree::make_tree(int level, vec3 &domain_low, vec3 &domain_high) {
         working_item->children[0]->level = current_level + 1;
         working_item->children[0]->domain_low = working_item->domain_low;
         working_item->children[0]->domain_high = working_item->center_point;
+        working_item->children[0]->radius = 0.5 * working_item->radius;
 
         working_item->children[1]->center_point[0] =
             0.5 * (working_item->domain_low[0] + working_item->center_point[0]);
@@ -762,6 +779,7 @@ void space_tree::make_tree(int level, vec3 &domain_low, vec3 &domain_high) {
             working_item->center_point[0];
         working_item->children[1]->domain_high[1] =
             working_item->domain_high[1];
+        working_item->children[1]->radius = 0.5 * working_item->radius;
 
         working_item->children[2]->center_point[0] =
             0.5 *
@@ -776,6 +794,7 @@ void space_tree::make_tree(int level, vec3 &domain_low, vec3 &domain_high) {
             working_item->domain_high[0];
         working_item->children[2]->domain_high[1] =
             working_item->center_point[1];
+        working_item->children[2]->radius = 0.5 * working_item->radius;
 
         working_item->children[3]->center_point[0] =
             0.5 *
@@ -786,6 +805,7 @@ void space_tree::make_tree(int level, vec3 &domain_low, vec3 &domain_high) {
         working_item->children[3]->level = current_level + 1;
         working_item->children[3]->domain_low = working_item->center_point;
         working_item->children[3]->domain_high = working_item->domain_high;
+        working_item->children[3]->radius = 0.5 * working_item->radius;
       }
       if (_dimension == 3) {
       }
@@ -831,74 +851,93 @@ void space_tree::add_leaf(std::vector<particle> &source) {
   }
 }
 
-double dis(vec3 &pos1, vec3 &pos2) {
-  return sqrt(pow(pos1[0] - pos2[0], 2) + pow(pos1[1] - pos2[1], 2) +
-              pow(pos1[2] - pos2[2], 2));
-}
-
 size_t space_tree::find_nearest_neighbor(vec3 &position) {
-  auto ptr = _root;
-  while (ptr->children.size() != 0) {
-    if (_dimension == 2) {
-      if (position[0] >= ptr->center_point[0] &&
-          position[1] >= ptr->center_point[1]) {
-        ptr = ptr->children[3];
-        continue;
-      }
-      if (position[0] >= ptr->center_point[0] &&
-          position[1] < ptr->center_point[1]) {
-        ptr = ptr->children[2];
-        continue;
-      }
-      if (position[0] < ptr->center_point[0] &&
-          position[1] >= ptr->center_point[1]) {
-        ptr = ptr->children[1];
-        continue;
-      }
-      if (position[0] < ptr->center_point[0] &&
-          position[1] < ptr->center_point[1]) {
-        ptr = ptr->children[1];
-        continue;
-      }
-    }
-  }
+  auto leaf = find_nearest_leaf(position);
 
   size_t index = 0;
   double distance = 10;
-  for (size_t i = 0; i < ptr->leaf.size(); i++) {
-    double new_distance = dis(position, ptr->leaf[i].position);
+  for (size_t i = 0; i < leaf.size(); i++) {
+    double new_distance = dis(position, leaf[i].position);
     if (new_distance < distance) {
       distance = new_distance;
       index = i;
     }
   }
 
-  return ptr->leaf[index].index;
+  return leaf[index].index;
+}
+
+std::vector<space_tree_leaf> space_tree::find_nearest_leaf(vec3 &position) {
+  std::queue<std::shared_ptr<space_tree_node>> candidate_node;
+  std::queue<std::shared_ptr<space_tree_node>> candidate_leaf_parent;
+
+  candidate_node.push(_root);
+
+  while (candidate_node.size() != 0) {
+    auto working_node = candidate_node.front();
+    if (working_node->children.size() != 0) {
+      for (int i = 0; i < working_node->children.size(); i++) {
+        if (_dimension == 2) {
+          if (working_node->children[i]->domain_low[0] -
+                      working_node->children[i]->radius <=
+                  position[0] &&
+              working_node->children[i]->domain_high[0] +
+                      working_node->children[i]->radius >=
+                  position[0] &&
+              working_node->children[i]->domain_low[1] -
+                      working_node->children[i]->radius <=
+                  position[1] &&
+              working_node->children[i]->domain_high[1] +
+                      working_node->children[i]->radius >=
+                  position[1])
+            candidate_node.push(working_node->children[i]);
+        }
+      }
+    } else {
+      candidate_leaf_parent.push(working_node);
+    }
+
+    candidate_node.pop();
+  }
+
+  vector<space_tree_leaf> result;
+  while (candidate_leaf_parent.size() != 0) {
+    result.insert(result.end(), candidate_leaf_parent.front()->leaf.begin(),
+                  candidate_leaf_parent.front()->leaf.end());
+    candidate_leaf_parent.pop();
+  }
+
+  return result;
 }
 
 void space_tree::write_tree() {
+  ofstream output;
+  output.open("tree.txt", ios::trunc);
+
   auto ptr = _root;
   std::queue<std::shared_ptr<space_tree_node>> working_queue;
   working_queue.push(_root);
   while (working_queue.size() != 0) {
     auto working_item = working_queue.front();
-    cout << working_item->level << ": (" << working_item->center_point[0]
-         << ", " << working_item->center_point[1] << ", "
-         << working_item->center_point[2] << ")" << endl;
+    output << working_item->level << ": (" << working_item->center_point[0]
+           << ", " << working_item->center_point[1] << ", "
+           << working_item->center_point[2] << ")" << endl;
     if (working_item->children.size() != 0) {
       for (int i = 0; i < working_item->children.size(); i++) {
         working_queue.push(working_item->children[i]);
       }
     } else {
       for (int i = 0; i < working_item->leaf.size(); i++) {
-        cout << "\t";
-        cout << working_item->leaf[i].index << ": ("
-             << working_item->leaf[i].position[0] << ", "
-             << working_item->leaf[i].position[1] << ", "
-             << working_item->leaf[i].position[2] << ")" << endl;
+        output << "\t";
+        output << working_item->leaf[i].index << ": ("
+               << working_item->leaf[i].position[0] << ", "
+               << working_item->leaf[i].position[1] << ", "
+               << working_item->leaf[i].position[2] << ")" << endl;
       }
-      cout << endl;
+      output << endl;
     }
     working_queue.pop();
   }
+
+  output.close();
 }
