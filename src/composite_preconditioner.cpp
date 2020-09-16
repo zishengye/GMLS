@@ -437,7 +437,7 @@ PetscErrorCode HypreConstConstraintPCSetUp(PC pc, Mat *mat,
     PC pc_sor;
     KSPGetPC(shell->ksp_sor[i - 1], &pc_sor);
     PCSetType(pc_sor, PCSOR);
-    PCSetFromOptions(pc_sor);
+    PCSORSetIterations(pc_sor, 3, 1);
     PCSetUp(pc_sor);
 
     KSPSetUp(shell->ksp_sor[i - 1]);
@@ -449,6 +449,7 @@ PetscErrorCode HypreConstConstraintPCSetUp(PC pc, Mat *mat,
   PC pc_sor;
   KSPGetPC(shell->ksp_sor[shell->num_layer - 1], &pc_sor);
   PCSetType(pc_sor, PCSOR);
+  PCSORSetIterations(pc_sor, 3, 1);
   PCSetUp(pc_sor);
 
   KSPSetUp(shell->ksp_sor[shell->num_layer - 1]);
