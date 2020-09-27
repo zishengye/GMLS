@@ -352,9 +352,9 @@ void GMLS_Solver::BuildNeighborList() {
           if (neighborFlag[index] == true) {
             int destination = (__nI + offsetX[i]) + (__nJ + offsetY[j]) * __nX +
                               (__nK + offsetZ[k]) * (__nX * __nY);
-            int xScalar = (i == 1) ? 1 : (i + 2) % 4;
-            int y = (j == 1) ? 1 : (j + 2) % 4;
-            int z = (k == 1) ? 1 : (k + 2) % 4;
+
+            sendCount[index] = __neighborSendParticleIndex[index].size();
+            destinationIndex[index] = destination;
 
             MPI_Isend(sendCount.data() + index, 1, MPI_INT,
                       destinationIndex[index], 0, MPI_COMM_WORLD,
@@ -378,7 +378,6 @@ void GMLS_Solver::BuildNeighborList() {
     recvOffset[i + 1] = recvOffset[i] + recvCount[i];
 
   MPI_Barrier(MPI_COMM_WORLD);
-
   int totalNeighborParticleNum = recvOffset[neighborNum];
 
   vector<vec3> recvParticleCoord;

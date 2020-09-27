@@ -312,7 +312,10 @@ void GMLS_Solver::ParticleIndex() {
 
   // SerialOperation([this]() {
   //   cout << "[Proc " << this->__myID << "]: generated " << coord.size()
-  //        << " particles." << endl;
+  //        << " particles." << __domain[0][0] << ", " << __domain[0][1] << ", "
+  //        << __domain[0][2] << ", " << __domain[1][0] << ", " <<
+  //        __domain[1][1]
+  //        << ", " << __domain[1][2] << endl;
   // });
 
   PetscPrintf(PETSC_COMM_WORLD, "global particle number: %d\n",

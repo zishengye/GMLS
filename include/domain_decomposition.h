@@ -187,7 +187,7 @@ static int BoundingBoxSplit(vec3 &boundingBoxSize,
   domain[0][2] = zStart;
   domain[1][0] = xEnd;
   domain[1][1] = yEnd;
-  domain[1][2] = zStart;
+  domain[1][2] = zEnd;
 
   domainBoundingBox[0][0] = boundingBoxSize[0] / nX * nI + boundingBox[0][0];
   domainBoundingBox[0][1] = boundingBoxSize[1] / nY * nJ + boundingBox[0][1];
