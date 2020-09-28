@@ -644,11 +644,16 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     HypreLUShellPCSetUp(_pc, this, _x, localParticleNum, fieldDof);
   }
 
+  double tStart, tEnd;
+
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
   MPI_Barrier(MPI_COMM_WORLD);
+  tStart = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   KSPSolve(_ksp, _rhs, _x);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
+  tEnd = MPI_Wtime();
+  PetscPrintf(PETSC_COMM_WORLD, "pc apply time: %fs\n", tEnd - tStart);
 
   KSPConvergedReason reason;
   KSPGetConvergedReason(_ksp, &reason);
