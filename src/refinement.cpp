@@ -20,6 +20,7 @@ bool GMLS_Solver::NeedRefinement() {
   if (__adaptiveRefinement != 0) {
     // prepare stage
 
+    MPI_Barrier(MPI_COMM_WORLD);
     PetscPrintf(PETSC_COMM_WORLD, "\nstart of adaptive refinement\n");
 
     static vector<int> &particleNum =
@@ -36,7 +37,7 @@ bool GMLS_Solver::NeedRefinement() {
 
     static auto &volume = __field.scalar.GetHandle("volume");
 
-    static vector<int> &offset = __neighbor.index.GetHandle("offset");
+    static vector<int> &offset = __neighbor.index.GetHandle("recv offset");
     int neighborNum = pow(3, __dim);
     int totalNeighborParticleNum = offset[neighborNum];
 
