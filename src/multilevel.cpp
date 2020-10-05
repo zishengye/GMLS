@@ -562,15 +562,19 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPGetPC(ksp_neighbor_base, &pc_neighbor_base);
     PCSetType(pc_neighbor_base, PCBJACOBI);
     PCSetUp(pc_neighbor_base);
-    KSP *bjacobi_ksp;
-    PCBJacobiGetSubKSP(pc_neighbor_base, NULL, NULL, &bjacobi_ksp);
-    KSPSetType(bjacobi_ksp[0], KSPPREONLY);
-    PC bjacobi_pc;
-    KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
-    PCSetType(bjacobi_pc, PCLU);
-    PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERSUPERLU_DIST);
-    PCSetUp(bjacobi_pc);
-    KSPSetUp(bjacobi_ksp[0]);
+    PetscInt local_row, local_col;
+    MatGetLocalSize(nn, &local_row, &local_col);
+    if (local_row > 0) {
+      KSP *bjacobi_ksp;
+      PCBJacobiGetSubKSP(pc_neighbor_base, NULL, NULL, &bjacobi_ksp);
+      KSPSetType(bjacobi_ksp[0], KSPPREONLY);
+      PC bjacobi_pc;
+      KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
+      PCSetType(bjacobi_pc, PCLU);
+      PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERSUPERLU_DIST);
+      PCSetUp(bjacobi_pc);
+      KSPSetUp(bjacobi_ksp[0]);
+    }
 
     KSPSetUp(ksp_field_base);
     KSPSetUp(ksp_neighbor_base);
@@ -600,16 +604,20 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPGetPC(*neighbor_relaxation_list[adaptive_step], &neighbor_relaxation_pc);
   PCSetType(neighbor_relaxation_pc, PCBJACOBI);
   PCSetUp(neighbor_relaxation_pc);
-  KSP *neighbor_relaxation_sub_ksp;
-  PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
-                     &neighbor_relaxation_sub_ksp);
-  KSPSetType(neighbor_relaxation_sub_ksp[0], KSPPREONLY);
-  PC neighbor_relaxation_sub_pc;
-  KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
-  PCSetType(neighbor_relaxation_sub_pc, PCLU);
-  PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERSUPERLU_DIST);
-  PCSetUp(neighbor_relaxation_sub_pc);
-  KSPSetUp(neighbor_relaxation_sub_ksp[0]);
+  PetscInt local_row, local_col;
+  MatGetLocalSize(nn, &local_row, &local_col);
+  if (local_row > 0) {
+    KSP *neighbor_relaxation_sub_ksp;
+    PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
+                       &neighbor_relaxation_sub_ksp);
+    KSPSetType(neighbor_relaxation_sub_ksp[0], KSPPREONLY);
+    PC neighbor_relaxation_sub_pc;
+    KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
+    PCSetType(neighbor_relaxation_sub_pc, PCLU);
+    PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERSUPERLU_DIST);
+    PCSetUp(neighbor_relaxation_sub_pc);
+    KSPSetUp(neighbor_relaxation_sub_ksp[0]);
+  }
 
   KSPSetUp(*neighbor_relaxation_list[adaptive_step]);
 
