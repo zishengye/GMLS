@@ -33,6 +33,12 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, multilevel *multi, Vec x,
 }
 
 PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
+  static double amg_duration = 0.0;
+  static double matvec_duration = 0.0;
+  static double lu_duration = 0.0;
+  static double neighbor_vec_duration = 0.0;
+
+  double tStart, tEnd;
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -66,8 +72,11 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecRestoreArray(x, &a);
   VecRestoreArray(*((*shell->multi->GetXFieldList())[0]), &b);
 
+  tStart = MPI_Wtime();
   KSPSolve(shell->multi->getFieldBase(), *((*shell->multi->GetXFieldList())[0]),
            *((*shell->multi->GetYFieldList())[0]));
+  tEnd = MPI_Wtime();
+  amg_duration += tEnd - tStart;
 
   VecGetArray(y, &a);
   VecGetArray(*((*shell->multi->GetYFieldList())[0]), &b);
@@ -77,8 +86,11 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecRestoreArray(*((*shell->multi->GetYFieldList())[0]), &b);
 
   // stage 2
+  tStart = MPI_Wtime();
   MatMult(shell->multi->getNeighborWholeMat(0), y,
           *shell->multi->getXNeighbor());
+  tEnd = MPI_Wtime();
+  matvec_duration += tEnd - tStart;
 
   VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[0]), x,
                   *shell->multi->getYNeighbor(), INSERT_VALUES,
@@ -88,14 +100,20 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
 
   VecAXPY(*shell->multi->getYNeighbor(), -1.0, *shell->multi->getXNeighbor());
 
+  tStart = MPI_Wtime();
   KSPSolve(shell->multi->getNeighborBase(), *shell->multi->getYNeighbor(),
            *shell->multi->getXNeighbor());
+  tEnd = MPI_Wtime();
+  lu_duration += tEnd - tStart;
 
+  tStart = MPI_Wtime();
   VecScatterBegin(*((*shell->multi->GetNeighborScatterList())[0]),
                   *shell->multi->getXNeighbor(), y, ADD_VALUES,
                   SCATTER_REVERSE);
   VecScatterEnd(*((*shell->multi->GetNeighborScatterList())[0]),
                 *shell->multi->getXNeighbor(), y, ADD_VALUES, SCATTER_REVERSE);
+  tEnd = MPI_Wtime();
+  neighbor_vec_duration += tEnd - tStart;
 
   // orthogonalize to constant vector
   VecGetArray(x, &a);
@@ -108,6 +126,12 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   for (PetscInt i = 0; i < shell->local_particle_num; i++)
     a[shell->field_dof * i + pressure_offset] -= pressure_sum;
   VecRestoreArray(x, &a);
+
+  PetscPrintf(PETSC_COMM_WORLD, "amg duration: %fs\n", amg_duration);
+  PetscPrintf(PETSC_COMM_WORLD, "matvec duration: %fs\n", matvec_duration);
+  PetscPrintf(PETSC_COMM_WORLD, "lu duration: %fs\n", lu_duration);
+  PetscPrintf(PETSC_COMM_WORLD, "neighbor vec duration: %fs\n",
+              neighbor_vec_duration);
 
   return 0;
 }
