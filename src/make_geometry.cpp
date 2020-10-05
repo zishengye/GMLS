@@ -8,10 +8,6 @@ using namespace Compadre;
 
 void GMLS_Solver::SetBoundingBox() {
   if (__dim == 3) {
-    __boundingBoxSize[0] = 2.0;
-    __boundingBoxSize[1] = 2.0;
-    __boundingBoxSize[2] = 2.0;
-
     __boundingBox.push_back(vec3(-__boundingBoxSize[0] / 2.0,
                                  -__boundingBoxSize[1] / 2.0,
                                  -__boundingBoxSize[2] / 2.0));
@@ -19,10 +15,6 @@ void GMLS_Solver::SetBoundingBox() {
                                  __boundingBoxSize[1] / 2.0,
                                  __boundingBoxSize[2] / 2.0));
   } else if (__dim == 2) {
-    __boundingBoxSize[0] = 2.0;
-    __boundingBoxSize[1] = 2.0;
-    __boundingBoxSize[2] = 0.0;
-
     __boundingBox.push_back(
         vec3(-__boundingBoxSize[0] / 2.0, -__boundingBoxSize[1] / 2.0, 0.0));
     __boundingBox.push_back(

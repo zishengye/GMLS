@@ -133,11 +133,22 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     int xCheck = SearchCommand<int>(argc, argv, "-Mx", __boundingBoxCount[0]);
     int yCheck = SearchCommand<int>(argc, argv, "-My", __boundingBoxCount[1]);
     int zCheck = SearchCommand<int>(argc, argv, "-Mz", __boundingBoxCount[2]);
+
     if ((xCheck == 1) && (yCheck == 1) && (zCheck == 1)) {
       return;
     } else {
       // TODO: check the correctness of the command
     }
+
+    xCheck = SearchCommand<double>(argc, argv, "-X", __boundingBoxSize[0]);
+    yCheck = SearchCommand<double>(argc, argv, "-Y", __boundingBoxSize[1]);
+    zCheck = SearchCommand<double>(argc, argv, "-Z", __boundingBoxSize[2]);
+    if (xCheck == 1)
+      __boundingBoxSize[0] = 2.0;
+    if (yCheck == 1)
+      __boundingBoxSize[1] = 2.0;
+    if (zCheck == 1)
+      __boundingBoxSize[2] = 2.0;
   } else if (__dim == 2) {
     int xCheck = SearchCommand<int>(argc, argv, "-Mx", __boundingBoxCount[0]);
     int yCheck = SearchCommand<int>(argc, argv, "-My", __boundingBoxCount[1]);
@@ -146,6 +157,14 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     } else {
       // TODO: check the correctness of the command
     }
+
+    xCheck = SearchCommand<double>(argc, argv, "-X", __boundingBoxSize[0]);
+    yCheck = SearchCommand<double>(argc, argv, "-Y", __boundingBoxSize[1]);
+    if (xCheck == 1)
+      __boundingBoxSize[0] = 2.0;
+    if (yCheck == 1)
+      __boundingBoxSize[1] = 2.0;
+    __boundingBoxSize[2] = 0.0;
   } else {
     PetscPrintf(PETSC_COMM_WORLD, "Please specify discretization parameter!\n");
     return;
