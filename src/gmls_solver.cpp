@@ -184,12 +184,20 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     return;
   }
 
-  // kinetic viscosity distance
-  if ((SearchCommand<double>(argc, argv, "-eta", __eta)) == 1) {
+  // kinetic viscosity
+  if ((SearchCommand<double>(argc, argv, "-mu", __mu)) == 1) {
     return;
-  } else if (__eta < 0.0) {
+  } else if (__mu < 0.0) {
     return;
   }
+
+  if ((SearchCommand<double>(argc, argv, "-rho", __rho)) == 1) {
+    return;
+  } else if (__mu < 0.0) {
+    return;
+  }
+
+  __nu = __mu / __rho;
 
   if ((SearchCommand<int>(argc, argv, "-BatchSize", __batchSize)) == 1) {
     return;
@@ -222,7 +230,7 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     PetscPrintf(PETSC_COMM_WORLD, "==> Particle count in Y axis: %d\n",
                 __boundingBoxCount[1]);
   }
-  PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", __eta);
+  PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", __nu);
   if (__adaptiveRefinement) {
     PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: on\n");
     PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement tolerance:  %f\n",
