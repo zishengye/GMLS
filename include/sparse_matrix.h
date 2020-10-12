@@ -20,7 +20,6 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
 struct fluid_colloid_matrix_context {
   Mat fluid_part;
   Mat colloid_part;
-  VecScatter fluid_part_vec;
   Vec fluid_vec;
   Vec colloid_vec;
 
@@ -36,7 +35,7 @@ class PetscSparseMatrix {
 private:
   fluid_colloid_matrix_context __ctx;
 
-  bool __isAssembled;
+  bool __isAssembled, __shellIsAssembled, __isCtxAssembled;
 
   typedef std::pair<PetscInt, double> entry;
   std::vector<std::vector<entry>> __matrix;
@@ -53,7 +52,8 @@ public:
   Mat __mat, __shell_mat;
 
   PetscSparseMatrix()
-      : __isAssembled(false), __row(0), __col(0), __Col(0),
+      : __isCtxAssembled(false), __shellIsAssembled(false),
+        __isAssembled(false), __row(0), __col(0), __Col(0),
         __out_process_row(0), __out_process_reduction(0) {}
 
   // only for square matrix
@@ -61,7 +61,8 @@ public:
                     PetscInt N /* global # of cols */,
                     PetscInt out_process_row = 0,
                     PetscInt out_process_row_reduction = 0)
-      : __isAssembled(false), __row(m), __col(m), __Col(N),
+      : __isCtxAssembled(false), __shellIsAssembled(false),
+        __isAssembled(false), __row(m), __col(m), __Col(N),
         __out_process_row(out_process_row),
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
@@ -73,7 +74,8 @@ public:
                     PetscInt N /* global # of cols */,
                     PetscInt out_process_row = 0,
                     PetscInt out_process_row_reduction = 0)
-      : __isAssembled(false), __row(m), __col(n), __Col(N),
+      : __isCtxAssembled(false), __shellIsAssembled(false),
+        __isAssembled(false), __row(m), __col(n), __Col(N),
         __out_process_row(out_process_row),
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
@@ -83,6 +85,14 @@ public:
   ~PetscSparseMatrix() {
     if (__isAssembled)
       MatDestroy(&__mat);
+    if (__shellIsAssembled)
+      MatDestroy(&__shell_mat);
+    if (__isCtxAssembled) {
+      MatDestroy(&__ctx.colloid_part);
+      MatDestroy(&__ctx.fluid_part);
+      VecDestroy(&__ctx.colloid_vec);
+      VecDestroy(&__ctx.fluid_vec);
+    }
   }
 
   void resize(PetscInt m, PetscInt n) {

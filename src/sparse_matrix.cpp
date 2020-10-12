@@ -556,6 +556,8 @@ int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
                             &(__ctx.fluid_part));
 
   __isAssembled = true;
+  __shellIsAssembled = true;
+  __isCtxAssembled = true;
 
   return __nnz;
 }
@@ -948,6 +950,9 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     VecDestroy(&_rhs);
     VecDestroy(&_x);
     VecDestroy(&null);
+
+    MatSetNearNullSpace(__mat, NULL);
+    MatNullSpaceDestroy(&nullspace);
   }
 }
 

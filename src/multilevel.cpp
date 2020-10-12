@@ -712,6 +712,12 @@ void multilevel::clear() {
 
   // mat clearance
   for (int i = 0; i < current_adaptive_level; i++) {
+    MatNullSpaceDestroy(nullspace_whole_list[i]);
+    MatNullSpaceDestroy(nullspace_field_list[i]);
+
+    delete nullspace_whole_list[i];
+    delete nullspace_field_list[i];
+
     MatSetNearNullSpace(A_list[i]->__mat, NULL);
     delete A_list[i];
     delete I_list[i];
@@ -781,12 +787,6 @@ void multilevel::clear() {
     delete field_scatter_list[i];
     delete neighbor_scatter_list[i];
     delete pressure_scatter_list[i];
-
-    MatNullSpaceDestroy(nullspace_whole_list[i]);
-    MatNullSpaceDestroy(nullspace_field_list[i]);
-
-    delete nullspace_whole_list[i];
-    delete nullspace_field_list[i];
   }
 
   A_list.clear();
