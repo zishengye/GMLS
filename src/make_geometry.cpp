@@ -256,8 +256,6 @@ void GMLS_Solver::InitUniformParticleField() {
         0.25 * minDistance, __maxAdaptiveLevel);
   }
 
-  __maxAdaptiveLevel = 4 - addedLevel;
-
   SetDomainBoundary();
 
   ClearParticle();
