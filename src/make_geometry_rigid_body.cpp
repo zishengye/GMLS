@@ -90,8 +90,7 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h) {
       // square in 2d, cubic in 3d
       {
         if (__dim == 2) {
-          double half_side_length =
-              rigidBodySize[i] * static_cast<double>(sqrt(2.0) / 2.0);
+          double half_side_length = rigidBodySize[i];
           double theta = rigidBodyOrientation[i][0];
 
           vec3 abs_dis = pos - rigidBodyCoord[i];
@@ -196,16 +195,12 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
       case 2:
         // square
         {
-          double half_side_length =
-              rigidBodySize[n] * static_cast<double>(sqrt(2.0) / 2.0);
+          double half_side_length = rigidBodySize[n];
           double theta = rigidBodyOrientation[n][0];
 
-          int particleNumPerSize = rigidBodySize[n] *
-                                   static_cast<double>(sqrt(2.0)) /
-                                   __particleSize0[0];
+          int particleNumPerSize = rigidBodySize[n] * 2.0 / __particleSize0[0];
 
-          double h = rigidBodySize[n] * static_cast<double>(sqrt(2.0)) /
-                     particleNumPerSize;
+          double h = rigidBodySize[n] * 2.0 / particleNumPerSize;
           vec3 particleSize = vec3(h, h, 0.0);
           double vol = pow(h, 2.0);
 

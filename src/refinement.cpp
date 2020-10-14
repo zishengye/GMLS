@@ -473,8 +473,13 @@ bool GMLS_Solver::NeedRefinement() {
     }
 
     splitTag.clear();
-    for (int i = 0; i < split_max_index; i++) {
-      splitTag.push_back(chopper[i].first);
+    // for (int i = 0; i < split_max_index; i++) {
+    //   splitTag.push_back(chopper[i].first);
+    // }
+    for (int i = 0; i < localParticleNum; i++) {
+      if (chopper[i].second > error_min) {
+        splitTag.push_back(chopper[i].first);
+      }
     }
 
     for (int i = 0; i < localParticleNum; i++) {

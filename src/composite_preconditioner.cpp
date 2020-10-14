@@ -127,12 +127,6 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
     a[shell->field_dof * i + pressure_offset] -= pressure_sum;
   VecRestoreArray(x, &a);
 
-  PetscPrintf(PETSC_COMM_WORLD, "amg duration: %fs\n", amg_duration);
-  PetscPrintf(PETSC_COMM_WORLD, "matvec duration: %fs\n", matvec_duration);
-  PetscPrintf(PETSC_COMM_WORLD, "lu duration: %fs\n", lu_duration);
-  PetscPrintf(PETSC_COMM_WORLD, "neighbor vec duration: %fs\n",
-              neighbor_vec_duration);
-
   return 0;
 }
 
