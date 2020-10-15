@@ -156,7 +156,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
   // ode45 algorithm parameter
   double t, dt, dtMin, rtol, atol, err, norm_y;
-  rtol = 1e-3;
+  rtol = 1e-4;
   atol = 1e-10;
   dt = __dtMax;
   t = 0;
@@ -252,12 +252,6 @@ void GMLS_Solver::RungeKuttaIntegration() {
       }
       for (int j = 0; j < 3; j++) {
         output << rigidBodyOrientation[num][j] << '\t';
-      }
-      for (int j = 0; j < 3; j++) {
-        output << rigidBodyVelocity[num][j] << '\t';
-      }
-      for (int j = 0; j < 3; j++) {
-        output << rigidBodyAngularVelocity[num][j] << '\t';
       }
     }
     output << endl;
@@ -391,6 +385,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
         if (__myID == 0) {
           output_runge_kutta.open("traj_runge_kutta.txt", ios::app);
+          output_runge_kutta << t << '\t';
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {
               output_runge_kutta << rigidBodyPosition[num][j] << '\t';
@@ -531,12 +526,85 @@ void GMLS_Solver::RungeKuttaIntegration() {
     PetscPrintf(PETSC_COMM_WORLD, "==== End of time integration ====\n");
     PetscPrintf(PETSC_COMM_WORLD, "=================================\n\n");
 
-    // reset k1 for next step
-    for (int num = 0; num < numRigidBody; num++) {
-      for (int j = 0; j < 3; j++) {
-        velocity_k1[num][j] = velocity_k7[num][j];
-        angularVelocity_k1[num][j] = angularVelocity_k7[num][j];
+    // output current time step result
+    if (__myID == 0) {
+      output.open("traj.txt", ios::app);
+
+      const double bi12 = -static_cast<double>(183) / static_cast<double>(64);
+      const double bi13 = static_cast<double>(37) / static_cast<double>(12);
+      const double bi14 = -static_cast<double>(145) / static_cast<double>(128);
+      const double bi32 = static_cast<double>(1500) / static_cast<double>(371);
+      const double bi33 = -static_cast<double>(1000) / static_cast<double>(159);
+      const double bi34 = static_cast<double>(1000) / static_cast<double>(371);
+      const double bi42 = -static_cast<double>(125) / static_cast<double>(32);
+      const double bi43 = static_cast<double>(125) / static_cast<double>(12);
+      const double bi44 = -static_cast<double>(375) / static_cast<double>(64);
+      const double bi52 = static_cast<double>(9477) / static_cast<double>(3392);
+      const double bi53 = -static_cast<double>(729) / static_cast<double>(106);
+      const double bi54 =
+          static_cast<double>(25515) / static_cast<double>(6784);
+      const double bi62 = -static_cast<double>(11) / static_cast<double>(7);
+      const double bi63 = static_cast<double>(11) / static_cast<double>(3);
+      const double bi64 = -static_cast<double>(55) / static_cast<double>(28);
+      const double bi72 = static_cast<double>(3) / static_cast<double>(2);
+      const double bi73 = -static_cast<double>(4);
+      const double bi74 = static_cast<double>(5) / static_cast<double>(2);
+
+      // refined output
+      int refine_num = 4;
+      for (int ite = 1; ite < refine_num; ite++) {
+        double sj = double(ite) / double(refine_num);
+        double sj2 = sj * sj;
+        double bs1 = (sj + sj2 * (bi12 + sj * (bi13 + bi14 * sj)));
+        double bs3 = (sj2 * (bi32 + sj * (bi33 + bi34 * sj)));
+        double bs4 = (sj2 * (bi42 + sj * (bi43 + bi44 * sj)));
+        double bs5 = (sj2 * (bi52 + sj * (bi53 + bi54 * sj)));
+        double bs6 = (sj2 * (bi62 + sj * (bi63 + bi64 * sj)));
+        double bs7 = (sj2 * (bi72 + sj * (bi73 + bi74 * sj)));
+
+        vector<vec3> refinedRigidBodyPosition(numRigidBody);
+        vector<vec3> refinedRigidBodyOrientation(numRigidBody);
+
+        for (int num = 0; num < numRigidBody; num++) {
+          for (int j = 0; j < 3; j++) {
+            refinedRigidBodyPosition[num][j] =
+                position0[num][j] +
+                dt * (velocity_k1[num][j] * bs1 + velocity_k3[num][j] * bs3 +
+                      velocity_k4[num][j] * bs4 + velocity_k5[num][j] * bs5 +
+                      velocity_k6[num][j] * bs6 + velocity_k7[num][j] * bs7);
+            refinedRigidBodyOrientation[num][j] = correct_radius(
+                orientation0[num][j] + dt * (angularVelocity_k1[num][j] * bs1 +
+                                             angularVelocity_k3[num][j] * bs3 +
+                                             angularVelocity_k4[num][j] * bs4 +
+                                             angularVelocity_k5[num][j] * bs5 +
+                                             angularVelocity_k6[num][j] * bs6 +
+                                             angularVelocity_k7[num][j] * bs7));
+          }
+        }
+
+        output << t + dt * sj << '\t';
+        for (int num = 0; num < numRigidBody; num++) {
+          for (int j = 0; j < 3; j++) {
+            output << refinedRigidBodyPosition[num][j] << '\t';
+          }
+          for (int j = 0; j < 3; j++) {
+            output << refinedRigidBodyOrientation[num][j] << '\t';
+          }
+        }
+        output << endl;
       }
+
+      output << t + dt << '\t';
+      for (int num = 0; num < numRigidBody; num++) {
+        for (int j = 0; j < 3; j++) {
+          output << rigidBodyPosition[num][j] << '\t';
+        }
+        for (int j = 0; j < 3; j++) {
+          output << rigidBodyOrientation[num][j] << '\t';
+        }
+      }
+      output << endl;
+      output.close();
     }
 
     // increase time
@@ -554,26 +622,12 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
     dt = min(dt, __dtMax);
 
-    // output current time step result
-    if (__myID == 0) {
-      output.open("traj.txt", ios::app);
-      output << t << '\t';
-      for (int num = 0; num < numRigidBody; num++) {
-        for (int j = 0; j < 3; j++) {
-          output << rigidBodyPosition[num][j] << '\t';
-        }
-        for (int j = 0; j < 3; j++) {
-          output << rigidBodyOrientation[num][j] << '\t';
-        }
-        for (int j = 0; j < 3; j++) {
-          output << rigidBodyVelocity[num][j] << '\t';
-        }
-        for (int j = 0; j < 3; j++) {
-          output << rigidBodyAngularVelocity[num][j] << '\t';
-        }
+    // reset k1 for next step
+    for (int num = 0; num < numRigidBody; num++) {
+      for (int j = 0; j < 3; j++) {
+        velocity_k1[num][j] = velocity_k7[num][j];
+        angularVelocity_k1[num][j] = angularVelocity_k7[num][j];
       }
-      output << endl;
-      output.close();
     }
 
     if (__writeData != 0) {
