@@ -984,6 +984,8 @@ void GMLS_Solver::StokesEquation() {
 
   // A.Write("A.txt");
 
+  PetscLogDefaultBegin();
+
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
   if (numRigidBody == 0) {
@@ -1013,6 +1015,10 @@ void GMLS_Solver::StokesEquation() {
   tEnd = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
               tEnd - tStart);
+
+  PetscViewer viewer;
+  PetscViewerASCIIGetStdout(PETSC_COMM_WORLD, &viewer);
+  PetscLogView(viewer);
 
   // copy data
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
