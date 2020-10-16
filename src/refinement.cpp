@@ -74,307 +74,331 @@ bool GMLS_Solver::NeedRefinement() {
     auto &error = __field.scalar.GetHandle("error");
     error.resize(localParticleNum);
 
-    if (__adaptive_base_field == "Velocity") {
-      vector<int> velocityGradientIndex(pow(__dim, 3));
-      for (int i = 0; i < __dim; i++) {
-        for (int j = 0; j < __dim; j++) {
-          for (int k = 0; k < __dim; k++) {
-            velocityGradientIndex[(i * __dim + j) * __dim + k] =
-                velocityBasis.getAlphaColumnOffset(
-                    GradientOfVectorPointEvaluation, i, j, k, 0);
-          }
+    vector<int> velocityGradientIndex(pow(__dim, 3));
+    for (int i = 0; i < __dim; i++) {
+      for (int j = 0; j < __dim; j++) {
+        for (int k = 0; k < __dim; k++) {
+          velocityGradientIndex[(i * __dim + j) * __dim + k] =
+              velocityBasis.getAlphaColumnOffset(
+                  GradientOfVectorPointEvaluation, i, j, k, 0);
         }
       }
+    }
 
-      auto velocityNeighborListsLengths =
-          velocityBasis.getNeighborListsLengths();
-      auto velocityAlphas = velocityBasis.getAlphas();
-      auto neighborLists = velocityBasis.getNeighborLists();
+    auto velocityNeighborListsLengths = velocityBasis.getNeighborListsLengths();
+    auto velocityAlphas = velocityBasis.getAlphas();
+    auto neighborLists = velocityBasis.getNeighborLists();
 
-      // communicate velocity field
-      static vector<vec3> &velocity =
-          __field.vector.GetHandle("fluid velocity");
-      vector<vec3> recvVelocity;
-      DataSwapAmongNeighbor(velocity, recvVelocity);
-      vector<vec3> backgroundVelocity;
+    // communicate velocity field
+    static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
+    vector<vec3> recvVelocity;
+    DataSwapAmongNeighbor(velocity, recvVelocity);
+    vector<vec3> backgroundVelocity;
 
-      for (int i = 0; i < localParticleNum; i++) {
-        backgroundVelocity.push_back(velocity[i]);
+    for (int i = 0; i < localParticleNum; i++) {
+      backgroundVelocity.push_back(velocity[i]);
+    }
+
+    for (int i = 0; i < totalNeighborParticleNum; i++) {
+      backgroundVelocity.push_back(recvVelocity[i]);
+    }
+
+    // communicate coeffients
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+        backgroundVelocityDevice("background velocity",
+                                 backgroundVelocity.size(), 3);
+    Kokkos::View<double **>::HostMirror backgroundVelocityHost =
+        Kokkos::create_mirror_view(backgroundVelocityDevice);
+
+    for (size_t i = 0; i < backgroundVelocity.size(); i++) {
+      backgroundVelocityHost(i, 0) = backgroundVelocity[i][0];
+      backgroundVelocityHost(i, 1) = backgroundVelocity[i][1];
+      backgroundVelocityHost(i, 2) = backgroundVelocity[i][2];
+    }
+
+    Kokkos::deep_copy(backgroundVelocityHost, backgroundVelocityDevice);
+
+    Evaluator velocityEvaluator(&velocityBasis);
+
+    auto coefficients =
+        velocityEvaluator
+            .applyFullPolynomialCoefficientsBasisToDataAllComponents<
+                double **, Kokkos::HostSpace>(backgroundVelocityDevice);
+
+    auto gradient =
+        velocityEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
+            double **, Kokkos::HostSpace>(backgroundVelocityDevice,
+                                          GradientOfVectorPointEvaluation);
+
+    auto coefficientsSize = velocityBasis.getPolynomialCoefficientsSize();
+
+    vector<vector<double>> coefficientsChunk(localParticleNum);
+    for (int i = 0; i < localParticleNum; i++) {
+      coefficientsChunk[i].resize(coefficientsSize);
+      for (int j = 0; j < coefficientsSize; j++) {
+        coefficientsChunk[i][j] = coefficients(i, j);
       }
+    }
 
-      for (int i = 0; i < totalNeighborParticleNum; i++) {
-        backgroundVelocity.push_back(recvVelocity[i]);
-      }
+    vector<vector<double>> recvCoefficientsChunk;
 
-      // communicate coeffients
-      Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-          backgroundVelocityDevice("background velocity",
-                                   backgroundVelocity.size(), 3);
-      Kokkos::View<double **>::HostMirror backgroundVelocityHost =
-          Kokkos::create_mirror_view(backgroundVelocityDevice);
+    DataSwapAmongNeighbor(coefficientsChunk, recvCoefficientsChunk,
+                          coefficientsSize);
 
-      for (size_t i = 0; i < backgroundVelocity.size(); i++) {
-        backgroundVelocityHost(i, 0) = backgroundVelocity[i][0];
-        backgroundVelocityHost(i, 1) = backgroundVelocity[i][1];
-        backgroundVelocityHost(i, 2) = backgroundVelocity[i][2];
-      }
+    vector<vector<double>> backgroundCoefficients;
+    for (int i = 0; i < localParticleNum; i++) {
+      backgroundCoefficients.push_back(coefficientsChunk[i]);
+    }
 
-      Kokkos::deep_copy(backgroundVelocityHost, backgroundVelocityDevice);
+    for (int i = 0; i < totalNeighborParticleNum; i++) {
+      backgroundCoefficients.push_back(recvCoefficientsChunk[i]);
+    }
 
-      Evaluator velocityEvaluator(&velocityBasis);
-
-      auto coefficients =
-          velocityEvaluator
-              .applyFullPolynomialCoefficientsBasisToDataAllComponents<
-                  double **, Kokkos::HostSpace>(backgroundVelocityDevice);
-
-      auto gradient =
-          velocityEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
-              double **, Kokkos::HostSpace>(backgroundVelocityDevice,
-                                            GradientOfVectorPointEvaluation);
-
-      auto coefficientsSize = velocityBasis.getPolynomialCoefficientsSize();
-
-      vector<vector<double>> coefficientsChunk(localParticleNum);
-      for (int i = 0; i < localParticleNum; i++) {
-        coefficientsChunk[i].resize(coefficientsSize);
-        for (int j = 0; j < coefficientsSize; j++) {
-          coefficientsChunk[i][j] = coefficients(i, j);
+    // estimate stage
+    vector<vector<double>> recoveredVelocityGradient;
+    recoveredVelocityGradient.resize(localParticleNum);
+    const int gradientComponentNum = pow(__dim, 2);
+    for (int i = 0; i < localParticleNum; i++) {
+      recoveredVelocityGradient[i].resize(gradientComponentNum);
+      for (int axes1 = 0; axes1 < __dim; axes1++) {
+        for (int axes2 = 0; axes2 < __dim; axes2++) {
+          recoveredVelocityGradient[i][axes1 * __dim + axes2] = 0.0;
         }
       }
+    }
 
-      vector<vector<double>> recvCoefficientsChunk;
+    for (int i = 0; i < localParticleNum; i++) {
+      for (int j = 0; j < neighborLists(i, 0); j++) {
+        const int neighborParticleIndex = neighborLists(i, j + 1);
 
-      DataSwapAmongNeighbor(coefficientsChunk, recvCoefficientsChunk,
-                            coefficientsSize);
-
-      vector<vector<double>> backgroundCoefficients;
-      for (int i = 0; i < localParticleNum; i++) {
-        backgroundCoefficients.push_back(coefficientsChunk[i]);
-      }
-
-      for (int i = 0; i < totalNeighborParticleNum; i++) {
-        backgroundCoefficients.push_back(recvCoefficientsChunk[i]);
-      }
-
-      // estimate stage
-      vector<vector<double>> recoveredVelocityGradient;
-      recoveredVelocityGradient.resize(localParticleNum);
-      const int gradientComponentNum = pow(__dim, 2);
-      for (int i = 0; i < localParticleNum; i++) {
-        recoveredVelocityGradient[i].resize(gradientComponentNum);
+        vec3 dX = coord[i] - backgroundSourceCoord[neighborParticleIndex];
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           for (int axes2 = 0; axes2 < __dim; axes2++) {
-            recoveredVelocityGradient[i][axes1 * __dim + axes2] = 0.0;
+            if (__dim == 2)
+              recoveredVelocityGradient[i][axes1 * __dim + axes2] +=
+                  calDivFreeBasisGrad(
+                      axes1, axes2, dX[0], dX[1], __polynomialOrder,
+                      backgroundEpsilon[neighborParticleIndex],
+                      backgroundCoefficients[neighborParticleIndex]);
+            if (__dim == 3)
+              recoveredVelocityGradient[i][axes1 * __dim + axes2] +=
+                  calDivFreeBasisGrad(
+                      axes1, axes2, dX[0], dX[1], dX[2], __polynomialOrder,
+                      backgroundEpsilon[neighborParticleIndex],
+                      backgroundCoefficients[neighborParticleIndex]);
           }
         }
       }
 
-      for (int i = 0; i < localParticleNum; i++) {
-        for (int j = 0; j < neighborLists(i, 0); j++) {
-          const int neighborParticleIndex = neighborLists(i, j + 1);
-
-          vec3 dX = coord[i] - backgroundSourceCoord[neighborParticleIndex];
-          for (int axes1 = 0; axes1 < __dim; axes1++) {
-            for (int axes2 = 0; axes2 < __dim; axes2++) {
-              if (__dim == 2)
-                recoveredVelocityGradient[i][axes1 * __dim + axes2] +=
-                    calDivFreeBasisGrad(
-                        axes1, axes2, dX[0], dX[1], __polynomialOrder,
-                        backgroundEpsilon[neighborParticleIndex],
-                        backgroundCoefficients[neighborParticleIndex]);
-              if (__dim == 3)
-                recoveredVelocityGradient[i][axes1 * __dim + axes2] +=
-                    calDivFreeBasisGrad(
-                        axes1, axes2, dX[0], dX[1], dX[2], __polynomialOrder,
-                        backgroundEpsilon[neighborParticleIndex],
-                        backgroundCoefficients[neighborParticleIndex]);
-            }
-          }
+      for (int axes1 = 0; axes1 < __dim; axes1++) {
+        for (int axes2 = 0; axes2 < __dim; axes2++) {
+          recoveredVelocityGradient[i][axes1 * __dim + axes2] /=
+              neighborLists(i, 0);
         }
+      }
+    }
 
+    vector<vector<double>> recvRecoveredVelocityGradient;
+    DataSwapAmongNeighbor(recoveredVelocityGradient,
+                          recvRecoveredVelocityGradient, gradientComponentNum);
+
+    vector<vector<double>> backgroundRecoveredVelocityGradient;
+
+    for (int i = 0; i < localParticleNum; i++) {
+      backgroundRecoveredVelocityGradient.push_back(
+          recoveredVelocityGradient[i]);
+    }
+    for (int i = 0; i < totalNeighborParticleNum; i++) {
+      backgroundRecoveredVelocityGradient.push_back(
+          recvRecoveredVelocityGradient[i]);
+    }
+
+    for (int i = 0; i < localParticleNum; i++) {
+      error[i] = 0.0;
+      vector<double> reconstructedVelocityGradient(gradientComponentNum);
+      double totalNeighborVol = 0.0;
+      // loop over all neighbors
+      for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
+        const int neighborParticleIndex = neighborLists(i, j + 1);
+
+        totalNeighborVol += backgroundVolume[neighborParticleIndex];
+
+        vec3 dX = backgroundSourceCoord[neighborParticleIndex] - coord[i];
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           for (int axes2 = 0; axes2 < __dim; axes2++) {
-            recoveredVelocityGradient[i][axes1 * __dim + axes2] /=
-                neighborLists(i, 0);
+            if (__dim == 2)
+              reconstructedVelocityGradient[axes1 * __dim + axes2] =
+                  calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1],
+                                      __polynomialOrder, backgroundEpsilon[i],
+                                      backgroundCoefficients[i]);
+            if (__dim == 3)
+              reconstructedVelocityGradient[axes1 * __dim + axes2] =
+                  calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1], dX[2],
+                                      __polynomialOrder, backgroundEpsilon[i],
+                                      backgroundCoefficients[i]);
           }
         }
-      }
-
-      vector<vector<double>> recvRecoveredVelocityGradient;
-      DataSwapAmongNeighbor(recoveredVelocityGradient,
-                            recvRecoveredVelocityGradient,
-                            gradientComponentNum);
-
-      vector<vector<double>> backgroundRecoveredVelocityGradient;
-
-      for (int i = 0; i < localParticleNum; i++) {
-        backgroundRecoveredVelocityGradient.push_back(
-            recoveredVelocityGradient[i]);
-      }
-      for (int i = 0; i < totalNeighborParticleNum; i++) {
-        backgroundRecoveredVelocityGradient.push_back(
-            recvRecoveredVelocityGradient[i]);
-      }
-
-      for (int i = 0; i < localParticleNum; i++) {
-        error[i] = 0.0;
-        vector<double> reconstructedVelocityGradient(gradientComponentNum);
-        double totalNeighborVol = 0.0;
-        // loop over all neighbors
-        for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
-          const int neighborParticleIndex = neighborLists(i, j + 1);
-
-          totalNeighborVol += backgroundVolume[neighborParticleIndex];
-
-          vec3 dX = backgroundSourceCoord[neighborParticleIndex] - coord[i];
-          for (int axes1 = 0; axes1 < __dim; axes1++) {
-            for (int axes2 = 0; axes2 < __dim; axes2++) {
-              if (__dim == 2)
-                reconstructedVelocityGradient[axes1 * __dim + axes2] =
-                    calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1],
-                                        __polynomialOrder, backgroundEpsilon[i],
-                                        backgroundCoefficients[i]);
-              if (__dim == 3)
-                reconstructedVelocityGradient[axes1 * __dim + axes2] =
-                    calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1], dX[2],
-                                        __polynomialOrder, backgroundEpsilon[i],
-                                        backgroundCoefficients[i]);
-            }
-          }
-
-          for (int axes1 = 0; axes1 < __dim; axes1++) {
-            for (int axes2 = axes1; axes2 < __dim; axes2++) {
-              if (axes1 == axes2)
-                error[i] +=
-                    pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
-                            backgroundRecoveredVelocityGradient
-                                [neighborParticleIndex][axes1 * __dim + axes2],
-                        2) *
-                    backgroundVolume[neighborParticleIndex];
-              else {
-                error[i] +=
-                    0.5 *
-                    pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
-                            backgroundRecoveredVelocityGradient
-                                [neighborParticleIndex][axes1 * __dim + axes2] +
-                            reconstructedVelocityGradient[axes2 * __dim +
-                                                          axes1] -
-                            backgroundRecoveredVelocityGradient
-                                [neighborParticleIndex][axes2 * __dim + axes1],
-                        2) *
-                    backgroundVolume[neighborParticleIndex];
-              }
-            }
-          }
-        }
-
-        error[i] = error[i] / totalNeighborVol * volume[i];
-        localError += error[i];
 
         for (int axes1 = 0; axes1 < __dim; axes1++) {
           for (int axes2 = axes1; axes2 < __dim; axes2++) {
             if (axes1 == axes2)
-              localDirectGradientNorm +=
-                  pow(gradient(i, axes1 * __dim + axes2), 2) * volume[i];
-            else {
-              localDirectGradientNorm +=
-                  0.5 *
-                  pow(gradient(i, axes1 * __dim + axes2) +
-                          gradient(i, axes2 * __dim + axes1),
+              error[i] +=
+                  pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
+                          backgroundRecoveredVelocityGradient
+                              [neighborParticleIndex][axes1 * __dim + axes2],
                       2) *
-                  volume[i];
+                  backgroundVolume[neighborParticleIndex];
+            else {
+              error[i] +=
+                  0.5 *
+                  pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
+                          backgroundRecoveredVelocityGradient
+                              [neighborParticleIndex][axes1 * __dim + axes2] +
+                          reconstructedVelocityGradient[axes2 * __dim + axes1] -
+                          backgroundRecoveredVelocityGradient
+                              [neighborParticleIndex][axes2 * __dim + axes1],
+                      2) *
+                  backgroundVolume[neighborParticleIndex];
             }
           }
         }
       }
-    }
 
-    if (__adaptive_base_field == "Pressure") {
-      vector<int> pressureGradientIndex;
-      for (int i = 0; i < __dim; i++)
-        pressureGradientIndex.push_back(pressureBasis.getAlphaColumnOffset(
-            GradientOfScalarPointEvaluation, i, 0, 0, 0));
+      error[i] = error[i] / totalNeighborVol * volume[i];
+      localError += error[i];
 
-      auto pressureAlphas = pressureBasis.getAlphas();
-      auto neighborLists = pressureBasis.getNeighborLists();
-
-      auto &pressure = __field.scalar.GetHandle("fluid pressure");
-      vector<double> recvPressure;
-      DataSwapAmongNeighbor(pressure, recvPressure);
-      vector<double> backgroundPressure = pressure;
-      backgroundPressure.insert(backgroundPressure.end(), recvPressure.begin(),
-                                recvPressure.end());
-
-      Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
-          backgroundPressureDevice("background pressure",
-                                   backgroundPressure.size());
-      Kokkos::View<double *>::HostMirror backgroundPressureHost =
-          Kokkos::create_mirror_view(backgroundPressureDevice);
-
-      for (size_t i = 0; i < backgroundPressure.size(); i++) {
-        backgroundPressureHost(i) = backgroundPressure[i];
-      }
-
-      Kokkos::deep_copy(backgroundPressureHost, backgroundPressureDevice);
-
-      Evaluator pressureEvaluator(&pressureBasis);
-
-      auto coefficients =
-          pressureEvaluator
-              .applyFullPolynomialCoefficientsBasisToDataAllComponents<
-                  double **, Kokkos::HostSpace>(backgroundPressureDevice);
-
-      auto gradient =
-          pressureEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
-              double **, Kokkos::HostSpace>(backgroundPressureDevice,
-                                            GradientOfScalarPointEvaluation);
-
-      auto coefficientsSize = pressureBasis.getPolynomialCoefficientsSize();
-
-      vector<vector<double>> coefficientsChunk(localParticleNum);
-      for (int i = 0; i < localParticleNum; i++) {
-        coefficientsChunk[i].resize(coefficientsSize);
-        for (int j = 0; j < coefficientsSize; j++) {
-          coefficientsChunk[i][j] = coefficients(i, j);
-        }
-      }
-
-      vector<vector<double>> recvCoefficientsChunk;
-
-      DataSwapAmongNeighbor(coefficientsChunk, recvCoefficientsChunk,
-                            coefficientsSize);
-
-      vector<vector<double>> backgroundCoefficients;
-      for (int i = 0; i < localParticleNum; i++) {
-        backgroundCoefficients.push_back(coefficientsChunk[i]);
-      }
-
-      for (int i = 0; i < totalNeighborParticleNum; i++) {
-        backgroundCoefficients.push_back(recvCoefficientsChunk[i]);
-      }
-
-      // estimate stage
-      vector<vec3> recoveredPressureGradient;
-      recoveredPressureGradient.resize(localParticleNum);
-
-      for (int i = 0; i < localParticleNum; i++) {
-        for (int j = 0; j < neighborLists(i, 0); j++) {
-          const int neighborParticleIndex = neighborLists(i, j + 1);
-
-          vec3 dX = coord[i] - backgroundSourceCoord[neighborParticleIndex];
-          for (int axes1 = 0; axes1 < __dim; axes1++) {
-            if (__dim == 2)
-              recoveredPressureGradient[i][axes1] +=
-                  calStaggeredScalarGrad(
-                      axes1, dX[0], dX[1], __polynomialOrder,
-                      backgroundEpsilon[neighborParticleIndex],
-                      backgroundCoefficients[neighborParticleIndex]) /
-                  neighborLists(i, 0);
+      for (int axes1 = 0; axes1 < __dim; axes1++) {
+        for (int axes2 = axes1; axes2 < __dim; axes2++) {
+          if (axes1 == axes2)
+            localDirectGradientNorm +=
+                pow(gradient(i, axes1 * __dim + axes2), 2) * volume[i];
+          else {
+            localDirectGradientNorm +=
+                0.5 *
+                pow(gradient(i, axes1 * __dim + axes2) +
+                        gradient(i, axes2 * __dim + axes1),
+                    2) *
+                volume[i];
           }
         }
       }
     }
+
+    for (int ite = 0; ite < 10; ite++) {
+      vector<double> recvError;
+      DataSwapAmongNeighbor(error, recvError);
+
+      vector<double> backgroundError;
+      backgroundError = error;
+
+      backgroundError.insert(backgroundError.end(), recvError.begin(),
+                             recvError.end());
+
+      for (int i = 0; i < localParticleNum; i++) {
+        error[i] = 0.0;
+        double totalNeighborVol = 0.0;
+        for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
+          const int neighborParticleIndex = neighborLists(i, j + 1);
+
+          error[i] += backgroundError[neighborParticleIndex] *
+                      backgroundVolume[neighborParticleIndex];
+          totalNeighborVol += backgroundVolume[neighborParticleIndex];
+        }
+        error[i] /= totalNeighborVol;
+        localError += error[i];
+      }
+    }
+
+    for (int i = 0; i < localParticleNum; i++) {
+      error[i] *= volume[i];
+    }
+
+    // if (__adaptive_base_field == "Pressure") {
+    //   vector<int> pressureGradientIndex;
+    //   for (int i = 0; i < __dim; i++)
+    //     pressureGradientIndex.push_back(pressureBasis.getAlphaColumnOffset(
+    //         GradientOfScalarPointEvaluation, i, 0, 0, 0));
+
+    //   auto pressureAlphas = pressureBasis.getAlphas();
+    //   auto neighborLists = pressureBasis.getNeighborLists();
+
+    //   auto &pressure = __field.scalar.GetHandle("fluid pressure");
+    //   vector<double> recvPressure;
+    //   DataSwapAmongNeighbor(pressure, recvPressure);
+    //   vector<double> backgroundPressure = pressure;
+    //   backgroundPressure.insert(backgroundPressure.end(),
+    //   recvPressure.begin(),
+    //                             recvPressure.end());
+
+    //   Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+    //       backgroundPressureDevice("background pressure",
+    //                                backgroundPressure.size());
+    //   Kokkos::View<double *>::HostMirror backgroundPressureHost =
+    //       Kokkos::create_mirror_view(backgroundPressureDevice);
+
+    //   for (size_t i = 0; i < backgroundPressure.size(); i++) {
+    //     backgroundPressureHost(i) = backgroundPressure[i];
+    //   }
+
+    //   Kokkos::deep_copy(backgroundPressureHost, backgroundPressureDevice);
+
+    //   Evaluator pressureEvaluator(&pressureBasis);
+
+    //   auto coefficients =
+    //       pressureEvaluator
+    //           .applyFullPolynomialCoefficientsBasisToDataAllComponents<
+    //               double **, Kokkos::HostSpace>(backgroundPressureDevice);
+
+    //   auto gradient =
+    //       pressureEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
+    //           double **, Kokkos::HostSpace>(backgroundPressureDevice,
+    //                                         GradientOfScalarPointEvaluation);
+
+    //   auto coefficientsSize = pressureBasis.getPolynomialCoefficientsSize();
+
+    //   vector<vector<double>> coefficientsChunk(localParticleNum);
+    //   for (int i = 0; i < localParticleNum; i++) {
+    //     coefficientsChunk[i].resize(coefficientsSize);
+    //     for (int j = 0; j < coefficientsSize; j++) {
+    //       coefficientsChunk[i][j] = coefficients(i, j);
+    //     }
+    //   }
+
+    //   vector<vector<double>> recvCoefficientsChunk;
+
+    //   DataSwapAmongNeighbor(coefficientsChunk, recvCoefficientsChunk,
+    //                         coefficientsSize);
+
+    //   vector<vector<double>> backgroundCoefficients;
+    //   for (int i = 0; i < localParticleNum; i++) {
+    //     backgroundCoefficients.push_back(coefficientsChunk[i]);
+    //   }
+
+    //   for (int i = 0; i < totalNeighborParticleNum; i++) {
+    //     backgroundCoefficients.push_back(recvCoefficientsChunk[i]);
+    //   }
+
+    //   // estimate stage
+    //   vector<vec3> recoveredPressureGradient;
+    //   recoveredPressureGradient.resize(localParticleNum);
+
+    //   for (int i = 0; i < localParticleNum; i++) {
+    //     for (int j = 0; j < neighborLists(i, 0); j++) {
+    //       const int neighborParticleIndex = neighborLists(i, j + 1);
+
+    //       vec3 dX = coord[i] - backgroundSourceCoord[neighborParticleIndex];
+    //       for (int axes1 = 0; axes1 < __dim; axes1++) {
+    //         if (__dim == 2)
+    //           recoveredPressureGradient[i][axes1] +=
+    //               calStaggeredScalarGrad(
+    //                   axes1, dX[0], dX[1], __polynomialOrder,
+    //                   backgroundEpsilon[neighborParticleIndex],
+    //                   backgroundCoefficients[neighborParticleIndex]) /
+    //               neighborLists(i, 0);
+    //       }
+    //     }
+    //   }
+    // }
 
     MPI_Allreduce(&localError, &globalError, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
@@ -392,7 +416,32 @@ bool GMLS_Solver::NeedRefinement() {
       return false;
 
     // mark stage
-    double alpha = 1.0 - 0.01 * (__adaptive_step + 1);
+    double alpha;
+    switch (__adaptive_step) {
+    case 0:
+      alpha = 0.99;
+      break;
+    case 1:
+      alpha = 0.95;
+      break;
+    case 2:
+      alpha = 0.90;
+      break;
+    case 3:
+      alpha = 0.80;
+      break;
+    case 4:
+      alpha = 0.75;
+      break;
+    case 5:
+      alpha = 0.70;
+      break;
+    case 6:
+      alpha = 0.65;
+      break;
+    default:
+      alpha = 0.60;
+    }
 
     vector<pair<int, double>> chopper;
     pair<int, double> toAdd;

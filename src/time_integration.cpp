@@ -488,11 +488,9 @@ void GMLS_Solver::RungeKuttaIntegration() {
         if (__dim == 2) {
           for (int j = 0; j < 2; j++) {
             double velocity_err =
-                dt *
-                (dc1 * velocity_k1[num][j] + dc3 * velocity_k3[num][j] +
-                 dc4 * velocity_k4[num][j] + dc5 * velocity_k5[num][j] +
-                 dc6 * velocity_k6[num][j] + dc7 * velocity_k7[num][j]) /
-                __boundingBoxSize[j];
+                dt * (dc1 * velocity_k1[num][j] + dc3 * velocity_k3[num][j] +
+                      dc4 * velocity_k4[num][j] + dc5 * velocity_k5[num][j] +
+                      dc6 * velocity_k6[num][j] + dc7 * velocity_k7[num][j]);
 
             err += velocity_err * velocity_err;
           }
