@@ -42,6 +42,7 @@ int main(int argc, char *argv[]) {
 
   ns.TimeIntegration();
 
+  MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
 
   PetscPrintf(MPI_COMM_WORLD, "Program execution duration: %fs\n",

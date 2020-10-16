@@ -571,7 +571,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
       PC bjacobi_pc;
       KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
       PCSetType(bjacobi_pc, PCLU);
-      PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
+      PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERSUPERLU_DIST);
       PCSetUp(bjacobi_pc);
       KSPSetUp(bjacobi_ksp[0]);
     }
@@ -614,7 +614,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     PC neighbor_relaxation_sub_pc;
     KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
     PCSetType(neighbor_relaxation_sub_pc, PCLU);
-    PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERMUMPS);
+    PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERSUPERLU_DIST);
     PCSetUp(neighbor_relaxation_sub_pc);
     KSPSetUp(neighbor_relaxation_sub_ksp[0]);
   }
