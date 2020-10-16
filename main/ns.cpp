@@ -6,6 +6,7 @@ using namespace std;
 using namespace Compadre;
 
 int main(int argc, char *argv[]) {
+  MPI_Init(&argc, &argv);
   // get info from input file
   string inputFileName;
   vector<char *> cstrings;
@@ -51,4 +52,9 @@ int main(int argc, char *argv[]) {
   Kokkos::finalize();
 
   PetscFinalize();
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Finalize();
+
+  return 0;
 }
