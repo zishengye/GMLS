@@ -685,6 +685,8 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   VecDestroy(&_x);
   VecDestroy(&null_field);
   VecDestroy(&null_whole);
+
+  return 0;
 }
 
 void multilevel::clear() {

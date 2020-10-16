@@ -854,6 +854,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
+
+  return 0;
 }
 
 void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
