@@ -571,7 +571,9 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
       PC bjacobi_pc;
       KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
       PCSetType(bjacobi_pc, PCLU);
-      PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
+      // PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
+      // PetscOptionsSetValue(NULL, "-pc_hypre_type", "euclid");
+      PCSetFromOptions(bjacobi_pc);
       PCSetUp(bjacobi_pc);
       KSPSetUp(bjacobi_ksp[0]);
     }
