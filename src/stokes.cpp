@@ -963,24 +963,24 @@ void GMLS_Solver::StokesEquation() {
   //   }
   // }
 
-  if (__myID == __MPISize - 1) {
-    for (int i = 0; i < numRigidBody; i++) {
-      rhs[localRigidBodyOffset + i * rigidBodyDof + translationDof] =
-          pow(-1, i + 1);
-    }
-  }
-
-  // for (int i = 0; i < localParticleNum; i++) {
-  //   if (particleType[i] != 0 && particleType[i] < 4) {
-  //     // 2-d Taylor-Green vortex-like flow
-  //     if (__dim == 2) {
-  //       double x = coord[i][0];
-  //       double y = coord[i][1];
-
-  //       rhs[fieldDof * i] = 0.1 * coord[i][1];
-  //     }
+  // if (__myID == __MPISize - 1) {
+  //   for (int i = 0; i < numRigidBody; i++) {
+  //     rhs[localRigidBodyOffset + i * rigidBodyDof + translationDof] =
+  //         pow(-1, i + 1);
   //   }
   // }
+
+  for (int i = 0; i < localParticleNum; i++) {
+    if (particleType[i] != 0 && particleType[i] < 4) {
+      // 2-d Taylor-Green vortex-like flow
+      if (__dim == 2) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+
+        rhs[fieldDof * i] = 0.1 * coord[i][1];
+      }
+    }
+  }
 
   // make sure pressure term is orthogonal to the constant
   double rhs_pressure_sum = 0.0;
@@ -1029,8 +1029,10 @@ void GMLS_Solver::StokesEquation() {
               tEnd - tStart);
 
   PetscViewer viewer;
-  PetscViewerASCIIGetStdout(PETSC_COMM_WORLD, &viewer);
-  PetscLogView(viewer);
+  if (__viewer > 0) {
+    PetscViewerASCIIGetStdout(PETSC_COMM_WORLD, &viewer);
+    PetscLogView(viewer);
+  }
 
   // copy data
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");

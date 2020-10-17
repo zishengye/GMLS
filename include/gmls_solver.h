@@ -28,10 +28,12 @@ int SearchCommand(int argc, char **argv, const std::string &commandName,
                   T &res);
 
 class GMLS_Solver {
- private:
+private:
   // MPI setting
   int __myID;
   int __MPISize;
+
+  int __viewer;
 
   // solver control parameter
   std::string __equationType;
@@ -84,6 +86,7 @@ class GMLS_Solver {
   GeneralInfo __rigidBody;
 
   std::string __rigidBodyInputFileName;
+  std::string __trajectoryOutputFileName;
   bool __rigidBodyInclusion;
 
   multilevel _multi;
@@ -329,8 +332,7 @@ class GMLS_Solver {
   void RungeKuttaIntegration();
 
   // operator
-  template <typename Func>
-  void SerialOperation(Func operation) {
+  template <typename Func> void SerialOperation(Func operation) {
     for (int i = 0; i < __MPISize; i++) {
       if (i == __myID) {
         operation();
@@ -339,8 +341,7 @@ class GMLS_Solver {
     }
   }
 
-  template <typename Func>
-  void MasterOperation(int master, Func operation) {
+  template <typename Func> void MasterOperation(int master, Func operation) {
     if (master == __myID) {
       operation();
     }
@@ -356,7 +357,7 @@ class GMLS_Solver {
   void WriteDataAdaptiveStep();
   void WriteDataAdaptiveGeometry();
 
- public:
+public:
   GMLS_Solver(int argc, char **argv);
 
   void TimeIntegration();

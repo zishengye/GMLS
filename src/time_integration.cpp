@@ -244,7 +244,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
   ofstream output;
   ofstream output_runge_kutta;
   if (__myID == 0) {
-    output.open("traj.txt", ios::trunc);
+    output.open(__trajectoryOutputFileName, ios::trunc);
     output << t << '\t';
     for (int num = 0; num < numRigidBody; num++) {
       for (int j = 0; j < 3; j++) {
@@ -526,7 +526,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
     // output current time step result
     if (__myID == 0) {
-      output.open("traj.txt", ios::app);
+      output.open(__trajectoryOutputFileName, ios::app);
 
       const double bi12 = -static_cast<double>(183) / static_cast<double>(64);
       const double bi13 = static_cast<double>(37) / static_cast<double>(12);

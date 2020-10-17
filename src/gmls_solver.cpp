@@ -122,6 +122,10 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   if (SearchCommand<string>(argc, argv, "-rigid_body_input",
                             __rigidBodyInputFileName) == 0) {
     __rigidBodyInclusion = true;
+    if (SearchCommand<string>(argc, argv, "-traj_output",
+                              __trajectoryOutputFileName) == 1) {
+      __trajectoryOutputFileName = "traj.txt";
+    }
   } else {
     __rigidBodyInclusion = false;
   }
@@ -195,6 +199,10 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     return;
   } else if (__batchSize < 0) {
     return;
+  }
+
+  if ((SearchCommand<int>(argc, argv, "-Viewer", __viewer)) == 1) {
+    __viewer = 0;
   }
 
   // [summary of problem setup]
