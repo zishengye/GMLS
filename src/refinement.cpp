@@ -264,8 +264,8 @@ bool GMLS_Solver::NeedRefinement() {
         }
       }
 
-      error[i] = error[i] / totalNeighborVol * volume[i];
-      localError += error[i];
+      error[i] = error[i] / totalNeighborVol;
+      localError += error[i] * volume[i];
 
       for (int axes1 = 0; axes1 < __dim; axes1++) {
         for (int axes2 = axes1; axes2 < __dim; axes2++) {
@@ -305,7 +305,6 @@ bool GMLS_Solver::NeedRefinement() {
           totalNeighborVol += backgroundVolume[neighborParticleIndex];
         }
         error[i] /= totalNeighborVol;
-        localError += error[i];
       }
     }
 
@@ -416,32 +415,7 @@ bool GMLS_Solver::NeedRefinement() {
       return false;
 
     // mark stage
-    double alpha;
-    switch (__adaptive_step) {
-    case 0:
-      alpha = 0.99;
-      break;
-    case 1:
-      alpha = 0.95;
-      break;
-    case 2:
-      alpha = 0.90;
-      break;
-    case 3:
-      alpha = 0.80;
-      break;
-    case 4:
-      alpha = 0.75;
-      break;
-    case 5:
-      alpha = 0.70;
-      break;
-    case 6:
-      alpha = 0.65;
-      break;
-    default:
-      alpha = 0.60;
-    }
+    double alpha = 0.99;
 
     vector<pair<int, double>> chopper;
     pair<int, double> toAdd;
