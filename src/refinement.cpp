@@ -6,6 +6,11 @@
 using namespace std;
 using namespace Compadre;
 
+double Wab(double r, double h) {
+  int p = 4;
+  return pow(1.0 - abs(r / h), p) * double(1.0 - abs(r / h) > 0.0);
+}
+
 struct ErrorComb {
   double error;
   int rank;
@@ -300,9 +305,13 @@ bool GMLS_Solver::NeedRefinement() {
         for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
           const int neighborParticleIndex = neighborLists(i, j + 1);
 
+          vec3 dX = backgroundSourceCoord[neighborParticleIndex] - coord[i];
+
+          double Wabij = Wab(dX.mag(), __epsilon[i]);
+
           error[i] += backgroundError[neighborParticleIndex] *
-                      backgroundVolume[neighborParticleIndex];
-          totalNeighborVol += backgroundVolume[neighborParticleIndex];
+                      backgroundVolume[neighborParticleIndex] * Wabij;
+          totalNeighborVol += backgroundVolume[neighborParticleIndex] * Wabij;
         }
         error[i] /= totalNeighborVol;
       }
@@ -432,6 +441,7 @@ bool GMLS_Solver::NeedRefinement() {
     std::sort(chopper.begin(), chopper.end(), pairCompare);
 
     vector<int> splitTag;
+    vector<int> splitCandidateTag;
 
     // parallel selection
     int split_max_index = 0;
@@ -495,15 +505,24 @@ bool GMLS_Solver::NeedRefinement() {
       }
     }
 
-    splitTag.clear();
+    splitCandidateTag.clear();
     for (int i = 0; i < split_max_index; i++) {
-      splitTag.push_back(chopper[i].first);
+      splitCandidateTag.push_back(chopper[i].first);
     }
-    // for (int i = 0; i < localParticleNum; i++) {
-    //   if (chopper[i].second > error_min) {
-    //     splitTag.push_back(chopper[i].first);
-    //   }
-    // }
+
+    for (int i = 0; i < splitCandidateTag.size(); i++) {
+      bool isAdd = true;
+      int index = splitCandidateTag[i];
+      for (int j = 0; j < velocityNeighborListsLengths(index); j++) {
+        const int neighborParticleIndex = neighborLists(index, j + 1);
+        if (backgroundVolume[neighborParticleIndex] > 2.5 * volume[index]) {
+          isAdd = false;
+        }
+      }
+      if (isAdd) {
+        splitTag.push_back(splitCandidateTag[i]);
+      }
+    }
 
     for (int i = 0; i < localParticleNum; i++) {
       error[i] = sqrt(error[i]);
