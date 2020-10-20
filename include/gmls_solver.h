@@ -87,6 +87,7 @@ private:
 
   std::string __rigidBodyInputFileName;
   std::string __trajectoryOutputFileName;
+  std::string __velocityOutputFileName;
   bool __rigidBodyInclusion;
 
   multilevel _multi;

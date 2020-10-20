@@ -243,6 +243,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
   // setup output file
   ofstream output;
   ofstream output_runge_kutta;
+  ofstream outputVelocity;
   if (__myID == 0) {
     output.open(__trajectoryOutputFileName, ios::trunc);
     output << t << '\t';
@@ -259,6 +260,19 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
     output_runge_kutta.open("traj_runge_kutta.txt", ios::trunc);
     output_runge_kutta.close();
+
+    outputVelocity.open(__velocityOutputFileName, ios::trunc);
+    outputVelocity << t + dt << '\t';
+    for (int num = 0; num < numRigidBody; num++) {
+      for (int j = 0; j < 3; j++) {
+        outputVelocity << rigidBodyVelocity[num][j] << '\t';
+      }
+      for (int j = 0; j < 3; j++) {
+        outputVelocity << rigidBodyAngularVelocity[num][j] << '\t';
+      }
+    }
+    outputVelocity << endl;
+    outputVelocity.close();
   }
 
   // main loop
@@ -603,6 +617,19 @@ void GMLS_Solver::RungeKuttaIntegration() {
       }
       output << endl;
       output.close();
+
+      outputVelocity.open(__velocityOutputFileName, ios::app);
+      outputVelocity << t + dt << '\t';
+      for (int num = 0; num < numRigidBody; num++) {
+        for (int j = 0; j < 3; j++) {
+          outputVelocity << rigidBodyVelocity[num][j] << '\t';
+        }
+        for (int j = 0; j < 3; j++) {
+          outputVelocity << rigidBodyAngularVelocity[num][j] << '\t';
+        }
+      }
+      outputVelocity << endl;
+      outputVelocity.close();
     }
 
     // increase time
