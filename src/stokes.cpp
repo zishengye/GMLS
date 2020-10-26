@@ -1000,7 +1000,7 @@ void GMLS_Solver::StokesEquation() {
 
       double r = sqrt(x * x + y * y + z * z);
       double theta = acos(z / r);
-      double phi = asin(y / sqrt(x * x + y * y));
+      double phi = atan2(y, x);
 
       double vr = u * cos(theta) *
                   (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
@@ -1020,9 +1020,36 @@ void GMLS_Solver::StokesEquation() {
       double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
       double p3 = cos(theta) * pr - sin(theta) * pt;
 
-      rhs[fieldDof * i + 3] =
-          bi * (normal[i][0] * p1 + normal[i][1] * p2 + normal[i][2] * p3);
+      // rhs[fieldDof * i + 3] =
+      //     bi * (normal[i][0] * p1 + normal[i][1] * p2 + normal[i][2] * p3);
+    } else if (particleType[i] >= 4) {
+      double x = coord[i][0];
+      double y = coord[i][1];
+      double z = coord[i][2];
+
+      double r = sqrt(x * x + y * y + z * z);
+      double theta = acos(z / r);
+      double phi = atan2(y, x);
+
+      const int neumannBoudnaryIndex = fluid2NeumannBoundary[i];
+      const double bi = pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+          DivergenceOfVectorPointEvaluation, neumannBoudnaryIndex,
+          neumannBoundaryNeighborLists(neumannBoudnaryIndex, 0));
+
+      double pr = 3 * RR / pow(r, 3) * u * cos(theta);
+      double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
+
+      double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
+      double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
+      double p3 = cos(theta) * pr - sin(theta) * pt;
+
+      // rhs[fieldDof * i + 3] =
+      //     bi * (normal[i][0] * p1 + normal[i][1] * p2 + normal[i][2] * p3);
     }
+  }
+
+  if (__myID == __MPISize - 1) {
+    rhs[localRigidBodyOffset + 2] = 6 * M_PI * RR * u;
   }
 
   // make sure pressure term is orthogonal to the constant
@@ -1099,106 +1126,203 @@ void GMLS_Solver::StokesEquation() {
   }
 
   // check data
-  if (numRigidBody == 0) {
-    double true_pressure_mean = 0.0;
-    double pressure_mean = 0.0;
-    for (int i = 0; i < localParticleNum; i++) {
-      if (__dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+  double true_pressure_mean = 0.0;
+  double pressure_mean = 0.0;
+  for (int i = 0; i < localParticleNum; i++) {
+    if (__dim == 2) {
+      double x = coord[i][0];
+      double y = coord[i][1];
 
-        double true_pressure = -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y);
+      double true_pressure = -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y);
 
-        true_pressure_mean += true_pressure;
-        pressure_mean += pressure[i];
-      }
-
-      if (__dim == 3) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
-
-        double true_pressure =
-            -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) - cos(2.0 * M_PI * z);
-
-        true_pressure_mean += true_pressure;
-        pressure_mean += pressure[i];
-      }
+      true_pressure_mean += true_pressure;
+      pressure_mean += pressure[i];
     }
 
-    MPI_Allreduce(MPI_IN_PLACE, &true_pressure_mean, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &pressure_mean, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
+    if (__dim == 3) {
+      double x = coord[i][0];
+      double y = coord[i][1];
+      double z = coord[i][2];
 
-    true_pressure_mean /= globalParticleNum;
-    pressure_mean /= globalParticleNum;
+      double r = sqrt(x * x + y * y + z * z);
+      double theta = acos(z / r);
 
-    double error_velocity = 0.0;
-    double norm_velocity = 0.0;
-    double error_pressure = 0.0;
-    double norm_pressure = 0.0;
-    for (int i = 0; i < localParticleNum; i++) {
-      if (__dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+      double true_pressure = -3 / 2 * RR / pow(r, 2.0) * u * cos(theta);
 
-        double true_pressure =
-            -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) - true_pressure_mean;
-        double true_velocity[2];
-        true_velocity[0] = cos(M_PI * x) * sin(M_PI * y);
-        true_velocity[1] = -sin(M_PI * x) * cos(M_PI * y);
-
-        error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
-                          pow(true_velocity[1] - velocity[i][1], 2);
-        error_pressure += pow(true_pressure - pressure[i] + pressure_mean, 2);
-
-        norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2);
-        norm_pressure += pow(true_pressure, 2);
-      }
-
-      if (__dim == 3) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
-
-        double true_pressure = -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) -
-                               cos(2.0 * M_PI * z) - true_pressure_mean;
-        double true_velocity[3];
-        true_velocity[0] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-        true_velocity[1] = -2.0 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-        true_velocity[2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
-
-        error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
-                          pow(true_velocity[1] - velocity[i][1], 2) +
-                          pow(true_velocity[2] - velocity[i][2], 2);
-        error_pressure += pow(true_pressure - pressure[i] + pressure_mean, 2);
-
-        norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2) +
-                         pow(true_velocity[2], 2);
-        norm_pressure += pow(true_pressure, 2);
-      }
+      true_pressure_mean += true_pressure;
+      pressure_mean += pressure[i];
     }
-
-    MPI_Allreduce(MPI_IN_PLACE, &error_velocity, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &error_pressure, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &norm_velocity, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &norm_pressure, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
-
-    PetscPrintf(MPI_COMM_WORLD, "relative pressure error: %.10f\n",
-                sqrt(error_pressure / norm_pressure));
-    PetscPrintf(MPI_COMM_WORLD, "relative velocity error: %.10f\n",
-                sqrt(error_velocity / norm_velocity));
-
-    PetscPrintf(MPI_COMM_WORLD, "RMS pressure error: %.10f\n",
-                sqrt(error_pressure / globalParticleNum));
-    PetscPrintf(MPI_COMM_WORLD, "RMS velocity error: %.10f\n",
-                sqrt(error_velocity / globalParticleNum));
   }
+
+  MPI_Allreduce(MPI_IN_PLACE, &true_pressure_mean, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_mean, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  true_pressure_mean /= globalParticleNum;
+  pressure_mean /= globalParticleNum;
+
+  double error_velocity = 0.0;
+  double norm_velocity = 0.0;
+  double error_pressure = 0.0;
+  double norm_pressure = 0.0;
+  for (int i = 0; i < localParticleNum; i++) {
+    if (__dim == 2) {
+      double x = coord[i][0];
+      double y = coord[i][1];
+
+      double true_pressure =
+          -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) - true_pressure_mean;
+      double true_velocity[2];
+      true_velocity[0] = cos(M_PI * x) * sin(M_PI * y);
+      true_velocity[1] = -sin(M_PI * x) * cos(M_PI * y);
+
+      error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
+                        pow(true_velocity[1] - velocity[i][1], 2);
+      error_pressure += pow(true_pressure - pressure[i], 2);
+
+      norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2);
+      norm_pressure += pow(true_pressure, 2);
+    }
+
+    if (__dim == 3) {
+      double x = coord[i][0];
+      double y = coord[i][1];
+      double z = coord[i][2];
+
+      double r = sqrt(x * x + y * y + z * z);
+      double theta = acos(z / r);
+      double phi = atan2(y, x);
+
+      double vr = u * cos(theta) *
+                  (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
+      double vt = -u * sin(theta) *
+                  (1 - (3 * RR) / (4 * r) - pow(RR, 3) / (4 * pow(r, 3)));
+
+      double pr = 3 * RR / pow(r, 3) * u * cos(theta);
+      double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
+
+      double true_velocity[3];
+
+      true_velocity[0] =
+          sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
+      true_velocity[1] =
+          sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
+      true_velocity[2] = cos(theta) * vr - sin(theta) * vt;
+
+      double true_pressure =
+          -3 / 2 * RR / pow(r, 2.0) * u * cos(theta) - true_pressure_mean;
+
+      error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
+                        pow(true_velocity[1] - velocity[i][1], 2) +
+                        pow(true_velocity[2] - velocity[i][2], 2);
+      error_pressure += pow(true_pressure - pressure[i], 2);
+
+      norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2) +
+                       pow(true_velocity[2], 2);
+      norm_pressure += pow(true_pressure, 2);
+    }
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, &error_velocity, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &error_pressure, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &norm_velocity, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &norm_pressure, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  PetscPrintf(MPI_COMM_WORLD, "relative pressure error: %.10f\n",
+              sqrt(error_pressure / norm_pressure));
+  PetscPrintf(MPI_COMM_WORLD, "relative velocity error: %.10f\n",
+              sqrt(error_velocity / norm_velocity));
+
+  PetscPrintf(MPI_COMM_WORLD, "RMS pressure error: %.10f\n",
+              sqrt(error_pressure / globalParticleNum));
+  PetscPrintf(MPI_COMM_WORLD, "RMS velocity error: %.10f\n",
+              sqrt(error_velocity / globalParticleNum));
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // vector<vec3> recvVelocity;
+  // DataSwapAmongNeighbor(velocity, recvVelocity);
+  // vector<vec3> backgroundVelocity;
+
+  // for (int i = 0; i < localParticleNum; i++) {
+  //   backgroundVelocity.push_back(velocity[i]);
+  // }
+
+  // static vector<int> &offset = __neighbor.index.GetHandle("recv offset");
+  // int neighborNum = pow(3, __dim);
+  // int totalNeighborParticleNum = offset[neighborNum];
+
+  // for (int i = 0; i < totalNeighborParticleNum; i++) {
+  //   backgroundVelocity.push_back(recvVelocity[i]);
+  // }
+
+  // // communicate coeffients
+  // Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+  //     backgroundVelocityDevice("background velocity",
+  //     backgroundVelocity.size(),
+  //                              3);
+  // Kokkos::View<double **>::HostMirror backgroundVelocityHost =
+  //     Kokkos::create_mirror_view(backgroundVelocityDevice);
+
+  // for (size_t i = 0; i < backgroundVelocity.size(); i++) {
+  //   backgroundVelocityHost(i, 0) = backgroundVelocity[i][0];
+  //   backgroundVelocityHost(i, 1) = backgroundVelocity[i][1];
+  //   backgroundVelocityHost(i, 2) = backgroundVelocity[i][2];
+  // }
+
+  // Kokkos::deep_copy(backgroundVelocityHost, backgroundVelocityDevice);
+
+  // Evaluator velocityEvaluator(&velocityBasis);
+
+  // auto coefficients =
+  //     velocityEvaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<
+  //         double **, Kokkos::HostSpace>(backgroundVelocityDevice);
+
+  // auto gradient =
+  //     velocityEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
+  //         double **, Kokkos::HostSpace>(backgroundVelocityDevice,
+  //                                       GradientOfVectorPointEvaluation);
+
+  // double fz = 0.0;
+  // for (int i = 0; i < localParticleNum; i++) {
+  //   if (particleType[i] >= 4) {
+  //     vec3 dA = (__dim == 3)
+  //                   ? (normal[i] * particleSize[i][0] * particleSize[i][1])
+  //                   : (normal[i] * particleSize[i][0]);
+
+  //     vector<double> f;
+  //     f.resize(3);
+  //     for (int axes1 = 0; axes1 < __dim; axes1++) {
+  //       f[axes1] = 0.0;
+  //     }
+
+  //     for (int axes1 = 0; axes1 < __dim; axes1++) {
+  //       // output component 1
+  //       for (int axes2 = 0; axes2 < __dim; axes2++) {
+  //         // output component 2
+  //         const int index = axes1 * __dim + axes2;
+  //         const double sigma =
+  //             pressure[i] + __eta * (gradient(i, index) + gradient(i,
+  //             index));
+
+  //         f[axes1] += sigma * dA[axes2];
+  //       }
+  //     }
+
+  //     fz += f[2];
+  //   }
+  // }
+
+  // MPI_Allreduce(MPI_IN_PLACE, &fz, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  // PetscPrintf(PETSC_COMM_WORLD, "force_z: %f, actual force: %f\n", fz,
+  //             6 * M_PI * RR * u);
+  // PetscPrintf(PETSC_COMM_WORLD, "difference %f\n",
+  //             abs(fz - 6 * M_PI * RR * u) / abs(6 * M_PI * RR * u));
 
   if (__myID == __MPISize - 1) {
     for (int i = 0; i < numRigidBody; i++) {
@@ -1225,6 +1349,7 @@ void GMLS_Solver::StokesEquation() {
       }
       for (int j = 0; j < rotationDof; j++) {
         angular_velocity[i * rotationDof + j] = rigidBodyAngularVelocity[i][j];
+        cout << rigidBodyAngularVelocity[i][j] << endl;
       }
     }
   }

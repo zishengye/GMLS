@@ -145,8 +145,12 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
         for (int j = 0; j < M_phi; ++j) {
           double phi = 2 * M_PI * (j + 0.5) / M_phi;
 
-          vec3 particleSize =
-              vec3(d_theta, 2 * M_PI / M_phi * r * sin(theta), 0.0);
+          double theta0 = M_PI * i / M_theta;
+          double theta1 = M_PI * (i + 1) / M_theta;
+          double dPhi = 2 * M_PI / M_phi;
+          double area = pow(r, 2.0) * (cos(theta0) - cos(theta1)) * dPhi;
+
+          vec3 particleSize = vec3(d_theta, area / d_theta, 0.0);
           vec3 pCoord = vec3(theta, phi, 0.0);
           vec3 normal =
               vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
