@@ -1432,24 +1432,39 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
 
   // gap particles
   if (__dim == 3) {
-    for (auto tag : splitTag) {
-      vec3 origin = oldGapCoord[tag];
-      const double xDelta = oldGapParticleSize[tag][0] * 0.25;
-      const double yDelta = oldGapParticleSize[tag][1] * 0.25;
-      const double zDelta = oldGapParticleSize[tag][2] * 0.25;
-      for (int i = -1; i < 2; i += 2) {
-        for (int j = -1; j < 2; j += 2) {
-          for (int k = -1; k < 2; k += 2) {
-            vec3 newParticleSize = oldGapParticleSize[tag] * 0.5;
-            vec3 newPos = origin + vec3(i * xDelta, j * yDelta, k * zDelta);
-            double vol = oldGapParticleSize[tag][0] *
-                         oldGapParticleSize[tag][1] *
-                         oldGapParticleSize[tag][2] / 8.0;
-            InsertParticle(newPos, oldGapParticleType[tag], newParticleSize,
-                           oldGapNormal[tag], localIndex, __adaptive_step, vol);
+    for (int tag = 0; tag < splitTag.size(); tag++) {
+      if (splitTag[tag] == 0) {
+        InsertParticle(oldGapCoord[tag], oldGapParticleType[tag],
+                       oldGapParticleSize[tag], oldGapNormal[tag], localIndex,
+                       __adaptive_step,
+                       oldGapParticleSize[tag][0] * oldGapParticleSize[tag][1]);
+      } else {
+        vec3 origin = oldGapCoord[tag];
+        const double xDelta = oldGapParticleSize[tag][0] * 0.25;
+        const double yDelta = oldGapParticleSize[tag][1] * 0.25;
+        const double zDelta = oldGapParticleSize[tag][2] * 0.25;
+        for (int i = -1; i < 2; i += 2) {
+          for (int j = -1; j < 2; j += 2) {
+            for (int k = -1; k < 2; k += 2) {
+              vec3 newParticleSize = oldGapParticleSize[tag] * 0.5;
+              vec3 newPos = origin + vec3(i * xDelta, j * yDelta, k * zDelta);
+              double vol = oldGapParticleSize[tag][0] *
+                           oldGapParticleSize[tag][1] *
+                           oldGapParticleSize[tag][2] / 8.0;
+              InsertParticle(newPos, oldGapParticleType[tag], newParticleSize,
+                             oldGapNormal[tag], localIndex, __adaptive_step,
+                             vol);
+            }
           }
         }
       }
+    }
+
+    for (int tag = splitTag.size(); tag < oldGapCoord.size(); tag++) {
+      InsertParticle(oldGapCoord[tag], oldGapParticleType[tag],
+                     oldGapParticleSize[tag], oldGapNormal[tag], localIndex,
+                     __adaptive_step,
+                     oldGapParticleSize[tag][0] * oldGapParticleSize[tag][1]);
     }
   }
 

@@ -350,49 +350,64 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
       splitList[tag].clear();
       double theta = pCoord[tag][0];
       double phi = pCoord[tag][1];
+      double r = rigidBodySize[attachedRigidBodyIndex[tag]];
 
-      const double thetaDelta = particleSize[tag][0] * 0.25 /
-                                rigidBodySize[attachedRigidBodyIndex[tag]];
-      const double phiDelta = particleSize[tag][1] * 0.25 /
-                              rigidBodySize[attachedRigidBodyIndex[tag]] /
-                              sin(theta);
+      const double oldDeltaTheta = particleSize[tag][0] / r;
+      const double oldArea = particleSize[tag][0] * particleSize[tag][1];
+      const double oldDeltaPhi =
+          oldArea / pow(r, 2.0) /
+          (cos(theta - 0.5 * oldDeltaTheta) - cos(theta + 0.5 * oldDeltaTheta));
+
+      const double thetaDelta = 0.5 * oldDeltaTheta;
+      const double phiDelta = 0.5 * oldDeltaPhi;
+
+      const double oldPhi0 = phi - 0.5 * oldDeltaPhi;
+      const double oldPhi1 = phi + 0.5 * oldDeltaPhi;
 
       vec3 oldParticleSize = particleSize[tag];
 
+      double d_theta = oldParticleSize[0] * 0.5;
+      double d_phi = d_theta;
+
       bool insert = false;
       for (int i = -1; i < 2; i += 2) {
-        for (int j = -1; j < 2; j += 2) {
-          double ratio = sin(theta + i * thetaDelta) / sin(theta);
-          vec3 newParticleSize = vec3(oldParticleSize[0] / 2.0,
-                                      oldParticleSize[1] / 2.0 * ratio, 0.0);
-          vec3 newNormal =
-              vec3(sin(theta + i * thetaDelta) * cos(phi + j * phiDelta),
-                   sin(theta + i * thetaDelta) * sin(phi + j * phiDelta),
-                   cos(theta + i * thetaDelta));
-          vec3 newPos = newNormal * rigidBodySize[attachedRigidBodyIndex[tag]] +
-                        rigidBodyCoord[attachedRigidBodyIndex[tag]];
+        double newTheta = theta + i * thetaDelta * 0.5;
+        int M_phi = round(2 * M_PI * r * sin(newTheta) / d_phi);
+        for (int j = 0; j < M_phi; j++) {
+          double newPhi = 2 * M_PI * (j + 0.5) / M_phi;
+          if (newPhi >= oldPhi0 && newPhi <= oldPhi1) {
+            double theta0 = newTheta - 0.5 * thetaDelta;
+            double theta1 = newTheta + 0.5 * thetaDelta;
 
-          if (!insert) {
-            coord[tag] = newPos;
-            volume[tag] /= 8.0;
-            normal[tag] = newNormal;
-            particleSize[tag] = newParticleSize;
-            pCoord[tag] = vec3(theta + i * thetaDelta, phi + j * phiDelta, 0.0);
-            adaptive_level[tag] = __adaptive_step;
+            double area = pow(r, 2.0) * (cos(theta0) - cos(theta1)) * phiDelta;
 
-            splitList[tag].push_back(tag);
+            vec3 newParticleSize = vec3(d_theta, area / d_theta, 0.0);
+            vec3 newNormal = vec3(sin(newTheta) * cos(newPhi),
+                                  sin(newTheta) * sin(newPhi), cos(newTheta));
+            vec3 newPos =
+                newNormal * r + rigidBodyCoord[attachedRigidBodyIndex[tag]];
 
-            insert = true;
-          } else {
-            double vol = volume[tag];
-            int newParticle = InsertParticle(
-                newPos, particleType[tag], newParticleSize, newNormal,
-                localIndex, __adaptive_step, vol, true,
-                attachedRigidBodyIndex[tag],
-                vec3(theta + i * thetaDelta, phi + j * phiDelta, 0.0));
+            if (!insert) {
+              coord[tag] = newPos;
+              volume[tag] /= 8.0;
+              normal[tag] = newNormal;
+              particleSize[tag] = newParticleSize;
+              pCoord[tag] = vec3(newTheta, newPhi, 0.0);
+              adaptive_level[tag] = __adaptive_step;
 
-            if (newParticle == 0) {
-              splitList[tag].push_back(localIndex - 1);
+              splitList[tag].push_back(tag);
+
+              insert = true;
+            } else {
+              double vol = volume[tag];
+              int newParticle = InsertParticle(
+                  newPos, particleType[tag], newParticleSize, newNormal,
+                  localIndex, __adaptive_step, vol, true,
+                  attachedRigidBodyIndex[tag], vec3(newTheta, newPhi, 0.0));
+
+              if (newParticle == 0) {
+                splitList[tag].push_back(localIndex - 1);
+              }
             }
           }
         }
