@@ -1014,11 +1014,13 @@ void GMLS_Solver::StokesEquation() {
         double r2 = sqrt(pow(rci2[0], 2.0) + pow(rci2[1], 2.0));
         double phi2 = atan2(rci2[1], rci2[0]);
 
-        solution(r1, phi1, -omega, u2, v2);
+        solution(r2, phi2, -omega, u2, v2);
 
-        rhs[fieldDof * i] = 0.1 * coord[i][1] + u1 + u2;
+        cout << v1 + v2 << endl;
+
+        // rhs[fieldDof * i] = 0.1 * coord[i][1] + u1 + u2;
         rhs[fieldDof * i + 1] = v1 + v2;
-        // rhs[fieldDof * i] = 0.1 * y;
+        rhs[fieldDof * i] = 0.1 * y;
       }
     }
   }
