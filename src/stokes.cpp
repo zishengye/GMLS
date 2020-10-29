@@ -13,7 +13,9 @@ void solution(double r, double phi, double omega, double &u, double &v) {
               sin(2 * phi);
   double vt = G / 2 * (-r + (r - pow(r0, 4) / pow(r, 3.0)) * cos(2 * phi));
 
-  u = vr * cos(phi) - vt * sin(phi);
+  double y = r * sin(phi);
+
+  u = vr * cos(phi) - vt * sin(phi) - G * y;
   v = vr * sin(phi) + vt * cos(phi);
 }
 
@@ -1016,10 +1018,8 @@ void GMLS_Solver::StokesEquation() {
 
         solution(r2, phi2, -omega, u2, v2);
 
-        cout << v1 + v2 << endl;
-
-        // rhs[fieldDof * i] = 0.1 * coord[i][1] + u1 + u2;
-        rhs[fieldDof * i + 1] = v1 + v2;
+        // rhs[fieldDof * i] = 0.1 * y + u1 + u2;
+        // rhs[fieldDof * i + 1] = v1 + v2;
         rhs[fieldDof * i] = 0.1 * y;
       }
     }
