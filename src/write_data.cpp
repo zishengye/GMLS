@@ -488,6 +488,15 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
   auto &_gapParticleSize = __gap.vector.GetHandle("size");
   auto &_gapParticleType = __gap.index.GetHandle("particle type");
 
+  static auto &gapRigidBodyCoord =
+      __gap.vector.GetHandle("rigid body surface coord");
+  static auto &gapRigidBodyNormal =
+      __gap.vector.GetHandle("rigid body surface normal");
+  static auto &gapRigidBodySize =
+      __gap.vector.GetHandle("rigid body surface size");
+  static auto &gapRigidBodyParticleType =
+      __gap.index.GetHandle("rigid body surface particle type");
+
   MasterOperation(0, [globalParticleNum, this]() {
     ofstream file;
     file.open("./vtk/adaptive_step_geometry" + to_string(__adaptive_step) +
@@ -587,7 +596,7 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
     file.close();
   });
 
-  int globalGapParticleNum = _gapCoord.size();
+  int globalGapParticleNum = _gapCoord.size() + gapRigidBodyCoord.size();
   MPI_Allreduce(MPI_IN_PLACE, &globalGapParticleNum, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
@@ -615,6 +624,18 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
     for (size_t i = 0; i < _gapCoord.size(); i++) {
       file << _gapCoord[i][0] << ' ' << _gapCoord[i][1] << ' '
            << _gapCoord[i][2] << endl;
+    }
+    file.close();
+  });
+
+  SerialOperation([gapRigidBodyCoord, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < gapRigidBodyCoord.size(); i++) {
+      file << gapRigidBodyCoord[i][0] << ' ' << gapRigidBodyCoord[i][1] << ' '
+           << gapRigidBodyCoord[i][2] << endl;
     }
     file.close();
   });
@@ -649,6 +670,17 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
     file.close();
   });
 
+  SerialOperation([gapRigidBodyParticleType, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < gapRigidBodyParticleType.size(); i++) {
+      file << gapRigidBodyParticleType[i] << endl;
+    }
+    file.close();
+  });
+
   MasterOperation(0, [this]() {
     ofstream file;
     file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
@@ -666,6 +698,17 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
               ios::app);
     for (size_t i = 0; i < _gapParticleSize.size(); i++) {
       file << _gapParticleSize[i][0] << endl;
+    }
+    file.close();
+  });
+
+  SerialOperation([gapRigidBodySize, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < gapRigidBodySize.size(); i++) {
+      file << gapRigidBodySize[i][0] << endl;
     }
     file.close();
   });

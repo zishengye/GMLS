@@ -63,7 +63,8 @@ void GMLS_Solver::InitRigidBody() {
   }
 }
 
-int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h) {
+int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
+                               int attachedRigidBodyIndex) {
   static vector<vec3> &rigidBodyCoord =
       __rigidBody.vector.GetHandle("position");
   static vector<vec3> &rigidBodyOrientation =
@@ -77,11 +78,44 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h) {
       // circle in 2d, sphere in 3d
       {
         vec3 dis = pos - rigidBodyCoord[i];
-        if (dis.mag() < rigidBodySize[i] - 1.5 * h) {
+        if (dis.mag() < rigidBodySize[i] - h) {
           return -1;
         }
-        if (dis.mag() < rigidBodySize[i] + 0.25 * h) {
-          return i;
+        if (dis.mag() <= rigidBodySize[i]) {
+          if (attachedRigidBodyIndex != i)
+            return i;
+        }
+        // for 2d case
+        if (__dim == 2) {
+          if (dis.mag() < rigidBodySize[i] + h) {
+            double r = rigidBodySize[i];
+            int M_theta = round(2 * M_PI * r / h);
+            double d_theta = 2 * M_PI / M_theta;
+            double theta = atan2(dis[1], dis[0]);
+            if (theta < 0) {
+              theta += 2 * M_PI;
+            }
+            int theta0 = floor(theta / d_theta);
+            int theta1 = theta0 + 1;
+            vec3 pos1 = vec3(r * cos(theta0 * d_theta),
+                             r * sin(theta0 * d_theta), 0.0) +
+                        rigidBodyCoord[i];
+            vec3 pos2 = vec3(r * cos(theta1 * d_theta),
+                             r * sin(theta1 * d_theta), 0.0) +
+                        rigidBodyCoord[i];
+            vec3 dis1 = pos - pos1;
+            vec3 dis2 = pos - pos2;
+            if (attachedRigidBodyIndex < 0) {
+              if (dis1.mag() < 0.5 * h || dis2.mag() < 0.5 * h) {
+                return i;
+              }
+            } else {
+              if (dis1.mag() < 0.25 * h || dis2.mag() < 0.25 * h) {
+                if (attachedRigidBodyIndex != i)
+                  return i;
+              }
+            }
+          }
         }
       }
       break;
@@ -431,12 +465,13 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
           newPos = newNormal * rigidBodySize[attachedRigidBodyIndex[tag]] +
                    rigidBodyCoord[attachedRigidBodyIndex[tag]];
 
-          InsertParticle(newPos, particleType[tag], particleSize[tag],
-                         newNormal, localIndex, __adaptive_step, volume[tag],
-                         true, attachedRigidBodyIndex[tag],
-                         vec3(theta - thetaDelta, 0.0, 0.0));
+          int return_val = InsertParticle(
+              newPos, particleType[tag], particleSize[tag], newNormal,
+              localIndex, __adaptive_step, volume[tag], true,
+              attachedRigidBodyIndex[tag], vec3(theta - thetaDelta, 0.0, 0.0));
 
-          splitList[tag].push_back(localIndex - 1);
+          if (return_val == 0)
+            splitList[tag].push_back(localIndex - 1);
         }
 
         break;
@@ -478,6 +513,103 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
 
         break;
       }
+    }
+  }
+}
+
+void GMLS_Solver::SplitGapRigidBodyParticle(vector<int> &splitTag) {
+  static auto &coord = __field.vector.GetHandle("coord");
+
+  int localIndex = coord.size();
+
+  // gap particles on rigid body surface
+  static auto &gapRigidBodyCoord =
+      __gap.vector.GetHandle("rigid body surface coord");
+  static auto &gapRigidBodyNormal =
+      __gap.vector.GetHandle("rigid body surface normal");
+  static auto &gapRigidBodySize =
+      __gap.vector.GetHandle("rigid body surface size");
+  static auto &gapRigidBodyPCoord =
+      __gap.vector.GetHandle("rigid body surface parameter coordinate");
+  static auto &gapRigidBodyVolume =
+      __gap.scalar.GetHandle("rigid body surface volume");
+  static auto &gapRigidBodyParticleType =
+      __gap.index.GetHandle("rigid body surface particle type");
+  static auto &gapRigidBodyAdaptiveLevel =
+      __gap.index.GetHandle("rigid body surface adaptive level");
+  static auto &gapRigidBodyAttachedRigidBodyIndex =
+      __gap.index.GetHandle("rigid body surface attached rigid body index");
+
+  static auto &rigidBodyCoord = __rigidBody.vector.GetHandle("position");
+  static auto &rigidBodySize = __rigidBody.scalar.GetHandle("size");
+  static auto &rigidBodyType = __rigidBody.index.GetHandle("type");
+
+  auto oldGapRigidBodyCoord = move(gapRigidBodyCoord);
+  auto oldGapRigidBodyNormal = move(gapRigidBodyNormal);
+  auto oldGapRigidBodySize = move(gapRigidBodySize);
+  auto oldGapRigidBodyPCoord = move(gapRigidBodyPCoord);
+  auto oldGapRigidBodyVolume = move(gapRigidBodyVolume);
+  auto oldGapRigidBodyParticleType = move(gapRigidBodyParticleType);
+  auto oldGapRigidBodyAdaptiveLevel = move(gapRigidBodyAdaptiveLevel);
+  auto oldGapRigidBodyAttachedRigidBodyIndex =
+      move(gapRigidBodyAttachedRigidBodyIndex);
+
+  if (__dim == 2) {
+    for (int tag = 0; tag < splitTag.size(); tag++) {
+      int attachedRigidBodyIndex = oldGapRigidBodyAttachedRigidBodyIndex[tag];
+      switch (rigidBodyType[attachedRigidBodyIndex]) {
+      case 1:
+        // cicle
+        {
+          const double thetaDelta = oldGapRigidBodySize[tag][0] * 0.25 /
+                                    rigidBodySize[attachedRigidBodyIndex];
+
+          double theta = oldGapRigidBodyPCoord[tag][0];
+
+          vec3 newNormal = vec3(
+              cos(theta) * cos(thetaDelta) - sin(theta) * sin(thetaDelta),
+              cos(theta) * sin(thetaDelta) + sin(theta) * cos(thetaDelta), 0.0);
+          vec3 newPos = newNormal * rigidBodySize[attachedRigidBodyIndex] +
+                        rigidBodyCoord[attachedRigidBodyIndex];
+          vec3 newParticleSize = oldGapRigidBodySize[tag];
+          newParticleSize[0] /= 2.0;
+
+          InsertParticle(
+              newPos, oldGapRigidBodyParticleType[tag], newParticleSize,
+              newNormal, localIndex, oldGapRigidBodyAdaptiveLevel[tag] + 1,
+              oldGapRigidBodyVolume[tag] / 4.0, true, attachedRigidBodyIndex,
+              vec3(theta + thetaDelta, 0.0, 0.0));
+
+          newNormal = vec3(
+              cos(theta) * cos(-thetaDelta) - sin(theta) * sin(-thetaDelta),
+              cos(theta) * sin(-thetaDelta) + sin(theta) * cos(-thetaDelta),
+              0.0);
+          newPos = newNormal * rigidBodySize[attachedRigidBodyIndex] +
+                   rigidBodyCoord[attachedRigidBodyIndex];
+
+          InsertParticle(
+              newPos, oldGapRigidBodyParticleType[tag], newParticleSize,
+              newNormal, localIndex, oldGapRigidBodyAdaptiveLevel[tag] + 1,
+              oldGapRigidBodyVolume[tag] / 4.0, true, attachedRigidBodyIndex,
+              vec3(theta - thetaDelta, 0.0, 0.0));
+        }
+
+        break;
+      case 2:
+        // square
+        {}
+
+        break;
+      }
+    }
+
+    for (int tag = splitTag.size(); tag < oldGapRigidBodyCoord.size(); tag++) {
+      InsertParticle(
+          oldGapRigidBodyCoord[tag], oldGapRigidBodyParticleType[tag],
+          oldGapRigidBodySize[tag], oldGapRigidBodyNormal[tag], localIndex,
+          oldGapRigidBodyAdaptiveLevel[tag], oldGapRigidBodyVolume[tag], true,
+          oldGapRigidBodyAttachedRigidBodyIndex[tag],
+          oldGapRigidBodyPCoord[tag]);
     }
   }
 }
