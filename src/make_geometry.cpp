@@ -1403,6 +1403,101 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
     }
   }
   if (__dim == 3) {
+    for (auto tag : splitTag) {
+      if (particleType[tag] == 1) {
+        // corner particle
+        splitList[tag].resize(1);
+        splitList[tag][0] = tag;
+
+        particleSize[tag][0] /= 2.0;
+        particleSize[tag][1] /= 2.0;
+        particleSize[tag][2] /= 2.0;
+        volume[tag] /= 8.0;
+        adaptive_level[tag] = __adaptive_step;
+      } else if (particleType[tag] == 2) {
+        // line particle
+        splitList[tag].clear();
+
+        particleSize[tag][0] /= 2.0;
+        particleSize[tag][1] /= 2.0;
+        particleSize[tag][2] /= 2.0;
+        volume[tag] /= 8.0;
+        adaptive_level[tag] = __adaptive_step;
+
+        vec3 oldCoord = coord[tag];
+
+        int xDirection = (normal[tag][0] == 0.0) ? 1 : 0;
+        int yDirection = (normal[tag][1] == 0.0) ? 1 : 0;
+        int zDirection = (normal[tag][2] == 0.0) ? 1 : 0;
+
+        bool insert = false;
+        for (int i = -1; i < 2; i += 2) {
+          vec3 newPos = oldCoord + vec3(xDirection, yDirection, zDirection) *
+                                       i * particleSize[tag][0] * 0.5;
+
+          if (!insert) {
+            coord[tag] = newPos;
+
+            splitList[tag].push_back(tag);
+
+            insert = true;
+          } else {
+            double vol = volume[tag];
+            InitWallFaceParticle(newPos, particleType[tag], particleSize[tag],
+                                 normal[tag], localIndex, __adaptive_step, vol);
+            splitList[tag].push_back(localIndex - 1);
+          }
+        }
+      } else {
+        // plane particle
+        splitList[tag].clear();
+
+        particleSize[tag][0] /= 2.0;
+        particleSize[tag][1] /= 2.0;
+        particleSize[tag][2] /= 2.0;
+        volume[tag] /= 8.0;
+        adaptive_level[tag] = __adaptive_step;
+
+        vec3 oldCoord = coord[tag];
+
+        vec3 direction1, direction2;
+        if (normal[tag][0] != 0) {
+          direction1 = vec3(0.0, 1.0, 0.0);
+          direction2 = vec3(0.0, 0.0, 1.0);
+        }
+        if (normal[tag][1] != 0) {
+          direction1 = vec3(1.0, 0.0, 0.0);
+          direction2 = vec3(0.0, 0.0, 1.0);
+        }
+        if (normal[tag][2] != 0) {
+          direction1 = vec3(1.0, 0.0, 0.0);
+          direction2 = vec3(0.0, 1.0, 0.0);
+        }
+
+        bool insert = false;
+        for (int i = -1; i < 2; i += 2) {
+          for (int j = -1; j < 2; j += 2) {
+            vec3 newPos = oldCoord +
+                          direction1 * i * particleSize[tag][0] * 0.5 +
+                          direction2 * j * particleSize[tag][0] * 0.5;
+
+            if (!insert) {
+              coord[tag] = newPos;
+
+              splitList[tag].push_back(tag);
+
+              insert = true;
+            } else {
+              double vol = volume[tag];
+              InitWallFaceParticle(newPos, particleType[tag], particleSize[tag],
+                                   normal[tag], localIndex, __adaptive_step,
+                                   vol);
+              splitList[tag].push_back(localIndex - 1);
+            }
+          }
+        }
+      }
+    }
   }
 }
 

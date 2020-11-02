@@ -424,7 +424,11 @@ bool GMLS_Solver::NeedRefinement() {
       return false;
 
     // mark stage
-    double alpha = 0.99;
+    double alpha = 0.8;
+    if (__adaptive_step > 0)
+      alpha = 0.7;
+    if (__adaptive_step > 1)
+      alpha = 0.6;
 
     vector<pair<int, double>> chopper;
     pair<int, double> toAdd;
@@ -446,7 +450,7 @@ bool GMLS_Solver::NeedRefinement() {
     // parallel selection
     int split_max_index = 0;
 
-    double error_max, error_min, current_error_split;
+    double error_max, error_min, current_error_split, next_error;
     error_max = chopper[0].second;
     error_min = chopper[localParticleNum - 1].second;
 
@@ -465,43 +469,27 @@ bool GMLS_Solver::NeedRefinement() {
           error_sum += chopper[ite].second;
           ite++;
         } else {
+          next_error = chopper[ite].second;
           break;
         }
       }
 
+      MPI_Barrier(MPI_COMM_WORLD);
       MPI_Allreduce(MPI_IN_PLACE, &error_sum, 1, MPI_DOUBLE, MPI_SUM,
                     MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &next_error, 1, MPI_DOUBLE, MPI_MAX,
+                    MPI_COMM_WORLD);
 
-      if (error_sum < alpha * globalError) {
+      if ((error_sum <= alpha * globalError) &&
+          (error_sum + next_error > alpha * globalError)) {
+        selection_finished = true;
+        split_max_index = ite;
+      } else if (error_sum <= alpha * globalError) {
         error_max = current_error_split;
-        current_error_split = (current_error_split + error_min) / 2.0;
+        current_error_split = (error_min + error_max) / 2.0;
       } else {
-        double current_error_min =
-            (ite != 0) ? chopper[ite - 1].second : globalError;
-        MPI_Allreduce(MPI_IN_PLACE, &current_error_min, 1, MPI_DOUBLE, MPI_MIN,
-                      MPI_COMM_WORLD);
-
-        int new_ite = 0;
-        double new_error_sum = 0.0;
-        while (new_ite < localParticleNum) {
-          if (chopper[new_ite].second > current_error_min) {
-            new_error_sum += chopper[new_ite].second;
-            new_ite++;
-          } else {
-            break;
-          }
-        }
-
-        MPI_Allreduce(MPI_IN_PLACE, &new_error_sum, 1, MPI_DOUBLE, MPI_SUM,
-                      MPI_COMM_WORLD);
-
-        if (new_error_sum < alpha * globalError) {
-          split_max_index = ite;
-          selection_finished = true;
-        } else {
-          error_min = current_error_split;
-          current_error_split = (current_error_split + error_max) / 2.0;
-        }
+        error_min = current_error_split;
+        current_error_split = (error_min + error_max) / 2.0;
       }
     }
 

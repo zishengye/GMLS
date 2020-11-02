@@ -354,15 +354,8 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
 
       const double oldDeltaTheta = particleSize[tag][0] / r;
       const double oldArea = particleSize[tag][0] * particleSize[tag][1];
-      const double oldDeltaPhi =
-          oldArea / pow(r, 2.0) /
-          (cos(theta - 0.5 * oldDeltaTheta) - cos(theta + 0.5 * oldDeltaTheta));
 
       const double thetaDelta = 0.5 * oldDeltaTheta;
-      const double phiDelta = 0.5 * oldDeltaPhi;
-
-      const double oldPhi0 = phi - 0.5 * oldDeltaPhi;
-      const double oldPhi1 = phi + 0.5 * oldDeltaPhi;
 
       vec3 oldParticleSize = particleSize[tag];
 
@@ -373,13 +366,20 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
       for (int i = -1; i < 2; i += 2) {
         double newTheta = theta + i * thetaDelta * 0.5;
         int M_phi = round(2 * M_PI * r * sin(newTheta) / d_phi);
+
+        const int old_M_phi =
+            round(2 * M_PI * r * sin(theta) / oldParticleSize[1]);
+        const double oldDeltaPhi = 2 * M_PI / old_M_phi;
+        const double oldPhi0 = phi - 0.5 * oldDeltaPhi;
+        const double oldPhi1 = phi + 0.5 * oldDeltaPhi;
         for (int j = 0; j < M_phi; j++) {
           double newPhi = 2 * M_PI * (j + 0.5) / M_phi;
           if (newPhi >= oldPhi0 && newPhi <= oldPhi1) {
             double theta0 = newTheta - 0.5 * thetaDelta;
             double theta1 = newTheta + 0.5 * thetaDelta;
 
-            double area = pow(r, 2.0) * (cos(theta0) - cos(theta1)) * phiDelta;
+            double dPhi = 2 * M_PI / M_phi;
+            double area = pow(r, 2.0) * (cos(theta0) - cos(theta1)) * dPhi;
 
             vec3 newParticleSize = vec3(d_theta, area / d_theta, 0.0);
             vec3 newNormal = vec3(sin(newTheta) * cos(newPhi),
