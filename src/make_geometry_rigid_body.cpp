@@ -89,7 +89,8 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
         if (__dim == 2) {
           if (dis.mag() < rigidBodySize[i] + h) {
             double r = rigidBodySize[i];
-            int M_theta = round(2 * M_PI * r / h);
+            double h0 = __particleSize0[0];
+            int M_theta = round(2 * M_PI * r / h0) * (__adaptive_step + 1);
             double d_theta = 2 * M_PI / M_theta;
             double theta = atan2(dis[1], dis[0]);
             if (theta < 0) {
@@ -110,9 +111,10 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
                 return i;
               }
             } else {
-              if (dis1.mag() < 0.25 * h || dis2.mag() < 0.25 * h) {
-                if (attachedRigidBodyIndex != i)
+              if (dis1.mag() < 0.5 * h || dis2.mag() < 0.5 * h) {
+                if (attachedRigidBodyIndex != i) {
                   return i;
+                }
               }
             }
           }
