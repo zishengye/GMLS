@@ -126,6 +126,10 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
                               __trajectoryOutputFileName) == 1) {
       __trajectoryOutputFileName = "traj.txt";
     }
+    if (SearchCommand<string>(argc, argv, "-vel_output",
+                              __velocityOutputFileName) == 1) {
+      __velocityOutputFileName = "vel.txt";
+    }
   } else {
     __rigidBodyInclusion = false;
   }

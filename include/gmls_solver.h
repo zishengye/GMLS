@@ -87,6 +87,7 @@ private:
 
   std::string __rigidBodyInputFileName;
   std::string __trajectoryOutputFileName;
+  std::string __velocityOutputFileName;
   bool __rigidBodyInclusion;
 
   multilevel _multi;
@@ -174,13 +175,31 @@ private:
     static auto &_gapCoord = __gap.vector.GetHandle("coord");
     static auto &_gapNormal = __gap.vector.GetHandle("normal");
     static auto &_gapParticleSize = __gap.vector.GetHandle("size");
+    static auto &_gapParticleVolume = __gap.scalar.GetHandle("volume");
     static auto &_gapParticleType = __gap.index.GetHandle("particle type");
     static auto &_gap_particle_adaptive_level =
         __gap.index.GetHandle("adaptive level");
 
-    int idx = IsInRigidBody(X, particleSize[0]);
+    static auto &_gapRigidBodyCoord =
+        __gap.vector.GetHandle("rigid body surface coord");
+    static auto &_gapRigidBodyNormal =
+        __gap.vector.GetHandle("rigid body surface normal");
+    static auto &_gapRigidBodySize =
+        __gap.vector.GetHandle("rigid body surface size");
+    static auto &_gapRigidBodyPCoord =
+        __gap.vector.GetHandle("rigid body surface parameter coordinate");
+    static auto &_gapRigidBodyVolume =
+        __gap.scalar.GetHandle("rigid body surface volume");
+    static auto &_gapRigidBodyParticleType =
+        __gap.index.GetHandle("rigid body surface particle type");
+    static auto &_gapRigidBodyAdaptiveLevel =
+        __gap.index.GetHandle("rigid body surface adaptive level");
+    static auto &_gapRigidBodyAttachedRigidBodyIndex =
+        __gap.index.GetHandle("rigid body surface attached rigid body index");
 
-    if (rigidBodyParticle || idx == -2) {
+    int idx = IsInRigidBody(X, particleSize[0], rigidBodyIndex);
+
+    if (idx == -2) {
       _coord.push_back(X);
       _particleType.push_back(particleType);
       _particleSize.push_back(particleSize);
@@ -192,10 +211,22 @@ private:
       _pCoord.push_back(pCoord);
 
       return 0;
+    } else if (rigidBodyParticle) {
+      _gapRigidBodyCoord.push_back(X);
+      _gapRigidBodyParticleType.push_back(particleType);
+      _gapRigidBodySize.push_back(particleSize);
+      _gapRigidBodyNormal.push_back(normal);
+      _gapRigidBodyVolume.push_back(vol);
+      _gapRigidBodyAdaptiveLevel.push_back(adaptive_level);
+      _gapRigidBodyAttachedRigidBodyIndex.push_back(rigidBodyIndex);
+      _gapRigidBodyPCoord.push_back(pCoord);
+
+      return -1;
     } else if (idx > -1) {
       _gapCoord.push_back(X);
       _gapNormal.push_back(normal);
       _gapParticleSize.push_back(particleSize);
+      _gapParticleVolume.push_back(vol);
       _gapParticleType.push_back(particleType);
       _gap_particle_adaptive_level.push_back(adaptive_level);
 
@@ -296,9 +327,10 @@ private:
   void SplitFieldBoundaryParticle(std::vector<int> &splitTag);
   void SplitRigidBodySurfaceParticle(std::vector<int> &splitTag);
   void SplitGapParticle(std::vector<int> &splitTag);
+  void SplitGapRigidBodyParticle(std::vector<int> &splitTag);
 
   // rigid body supporting functions
-  int IsInRigidBody(const vec3 &pos, double h);
+  int IsInRigidBody(const vec3 &pos, double h, int attachedRigidBodyIndex);
 
   void InitRigidBodySurfaceParticle();
 

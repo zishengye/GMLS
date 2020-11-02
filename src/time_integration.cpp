@@ -233,6 +233,18 @@ void GMLS_Solver::RungeKuttaIntegration() {
     WriteDataTimeStep();
   }
 
+  // average
+  for (int j = 0; j < 3; j++) {
+    double average;
+    average = (rigidBodyVelocity[0][j] + rigidBodyVelocity[1][j]) / 2.0;
+    rigidBodyVelocity[0][j] -= average;
+    rigidBodyVelocity[1][j] -= average;
+    average =
+        (rigidBodyAngularVelocity[0][j] + rigidBodyAngularVelocity[1][j]) / 2.0;
+    rigidBodyAngularVelocity[0][j] = average;
+    rigidBodyAngularVelocity[1][j] = average;
+  }
+
   for (int num = 0; num < numRigidBody; num++) {
     for (int j = 0; j < 3; j++) {
       velocity_k1[num][j] = rigidBodyVelocity[num][j];
@@ -243,6 +255,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
   // setup output file
   ofstream output;
   ofstream output_runge_kutta;
+  ofstream outputVelocity;
   if (__myID == 0) {
     output.open(__trajectoryOutputFileName, ios::trunc);
     output << t << '\t';
@@ -259,6 +272,19 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
     output_runge_kutta.open("traj_runge_kutta.txt", ios::trunc);
     output_runge_kutta.close();
+
+    outputVelocity.open(__velocityOutputFileName, ios::trunc);
+    outputVelocity << t + dt << '\t';
+    for (int num = 0; num < numRigidBody; num++) {
+      for (int j = 0; j < 3; j++) {
+        outputVelocity << rigidBodyVelocity[num][j] << '\t';
+      }
+      for (int j = 0; j < 3; j++) {
+        outputVelocity << rigidBodyAngularVelocity[num][j] << '\t';
+      }
+    }
+    outputVelocity << endl;
+    outputVelocity.close();
   }
 
   // main loop
@@ -430,6 +456,19 @@ void GMLS_Solver::RungeKuttaIntegration() {
           (this->*__equationSolver)();
         } while (NeedRefinement());
 
+        // average
+        for (int j = 0; j < 3; j++) {
+          double average;
+          average = (rigidBodyVelocity[0][j] + rigidBodyVelocity[1][j]) / 2.0;
+          rigidBodyVelocity[0][j] -= average;
+          rigidBodyVelocity[1][j] -= average;
+          average = (rigidBodyAngularVelocity[0][j] +
+                     rigidBodyAngularVelocity[1][j]) /
+                    2.0;
+          rigidBodyAngularVelocity[0][j] = average;
+          rigidBodyAngularVelocity[1][j] = average;
+        }
+
         switch (i) {
         case 1:
           for (int num = 0; num < numRigidBody; num++) {
@@ -483,6 +522,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
       }
 
       // estimate local error
+      double norm = 0.0;
       err = 0.0;
       for (int num = 0; num < numRigidBody; num++) {
         if (__dim == 2) {
@@ -493,6 +533,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
                       dc6 * velocity_k6[num][j] + dc7 * velocity_k7[num][j]);
 
             err += velocity_err * velocity_err;
+            norm += rigidBodyPosition[num][j] * rigidBodyPosition[num][j];
           }
           double angularVelocity_err = dt * (dc1 * angularVelocity_k1[num][0] +
                                              dc3 * angularVelocity_k3[num][0] +
@@ -502,9 +543,10 @@ void GMLS_Solver::RungeKuttaIntegration() {
                                              dc7 * angularVelocity_k7[num][0]);
 
           err += angularVelocity_err * angularVelocity_err;
+          norm += rigidBodyOrientation[num][0] * rigidBodyOrientation[num][0];
         }
       }
-      err = sqrt(err) / numRigidBody;
+      err = sqrt(err / norm);
 
       if (err > rtol) {
         noFail = false;
@@ -603,6 +645,19 @@ void GMLS_Solver::RungeKuttaIntegration() {
       }
       output << endl;
       output.close();
+
+      outputVelocity.open(__velocityOutputFileName, ios::app);
+      outputVelocity << t + dt << '\t';
+      for (int num = 0; num < numRigidBody; num++) {
+        for (int j = 0; j < 3; j++) {
+          outputVelocity << rigidBodyVelocity[num][j] << '\t';
+        }
+        for (int j = 0; j < 3; j++) {
+          outputVelocity << rigidBodyAngularVelocity[num][j] << '\t';
+        }
+      }
+      outputVelocity << endl;
+      outputVelocity.close();
     }
 
     // increase time

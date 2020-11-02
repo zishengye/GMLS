@@ -6,6 +6,19 @@
 using namespace std;
 using namespace Compadre;
 
+void solution(double r, double phi, double omega, double &u, double &v) {
+  double r0 = 1;
+  double G = omega * 2;
+  double vr = G / 2 * (pow((pow(r, 2.0) - pow(r0, 2.0)), 2.0) / pow(r, 3.0)) *
+              sin(2 * phi);
+  double vt = G / 2 * (-r + (r - pow(r0, 4) / pow(r, 3.0)) * cos(2 * phi));
+
+  double y = r * sin(phi);
+
+  u = vr * cos(phi) - vt * sin(phi) - G * y;
+  v = vr * sin(phi) + vt * cos(phi);
+}
+
 void GMLS_Solver::StokesEquationInitialization() {
   __field.vector.Register("fluid velocity");
   __field.scalar.Register("fluid pressure");
@@ -970,17 +983,33 @@ void GMLS_Solver::StokesEquation() {
   //   }
   // }
 
-  // for (int i = 0; i < localParticleNum; i++) {
-  //   if (particleType[i] != 0 && particleType[i] < 4) {
-  //     // 2-d Taylor-Green vortex-like flow
-  //     if (__dim == 2) {
-  //       double x = coord[i][0];
-  //       double y = coord[i][1];
+  for (int i = 0; i < localParticleNum; i++) {
+    if (particleType[i] != 0 && particleType[i] < 4) {
+      // 2-d Taylor-Green vortex-like flow
+      if (__dim == 2) {
+        double x = coord[i][0];
+        double y = coord[i][1];
 
-  //       rhs[fieldDof * i] = 0.1 * coord[i][1];
-  //     }
-  //   }
-  // }
+        double u1, u2, v1, v2;
+
+        vec3 rci1 = coord[i] - rigidBodyPosition[0];
+        double r1 = sqrt(pow(rci1[0], 2.0) + pow(rci1[1], 2.0));
+        double phi1 = atan2(rci1[1], rci1[0]);
+
+        solution(r1, phi1, omega, u1, v1);
+
+        vec3 rci2 = coord[i] - rigidBodyPosition[1];
+        double r2 = sqrt(pow(rci2[0], 2.0) + pow(rci2[1], 2.0));
+        double phi2 = atan2(rci2[1], rci2[0]);
+
+        solution(r2, phi2, -omega, u2, v2);
+
+        // rhs[fieldDof * i] = 0.1 * y + u1 + u2;
+        // rhs[fieldDof * i + 1] = v1 + v2;
+        rhs[fieldDof * i] = 0.1 * y;
+      }
+    }
+  }
 
   vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
 
