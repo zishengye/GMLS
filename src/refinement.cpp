@@ -424,7 +424,7 @@ bool GMLS_Solver::NeedRefinement() {
       return false;
 
     // mark stage
-    double alpha = 0.99;
+    double alpha = 0.8;
 
     vector<pair<int, double>> chopper;
     pair<int, double> toAdd;
@@ -463,6 +463,7 @@ bool GMLS_Solver::NeedRefinement() {
       while (ite < localParticleNum) {
         if (chopper[ite].second > current_error_split) {
           error_sum += chopper[ite].second;
+          next_error = chopper[ite].second;
           ite++;
         } else {
           next_error = chopper[ite].second;
@@ -476,11 +477,11 @@ bool GMLS_Solver::NeedRefinement() {
       MPI_Allreduce(MPI_IN_PLACE, &next_error, 1, MPI_DOUBLE, MPI_MAX,
                     MPI_COMM_WORLD);
 
-      if ((error_sum <= alpha * globalError) &&
-          (error_sum + next_error > alpha * globalError)) {
+      if ((error_sum < alpha * globalError) &&
+          (error_sum + next_error >= alpha * globalError)) {
         selection_finished = true;
         split_max_index = ite;
-      } else if (error_sum <= alpha * globalError) {
+      } else if (error_sum < alpha * globalError) {
         error_max = current_error_split;
         current_error_split = (error_min + error_max) / 2.0;
       } else {

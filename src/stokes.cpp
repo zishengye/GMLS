@@ -1083,6 +1083,16 @@ void GMLS_Solver::StokesEquation() {
   //   rhs[localRigidBodyOffset + 2] = 6 * M_PI * RR * u;
   // }
 
+  int inner_counter = 0;
+  for (int i = 0; i < localParticleNum; i++) {
+    if (particleType[i] == 0)
+      inner_counter++;
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &inner_counter, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "total inner particle count: %d\n",
+              inner_counter);
+
   // make sure pressure term is orthogonal to the constant
   double rhs_pressure_sum = 0.0;
   for (int i = 0; i < localParticleNum; i++) {
