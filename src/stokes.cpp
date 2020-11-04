@@ -976,12 +976,12 @@ void GMLS_Solver::StokesEquation() {
   //   }
   // }
 
-  // if (__myID == __MPISize - 1) {
-  //   for (int i = 0; i < numRigidBody; i++) {
-  //     rhs[localRigidBodyOffset + i * rigidBodyDof + translationDof] =
-  //         pow(-1, i + 1);
-  //   }
-  // }
+  if (__myID == __MPISize - 1) {
+    for (int i = 0; i < numRigidBody; i++) {
+      rhs[localRigidBodyOffset + i * rigidBodyDof + translationDof] =
+          pow(-1, i + 1);
+    }
+  }
 
   double phi = atan2(rigidBodyPosition[0][1], rigidBodyPosition[0][0]);
   double r = sqrt(pow(rigidBodyPosition[0][0], 2.0) +
@@ -997,33 +997,33 @@ void GMLS_Solver::StokesEquation() {
   double omega0 = G / 2.0;
   double omega = omega0 * (1 + (2 * s11 - 1) * cos(2 * phi));
 
-  for (int i = 0; i < localParticleNum; i++) {
-    if (particleType[i] != 0 && particleType[i] < 4) {
-      // 2-d Taylor-Green vortex-like flow
-      if (__dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+  // for (int i = 0; i < localParticleNum; i++) {
+  //   if (particleType[i] != 0 && particleType[i] < 4) {
+  //     // 2-d Taylor-Green vortex-like flow
+  //     if (__dim == 2) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
 
-        double u1, u2, v1, v2;
+  //       double u1, u2, v1, v2;
 
-        vec3 rci1 = coord[i] - rigidBodyPosition[0];
-        double r1 = sqrt(pow(rci1[0], 2.0) + pow(rci1[1], 2.0));
-        double phi1 = atan2(rci1[1], rci1[0]);
+  //       vec3 rci1 = coord[i] - rigidBodyPosition[0];
+  //       double r1 = sqrt(pow(rci1[0], 2.0) + pow(rci1[1], 2.0));
+  //       double phi1 = atan2(rci1[1], rci1[0]);
 
-        solution(r1, phi1, omega, u1, v1);
+  //       solution(r1, phi1, omega, u1, v1);
 
-        vec3 rci2 = coord[i] - rigidBodyPosition[1];
-        double r2 = sqrt(pow(rci2[0], 2.0) + pow(rci2[1], 2.0));
-        double phi2 = atan2(rci2[1], rci2[0]);
+  //       vec3 rci2 = coord[i] - rigidBodyPosition[1];
+  //       double r2 = sqrt(pow(rci2[0], 2.0) + pow(rci2[1], 2.0));
+  //       double phi2 = atan2(rci2[1], rci2[0]);
 
-        solution(r2, phi2, -omega, u2, v2);
+  //       solution(r2, phi2, -omega, u2, v2);
 
-        // rhs[fieldDof * i] = 0.1 * y + u1 + u2;
-        // rhs[fieldDof * i + 1] = v1 + v2;
-        rhs[fieldDof * i] = 0.1 * y;
-      }
-    }
-  }
+  //       // rhs[fieldDof * i] = 0.1 * y + u1 + u2;
+  //       // rhs[fieldDof * i + 1] = v1 + v2;
+  //       rhs[fieldDof * i] = 0.1 * y;
+  //     }
+  //   }
+  // }
 
   // make sure pressure term is orthogonal to the constant
   double rhs_pressure_sum = 0.0;
