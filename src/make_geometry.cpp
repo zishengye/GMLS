@@ -300,9 +300,12 @@ void GMLS_Solver::InitUniformParticleField() {
 
   ClearParticle();
 
-  InitFieldParticle();
-  // InitFieldBoundaryParticle();
+  // first init the particles on the surface of colloids, then when adding field
+  // particles, a neighbor search could be done to see if the distance to the
+  // nearest particle on the surface is enough or not
   InitRigidBodySurfaceParticle();
+  UpdateRigidBodySurfaceParticlePointCloudSearch();
+  InitFieldParticle();
 
   ParticleIndex();
 }
@@ -378,6 +381,8 @@ void GMLS_Solver::ParticleIndex() {
 bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
 
 void GMLS_Solver::InitFieldParticle() {
+  static auto &coord = __field.vector.GetHandle("coord");
+
   __cutoffDistance = (__polynomialOrder + 1.0) *
                          std::max(__particleSize0[0], __particleSize0[1]) +
                      1e-5;
@@ -389,7 +394,7 @@ void GMLS_Solver::InitFieldParticle() {
   if (__dim == 2) {
     zPos = 0.0;
     double vol = __particleSize0[0] * __particleSize0[1];
-    int localIndex = 0;
+    int localIndex = coord.size();
 
     // down
     if (__domainBoundaryType[0] != 0) {
@@ -1281,9 +1286,12 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   }
 
   splitList.resize(localParticleNum);
+
+  SplitRigidBodySurfaceParticle(fieldRigidBodySurfaceSplitTag);
+  UpdateRigidBodySurfaceParticlePointCloudSearch();
+
   SplitFieldParticle(fieldSplitTag);
   SplitFieldBoundaryParticle(fieldBoundarySplitTag);
-  SplitRigidBodySurfaceParticle(fieldRigidBodySurfaceSplitTag);
   SplitGapParticle(gapInteriorParticleSplitTag);
   SplitGapRigidBodyParticle(gapRigidBodyParticleSplitTag);
 

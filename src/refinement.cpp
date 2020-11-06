@@ -424,7 +424,7 @@ bool GMLS_Solver::NeedRefinement() {
       return false;
 
     // mark stage
-    double alpha = 0.99;
+    double alpha = 0.8;
 
     vector<pair<int, double>> chopper;
     pair<int, double> toAdd;
