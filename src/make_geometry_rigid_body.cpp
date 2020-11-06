@@ -88,7 +88,7 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
           if (dis.mag() < rigidBodySize[i] - h) {
             return -1;
           }
-          if (dis.mag() < rigidBodySize[i] + 1e-3 * h) {
+          if (dis.mag() < rigidBodySize[i] + 0.1 * h) {
             return i;
           }
 
