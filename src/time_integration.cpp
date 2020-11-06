@@ -234,16 +234,17 @@ void GMLS_Solver::RungeKuttaIntegration() {
   }
 
   // average
-  for (int j = 0; j < 3; j++) {
-    double average;
-    average = (rigidBodyVelocity[0][j] + rigidBodyVelocity[1][j]) / 2.0;
-    rigidBodyVelocity[0][j] -= average;
-    rigidBodyVelocity[1][j] -= average;
-    average =
-        (rigidBodyAngularVelocity[0][j] + rigidBodyAngularVelocity[1][j]) / 2.0;
-    rigidBodyAngularVelocity[0][j] = average;
-    rigidBodyAngularVelocity[1][j] = average;
-  }
+  // for (int j = 0; j < 3; j++) {
+  //   double average;
+  //   average = (rigidBodyVelocity[0][j] + rigidBodyVelocity[1][j]) / 2.0;
+  //   rigidBodyVelocity[0][j] -= average;
+  //   rigidBodyVelocity[1][j] -= average;
+  //   average =
+  //       (rigidBodyAngularVelocity[0][j] + rigidBodyAngularVelocity[1][j])
+  //       / 2.0;
+  //   rigidBodyAngularVelocity[0][j] = average;
+  //   rigidBodyAngularVelocity[1][j] = average;
+  // }
 
   for (int num = 0; num < numRigidBody; num++) {
     for (int j = 0; j < 3; j++) {
@@ -457,17 +458,16 @@ void GMLS_Solver::RungeKuttaIntegration() {
         } while (NeedRefinement());
 
         // average
-        for (int j = 0; j < 3; j++) {
-          double average;
-          average = (rigidBodyVelocity[0][j] + rigidBodyVelocity[1][j]) / 2.0;
-          rigidBodyVelocity[0][j] -= average;
-          rigidBodyVelocity[1][j] -= average;
-          average = (rigidBodyAngularVelocity[0][j] +
-                     rigidBodyAngularVelocity[1][j]) /
-                    2.0;
-          rigidBodyAngularVelocity[0][j] = average;
-          rigidBodyAngularVelocity[1][j] = average;
-        }
+        // for (int j = 0; j < 3; j++) {
+        //   double average;
+        //   average = (rigidBodyVelocity[0][j] + rigidBodyVelocity[1][j])
+        //   / 2.0; rigidBodyVelocity[0][j] -= average; rigidBodyVelocity[1][j]
+        //   -= average; average = (rigidBodyAngularVelocity[0][j] +
+        //              rigidBodyAngularVelocity[1][j]) /
+        //             2.0;
+        //   rigidBodyAngularVelocity[0][j] = average;
+        //   rigidBodyAngularVelocity[1][j] = average;
+        // }
 
         switch (i) {
         case 1:

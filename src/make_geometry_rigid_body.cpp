@@ -78,44 +78,32 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
       // circle in 2d, sphere in 3d
       {
         vec3 dis = pos - rigidBodyCoord[i];
-        if (dis.mag() < rigidBodySize[i] - h) {
-          return -1;
-        }
-        if (dis.mag() <= rigidBodySize[i]) {
-          if (attachedRigidBodyIndex != i)
+        if (attachedRigidBodyIndex >= 0) {
+          // this is a particle on the rigid body surface
+          if (dis.mag() < rigidBodySize[i] + h && attachedRigidBodyIndex != i)
             return i;
-        }
-        // for 2d case
-        if (__dim == 2) {
-          if (dis.mag() < rigidBodySize[i] + h) {
-            double r = rigidBodySize[i];
-            double h0 = __particleSize0[0];
-            int M_theta = round(2 * M_PI * r / h0) * (__adaptive_step + 1);
-            double d_theta = 2 * M_PI / M_theta;
-            double theta = atan2(dis[1], dis[0]);
-            if (theta < 0) {
-              theta += 2 * M_PI;
+        } else {
+          // this is a fluid particle
+
+          if (dis.mag() < rigidBodySize[i] - h) {
+            return -1;
+          }
+          if (dis.mag() < rigidBodySize[i] + 1e-3 * h) {
+            return i;
+          }
+
+          if (dis.mag() < rigidBodySize[i] + 0.5 * h) {
+            double min_dis = __boundingBoxSize[0];
+            for (int i = 0; i < __rigidBodySurfaceParticle.size(); i++) {
+              vec3 rci = pos - __rigidBodySurfaceParticle[i];
+              if (min_dis > rci.mag()) {
+                min_dis = rci.mag();
+              }
             }
-            int theta0 = floor(theta / d_theta);
-            int theta1 = theta0 + 1;
-            vec3 pos1 = vec3(r * cos(theta0 * d_theta),
-                             r * sin(theta0 * d_theta), 0.0) +
-                        rigidBodyCoord[i];
-            vec3 pos2 = vec3(r * cos(theta1 * d_theta),
-                             r * sin(theta1 * d_theta), 0.0) +
-                        rigidBodyCoord[i];
-            vec3 dis1 = pos - pos1;
-            vec3 dis2 = pos - pos2;
-            if (attachedRigidBodyIndex < 0) {
-              if (dis1.mag() < 0.5 * h || dis2.mag() < 0.5 * h) {
-                return i;
-              }
-            } else {
-              if (dis1.mag() < 0.5 * h || dis2.mag() < 0.5 * h) {
-                if (attachedRigidBodyIndex != i) {
-                  return i;
-                }
-              }
+
+            if (min_dis < 0.25 * h) {
+              // this is a gap particle near the surface of the colloids
+              return i;
             }
           }
         }
@@ -631,6 +619,19 @@ void GMLS_Solver::SplitGapRigidBodyParticle(vector<int> &splitTag) {
           oldGapRigidBodyAdaptiveLevel[tag], oldGapRigidBodyVolume[tag], true,
           oldGapRigidBodyAttachedRigidBodyIndex[tag],
           oldGapRigidBodyPCoord[tag]);
+    }
+  }
+}
+
+void GMLS_Solver::UpdateRigidBodySurfaceParticlePointCloudSearch() {
+  static auto &coord = __field.vector.GetHandle("coord");
+  static auto &particleType = __field.index.GetHandle("particle type");
+
+  __rigidBodySurfaceParticle.clear();
+
+  for (int i = 0; i < particleType.size(); i++) {
+    if (particleType[i] >= 4) {
+      __rigidBodySurfaceParticle.push_back(coord[i]);
     }
   }
 }

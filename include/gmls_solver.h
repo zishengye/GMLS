@@ -333,6 +333,9 @@ private:
   int IsInRigidBody(const vec3 &pos, double h, int attachedRigidBodyIndex);
 
   void InitRigidBodySurfaceParticle();
+  void UpdateRigidBodySurfaceParticlePointCloudSearch();
+
+  std::vector<vec3> __rigidBodySurfaceParticle;
 
   // equation type
   void PoissonEquation();
