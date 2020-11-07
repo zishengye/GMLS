@@ -424,7 +424,7 @@ bool GMLS_Solver::NeedRefinement() {
       return false;
 
     // mark stage
-    double alpha = 0.8;
+    double alpha = 0.9;
 
     vector<pair<int, double>> chopper;
     pair<int, double> toAdd;
@@ -497,13 +497,13 @@ bool GMLS_Solver::NeedRefinement() {
 
     for (int i = 0; i < splitCandidateTag.size(); i++) {
       bool isAdd = true;
-      // int index = splitCandidateTag[i];
-      // for (int j = 0; j < velocityNeighborListsLengths(index); j++) {
-      //   const int neighborParticleIndex = neighborLists(index, j + 1);
-      //   if (backgroundVolume[neighborParticleIndex] > 2.5 * volume[index]) {
-      //     isAdd = false;
-      //   }
-      // }
+      int index = splitCandidateTag[i];
+      for (int j = 0; j < velocityNeighborListsLengths(index); j++) {
+        const int neighborParticleIndex = neighborLists(index, j + 1);
+        if (backgroundVolume[neighborParticleIndex] > 2.5 * volume[index]) {
+          isAdd = false;
+        }
+      }
       if (isAdd) {
         splitTag.push_back(splitCandidateTag[i]);
       }

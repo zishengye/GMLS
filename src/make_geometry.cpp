@@ -304,10 +304,13 @@ void GMLS_Solver::InitUniformParticleField() {
   // particles, a neighbor search could be done to see if the distance to the
   // nearest particle on the surface is enough or not
   InitRigidBodySurfaceParticle();
+  BuildNeighborList();
   UpdateRigidBodySurfaceParticlePointCloudSearch();
   InitFieldParticle();
 
   ParticleIndex();
+
+  BuildNeighborList();
 }
 
 void GMLS_Solver::ParticleIndex() {
@@ -1288,6 +1291,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   splitList.resize(localParticleNum);
 
   SplitRigidBodySurfaceParticle(fieldRigidBodySurfaceSplitTag);
+  BuildNeighborList();
   UpdateRigidBodySurfaceParticlePointCloudSearch();
 
   SplitFieldParticle(fieldSplitTag);
@@ -1297,6 +1301,8 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
 
   MPI_Barrier(MPI_COMM_WORLD);
   ParticleIndex();
+
+  BuildNeighborList();
 }
 
 void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {

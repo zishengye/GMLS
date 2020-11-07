@@ -624,14 +624,26 @@ void GMLS_Solver::SplitGapRigidBodyParticle(vector<int> &splitTag) {
 }
 
 void GMLS_Solver::UpdateRigidBodySurfaceParticlePointCloudSearch() {
-  static auto &coord = __field.vector.GetHandle("coord");
   static auto &particleType = __field.index.GetHandle("particle type");
+  static vector<vec3> &backgroundSourceCoord =
+      __background.vector.GetHandle("source coord");
+
+  vector<int> recvParticleType;
+  DataSwapAmongNeighbor(particleType, recvParticleType);
+  vector<int> backgroundParticleType;
+
+  backgroundParticleType.insert(backgroundParticleType.end(),
+                                particleType.begin(), particleType.end());
+
+  backgroundParticleType.insert(backgroundParticleType.end(),
+                                recvParticleType.begin(),
+                                recvParticleType.end());
 
   __rigidBodySurfaceParticle.clear();
 
-  for (int i = 0; i < particleType.size(); i++) {
+  for (int i = 0; i < backgroundParticleType.size(); i++) {
     if (particleType[i] >= 4) {
-      __rigidBodySurfaceParticle.push_back(coord[i]);
+      __rigidBodySurfaceParticle.push_back(backgroundSourceCoord[i]);
     }
   }
 }

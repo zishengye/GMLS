@@ -1386,11 +1386,9 @@ void GMLS_Solver::StokesEquation() {
     for (int i = 0; i < numRigidBody; i++) {
       for (int j = 0; j < translationDof; j++) {
         translation_velocity[i * translationDof + j] = rigidBodyVelocity[i][j];
-        cout << rigidBodyVelocity[i][j] << endl;
       }
       for (int j = 0; j < rotationDof; j++) {
         angular_velocity[i * rotationDof + j] = rigidBodyAngularVelocity[i][j];
-        cout << rigidBodyAngularVelocity[i][j] << endl;
       }
     }
   }

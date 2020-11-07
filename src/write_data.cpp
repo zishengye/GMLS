@@ -235,7 +235,7 @@ void GMLS_Solver::WriteDataTimeStep() {
       ofstream file;
       file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
       for (size_t i = 0; i < pressure.size(); i++) {
-        file << pressure[i] << endl;
+        file << ((abs(pressure[i]) > 1e-10) ? pressure[i] : 0.0) << endl;
       }
       file.close();
     });
@@ -253,7 +253,8 @@ void GMLS_Solver::WriteDataTimeStep() {
       file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
       for (size_t i = 0; i < velocity.size(); i++) {
         for (int axes = 0; axes < __dim; axes++) {
-          file << velocity[i][axes] << ' ';
+          file << ((abs(velocity[i][axes]) > 1e-10) ? velocity[i][axes] : 0.0)
+               << ' ';
         }
         file << endl;
       }
@@ -442,7 +443,7 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
     file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
               ios::app);
     for (size_t i = 0; i < pressure.size(); i++) {
-      file << pressure[i] << endl;
+      file << ((abs(pressure[i]) > 1e-10) ? pressure[i] : 0.0) << endl;
     }
     file.close();
   });
@@ -462,7 +463,8 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
               ios::app);
     for (size_t i = 0; i < velocity.size(); i++) {
       for (int axes = 0; axes < __dim; axes++) {
-        file << velocity[i][axes] << ' ';
+        file << ((abs(velocity[i][axes]) > 1e-10) ? velocity[i][axes] : 0.0)
+             << ' ';
       }
       file << endl;
     }

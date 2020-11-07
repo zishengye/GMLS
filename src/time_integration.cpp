@@ -88,14 +88,10 @@ void GMLS_Solver::ForwardEulerIntegration() {
       InitUniformParticleManifoldField();
 
       EmposeBoundaryCondition();
-
-      BuildNeighborListManifold();
     } else {
       InitUniformParticleField();
 
       EmposeBoundaryCondition();
-
-      BuildNeighborList();
     }
 
     // if (t == 0) {
@@ -211,14 +207,10 @@ void GMLS_Solver::RungeKuttaIntegration() {
     InitUniformParticleManifoldField();
 
     EmposeBoundaryCondition();
-
-    BuildNeighborListManifold();
   } else {
     InitUniformParticleField();
 
     EmposeBoundaryCondition();
-
-    BuildNeighborList();
   }
 
   __adaptive_step = 0;
@@ -435,14 +427,10 @@ void GMLS_Solver::RungeKuttaIntegration() {
           InitUniformParticleManifoldField();
 
           EmposeBoundaryCondition();
-
-          BuildNeighborListManifold();
         } else {
           InitUniformParticleField();
 
           EmposeBoundaryCondition();
-
-          BuildNeighborList();
         }
 
         PetscPrintf(PETSC_COMM_WORLD, "start of adaptive step\n");

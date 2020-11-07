@@ -105,7 +105,7 @@ void GMLS_Solver::BuildNeighborList() {
     __neighborSendParticleIndex[i].clear();
   }
 
-  int &localParticleNum = particleNum[0];
+  int localParticleNum = coord.size();
   for (int i = 0; i < localParticleNum; i++) {
     backgroundSourceCoord.push_back(coord[i]);
     backgroundSourceIndex.push_back(globalIndex[i]);
