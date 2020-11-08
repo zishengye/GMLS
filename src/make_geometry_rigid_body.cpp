@@ -86,11 +86,11 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
           if (dis.mag() < rigidBodySize[i] - h) {
             return -1;
           }
-          if (dis.mag() < rigidBodySize[i] + 0.1 * h) {
+          if (dis.mag() < rigidBodySize[i] + 0.2 * h) {
             return i;
           }
 
-          if (dis.mag() < rigidBodySize[i] + 0.5 * h) {
+          if (dis.mag() < rigidBodySize[i] + h) {
             double min_dis = __boundingBoxSize[0];
             for (int i = 0; i < __rigidBodySurfaceParticle.size(); i++) {
               vec3 rci = pos - __rigidBodySurfaceParticle[i];
