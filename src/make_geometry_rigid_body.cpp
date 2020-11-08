@@ -80,8 +80,6 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
         vec3 dis = pos - rigidBodyCoord[i];
         if (attachedRigidBodyIndex >= 0) {
           // this is a particle on the rigid body surface
-          if (dis.mag() < rigidBodySize[i] + h && attachedRigidBodyIndex != i)
-            return i;
         } else {
           // this is a fluid particle
 
