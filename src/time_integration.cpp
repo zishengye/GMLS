@@ -283,6 +283,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
   // main loop
   while (t < __finalTime - 1e-5) {
     bool noFail = true;
+    bool acceptableTrial = false;
 
     // ensure end exactly at final time
     dt = min(dt, __finalTime - t);
@@ -295,7 +296,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
     }
 
     err = 100;
-    while (err > rtol) {
+    while (err > rtol && !acceptableTrial) {
       PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
       PetscPrintf(PETSC_COMM_WORLD, "==== Start of time integration ====\n");
       PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
@@ -400,6 +401,17 @@ void GMLS_Solver::RungeKuttaIntegration() {
             }
           }
           break;
+        }
+
+        // Check if the colloids contact with each other or move out of the
+        // domain
+        if (!IsAcceptableRigidBodyPosition()) {
+          // halve the time step and restart the time integration
+          dt = 0.5 * dt;
+          acceptableTrial = false;
+          break;
+        } else {
+          acceptableTrial = true;
         }
 
         if (__myID == 0) {
@@ -510,43 +522,46 @@ void GMLS_Solver::RungeKuttaIntegration() {
       }
 
       // estimate local error
-      double norm = 0.0;
-      err = 0.0;
-      for (int num = 0; num < numRigidBody; num++) {
-        if (__dim == 2) {
-          for (int j = 0; j < 2; j++) {
-            double velocity_err =
-                dt * (dc1 * velocity_k1[num][j] + dc3 * velocity_k3[num][j] +
-                      dc4 * velocity_k4[num][j] + dc5 * velocity_k5[num][j] +
-                      dc6 * velocity_k6[num][j] + dc7 * velocity_k7[num][j]);
+      if (acceptableTrial) {
+        double norm = 0.0;
+        err = 0.0;
+        for (int num = 0; num < numRigidBody; num++) {
+          if (__dim == 2) {
+            for (int j = 0; j < 2; j++) {
+              double velocity_err =
+                  dt * (dc1 * velocity_k1[num][j] + dc3 * velocity_k3[num][j] +
+                        dc4 * velocity_k4[num][j] + dc5 * velocity_k5[num][j] +
+                        dc6 * velocity_k6[num][j] + dc7 * velocity_k7[num][j]);
 
-            err += velocity_err * velocity_err;
-            norm += rigidBodyPosition[num][j] * rigidBodyPosition[num][j];
+              err += velocity_err * velocity_err;
+              norm += rigidBodyPosition[num][j] * rigidBodyPosition[num][j];
+            }
+            double angularVelocity_err =
+                dt * (dc1 * angularVelocity_k1[num][0] +
+                      dc3 * angularVelocity_k3[num][0] +
+                      dc4 * angularVelocity_k4[num][0] +
+                      dc5 * angularVelocity_k5[num][0] +
+                      dc6 * angularVelocity_k6[num][0] +
+                      dc7 * angularVelocity_k7[num][0]);
+
+            err += angularVelocity_err * angularVelocity_err;
+            norm += rigidBodyOrientation[num][0] * rigidBodyOrientation[num][0];
           }
-          double angularVelocity_err = dt * (dc1 * angularVelocity_k1[num][0] +
-                                             dc3 * angularVelocity_k3[num][0] +
-                                             dc4 * angularVelocity_k4[num][0] +
-                                             dc5 * angularVelocity_k5[num][0] +
-                                             dc6 * angularVelocity_k6[num][0] +
-                                             dc7 * angularVelocity_k7[num][0]);
-
-          err += angularVelocity_err * angularVelocity_err;
-          norm += rigidBodyOrientation[num][0] * rigidBodyOrientation[num][0];
         }
-      }
-      err = sqrt(err / norm);
+        err = sqrt(err / norm);
 
-      if (err > rtol) {
-        noFail = false;
+        if (err > rtol) {
+          noFail = false;
 
-        PetscPrintf(PETSC_COMM_WORLD,
-                    "Current time step test failed. Error is %f\n", err);
-        // increase time step
-        dt = dt * max(0.8 * pow(err / rtol, -0.2), 0.1);
-        dt = max(dt, dtMin);
-      } else {
-        PetscPrintf(PETSC_COMM_WORLD,
-                    "Current time step test succeeded. Error is %f\n", err);
+          PetscPrintf(PETSC_COMM_WORLD,
+                      "Current time step test failed. Error is %f\n", err);
+          // increase time step
+          dt = dt * max(0.8 * pow(err / rtol, -0.2), 0.1);
+          dt = max(dt, dtMin);
+        } else {
+          PetscPrintf(PETSC_COMM_WORLD,
+                      "Current time step test succeeded. Error is %f\n", err);
+        }
       }
     }
 

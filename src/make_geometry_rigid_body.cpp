@@ -645,3 +645,18 @@ void GMLS_Solver::UpdateRigidBodySurfaceParticlePointCloudSearch() {
     }
   }
 }
+
+bool GMLS_Solver::IsAcceptableRigidBodyPosition() {
+  vector<vec3> &rigidBodyPosition = __rigidBody.vector.Register("position");
+  vector<double> &rigidBodySize = __rigidBody.scalar.Register("size");
+
+  for (int i = 0; i < rigidBodyPosition.size(); i++) {
+    for (int j = i + 1; j < rigidBodyPosition.size(); j++) {
+      vec3 dis = rigidBodyPosition[i] - rigidBodyPosition[j];
+      if (dis.mag() < rigidBodySize[i] + rigidBodySize[j])
+        return false;
+    }
+  }
+
+  return true;
+}

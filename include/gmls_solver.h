@@ -334,6 +334,7 @@ private:
 
   void InitRigidBodySurfaceParticle();
   void UpdateRigidBodySurfaceParticlePointCloudSearch();
+  bool IsAcceptableRigidBodyPosition();
 
   std::vector<vec3> __rigidBodySurfaceParticle;
 
