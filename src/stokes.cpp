@@ -261,7 +261,11 @@ void GMLS_Solver::StokesEquation() {
         __epsilon[i] +=
             0.5 * (max(__particleSize0[0] * pow(0.5, __adaptive_step),
                        particleSize[i][0]));
+        epsilon(i) = __epsilon[i];
         passNeighborNumCheck = false;
+        if (particleType[i] != 0) {
+          neumannBoundaryEpsilon(fluid2NeumannBoundary[i]) = __epsilon[i];
+        }
       }
     }
 
