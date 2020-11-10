@@ -337,6 +337,7 @@ private:
   bool IsAcceptableRigidBodyPosition();
 
   std::vector<vec3> __rigidBodySurfaceParticle;
+  std::vector<vec3> __rigidBodySurfaceParticleSize;
 
   // equation type
   void PoissonEquation();

@@ -591,7 +591,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   PC field_relaxation_pc;
   KSPGetPC(*field_relaxation_list[adaptive_step], &field_relaxation_pc);
   PCSetType(field_relaxation_pc, PCSOR);
-  PCSetFromOptions(field_relaxation_pc);
+  // PCSetFromOptions(field_relaxation_pc);
   PCSetUp(field_relaxation_pc);
 
   KSPSetUp(*field_relaxation_list[adaptive_step]);

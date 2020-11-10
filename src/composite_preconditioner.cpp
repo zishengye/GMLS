@@ -65,12 +65,12 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   // stage 1
   VecSet(y, 0.0);
 
-  VecGetArray(x, &a);
-  VecGetArray(*((*shell->multi->GetXFieldList())[0]), &b);
-  for (PetscInt i = 0; i < field_size; i++)
-    b[i] = a[i];
-  VecRestoreArray(x, &a);
-  VecRestoreArray(*((*shell->multi->GetXFieldList())[0]), &b);
+  VecScatterBegin(*((*shell->multi->GetFieldScatterList())[0]), x,
+                  *((*shell->multi->GetXFieldList())[0]), INSERT_VALUES,
+                  SCATTER_FORWARD);
+  VecScatterEnd(*((*shell->multi->GetFieldScatterList())[0]), x,
+                *((*shell->multi->GetXFieldList())[0]), INSERT_VALUES,
+                SCATTER_FORWARD);
 
   tStart = MPI_Wtime();
   KSPSolve(shell->multi->getFieldBase(), *((*shell->multi->GetXFieldList())[0]),
@@ -78,12 +78,12 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   tEnd = MPI_Wtime();
   amg_duration += tEnd - tStart;
 
-  VecGetArray(y, &a);
-  VecGetArray(*((*shell->multi->GetYFieldList())[0]), &b);
-  for (PetscInt i = 0; i < field_size; i++)
-    a[i] = b[i];
-  VecRestoreArray(y, &a);
-  VecRestoreArray(*((*shell->multi->GetYFieldList())[0]), &b);
+  VecScatterBegin(*((*shell->multi->GetFieldScatterList())[0]),
+                  *((*shell->multi->GetYFieldList())[0]), y, INSERT_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(*((*shell->multi->GetFieldScatterList())[0]),
+                *((*shell->multi->GetYFieldList())[0]), y, INSERT_VALUES,
+                SCATTER_REVERSE);
 
   // stage 2
   tStart = MPI_Wtime();

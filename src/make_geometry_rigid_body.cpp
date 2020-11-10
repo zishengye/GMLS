@@ -86,11 +86,11 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
           if (dis.mag() < rigidBodySize[i] - h) {
             return -1;
           }
-          if (dis.mag() < rigidBodySize[i] + 0.25 * h) {
+          if (dis.mag() <= rigidBodySize[i] + 0.1 * h) {
             return i;
           }
 
-          if (dis.mag() < rigidBodySize[i] + h) {
+          if (dis.mag() < rigidBodySize[i] + 1.5 * h) {
             double min_dis = __boundingBoxSize[0];
             for (int i = 0; i < __rigidBodySurfaceParticle.size(); i++) {
               vec3 rci = pos - __rigidBodySurfaceParticle[i];
@@ -623,6 +623,7 @@ void GMLS_Solver::SplitGapRigidBodyParticle(vector<int> &splitTag) {
 
 void GMLS_Solver::UpdateRigidBodySurfaceParticlePointCloudSearch() {
   static auto &particleType = __field.index.GetHandle("particle type");
+  static auto &particleSize = __field.vector.GetHandle("size");
   static vector<vec3> &backgroundSourceCoord =
       __background.vector.GetHandle("source coord");
 
@@ -637,11 +638,24 @@ void GMLS_Solver::UpdateRigidBodySurfaceParticlePointCloudSearch() {
                                 recvParticleType.begin(),
                                 recvParticleType.end());
 
+  vector<vec3> recvParticleSize;
+  DataSwapAmongNeighbor(particleSize, recvParticleSize);
+  vector<vec3> backgroundParticleSize;
+
+  backgroundParticleSize.insert(backgroundParticleSize.end(),
+                                particleSize.begin(), particleSize.end());
+
+  backgroundParticleSize.insert(backgroundParticleSize.end(),
+                                recvParticleSize.begin(),
+                                recvParticleSize.end());
+
   __rigidBodySurfaceParticle.clear();
+  __rigidBodySurfaceParticleSize.clear();
 
   for (int i = 0; i < backgroundParticleType.size(); i++) {
     if (particleType[i] >= 4) {
       __rigidBodySurfaceParticle.push_back(backgroundSourceCoord[i]);
+      __rigidBodySurfaceParticleSize.push_back(backgroundParticleSize[i]);
     }
   }
 }

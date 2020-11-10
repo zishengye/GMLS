@@ -164,7 +164,8 @@ void GMLS_Solver::StokesEquation() {
   // neighbor search
   auto pointCloudSearch(CreatePointCloudSearch(sourceCoords, __dim));
 
-  auto minNeighbors = Compadre::GMLS::getNP(__polynomialOrder, __dim);
+  auto minNeighbors = Compadre::GMLS::getNP(
+      __polynomialOrder, __dim, DivergenceFreeVectorTaylorPolynomial);
 
   double epsilonMultiplier = __polynomialOrder + 0.5;
 
@@ -223,33 +224,60 @@ void GMLS_Solver::StokesEquation() {
     __neumannBoundaryEpsilon[i] = neumannBoundaryEpsilon(i);
   }
 
-  vector<double> recvEpsilon, backgroundEpsilon;
+  // ensure every particle has enough neighbors
+  bool goodNeighborSearch = false;
+  while (!goodNeighborSearch) {
+    vector<double> recvEpsilon, backgroundEpsilon;
 
-  DataSwapAmongNeighbor(__epsilon, recvEpsilon);
+    DataSwapAmongNeighbor(__epsilon, recvEpsilon);
 
-  backgroundEpsilon.insert(backgroundEpsilon.end(), __epsilon.begin(),
-                           __epsilon.end());
-  backgroundEpsilon.insert(backgroundEpsilon.end(), recvEpsilon.begin(),
-                           recvEpsilon.end());
+    backgroundEpsilon.insert(backgroundEpsilon.end(), __epsilon.begin(),
+                             __epsilon.end());
+    backgroundEpsilon.insert(backgroundEpsilon.end(), recvEpsilon.begin(),
+                             recvEpsilon.end());
 
-  Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
-      backgroundEpsilonKokkosDevice("background h supports",
-                                    backgroundEpsilon.size());
-  Kokkos::View<double *>::HostMirror backgroundEpsilonKokkos =
-      Kokkos::create_mirror_view(backgroundEpsilonKokkosDevice);
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+        backgroundEpsilonKokkosDevice("background h supports",
+                                      backgroundEpsilon.size());
+    Kokkos::View<double *>::HostMirror backgroundEpsilonKokkos =
+        Kokkos::create_mirror_view(backgroundEpsilonKokkosDevice);
 
-  for (int i = 0; i < backgroundEpsilon.size(); i++) {
-    backgroundEpsilonKokkos(i) = backgroundEpsilon[i];
+    for (int i = 0; i < backgroundEpsilon.size(); i++) {
+      backgroundEpsilonKokkos(i) = backgroundEpsilon[i];
+    }
+
+    Kokkos::deep_copy(backgroundEpsilonKokkosDevice, backgroundEpsilonKokkos);
+
+    // pointCloudSearch.generateNeighborListsFromKNNSearch(
+    //     false, targetCoords, neighborLists, epsilon, 10, 1.05);
+
+    pointCloudSearch.generateSymmetricNeighborListsFromRadiusSearch(
+        false, targetCoords, neighborLists, backgroundEpsilonKokkos, 0.0,
+        maxEpsilon);
+
+    bool passNeighborNumCheck = true;
+    for (int i = 0; i < localParticleNum; i++) {
+      if (neighborLists(i, 0) <= minNeighbors) {
+        __epsilon[i] +=
+            0.5 * (max(__particleSize0[0] * pow(0.5, __adaptive_step),
+                       particleSize[i][0]));
+        passNeighborNumCheck = false;
+      }
+    }
+
+    int processCounter = 0;
+    if (!passNeighborNumCheck) {
+      processCounter = 1;
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &processCounter, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+
+    if (processCounter == 0) {
+      goodNeighborSearch = true;
+    }
   }
 
-  Kokkos::deep_copy(backgroundEpsilonKokkosDevice, backgroundEpsilonKokkos);
-
-  // pointCloudSearch.generateNeighborListsFromKNNSearch(
-  //     false, targetCoords, neighborLists, epsilon, 10, 1.05);
-
-  pointCloudSearch.generateSymmetricNeighborListsFromRadiusSearch(
-      false, targetCoords, neighborLists, backgroundEpsilonKokkos, 0.0,
-      maxEpsilon);
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // pointCloudSearch.generateNeighborListsFromRadiusSearch(
   //     false, targetCoords, neighborLists, epsilon, 0.0, maxEpsilon);

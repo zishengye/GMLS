@@ -1255,26 +1255,20 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   vector<int> gapRigidBodyParticleSplitTag(gapRigidBodyCoord.size());
   for (int i = 0; i < numTargetCoords; i++) {
     int counter = 0;
-    bool splitBasedOnNeighborSize = true;
+    double min_dis = 1.0;
     for (int j = 0; j < neighborLists(i, 0); j++) {
-      if (backgroundSplitTag[neighborLists(i, j + 1)] == 1 &&
-          backgroundParticleType[neighborLists(i, j + 1)] >= 4) {
-        counter++;
-      }
-
-      if ((gapParticleSize[i][0] <
-           0.5 * backgroundParticleSize[neighborLists(i, j + 1)][0]) &&
-          backgroundSplitTag[neighborLists(i, j + 1)] == 1) {
-        splitBasedOnNeighborSize = false;
+      // find the nearest surface particle
+      if (backgroundParticleType[neighborLists(i, j + 1)] >= 4) {
+        vec3 dis = backgroundSourceCoord[neighborLists(i, j + 1)] - gapCoord[i];
+        if (dis.mag() < min_dis) {
+          min_dis = dis.mag();
+          counter = neighborLists(i, j + 1);
+        }
       }
     }
 
-    bool splitBasedOnNeighborSplit = false;
-    if (counter > 0) {
-      splitBasedOnNeighborSplit = true;
-    }
-
-    if (splitBasedOnNeighborSplit && splitBasedOnNeighborSize) {
+    if (backgroundSplitTag[counter] == 1 &&
+        (gapParticleSize[i][0] > 0.5 * backgroundParticleSize[counter][0])) {
       gapParticleSplitTag[i] = 1;
     } else {
       gapParticleSplitTag[i] = 0;
