@@ -135,42 +135,38 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   PCShellGetContext(pc, (void **)&shell);
 
   PetscReal *a;
-
   PetscInt local_size, global_size;
-
-  // orthogonalize to constant vector
-  VecScatterBegin(
-      *((*shell->multi->GetPressureScatterList())[shell->adaptive_level - 1]),
-      x, *((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]),
-      INSERT_VALUES, SCATTER_FORWARD);
-  VecScatterEnd(
-      *((*shell->multi->GetPressureScatterList())[shell->adaptive_level - 1]),
-      x, *((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]),
-      INSERT_VALUES, SCATTER_FORWARD);
-
-  PetscReal pressure_sum = 0.0;
+  PetscReal pressure_sum;
   PetscInt size;
-  VecSum(*((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]),
-         &pressure_sum);
-  VecGetSize(*((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]),
-             &size);
-  VecSet(*((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]),
-         -pressure_sum / size);
-
-  VecScatterBegin(
-      *((*shell->multi->GetPressureScatterList())[shell->adaptive_level - 1]),
-      *((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]), x,
-      ADD_VALUES, SCATTER_REVERSE);
-  VecScatterEnd(
-      *((*shell->multi->GetPressureScatterList())[shell->adaptive_level - 1]),
-      *((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]), x,
-      ADD_VALUES, SCATTER_REVERSE);
 
   VecCopy(x, *((*shell->multi->GetBList())[shell->adaptive_level - 1]));
 
   // sweep down
   for (int i = shell->adaptive_level - 1; i > 0; i--) {
     // pre-smooth
+    // orthogonalize to constant vector
+    VecScatterBegin(*((*shell->multi->GetPressureScatterList())[i]),
+                    *((*shell->multi->GetBList())[i]),
+                    *((*shell->multi->GetXPressureList())[i]), INSERT_VALUES,
+                    SCATTER_FORWARD);
+    VecScatterEnd(*((*shell->multi->GetPressureScatterList())[i]),
+                  *((*shell->multi->GetBList())[i]),
+                  *((*shell->multi->GetXPressureList())[i]), INSERT_VALUES,
+                  SCATTER_FORWARD);
+
+    VecSum(*((*shell->multi->GetXPressureList())[i]), &pressure_sum);
+    VecGetSize(*((*shell->multi->GetXPressureList())[i]), &size);
+    VecSet(*((*shell->multi->GetXPressureList())[i]), -pressure_sum / size);
+
+    VecScatterBegin(*((*shell->multi->GetPressureScatterList())[i]),
+                    *((*shell->multi->GetXPressureList())[i]),
+                    *((*shell->multi->GetBList())[i]), ADD_VALUES,
+                    SCATTER_REVERSE);
+    VecScatterEnd(*((*shell->multi->GetPressureScatterList())[i]),
+                  *((*shell->multi->GetXPressureList())[i]),
+                  *((*shell->multi->GetBList())[i]), ADD_VALUES,
+                  SCATTER_REVERSE);
+
     // fluid part smoothing
     VecScatterBegin(*((*shell->multi->GetFieldScatterList())[i]),
                     *((*shell->multi->GetBList())[i]),
@@ -226,6 +222,29 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                   *((*shell->multi->GetXList())[i]), ADD_VALUES,
                   SCATTER_REVERSE);
 
+    // orthogonalize to constant vector
+    VecScatterBegin(*((*shell->multi->GetPressureScatterList())[i]),
+                    *((*shell->multi->GetXList())[i]),
+                    *((*shell->multi->GetXPressureList())[i]), INSERT_VALUES,
+                    SCATTER_FORWARD);
+    VecScatterEnd(*((*shell->multi->GetPressureScatterList())[i]),
+                  *((*shell->multi->GetXList())[i]),
+                  *((*shell->multi->GetXPressureList())[i]), INSERT_VALUES,
+                  SCATTER_FORWARD);
+
+    VecSum(*((*shell->multi->GetXPressureList())[i]), &pressure_sum);
+    VecGetSize(*((*shell->multi->GetXPressureList())[i]), &size);
+    VecSet(*((*shell->multi->GetXPressureList())[i]), -pressure_sum / size);
+
+    VecScatterBegin(*((*shell->multi->GetPressureScatterList())[i]),
+                    *((*shell->multi->GetXPressureList())[i]),
+                    *((*shell->multi->GetXList())[i]), ADD_VALUES,
+                    SCATTER_REVERSE);
+    VecScatterEnd(*((*shell->multi->GetPressureScatterList())[i]),
+                  *((*shell->multi->GetXPressureList())[i]),
+                  *((*shell->multi->GetXList())[i]), ADD_VALUES,
+                  SCATTER_REVERSE);
+
     // restriction
     MatMult(shell->multi->getA(i).__mat, *((*shell->multi->GetXList())[i]),
             *((*shell->multi->GetRList())[i]));
@@ -243,6 +262,28 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
   // solve on coarest-level
   // stage 1
+  // orthogonalize to constant vector
+  VecScatterBegin(*((*shell->multi->GetPressureScatterList())[0]),
+                  *((*shell->multi->GetBList())[0]),
+                  *((*shell->multi->GetXPressureList())[0]), INSERT_VALUES,
+                  SCATTER_FORWARD);
+  VecScatterEnd(*((*shell->multi->GetPressureScatterList())[0]),
+                *((*shell->multi->GetBList())[0]),
+                *((*shell->multi->GetXPressureList())[0]), INSERT_VALUES,
+                SCATTER_FORWARD);
+
+  VecSum(*((*shell->multi->GetXPressureList())[0]), &pressure_sum);
+  VecGetSize(*((*shell->multi->GetXPressureList())[0]), &size);
+  VecSet(*((*shell->multi->GetXPressureList())[0]), -pressure_sum / size);
+
+  VecScatterBegin(*((*shell->multi->GetPressureScatterList())[0]),
+                  *((*shell->multi->GetXPressureList())[0]),
+                  *((*shell->multi->GetBList())[0]), ADD_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(*((*shell->multi->GetPressureScatterList())[0]),
+                *((*shell->multi->GetXPressureList())[0]),
+                *((*shell->multi->GetBList())[0]), ADD_VALUES, SCATTER_REVERSE);
+
   VecSet(*((*shell->multi->GetXList())[0]), 0.0);
   VecScatterBegin(*((*shell->multi->GetFieldScatterList())[0]),
                   *((*shell->multi->GetBList())[0]),
@@ -290,14 +331,60 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                 *shell->multi->getXNeighbor(),
                 *((*shell->multi->GetXList())[0]), ADD_VALUES, SCATTER_REVERSE);
 
+  // orthogonalize to constant vector
+  VecScatterBegin(*((*shell->multi->GetPressureScatterList())[0]),
+                  *((*shell->multi->GetXList())[0]),
+                  *((*shell->multi->GetXPressureList())[0]), INSERT_VALUES,
+                  SCATTER_FORWARD);
+  VecScatterEnd(*((*shell->multi->GetPressureScatterList())[0]),
+                *((*shell->multi->GetXList())[0]),
+                *((*shell->multi->GetXPressureList())[0]), INSERT_VALUES,
+                SCATTER_FORWARD);
+
+  VecSum(*((*shell->multi->GetXPressureList())[0]), &pressure_sum);
+  VecGetSize(*((*shell->multi->GetXPressureList())[0]), &size);
+  VecSet(*((*shell->multi->GetXPressureList())[0]), -pressure_sum / size);
+
+  VecScatterBegin(*((*shell->multi->GetPressureScatterList())[0]),
+                  *((*shell->multi->GetXPressureList())[0]),
+                  *((*shell->multi->GetXList())[0]), ADD_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(*((*shell->multi->GetPressureScatterList())[0]),
+                *((*shell->multi->GetXPressureList())[0]),
+                *((*shell->multi->GetXList())[0]), ADD_VALUES, SCATTER_REVERSE);
+
   // sweep up
   for (int i = 1; i < shell->adaptive_level; i++) {
+    // interpolation
     Mat *I = &(*shell->multi->GetInterpolationList())[i]->__mat;
     Vec *v1 = (*shell->multi->GetTList())[i];
     Vec *v2 = (*shell->multi->GetXList())[i - 1];
     MatMult(*I, *v2, *v1);
 
     // post-smooth
+    // orthogonalize to constant vector
+    VecScatterBegin(*((*shell->multi->GetPressureScatterList())[i]),
+                    *((*shell->multi->GetXList())[i]),
+                    *((*shell->multi->GetXPressureList())[i]), INSERT_VALUES,
+                    SCATTER_FORWARD);
+    VecScatterEnd(*((*shell->multi->GetPressureScatterList())[i]),
+                  *((*shell->multi->GetXList())[i]),
+                  *((*shell->multi->GetXPressureList())[i]), INSERT_VALUES,
+                  SCATTER_FORWARD);
+
+    VecSum(*((*shell->multi->GetXPressureList())[i]), &pressure_sum);
+    VecGetSize(*((*shell->multi->GetXPressureList())[i]), &size);
+    VecSet(*((*shell->multi->GetXPressureList())[i]), -pressure_sum / size);
+
+    VecScatterBegin(*((*shell->multi->GetPressureScatterList())[i]),
+                    *((*shell->multi->GetXPressureList())[i]),
+                    *((*shell->multi->GetXList())[i]), ADD_VALUES,
+                    SCATTER_REVERSE);
+    VecScatterEnd(*((*shell->multi->GetPressureScatterList())[i]),
+                  *((*shell->multi->GetXPressureList())[i]),
+                  *((*shell->multi->GetXList())[i]), ADD_VALUES,
+                  SCATTER_REVERSE);
+
     // fluid part smoothing
     VecAXPY(*((*shell->multi->GetXList())[i]), 1.0,
             *((*shell->multi->GetTList())[i]));
@@ -361,35 +448,32 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                   *((*shell->multi->GetXNeighborList())[i]),
                   *((*shell->multi->GetXList())[i]), ADD_VALUES,
                   SCATTER_REVERSE);
+
+    // orthogonalize to constant vector
+    VecScatterBegin(*((*shell->multi->GetPressureScatterList())[i]),
+                    *((*shell->multi->GetXList())[i]),
+                    *((*shell->multi->GetXPressureList())[i]), INSERT_VALUES,
+                    SCATTER_FORWARD);
+    VecScatterEnd(*((*shell->multi->GetPressureScatterList())[i]),
+                  *((*shell->multi->GetXList())[i]),
+                  *((*shell->multi->GetXPressureList())[i]), INSERT_VALUES,
+                  SCATTER_FORWARD);
+
+    VecSum(*((*shell->multi->GetXPressureList())[i]), &pressure_sum);
+    VecGetSize(*((*shell->multi->GetXPressureList())[i]), &size);
+    VecSet(*((*shell->multi->GetXPressureList())[i]), -pressure_sum / size);
+
+    VecScatterBegin(*((*shell->multi->GetPressureScatterList())[i]),
+                    *((*shell->multi->GetXPressureList())[i]),
+                    *((*shell->multi->GetXList())[i]), ADD_VALUES,
+                    SCATTER_REVERSE);
+    VecScatterEnd(*((*shell->multi->GetPressureScatterList())[i]),
+                  *((*shell->multi->GetXPressureList())[i]),
+                  *((*shell->multi->GetXList())[i]), ADD_VALUES,
+                  SCATTER_REVERSE);
   }
 
   VecCopy(*((*shell->multi->GetXList())[shell->adaptive_level - 1]), y);
-
-  // orthogonalize to constant vector
-  VecScatterBegin(
-      *((*shell->multi->GetPressureScatterList())[shell->adaptive_level - 1]),
-      y, *((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]),
-      INSERT_VALUES, SCATTER_FORWARD);
-  VecScatterEnd(
-      *((*shell->multi->GetPressureScatterList())[shell->adaptive_level - 1]),
-      y, *((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]),
-      INSERT_VALUES, SCATTER_FORWARD);
-
-  VecSum(*((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]),
-         &pressure_sum);
-  VecGetSize(*((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]),
-             &size);
-  VecSet(*((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]),
-         -pressure_sum / size);
-
-  VecScatterBegin(
-      *((*shell->multi->GetPressureScatterList())[shell->adaptive_level - 1]),
-      *((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]), y,
-      ADD_VALUES, SCATTER_REVERSE);
-  VecScatterEnd(
-      *((*shell->multi->GetPressureScatterList())[shell->adaptive_level - 1]),
-      *((*shell->multi->GetXPressureList())[shell->adaptive_level - 1]), y,
-      ADD_VALUES, SCATTER_REVERSE);
 
   return 0;
 }
