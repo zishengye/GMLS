@@ -296,7 +296,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
     }
 
     err = 100;
-    while (err > rtol && !acceptableTrial) {
+    while (err > rtol) {
       PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
       PetscPrintf(PETSC_COMM_WORLD, "==== Start of time integration ====\n");
       PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
@@ -409,6 +409,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
           // halve the time step and restart the time integration
           dt = 0.5 * dt;
           acceptableTrial = false;
+          err = 100;
           break;
         } else {
           acceptableTrial = true;
