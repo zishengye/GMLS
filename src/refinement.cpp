@@ -227,9 +227,9 @@ bool GMLS_Solver::NeedRefinement() {
         const int neighborParticleIndex = neighborLists(i, j + 1);
 
         vec3 dX = backgroundSourceCoord[neighborParticleIndex] - coord[i];
+
         if (dX.mag() < __epsilon[i]) {
           totalNeighborVol += backgroundVolume[neighborParticleIndex];
-
           for (int axes1 = 0; axes1 < __dim; axes1++) {
             for (int axes2 = 0; axes2 < __dim; axes2++) {
               if (__dim == 2)
@@ -244,30 +244,31 @@ bool GMLS_Solver::NeedRefinement() {
                                         backgroundCoefficients[i]);
             }
           }
-        }
 
-        for (int axes1 = 0; axes1 < __dim; axes1++) {
-          for (int axes2 = axes1; axes2 < __dim; axes2++) {
-            if (axes1 == axes2)
-              error[i] +=
-                  pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
-                          backgroundRecoveredVelocityGradient
-                              [neighborParticleIndex][axes1 * __dim + axes2],
-                      2) *
-                  backgroundVolume[neighborParticleIndex];
-            else {
-              error[i] +=
-                  pow(0.5 *
-                          (reconstructedVelocityGradient[axes1 * __dim +
-                                                         axes2] -
-                           backgroundRecoveredVelocityGradient
-                               [neighborParticleIndex][axes1 * __dim + axes2] +
-                           reconstructedVelocityGradient[axes2 * __dim +
-                                                         axes1] -
-                           backgroundRecoveredVelocityGradient
-                               [neighborParticleIndex][axes2 * __dim + axes1]),
-                      2) *
-                  backgroundVolume[neighborParticleIndex];
+          for (int axes1 = 0; axes1 < __dim; axes1++) {
+            for (int axes2 = axes1; axes2 < __dim; axes2++) {
+              if (axes1 == axes2)
+                error[i] +=
+                    pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
+                            backgroundRecoveredVelocityGradient
+                                [neighborParticleIndex][axes1 * __dim + axes2],
+                        2) *
+                    backgroundVolume[neighborParticleIndex];
+              else {
+                error[i] +=
+                    pow(0.5 * (reconstructedVelocityGradient[axes1 * __dim +
+                                                             axes2] -
+                               backgroundRecoveredVelocityGradient
+                                   [neighborParticleIndex]
+                                   [axes1 * __dim + axes2] +
+                               reconstructedVelocityGradient[axes2 * __dim +
+                                                             axes1] -
+                               backgroundRecoveredVelocityGradient
+                                   [neighborParticleIndex]
+                                   [axes2 * __dim + axes1]),
+                        2) *
+                    backgroundVolume[neighborParticleIndex];
+              }
             }
           }
         }
