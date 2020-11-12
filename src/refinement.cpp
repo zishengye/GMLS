@@ -226,21 +226,23 @@ bool GMLS_Solver::NeedRefinement() {
       for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
         const int neighborParticleIndex = neighborLists(i, j + 1);
 
-        totalNeighborVol += backgroundVolume[neighborParticleIndex];
-
         vec3 dX = backgroundSourceCoord[neighborParticleIndex] - coord[i];
-        for (int axes1 = 0; axes1 < __dim; axes1++) {
-          for (int axes2 = 0; axes2 < __dim; axes2++) {
-            if (__dim == 2)
-              reconstructedVelocityGradient[axes1 * __dim + axes2] =
-                  calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1],
-                                      __polynomialOrder, backgroundEpsilon[i],
-                                      backgroundCoefficients[i]);
-            if (__dim == 3)
-              reconstructedVelocityGradient[axes1 * __dim + axes2] =
-                  calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1], dX[2],
-                                      __polynomialOrder, backgroundEpsilon[i],
-                                      backgroundCoefficients[i]);
+        if (dX.mag() < __epsilon[i]) {
+          totalNeighborVol += backgroundVolume[neighborParticleIndex];
+
+          for (int axes1 = 0; axes1 < __dim; axes1++) {
+            for (int axes2 = 0; axes2 < __dim; axes2++) {
+              if (__dim == 2)
+                reconstructedVelocityGradient[axes1 * __dim + axes2] =
+                    calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1],
+                                        __polynomialOrder, backgroundEpsilon[i],
+                                        backgroundCoefficients[i]);
+              if (__dim == 3)
+                reconstructedVelocityGradient[axes1 * __dim + axes2] =
+                    calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1], dX[2],
+                                        __polynomialOrder, backgroundEpsilon[i],
+                                        backgroundCoefficients[i]);
+            }
           }
         }
 
@@ -363,7 +365,8 @@ bool GMLS_Solver::NeedRefinement() {
     //           double **, Kokkos::HostSpace>(backgroundPressureDevice,
     //                                         GradientOfScalarPointEvaluation);
 
-    //   auto coefficientsSize = pressureBasis.getPolynomialCoefficientsSize();
+    //   auto coefficientsSize =
+    //   pressureBasis.getPolynomialCoefficientsSize();
 
     //   vector<vector<double>> coefficientsChunk(localParticleNum);
     //   for (int i = 0; i < localParticleNum; i++) {
@@ -395,8 +398,9 @@ bool GMLS_Solver::NeedRefinement() {
     //     for (int j = 0; j < neighborLists(i, 0); j++) {
     //       const int neighborParticleIndex = neighborLists(i, j + 1);
 
-    //       vec3 dX = coord[i] - backgroundSourceCoord[neighborParticleIndex];
-    //       for (int axes1 = 0; axes1 < __dim; axes1++) {
+    //       vec3 dX = coord[i] -
+    //       backgroundSourceCoord[neighborParticleIndex]; for (int axes1 = 0;
+    //       axes1 < __dim; axes1++) {
     //         if (__dim == 2)
     //           recoveredPressureGradient[i][axes1] +=
     //               calStaggeredScalarGrad(
@@ -464,7 +468,7 @@ bool GMLS_Solver::NeedRefinement() {
       while (ite < localParticleNum) {
         if (chopper[ite].second > current_error_split) {
           error_sum += chopper[ite].second;
-          next_error = chopper[ite].second;
+          next_error = error_min;
           ite++;
         } else {
           next_error = chopper[ite].second;
