@@ -106,8 +106,8 @@ void GMLS_Solver::StokesEquation() {
   static vector<vec3> &rigidBodyAngularVelocity =
       __rigidBody.vector.GetHandle("angular velocity");
 
-  int &localParticleNum = particleNum[0];
-  int &globalParticleNum = particleNum[1];
+  int localParticleNum = particleNum[0];
+  int globalParticleNum = particleNum[1];
 
   // create source coords (full particle set)
   int numSourceCoords = backgroundSourceCoord.size();

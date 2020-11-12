@@ -255,13 +255,15 @@ bool GMLS_Solver::NeedRefinement() {
                   backgroundVolume[neighborParticleIndex];
             else {
               error[i] +=
-                  0.5 *
-                  pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
-                          backgroundRecoveredVelocityGradient
-                              [neighborParticleIndex][axes1 * __dim + axes2] +
-                          reconstructedVelocityGradient[axes2 * __dim + axes1] -
-                          backgroundRecoveredVelocityGradient
-                              [neighborParticleIndex][axes2 * __dim + axes1],
+                  pow(0.5 *
+                          (reconstructedVelocityGradient[axes1 * __dim +
+                                                         axes2] -
+                           backgroundRecoveredVelocityGradient
+                               [neighborParticleIndex][axes1 * __dim + axes2] +
+                           reconstructedVelocityGradient[axes2 * __dim +
+                                                         axes1] -
+                           backgroundRecoveredVelocityGradient
+                               [neighborParticleIndex][axes2 * __dim + axes1]),
                       2) *
                   backgroundVolume[neighborParticleIndex];
             }
@@ -279,9 +281,8 @@ bool GMLS_Solver::NeedRefinement() {
                 pow(gradient(i, axes1 * __dim + axes2), 2) * volume[i];
           else {
             localDirectGradientNorm +=
-                0.5 *
-                pow(gradient(i, axes1 * __dim + axes2) +
-                        gradient(i, axes2 * __dim + axes1),
+                pow(0.5 * (gradient(i, axes1 * __dim + axes2) +
+                           gradient(i, axes2 * __dim + axes1)),
                     2) *
                 volume[i];
           }
