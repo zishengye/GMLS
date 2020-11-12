@@ -171,6 +171,7 @@ private:
     static auto &_particleType = __field.index.GetHandle("particle type");
     static auto &_attachedRigidBodyIndex =
         __field.index.GetHandle("attached rigid body index");
+    static auto &_newAdded = __field.index.GetHandle("new added particle flag");
 
     static auto &_gapCoord = __gap.vector.GetHandle("coord");
     static auto &_gapNormal = __gap.vector.GetHandle("normal");
@@ -209,6 +210,7 @@ private:
       _adaptive_level.push_back(adaptive_level);
       _attachedRigidBodyIndex.push_back(rigidBodyIndex);
       _pCoord.push_back(pCoord);
+      _newAdded.push_back(1);
 
       return 0;
     } else if (rigidBodyParticle) {

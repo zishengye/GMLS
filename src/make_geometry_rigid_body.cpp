@@ -360,6 +360,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
   static auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
   static auto &volume = __field.scalar.GetHandle("volume");
+  static auto &newAdded = __field.index.GetHandle("new added particle flag");
 
   static auto &rigidBodyCoord = __rigidBody.vector.GetHandle("position");
   static auto &rigidBodySize = __rigidBody.scalar.GetHandle("size");
@@ -415,7 +416,8 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
               normal[tag] = newNormal;
               particleSize[tag] = newParticleSize;
               pCoord[tag] = vec3(newTheta, newPhi, 0.0);
-              adaptive_level[tag] = __adaptive_step;
+              adaptive_level[tag]++;
+              newAdded[tag] = 1;
 
               splitList[tag].push_back(tag);
 
@@ -424,7 +426,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
               double vol = volume[tag];
               int newParticle = InsertParticle(
                   newPos, particleType[tag], newParticleSize, newNormal,
-                  localIndex, __adaptive_step, vol, true,
+                  localIndex, adaptive_level[tag], vol, true,
                   attachedRigidBodyIndex[tag], vec3(newTheta, newPhi, 0.0));
 
               if (newParticle == 0) {
@@ -461,7 +463,8 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
           volume[tag] /= 4.0;
           normal[tag] = newNormal;
           pCoord[tag] = vec3(theta + thetaDelta, 0.0, 0.0);
-          adaptive_level[tag] = __adaptive_step;
+          adaptive_level[tag]++;
+          newAdded[tag] = 1;
 
           splitList[tag].push_back(tag);
 
@@ -474,7 +477,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
 
           int return_val = InsertParticle(
               newPos, particleType[tag], particleSize[tag], newNormal,
-              localIndex, __adaptive_step, volume[tag], true,
+              localIndex, adaptive_level[tag], volume[tag], true,
               attachedRigidBodyIndex[tag], vec3(theta - thetaDelta, 0.0, 0.0));
 
           if (return_val == 0)
@@ -492,14 +495,15 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
 
             particleSize[tag] *= 0.5;
             volume[tag] /= 4.0;
-            adaptive_level[tag] = __adaptive_step;
+            adaptive_level[tag]++;
           } else {
             // side particle
             splitList[tag].push_back(tag);
 
             particleSize[tag] *= 0.5;
             volume[tag] /= 4.0;
-            adaptive_level[tag] = __adaptive_step;
+            adaptive_level[tag]++;
+            newAdded[tag] = 1;
 
             vec3 oldPos = coord[tag];
 
@@ -510,7 +514,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
             vec3 newPos = oldPos - delta;
 
             InsertParticle(newPos, particleType[tag], particleSize[tag],
-                           normal[tag], localIndex, __adaptive_step,
+                           normal[tag], localIndex, adaptive_level[tag],
                            volume[tag], true, attachedRigidBodyIndex[tag],
                            pCoord[tag]);
 

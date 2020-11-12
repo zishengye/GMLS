@@ -8,7 +8,7 @@ using namespace Compadre;
 
 double Wab(double r, double h) {
   int p = 4;
-  return pow(1.0 - abs(r / h), p) * double(1.0 - abs(r / h) > 0.0);
+  return pow(1.0 - abs(r / h), p) * double((1.0 - abs(r / h)) > 0.0);
 }
 
 struct ErrorComb {
@@ -505,7 +505,7 @@ bool GMLS_Solver::NeedRefinement() {
       int index = splitCandidateTag[i];
       for (int j = 0; j < velocityNeighborListsLengths(index); j++) {
         const int neighborParticleIndex = neighborLists(index, j + 1);
-        if (backgroundVolume[neighborParticleIndex] > 2.5 * volume[index]) {
+        if (backgroundVolume[neighborParticleIndex] > 1.5 * volume[index]) {
           isAdd = false;
         }
       }

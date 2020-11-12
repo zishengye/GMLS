@@ -17,6 +17,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   static auto &background_coord = __background.vector.GetHandle("source coord");
   static auto &background_index = __background.index.GetHandle("source index");
   static auto &particleType = __field.index.GetHandle("particle type");
+  static auto &newAdded = __field.index.GetHandle("new added particle flag");
 
   static auto &old_coord = __field.vector.GetHandle("old coord");
   static auto &old_particle_type = __field.index.GetHandle("old particle type");
@@ -65,18 +66,9 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   int actual_new_target = 0;
   vector<int> new_actual_index(coord.size());
-  vector<int> refined_flag(coord.size());
-  for (int i = 0; i < coord.size(); i++) {
-    refined_flag[i] = 0;
-  }
-  for (int i = 0; i < splitList.size(); i++) {
-    for (int j = 0; j < splitList[i].size(); j++) {
-      refined_flag[splitList[i][j]] = 1;
-    }
-  }
   for (int i = 0; i < coord.size(); i++) {
     new_actual_index[i] = actual_new_target;
-    if (refined_flag[i] == 1)
+    if (newAdded[i] == 1)
       actual_new_target++;
   }
 
@@ -94,7 +86,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // copy new target coords
   int counter = 0;
   for (int i = 0; i < coord.size(); i++) {
-    if (refined_flag[i] == 1) {
+    if (newAdded[i] == 1) {
       for (int j = 0; j < dimension; j++) {
         new_target_coords(counter, j) = coord[i][j];
       }
@@ -181,7 +173,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // compute matrix graph
   vector<PetscInt> index;
   for (int i = 0; i < new_local_particle_num; i++) {
-    if (refined_flag[i] == 1) {
+    if (newAdded[i] == 1) {
       // velocity interpolation
       index.resize(old_to_new_neighbor_lists(new_actual_index[i], 0) *
                    velocity_dof);
@@ -242,7 +234,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                                                           axes1, 0, axes2, 0);
 
   for (int i = 0; i < new_local_particle_num; i++) {
-    if (refined_flag[i] == 1) {
+    if (newAdded[i] == 1) {
       for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
            j++) {
         for (int axes1 = 0; axes1 < dimension; axes1++)
