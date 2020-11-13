@@ -256,18 +256,18 @@ void GMLS_Solver::StokesEquation() {
         maxEpsilon);
 
     bool passNeighborNumCheck = true;
-    for (int i = 0; i < localParticleNum; i++) {
-      if (neighborLists(i, 0) <= minNeighbors) {
-        __epsilon[i] +=
-            0.5 * (max(__particleSize0[0] * pow(0.5, __adaptive_step),
-                       particleSize[i][0]));
-        epsilon(i) = __epsilon[i];
-        passNeighborNumCheck = false;
-        if (particleType[i] != 0) {
-          neumannBoundaryEpsilon(fluid2NeumannBoundary[i]) = __epsilon[i];
-        }
-      }
-    }
+    // for (int i = 0; i < localParticleNum; i++) {
+    //   if (neighborLists(i, 0) <= minNeighbors) {
+    //     __epsilon[i] +=
+    //         0.5 * (max(__particleSize0[0] * pow(0.5, __adaptive_step),
+    //                    particleSize[i][0]));
+    //     epsilon(i) = __epsilon[i];
+    //     passNeighborNumCheck = false;
+    //     if (particleType[i] != 0) {
+    //       neumannBoundaryEpsilon(fluid2NeumannBoundary[i]) = __epsilon[i];
+    //     }
+    //   }
+    // }
 
     int processCounter = 0;
     if (!passNeighborNumCheck) {
@@ -717,13 +717,12 @@ void GMLS_Solver::StokesEquation() {
         }
 
         for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-          A.outProcessIncrement(currentRigidBodyLocalOffset + translationDof +
-                                    axes1,
-                                iPressureGlobal,
-                                -rci[(axes1 + 1) % translationDof] *
-                                        dA[(axes1 + 2) % translationDof] +
-                                    rci[(axes1 + 2) % translationDof] *
-                                        dA[(axes1 + 1) % translationDof]);
+          A.outProcessIncrement(
+              currentRigidBodyLocalOffset + translationDof + axes1,
+              iPressureGlobal, -rci[(axes1 + 1) % translationDof] *
+                                       dA[(axes1 + 2) % translationDof] +
+                                   rci[(axes1 + 2) % translationDof] *
+                                       dA[(axes1 + 1) % translationDof]);
         }
 
         for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
@@ -765,13 +764,12 @@ void GMLS_Solver::StokesEquation() {
 
             // torque balance
             for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-              A.outProcessIncrement(currentRigidBodyLocalOffset +
-                                        translationDof + axes1,
-                                    jVelocityGlobal,
-                                    rci[(axes1 + 1) % translationDof] *
-                                            f[(axes1 + 2) % translationDof] -
-                                        rci[(axes1 + 2) % translationDof] *
-                                            f[(axes1 + 1) % translationDof]);
+              A.outProcessIncrement(
+                  currentRigidBodyLocalOffset + translationDof + axes1,
+                  jVelocityGlobal, rci[(axes1 + 1) % translationDof] *
+                                           f[(axes1 + 2) % translationDof] -
+                                       rci[(axes1 + 2) % translationDof] *
+                                           f[(axes1 + 1) % translationDof]);
             }
             delete[] f;
           }
