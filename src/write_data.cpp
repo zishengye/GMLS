@@ -311,6 +311,7 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
   auto &normal = __field.vector.GetHandle("normal");
   auto &particleType = __field.index.GetHandle("particle type");
   auto &particleNum = __field.index.GetHandle("particle number");
+  auto &adaptive_level = __field.index.GetHandle("adaptive level");
   int &globalParticleNum = particleNum[1];
 
   auto &velocity = __field.vector.GetHandle("fluid velocity");
@@ -368,6 +369,25 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
               ios::app);
     for (size_t i = 0; i < particleType.size(); i++) {
       file << particleType[i] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "SCALARS l int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([adaptive_level, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < adaptive_level.size(); i++) {
+      file << adaptive_level[i] << endl;
     }
     file.close();
   });
@@ -465,6 +485,28 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
       for (int axes = 0; axes < __dim; axes++) {
         file << ((abs(velocity[i][axes]) > 1e-10) ? velocity[i][axes] : 0.0)
              << ' ';
+      }
+      file << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "SCALARS n float " + to_string(__dim) << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([normal, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < normal.size(); i++) {
+      for (int axes = 0; axes < __dim; axes++) {
+        file << ((abs(normal[i][axes]) > 1e-10) ? normal[i][axes] : 0.0) << ' ';
       }
       file << endl;
     }
