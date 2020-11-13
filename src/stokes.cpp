@@ -717,12 +717,13 @@ void GMLS_Solver::StokesEquation() {
         }
 
         for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-          A.outProcessIncrement(
-              currentRigidBodyLocalOffset + translationDof + axes1,
-              iPressureGlobal, -rci[(axes1 + 1) % translationDof] *
-                                       dA[(axes1 + 2) % translationDof] +
-                                   rci[(axes1 + 2) % translationDof] *
-                                       dA[(axes1 + 1) % translationDof]);
+          A.outProcessIncrement(currentRigidBodyLocalOffset + translationDof +
+                                    axes1,
+                                iPressureGlobal,
+                                -rci[(axes1 + 1) % translationDof] *
+                                        dA[(axes1 + 2) % translationDof] +
+                                    rci[(axes1 + 2) % translationDof] *
+                                        dA[(axes1 + 1) % translationDof]);
         }
 
         for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
@@ -764,12 +765,13 @@ void GMLS_Solver::StokesEquation() {
 
             // torque balance
             for (int axes1 = 0; axes1 < rotationDof; axes1++) {
-              A.outProcessIncrement(
-                  currentRigidBodyLocalOffset + translationDof + axes1,
-                  jVelocityGlobal, rci[(axes1 + 1) % translationDof] *
-                                           f[(axes1 + 2) % translationDof] -
-                                       rci[(axes1 + 2) % translationDof] *
-                                           f[(axes1 + 1) % translationDof]);
+              A.outProcessIncrement(currentRigidBodyLocalOffset +
+                                        translationDof + axes1,
+                                    jVelocityGlobal,
+                                    rci[(axes1 + 1) % translationDof] *
+                                            f[(axes1 + 2) % translationDof] -
+                                        rci[(axes1 + 2) % translationDof] *
+                                            f[(axes1 + 1) % translationDof]);
             }
             delete[] f;
           }

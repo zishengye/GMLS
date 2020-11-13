@@ -26,6 +26,11 @@ struct fluid_colloid_matrix_context {
   PetscInt fluid_local_size;
   PetscInt rigid_body_size;
 
+  PetscInt local_fluid_particle_num;
+  PetscInt global_fluid_particle_num;
+  PetscInt field_dof;
+  PetscInt pressure_offset;
+
   int myid, mpisize;
 };
 

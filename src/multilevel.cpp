@@ -666,6 +666,32 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   tEnd = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "pc apply time: %fs\n", tEnd - tStart);
 
+  PetscScalar *a;
+  // Vec residual;
+  // VecDuplicate(null_whole, &residual);
+  // PetscReal projected_norm, rhs_norm;
+  // MatMult(mat, _x, residual);
+
+  // VecGetArray(residual, &a);
+  // PetscReal pressure_sum = 0.0;
+  // for (PetscInt i = 0; i < localParticleNum; i++)
+  //   pressure_sum += a[fieldDof * i + velocityDof];
+  // MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+  //               MPI_COMM_WORLD);
+  // int globalParticleNum;
+  // MPI_Allreduce(&localParticleNum, &globalParticleNum, 1, MPI_INT, MPI_SUM,
+  //               MPI_COMM_WORLD);
+  // pressure_sum /= globalParticleNum;
+  // for (PetscInt i = 0; i < localParticleNum; i++)
+  //   a[fieldDof * i + velocityDof] -= pressure_sum;
+  // VecRestoreArray(residual, &a);
+
+  // VecAXPY(residual, -1.0, _rhs);
+  // VecNorm(residual, NORM_2, &projected_norm);
+  // VecNorm(_rhs, NORM_2, &rhs_norm);
+  // PetscPrintf(PETSC_COMM_WORLD, "projected norm: %f\n",
+  //             projected_norm / rhs_norm);
+
   KSPConvergedReason reason;
   KSPGetConvergedReason(_ksp, &reason);
 
@@ -673,7 +699,6 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     return -1;
   }
 
-  PetscScalar *a;
   VecGetArray(_x, &a);
   for (size_t i = 0; i < rhs.size(); i++) {
     x[i] = a[i];
