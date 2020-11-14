@@ -656,41 +656,32 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   }
 
   double tStart, tEnd;
+  PetscScalar *a;
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-  KSPSolve(_ksp, _rhs, _x);
+  PetscReal residual_norm, rhs_norm;
+  VecNorm(_rhs, NORM_2, &rhs_norm);
+  residual_norm = rhs_norm;
+  Vec residual;
+  VecDuplicate(_rhs, &residual);
+  PetscReal rtol = 1e-8;
+  while (residual_norm / rhs_norm > 1e-5) {
+    KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 5000);
+    KSPSolve(_ksp, _rhs, _x);
+    MatMult(shell_mat, _x, residual);
+    VecAXPY(residual, -1.0, _rhs);
+    VecNorm(residual, NORM_2, &residual_norm);
+    PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+                residual_norm / rhs_norm);
+    rtol *= 1e-4;
+  }
+  VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
   tEnd = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "pc apply time: %fs\n", tEnd - tStart);
-
-  PetscScalar *a;
-  // Vec residual;
-  // VecDuplicate(null_whole, &residual);
-  // PetscReal projected_norm, rhs_norm;
-  // MatMult(mat, _x, residual);
-
-  // VecGetArray(residual, &a);
-  // PetscReal pressure_sum = 0.0;
-  // for (PetscInt i = 0; i < localParticleNum; i++)
-  //   pressure_sum += a[fieldDof * i + velocityDof];
-  // MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
-  //               MPI_COMM_WORLD);
-  // int globalParticleNum;
-  // MPI_Allreduce(&localParticleNum, &globalParticleNum, 1, MPI_INT, MPI_SUM,
-  //               MPI_COMM_WORLD);
-  // pressure_sum /= globalParticleNum;
-  // for (PetscInt i = 0; i < localParticleNum; i++)
-  //   a[fieldDof * i + velocityDof] -= pressure_sum;
-  // VecRestoreArray(residual, &a);
-
-  // VecAXPY(residual, -1.0, _rhs);
-  // VecNorm(residual, NORM_2, &projected_norm);
-  // VecNorm(_rhs, NORM_2, &rhs_norm);
-  // PetscPrintf(PETSC_COMM_WORLD, "projected norm: %f\n",
-  //             projected_norm / rhs_norm);
 
   KSPConvergedReason reason;
   KSPGetConvergedReason(_ksp, &reason);
