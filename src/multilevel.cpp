@@ -662,22 +662,23 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-  PetscReal residual_norm, rhs_norm;
-  VecNorm(_rhs, NORM_2, &rhs_norm);
-  residual_norm = rhs_norm;
-  Vec residual;
-  VecDuplicate(_rhs, &residual);
-  PetscReal rtol = 1e-8;
-  while (residual_norm / rhs_norm > 1e-5) {
-    KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 5000);
-    KSPSolve(_ksp, _rhs, _x);
-    MatMult(shell_mat, _x, residual);
-    VecAXPY(residual, -1.0, _rhs);
-    VecNorm(residual, NORM_2, &residual_norm);
-    PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
-                residual_norm / rhs_norm);
-    rtol *= 1e-4;
-  }
+  // PetscReal residual_norm, rhs_norm;
+  // VecNorm(_rhs, NORM_2, &rhs_norm);
+  // residual_norm = rhs_norm;
+  // Vec residual;
+  // VecDuplicate(_rhs, &residual);
+  // PetscReal rtol = 1e-8;
+  // while (residual_norm / rhs_norm > 1e-5) {
+  //   KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 5000);
+  //   KSPSolve(_ksp, _rhs, _x);
+  //   MatMult(shell_mat, _x, residual);
+  //   VecAXPY(residual, -1.0, _rhs);
+  //   VecNorm(residual, NORM_2, &residual_norm);
+  //   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+  //               residual_norm / rhs_norm);
+  //   rtol *= 1e-4;
+  // }
+  KSPSolve(_ksp, _rhs, _x);
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
   tEnd = MPI_Wtime();
