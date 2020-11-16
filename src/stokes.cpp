@@ -1098,6 +1098,17 @@ void GMLS_Solver::StokesEquation() {
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
               tEnd - tStart);
 
+  int innerParticleCount = 0;
+  for (int i = 0; i < localParticleNum; i++) {
+    if (particleType[i] == 0) {
+      innerParticleCount++;
+    }
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &innerParticleCount, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "inner particle count: %d\n",
+              innerParticleCount);
+
   PetscViewer viewer;
   if (__viewer > 0) {
     PetscViewerASCIIGetStdout(PETSC_COMM_WORLD, &viewer);
