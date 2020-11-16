@@ -1049,7 +1049,7 @@ void GMLS_Solver::StokesEquation() {
   }
 
   if (__myID == __MPISize - 1) {
-    rhs[localRigidBodyOffset + 2] = 6 * M_PI * RR * u;
+    // rhs[localRigidBodyOffset + 2] = 6 * M_PI * RR * u;
   }
 
   // make sure pressure term is orthogonal to the constant

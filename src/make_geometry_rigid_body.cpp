@@ -86,7 +86,7 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
           if (dis.mag() < rigidBodySize[i] - 1.5 * h) {
             return -1;
           }
-          if (dis.mag() <= rigidBodySize[i] + 0.5 * h) {
+          if (dis.mag() <= rigidBodySize[i] + 0.1 * h) {
             return i;
           }
 
@@ -385,6 +385,9 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
       double d_theta = oldParticleSize[0] * 0.5;
       double d_phi = d_theta;
 
+      adaptive_level[tag]++;
+      newAdded[tag] = 1;
+
       bool insert = false;
       for (int i = -1; i < 2; i += 2) {
         double newTheta = theta + i * thetaDelta * 0.5;
@@ -416,8 +419,6 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
               normal[tag] = newNormal;
               particleSize[tag] = newParticleSize;
               pCoord[tag] = vec3(newTheta, newPhi, 0.0);
-              adaptive_level[tag]++;
-              newAdded[tag] = 1;
 
               splitList[tag].push_back(tag);
 

@@ -1377,6 +1377,13 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
       const double xDelta = particleSize[tag][0] * 0.25;
       const double yDelta = particleSize[tag][1] * 0.25;
       const double zDelta = particleSize[tag][2] * 0.25;
+
+      particleSize[tag][0] /= 2.0;
+      particleSize[tag][1] /= 2.0;
+      particleSize[tag][2] /= 2.0;
+
+      volume[tag] /= 8.0;
+
       bool insert = false;
       splitList[tag].clear();
       newAdded[tag] = 1;
@@ -1388,10 +1395,6 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
               int idx = IsInRigidBody(newPos, xDelta, -1);
               if (idx == -2) {
                 coord[tag] = newPos;
-                particleSize[tag][0] /= 2.0;
-                particleSize[tag][1] /= 2.0;
-                particleSize[tag][2] /= 2.0;
-                volume[tag] /= 8.0;
                 adaptive_level[tag]++;
 
                 splitList[tag].push_back(tag);
