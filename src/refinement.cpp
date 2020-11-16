@@ -8,7 +8,7 @@ using namespace Compadre;
 
 double Wab(double r, double h) {
   int p = 4;
-  return pow(1.0 - abs(r / h), p) * double(1.0 - abs(r / h) > 0.0);
+  return pow(1.0 - abs(r / h), p) * double((1.0 - abs(r / h)) > 0.0);
 }
 
 struct ErrorComb {
@@ -226,44 +226,49 @@ bool GMLS_Solver::NeedRefinement() {
       for (int j = 0; j < velocityNeighborListsLengths(i); j++) {
         const int neighborParticleIndex = neighborLists(i, j + 1);
 
-        totalNeighborVol += backgroundVolume[neighborParticleIndex];
-
         vec3 dX = backgroundSourceCoord[neighborParticleIndex] - coord[i];
-        for (int axes1 = 0; axes1 < __dim; axes1++) {
-          for (int axes2 = 0; axes2 < __dim; axes2++) {
-            if (__dim == 2)
-              reconstructedVelocityGradient[axes1 * __dim + axes2] =
-                  calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1],
-                                      __polynomialOrder, backgroundEpsilon[i],
-                                      backgroundCoefficients[i]);
-            if (__dim == 3)
-              reconstructedVelocityGradient[axes1 * __dim + axes2] =
-                  calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1], dX[2],
-                                      __polynomialOrder, backgroundEpsilon[i],
-                                      backgroundCoefficients[i]);
-          }
-        }
 
-        for (int axes1 = 0; axes1 < __dim; axes1++) {
-          for (int axes2 = axes1; axes2 < __dim; axes2++) {
-            if (axes1 == axes2)
-              error[i] +=
-                  pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
-                          backgroundRecoveredVelocityGradient
-                              [neighborParticleIndex][axes1 * __dim + axes2],
-                      2) *
-                  backgroundVolume[neighborParticleIndex];
-            else {
-              error[i] +=
-                  0.5 *
-                  pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
-                          backgroundRecoveredVelocityGradient
-                              [neighborParticleIndex][axes1 * __dim + axes2] +
-                          reconstructedVelocityGradient[axes2 * __dim + axes1] -
-                          backgroundRecoveredVelocityGradient
-                              [neighborParticleIndex][axes2 * __dim + axes1],
-                      2) *
-                  backgroundVolume[neighborParticleIndex];
+        if (dX.mag() < __epsilon[i]) {
+          totalNeighborVol += backgroundVolume[neighborParticleIndex];
+          for (int axes1 = 0; axes1 < __dim; axes1++) {
+            for (int axes2 = 0; axes2 < __dim; axes2++) {
+              if (__dim == 2)
+                reconstructedVelocityGradient[axes1 * __dim + axes2] =
+                    calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1],
+                                        __polynomialOrder, backgroundEpsilon[i],
+                                        backgroundCoefficients[i]);
+              if (__dim == 3)
+                reconstructedVelocityGradient[axes1 * __dim + axes2] =
+                    calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1], dX[2],
+                                        __polynomialOrder, backgroundEpsilon[i],
+                                        backgroundCoefficients[i]);
+            }
+          }
+
+          for (int axes1 = 0; axes1 < __dim; axes1++) {
+            for (int axes2 = axes1; axes2 < __dim; axes2++) {
+              if (axes1 == axes2)
+                error[i] +=
+                    pow(reconstructedVelocityGradient[axes1 * __dim + axes2] -
+                            backgroundRecoveredVelocityGradient
+                                [neighborParticleIndex][axes1 * __dim + axes2],
+                        2) *
+                    backgroundVolume[neighborParticleIndex];
+              else {
+                error[i] +=
+                    pow(0.5 * (reconstructedVelocityGradient[axes1 * __dim +
+                                                             axes2] -
+                               backgroundRecoveredVelocityGradient
+                                   [neighborParticleIndex]
+                                   [axes1 * __dim + axes2] +
+                               reconstructedVelocityGradient[axes2 * __dim +
+                                                             axes1] -
+                               backgroundRecoveredVelocityGradient
+                                   [neighborParticleIndex]
+                                   [axes2 * __dim + axes1]),
+                        2) *
+                    backgroundVolume[neighborParticleIndex];
+              }
             }
           }
         }
@@ -279,9 +284,8 @@ bool GMLS_Solver::NeedRefinement() {
                 pow(gradient(i, axes1 * __dim + axes2), 2) * volume[i];
           else {
             localDirectGradientNorm +=
-                0.5 *
-                pow(gradient(i, axes1 * __dim + axes2) +
-                        gradient(i, axes2 * __dim + axes1),
+                pow(0.5 * (gradient(i, axes1 * __dim + axes2) +
+                           gradient(i, axes2 * __dim + axes1)),
                     2) *
                 volume[i];
           }
@@ -362,7 +366,8 @@ bool GMLS_Solver::NeedRefinement() {
     //           double **, Kokkos::HostSpace>(backgroundPressureDevice,
     //                                         GradientOfScalarPointEvaluation);
 
-    //   auto coefficientsSize = pressureBasis.getPolynomialCoefficientsSize();
+    //   auto coefficientsSize =
+    //   pressureBasis.getPolynomialCoefficientsSize();
 
     //   vector<vector<double>> coefficientsChunk(localParticleNum);
     //   for (int i = 0; i < localParticleNum; i++) {
@@ -394,8 +399,9 @@ bool GMLS_Solver::NeedRefinement() {
     //     for (int j = 0; j < neighborLists(i, 0); j++) {
     //       const int neighborParticleIndex = neighborLists(i, j + 1);
 
-    //       vec3 dX = coord[i] - backgroundSourceCoord[neighborParticleIndex];
-    //       for (int axes1 = 0; axes1 < __dim; axes1++) {
+    //       vec3 dX = coord[i] -
+    //       backgroundSourceCoord[neighborParticleIndex]; for (int axes1 = 0;
+    //       axes1 < __dim; axes1++) {
     //         if (__dim == 2)
     //           recoveredPressureGradient[i][axes1] +=
     //               calStaggeredScalarGrad(
@@ -424,11 +430,7 @@ bool GMLS_Solver::NeedRefinement() {
       return false;
 
     // mark stage
-    double alpha = 0.8;
-    if (__adaptive_step > 0)
-      alpha = 0.7;
-    if (__adaptive_step > 1)
-      alpha = 0.6;
+    double alpha = 0.9;
 
     vector<pair<int, double>> chopper;
     pair<int, double> toAdd;
@@ -467,6 +469,7 @@ bool GMLS_Solver::NeedRefinement() {
       while (ite < localParticleNum) {
         if (chopper[ite].second > current_error_split) {
           error_sum += chopper[ite].second;
+          next_error = error_min;
           ite++;
         } else {
           next_error = chopper[ite].second;
@@ -480,11 +483,11 @@ bool GMLS_Solver::NeedRefinement() {
       MPI_Allreduce(MPI_IN_PLACE, &next_error, 1, MPI_DOUBLE, MPI_MAX,
                     MPI_COMM_WORLD);
 
-      if ((error_sum <= alpha * globalError) &&
-          (error_sum + next_error > alpha * globalError)) {
+      if ((error_sum < alpha * globalError) &&
+          (error_sum + next_error >= alpha * globalError)) {
         selection_finished = true;
         split_max_index = ite;
-      } else if (error_sum <= alpha * globalError) {
+      } else if (error_sum < alpha * globalError) {
         error_max = current_error_split;
         current_error_split = (error_min + error_max) / 2.0;
       } else {
@@ -503,7 +506,7 @@ bool GMLS_Solver::NeedRefinement() {
       int index = splitCandidateTag[i];
       for (int j = 0; j < velocityNeighborListsLengths(index); j++) {
         const int neighborParticleIndex = neighborLists(index, j + 1);
-        if (backgroundVolume[neighborParticleIndex] > 2.5 * volume[index]) {
+        if (backgroundVolume[neighborParticleIndex] > 1.5 * volume[index]) {
           isAdd = false;
         }
       }

@@ -17,6 +17,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   static auto &background_coord = __background.vector.GetHandle("source coord");
   static auto &background_index = __background.index.GetHandle("source index");
   static auto &particleType = __field.index.GetHandle("particle type");
+  static auto &newAdded = __field.index.GetHandle("new added particle flag");
 
   static auto &old_coord = __field.vector.GetHandle("old coord");
   static auto &old_particle_type = __field.index.GetHandle("old particle type");
@@ -67,7 +68,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   vector<int> new_actual_index(coord.size());
   for (int i = 0; i < coord.size(); i++) {
     new_actual_index[i] = actual_new_target;
-    if (adaptive_level[i] == __adaptive_step)
+    if (newAdded[i] == 1)
       actual_new_target++;
   }
 
@@ -85,7 +86,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // copy new target coords
   int counter = 0;
   for (int i = 0; i < coord.size(); i++) {
-    if (adaptive_level[i] == __adaptive_step) {
+    if (newAdded[i] == 1) {
       for (int j = 0; j < dimension; j++) {
         new_target_coords(counter, j) = coord[i][j];
       }
@@ -172,7 +173,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // compute matrix graph
   vector<PetscInt> index;
   for (int i = 0; i < new_local_particle_num; i++) {
-    if (adaptive_level[i] == __adaptive_step) {
+    if (newAdded[i] == 1) {
       // velocity interpolation
       index.resize(old_to_new_neighbor_lists(new_actual_index[i], 0) *
                    velocity_dof);
@@ -233,7 +234,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                                                           axes1, 0, axes2, 0);
 
   for (int i = 0; i < new_local_particle_num; i++) {
-    if (adaptive_level[i] == __adaptive_step) {
+    if (newAdded[i] == 1) {
       for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
            j++) {
         for (int axes1 = 0; axes1 < dimension; axes1++)
@@ -655,12 +656,30 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   }
 
   double tStart, tEnd;
+  PetscScalar *a;
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
+  // PetscReal residual_norm, rhs_norm;
+  // VecNorm(_rhs, NORM_2, &rhs_norm);
+  // residual_norm = rhs_norm;
+  // Vec residual;
+  // VecDuplicate(_rhs, &residual);
+  // PetscReal rtol = 1e-8;
+  // while (residual_norm / rhs_norm > 1e-5) {
+  //   KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 5000);
+  //   KSPSolve(_ksp, _rhs, _x);
+  //   MatMult(shell_mat, _x, residual);
+  //   VecAXPY(residual, -1.0, _rhs);
+  //   VecNorm(residual, NORM_2, &residual_norm);
+  //   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+  //               residual_norm / rhs_norm);
+  //   rtol *= 1e-4;
+  // }
   KSPSolve(_ksp, _rhs, _x);
+  VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
   tEnd = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "pc apply time: %fs\n", tEnd - tStart);
@@ -672,7 +691,6 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     return -1;
   }
 
-  PetscScalar *a;
   VecGetArray(_x, &a);
   for (size_t i = 0; i < rhs.size(); i++) {
     x[i] = a[i];

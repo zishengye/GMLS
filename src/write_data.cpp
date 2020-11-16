@@ -235,7 +235,7 @@ void GMLS_Solver::WriteDataTimeStep() {
       ofstream file;
       file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
       for (size_t i = 0; i < pressure.size(); i++) {
-        file << pressure[i] << endl;
+        file << ((abs(pressure[i]) > 1e-10) ? pressure[i] : 0.0) << endl;
       }
       file.close();
     });
@@ -253,7 +253,8 @@ void GMLS_Solver::WriteDataTimeStep() {
       file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
       for (size_t i = 0; i < velocity.size(); i++) {
         for (int axes = 0; axes < __dim; axes++) {
-          file << velocity[i][axes] << ' ';
+          file << ((abs(velocity[i][axes]) > 1e-10) ? velocity[i][axes] : 0.0)
+               << ' ';
         }
         file << endl;
       }
@@ -310,6 +311,7 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
   auto &normal = __field.vector.GetHandle("normal");
   auto &particleType = __field.index.GetHandle("particle type");
   auto &particleNum = __field.index.GetHandle("particle number");
+  auto &adaptive_level = __field.index.GetHandle("adaptive level");
   int &globalParticleNum = particleNum[1];
 
   auto &velocity = __field.vector.GetHandle("fluid velocity");
@@ -367,6 +369,25 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
               ios::app);
     for (size_t i = 0; i < particleType.size(); i++) {
       file << particleType[i] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "SCALARS l int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([adaptive_level, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < adaptive_level.size(); i++) {
+      file << adaptive_level[i] << endl;
     }
     file.close();
   });
@@ -442,7 +463,7 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
     file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
               ios::app);
     for (size_t i = 0; i < pressure.size(); i++) {
-      file << pressure[i] << endl;
+      file << ((abs(pressure[i]) > 1e-10) ? pressure[i] : 0.0) << endl;
     }
     file.close();
   });
@@ -462,7 +483,30 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
               ios::app);
     for (size_t i = 0; i < velocity.size(); i++) {
       for (int axes = 0; axes < __dim; axes++) {
-        file << velocity[i][axes] << ' ';
+        file << ((abs(velocity[i][axes]) > 1e-10) ? velocity[i][axes] : 0.0)
+             << ' ';
+      }
+      file << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    file << "SCALARS n float " + to_string(__dim) << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([normal, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < normal.size(); i++) {
+      for (int axes = 0; axes < __dim; axes++) {
+        file << ((abs(normal[i][axes]) > 1e-10) ? normal[i][axes] : 0.0) << ' ';
       }
       file << endl;
     }
@@ -487,6 +531,15 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
   auto &_gapNormal = __gap.vector.GetHandle("normal");
   auto &_gapParticleSize = __gap.vector.GetHandle("size");
   auto &_gapParticleType = __gap.index.GetHandle("particle type");
+
+  static auto &gapRigidBodyCoord =
+      __gap.vector.GetHandle("rigid body surface coord");
+  static auto &gapRigidBodyNormal =
+      __gap.vector.GetHandle("rigid body surface normal");
+  static auto &gapRigidBodySize =
+      __gap.vector.GetHandle("rigid body surface size");
+  static auto &gapRigidBodyParticleType =
+      __gap.index.GetHandle("rigid body surface particle type");
 
   MasterOperation(0, [globalParticleNum, this]() {
     ofstream file;
@@ -587,7 +640,7 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
     file.close();
   });
 
-  int globalGapParticleNum = _gapCoord.size();
+  int globalGapParticleNum = _gapCoord.size() + gapRigidBodyCoord.size();
   MPI_Allreduce(MPI_IN_PLACE, &globalGapParticleNum, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
@@ -615,6 +668,18 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
     for (size_t i = 0; i < _gapCoord.size(); i++) {
       file << _gapCoord[i][0] << ' ' << _gapCoord[i][1] << ' '
            << _gapCoord[i][2] << endl;
+    }
+    file.close();
+  });
+
+  SerialOperation([gapRigidBodyCoord, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < gapRigidBodyCoord.size(); i++) {
+      file << gapRigidBodyCoord[i][0] << ' ' << gapRigidBodyCoord[i][1] << ' '
+           << gapRigidBodyCoord[i][2] << endl;
     }
     file.close();
   });
@@ -649,6 +714,17 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
     file.close();
   });
 
+  SerialOperation([gapRigidBodyParticleType, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < gapRigidBodyParticleType.size(); i++) {
+      file << gapRigidBodyParticleType[i] << endl;
+    }
+    file.close();
+  });
+
   MasterOperation(0, [this]() {
     ofstream file;
     file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
@@ -666,6 +742,17 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
               ios::app);
     for (size_t i = 0; i < _gapParticleSize.size(); i++) {
       file << _gapParticleSize[i][0] << endl;
+    }
+    file.close();
+  });
+
+  SerialOperation([gapRigidBodySize, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < gapRigidBodySize.size(); i++) {
+      file << gapRigidBodySize[i][0] << endl;
     }
     file.close();
   });

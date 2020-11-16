@@ -26,6 +26,11 @@ struct fluid_colloid_matrix_context {
   PetscInt fluid_local_size;
   PetscInt rigid_body_size;
 
+  PetscInt local_fluid_particle_num;
+  PetscInt global_fluid_particle_num;
+  PetscInt field_dof;
+  PetscInt pressure_offset;
+
   int myid, mpisize;
 };
 
@@ -164,6 +169,13 @@ void PetscSparseMatrix::setColIndex(const PetscInt row,
   size_t counter = 0;
   for (std::vector<entry>::iterator it = __matrix[row].begin();
        it != __matrix[row].end(); it++) {
+    if (index[counter] > __Col) {
+      std::cout << row << ' ' << index[counter]
+                << " index setting with wrong column index" << std::endl;
+      counter++;
+      continue;
+    }
+
     it->first = index[counter++];
     it->second = 0.0;
   }
@@ -177,6 +189,14 @@ void PetscSparseMatrix::setOutProcessColIndex(const PetscInt row,
   for (std::vector<entry>::iterator it =
            __out_process_matrix[row - __out_process_reduction].begin();
        it != __out_process_matrix[row - __out_process_reduction].end(); it++) {
+    if (index[counter] > __Col) {
+      std::cout << row << ' ' << index[counter]
+                << " out process index setting with wrong column index"
+                << std::endl;
+      counter++;
+      continue;
+    }
+
     it->first = index[counter++];
     it->second = 0.0;
   }
@@ -187,6 +207,12 @@ void PetscSparseMatrix::increment(const PetscInt i, const PetscInt j,
   if (std::abs(daij) > 1e-15) {
     auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
                           entry(j, daij), compare_index);
+    if (j > __Col) {
+      std::cout << i << ' ' << j << " increment wrong column index"
+                << std::endl;
+      return;
+    }
+
     if (it->first == j)
       it->second += daij;
     else
@@ -201,6 +227,12 @@ void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
     auto it = lower_bound(__out_process_matrix[in].begin(),
                           __out_process_matrix[in].end(), entry(j, daij),
                           compare_index);
+    if (j > __Col) {
+      std::cout << i << ' ' << j << " out process wrong column index"
+                << std::endl;
+      return;
+    }
+
     if (it != __out_process_matrix[in].end() && it->first == j)
       it->second += daij;
     else

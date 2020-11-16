@@ -146,13 +146,23 @@ void GMLS_Solver::InitParticle() {
   __field.index.Register("adaptive level");
   __field.index.Register("attached rigid body index");
   __field.index.Register("particle number");
+  __field.index.Register("new added particle flag");
 
   __gap.vector.Register("coord");
   __gap.vector.Register("normal");
   __gap.vector.Register("size");
-  __gap.vector.Register("volume");
+  __gap.scalar.Register("volume");
   __gap.index.Register("particle type");
   __gap.index.Register("adaptive level");
+
+  __gap.vector.Register("rigid body surface coord");
+  __gap.vector.Register("rigid body surface normal");
+  __gap.vector.Register("rigid body surface size");
+  __gap.vector.Register("rigid body surface parameter coordinate");
+  __gap.scalar.Register("rigid body surface volume");
+  __gap.index.Register("rigid body surface particle type");
+  __gap.index.Register("rigid body surface adaptive level");
+  __gap.index.Register("rigid body surface attached rigid body index");
 }
 
 void GMLS_Solver::ClearParticle() {
@@ -172,11 +182,32 @@ void GMLS_Solver::ClearParticle() {
   static auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
   static auto &particleNum = __field.index.GetHandle("particle number");
+  static auto &newAdded = __field.index.GetHandle("new added particle flag");
 
   static auto &gapCoord = __gap.vector.GetHandle("coord");
   static auto &gapNormal = __gap.vector.GetHandle("normal");
   static auto &gapParticleSize = __gap.vector.GetHandle("size");
+  static auto &gapParticleVolume = __gap.scalar.GetHandle("volume");
   static auto &gapParticleType = __gap.index.GetHandle("particle type");
+  static auto &gapParticleAdaptiveLevel =
+      __gap.index.GetHandle("adaptive level");
+
+  static auto &gapRigidBodyCoord =
+      __gap.vector.GetHandle("rigid body surface coord");
+  static auto &gapRigidBodyNormal =
+      __gap.vector.GetHandle("rigid body surface normal");
+  static auto &gapRigidBodySize =
+      __gap.vector.GetHandle("rigid body surface size");
+  static auto &gapRigidBodyPCoord =
+      __gap.vector.GetHandle("rigid body surface parameter coordinate");
+  static auto &gapRigidBodyVolume =
+      __gap.scalar.GetHandle("rigid body surface volume");
+  static auto &gapRigidBodyParticleType =
+      __gap.index.GetHandle("rigid body surface particle type");
+  static auto &gapRigidBodyAdaptiveLevel =
+      __gap.index.GetHandle("rigid body surface adaptive level");
+  static auto &gapRigidBodyAttachedRigidBodyIndex =
+      __gap.index.GetHandle("rigid body surface attached rigid body index");
 
   backgroundCoord.clear();
   sourceCoord.clear();
@@ -193,11 +224,23 @@ void GMLS_Solver::ClearParticle() {
   adaptive_level.clear();
   attachedRigidBodyIndex.clear();
   particleNum.clear();
+  newAdded.clear();
 
   gapCoord.clear();
   gapNormal.clear();
   gapParticleSize.clear();
+  gapParticleVolume.clear();
   gapParticleType.clear();
+  gapParticleAdaptiveLevel.clear();
+
+  gapRigidBodyCoord.clear();
+  gapRigidBodyNormal.clear();
+  gapRigidBodySize.clear();
+  gapRigidBodyPCoord.clear();
+  gapRigidBodyVolume.clear();
+  gapRigidBodyParticleType.clear();
+  gapRigidBodyAdaptiveLevel.clear();
+  gapRigidBodyAttachedRigidBodyIndex.clear();
 }
 
 void GMLS_Solver::InitUniformParticleField() {
@@ -260,11 +303,17 @@ void GMLS_Solver::InitUniformParticleField() {
 
   ClearParticle();
 
-  InitFieldParticle();
-  // InitFieldBoundaryParticle();
+  // first init the particles on the surface of colloids, then when adding field
+  // particles, a neighbor search could be done to see if the distance to the
+  // nearest particle on the surface is enough or not
   InitRigidBodySurfaceParticle();
+  BuildNeighborList();
+  UpdateRigidBodySurfaceParticlePointCloudSearch();
+  InitFieldParticle();
 
   ParticleIndex();
+
+  BuildNeighborList();
 }
 
 void GMLS_Solver::ParticleIndex() {
@@ -338,6 +387,8 @@ void GMLS_Solver::ParticleIndex() {
 bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
 
 void GMLS_Solver::InitFieldParticle() {
+  static auto &coord = __field.vector.GetHandle("coord");
+
   __cutoffDistance = (__polynomialOrder + 1.0) *
                          std::max(__particleSize0[0], __particleSize0[1]) +
                      1e-5;
@@ -349,7 +400,7 @@ void GMLS_Solver::InitFieldParticle() {
   if (__dim == 2) {
     zPos = 0.0;
     double vol = __particleSize0[0] * __particleSize0[1];
-    int localIndex = 0;
+    int localIndex = coord.size();
 
     // down
     if (__domainBoundaryType[0] != 0) {
@@ -1102,6 +1153,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
 
   // split gap particle
   auto &gapCoord = __gap.vector.GetHandle("coord");
+  auto &gapRigidBodyCoord = __gap.vector.GetHandle("rigid body surface coord");
 
   static vector<vec3> &backgroundSourceCoord =
       __background.vector.GetHandle("source coord");
@@ -1109,7 +1161,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
       __background.index.GetHandle("source index");
 
   int numSourceCoords = backgroundSourceCoord.size();
-  int numTargetCoords = gapCoord.size();
+  int numTargetCoords = gapCoord.size() + gapRigidBodyCoord.size();
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
       "source coordinates", numSourceCoords, 3);
@@ -1127,9 +1179,14 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   Kokkos::View<double **>::HostMirror targetCoords =
       Kokkos::create_mirror_view(targetCoordsDevice);
 
-  for (int i = 0; i < numTargetCoords; i++) {
+  for (int i = 0; i < gapCoord.size(); i++) {
     for (int j = 0; j < 3; j++) {
       targetCoords(i, j) = gapCoord[i][j];
+    }
+  }
+  for (int i = gapCoord.size(); i < numTargetCoords; i++) {
+    for (int j = 0; j < 3; j++) {
+      targetCoords(i, j) = gapRigidBodyCoord[i - gapCoord.size()][j];
     }
   }
 
@@ -1197,42 +1254,58 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
                             recvSplitTag.end());
 
   vector<int> gapParticleSplitTag(numTargetCoords);
+  vector<int> gapInteriorParticleSplitTag(gapCoord.size());
+  vector<int> gapRigidBodyParticleSplitTag(gapRigidBodyCoord.size());
   for (int i = 0; i < numTargetCoords; i++) {
     int counter = 0;
-    bool splitBasedOnNeighborSize = true;
+    double min_dis = 1.0;
     for (int j = 0; j < neighborLists(i, 0); j++) {
-      if (backgroundSplitTag[neighborLists(i, j + 1)] == 1 &&
-          backgroundParticleType[neighborLists(i, j + 1)] >= 4) {
-        counter++;
-      }
-
-      if ((gapParticleSize[i][0] <
-           0.5 * backgroundParticleSize[neighborLists(i, j + 1)][0]) &&
-          backgroundSplitTag[neighborLists(i, j + 1)] == 1) {
-        splitBasedOnNeighborSize = false;
+      // find the nearest surface particle
+      if (backgroundParticleType[neighborLists(i, j + 1)] >= 4) {
+        vec3 dis = backgroundSourceCoord[neighborLists(i, j + 1)] - gapCoord[i];
+        if (dis.mag() < min_dis) {
+          min_dis = dis.mag();
+          counter = neighborLists(i, j + 1);
+        }
       }
     }
 
-    bool splitBasedOnNeighborSplit = false;
-    if (counter > 0) {
-      splitBasedOnNeighborSplit = true;
-    }
-
-    if (splitBasedOnNeighborSplit && splitBasedOnNeighborSize) {
+    if (backgroundSplitTag[counter] == 1 &&
+        (gapParticleSize[i][0] > 0.5 * backgroundParticleSize[counter][0])) {
       gapParticleSplitTag[i] = 1;
     } else {
       gapParticleSplitTag[i] = 0;
     }
   }
 
+  for (int i = 0; i < gapCoord.size(); i++) {
+    gapInteriorParticleSplitTag[i] = gapParticleSplitTag[i];
+  }
+  for (int i = 0; i < gapRigidBodyCoord.size(); i++) {
+    gapRigidBodyParticleSplitTag[i] = gapParticleSplitTag[i + gapCoord.size()];
+  }
+
   splitList.resize(localParticleNum);
+
+  static auto &newAdded = __field.index.GetHandle("new added particle flag");
+  // reset particle flag
+  for (int i = 0; i < newAdded.size(); i++) {
+    newAdded[i] = 0;
+  }
+
+  SplitRigidBodySurfaceParticle(fieldRigidBodySurfaceSplitTag);
+  BuildNeighborList();
+  UpdateRigidBodySurfaceParticlePointCloudSearch();
+
   SplitFieldParticle(fieldSplitTag);
   SplitFieldBoundaryParticle(fieldBoundarySplitTag);
-  SplitRigidBodySurfaceParticle(fieldRigidBodySurfaceSplitTag);
-  SplitGapParticle(gapParticleSplitTag);
+  SplitGapParticle(gapInteriorParticleSplitTag);
+  SplitGapRigidBodyParticle(gapRigidBodyParticleSplitTag);
 
   MPI_Barrier(MPI_COMM_WORLD);
   ParticleIndex();
+
+  BuildNeighborList();
 }
 
 void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
@@ -1245,6 +1318,7 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
   static auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
   static auto &volume = __field.scalar.GetHandle("volume");
+  static auto &newAdded = __field.index.GetHandle("new added particle flag");
 
   static auto &_gapCoord = __gap.vector.GetHandle("coord");
   static auto &_gapNormal = __gap.vector.GetHandle("normal");
@@ -1263,14 +1337,15 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
       volume[tag] /= 4.0;
       bool insert = false;
       splitList[tag].clear();
+      newAdded[tag] = 1;
       for (int i = -1; i < 2; i += 2) {
         for (int j = -1; j < 2; j += 2) {
           vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
           if (!insert) {
-            int idx = IsInRigidBody(newPos, xDelta);
+            int idx = IsInRigidBody(newPos, xDelta, -1);
             if (idx == -2) {
               coord[tag] = newPos;
-              adaptive_level[tag] = __adaptive_step;
+              adaptive_level[tag]++;
 
               splitList[tag].push_back(tag);
 
@@ -1283,9 +1358,9 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
             }
           } else {
             double vol = volume[tag];
-            int newParticle =
-                InsertParticle(newPos, particleType[tag], particleSize[tag],
-                               normal[tag], localIndex, __adaptive_step, vol);
+            int newParticle = InsertParticle(
+                newPos, particleType[tag], particleSize[tag], normal[tag],
+                localIndex, adaptive_level[tag], vol);
 
             if (newParticle == 0) {
               splitList[tag].push_back(localIndex - 1);
@@ -1304,19 +1379,20 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
       const double zDelta = particleSize[tag][2] * 0.25;
       bool insert = false;
       splitList[tag].clear();
+      newAdded[tag] = 1;
       for (int i = -1; i < 2; i += 2) {
         for (int j = -1; j < 2; j += 2) {
           for (int k = -1; k < 2; k += 2) {
             vec3 newPos = origin + vec3(i * xDelta, j * yDelta, k * zDelta);
             if (!insert) {
-              int idx = IsInRigidBody(newPos, xDelta);
+              int idx = IsInRigidBody(newPos, xDelta, -1);
               if (idx == -2) {
                 coord[tag] = newPos;
                 particleSize[tag][0] /= 2.0;
                 particleSize[tag][1] /= 2.0;
                 particleSize[tag][2] /= 2.0;
                 volume[tag] /= 8.0;
-                adaptive_level[tag] = __adaptive_step;
+                adaptive_level[tag]++;
 
                 splitList[tag].push_back(tag);
 
@@ -1329,9 +1405,9 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
               }
             } else {
               double vol = volume[tag];
-              int newParticle =
-                  InsertParticle(newPos, particleType[tag], particleSize[tag],
-                                 normal[tag], localIndex, __adaptive_step, vol);
+              int newParticle = InsertParticle(
+                  newPos, particleType[tag], particleSize[tag], normal[tag],
+                  localIndex, adaptive_level[tag], vol);
 
               if (newParticle == 0) {
                 splitList[tag].push_back(localIndex - 1);
@@ -1355,6 +1431,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
   static auto &attachedRigidBodyIndex =
       __field.index.GetHandle("attached rigid body index");
   static auto &volume = __field.scalar.GetHandle("volume");
+  static auto &newAdded = __field.index.GetHandle("new added particle flag");
 
   int localIndex = coord.size();
 
@@ -1368,14 +1445,15 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
         particleSize[tag][0] /= 2.0;
         particleSize[tag][1] /= 2.0;
         volume[tag] /= 4.0;
-        adaptive_level[tag] = __adaptive_step;
+        adaptive_level[tag]++;
       } else {
         splitList[tag].clear();
 
         particleSize[tag][0] /= 2.0;
         particleSize[tag][1] /= 2.0;
         volume[tag] /= 4.0;
-        adaptive_level[tag] = __adaptive_step;
+        adaptive_level[tag]++;
+        newAdded[tag] = 1;
 
         double theta = pCoord[tag][0];
 
@@ -1394,8 +1472,8 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
             insert = true;
           } else {
             double vol = volume[tag];
-            InitWallFaceParticle(newPos, particleType[tag], particleSize[tag],
-                                 normal[tag], localIndex, __adaptive_step, vol);
+            InsertParticle(newPos, particleType[tag], particleSize[tag],
+                           normal[tag], localIndex, adaptive_level[tag], vol);
             splitList[tag].push_back(localIndex - 1);
           }
         }
@@ -1413,7 +1491,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
         particleSize[tag][1] /= 2.0;
         particleSize[tag][2] /= 2.0;
         volume[tag] /= 8.0;
-        adaptive_level[tag] = __adaptive_step;
+        adaptive_level[tag]++;
       } else if (particleType[tag] == 2) {
         // line particle
         splitList[tag].clear();
@@ -1422,7 +1500,8 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
         particleSize[tag][1] /= 2.0;
         particleSize[tag][2] /= 2.0;
         volume[tag] /= 8.0;
-        adaptive_level[tag] = __adaptive_step;
+        adaptive_level[tag]++;
+        newAdded[tag] = 1;
 
         vec3 oldCoord = coord[tag];
 
@@ -1444,7 +1523,8 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
           } else {
             double vol = volume[tag];
             InitWallFaceParticle(newPos, particleType[tag], particleSize[tag],
-                                 normal[tag], localIndex, __adaptive_step, vol);
+                                 normal[tag], localIndex, adaptive_level[tag],
+                                 vol);
             splitList[tag].push_back(localIndex - 1);
           }
         }
@@ -1456,7 +1536,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
         particleSize[tag][1] /= 2.0;
         particleSize[tag][2] /= 2.0;
         volume[tag] /= 8.0;
-        adaptive_level[tag] = __adaptive_step;
+        adaptive_level[tag]++;
 
         vec3 oldCoord = coord[tag];
 
@@ -1490,7 +1570,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
             } else {
               double vol = volume[tag];
               InitWallFaceParticle(newPos, particleType[tag], particleSize[tag],
-                                   normal[tag], localIndex, __adaptive_step,
+                                   normal[tag], localIndex, adaptive_level[tag],
                                    vol);
               splitList[tag].push_back(localIndex - 1);
             }
@@ -1518,6 +1598,7 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
   auto oldGapNormal = move(_gapNormal);
   auto oldGapParticleSize = move(_gapParticleSize);
   auto oldGapParticleType = move(_gapParticleType);
+  auto oldGapParticleAdaptiveLevel = move(_gap_particle_adaptive_level);
 
   _gapCoord.clear();
   _gapNormal.clear();
@@ -1531,7 +1612,7 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
       if (splitTag[tag] == 0) {
         InsertParticle(oldGapCoord[tag], oldGapParticleType[tag],
                        oldGapParticleSize[tag], oldGapNormal[tag], localIndex,
-                       __adaptive_step,
+                       oldGapParticleAdaptiveLevel[tag],
                        oldGapParticleSize[tag][0] * oldGapParticleSize[tag][1]);
       } else {
         vec3 origin = oldGapCoord[tag];
@@ -1547,8 +1628,8 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
                            oldGapParticleSize[tag][1] *
                            oldGapParticleSize[tag][2] / 8.0;
               InsertParticle(newPos, oldGapParticleType[tag], newParticleSize,
-                             oldGapNormal[tag], localIndex, __adaptive_step,
-                             vol);
+                             oldGapNormal[tag], localIndex,
+                             oldGapParticleAdaptiveLevel[tag] + 1, vol);
             }
           }
         }
@@ -1558,7 +1639,7 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
     for (int tag = splitTag.size(); tag < oldGapCoord.size(); tag++) {
       InsertParticle(oldGapCoord[tag], oldGapParticleType[tag],
                      oldGapParticleSize[tag], oldGapNormal[tag], localIndex,
-                     __adaptive_step,
+                     oldGapParticleAdaptiveLevel[tag],
                      oldGapParticleSize[tag][0] * oldGapParticleSize[tag][1]);
     }
   }
@@ -1568,7 +1649,7 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
       if (splitTag[tag] == 0) {
         InsertParticle(oldGapCoord[tag], oldGapParticleType[tag],
                        oldGapParticleSize[tag], oldGapNormal[tag], localIndex,
-                       __adaptive_step,
+                       oldGapParticleAdaptiveLevel[tag],
                        oldGapParticleSize[tag][0] * oldGapParticleSize[tag][1]);
       } else {
         vec3 origin = oldGapCoord[tag];
@@ -1580,7 +1661,8 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
             vec3 newPos = origin + vec3(i * xDelta, j * yDelta, 0.0);
             double vol = newParticleSize[0] * newParticleSize[1];
             InsertParticle(newPos, oldGapParticleType[tag], newParticleSize,
-                           oldGapNormal[tag], localIndex, __adaptive_step, vol);
+                           oldGapNormal[tag], localIndex,
+                           oldGapParticleAdaptiveLevel[tag] + 1, vol);
           }
         }
       }
@@ -1589,7 +1671,7 @@ void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
     for (int tag = splitTag.size(); tag < oldGapCoord.size(); tag++) {
       InsertParticle(oldGapCoord[tag], oldGapParticleType[tag],
                      oldGapParticleSize[tag], oldGapNormal[tag], localIndex,
-                     __adaptive_step,
+                     oldGapParticleAdaptiveLevel[tag],
                      oldGapParticleSize[tag][0] * oldGapParticleSize[tag][1]);
     }
   }

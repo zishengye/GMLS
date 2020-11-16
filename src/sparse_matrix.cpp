@@ -543,6 +543,13 @@ int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
   __ctx.fluid_local_size = local_size;
   __ctx.rigid_body_size = num_rigid_body * rigid_body_dof;
 
+  __ctx.local_fluid_particle_num = local_size / blockSize;
+  __ctx.field_dof = blockSize;
+  MPI_Allreduce(&(__ctx.local_fluid_particle_num),
+                &(__ctx.global_fluid_particle_num), 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+  __ctx.pressure_offset = blockSize - 1;
+
   __ctx.myid = myid;
   __ctx.mpisize = MPIsize;
 
@@ -1595,6 +1602,17 @@ PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y) {
   VecGetArray(ctx->fluid_vec, &b);
   for (int i = 0; i < ctx->fluid_local_size; i++)
     a[i] = b[i];
+
+  PetscReal pressure_sum = 0.0;
+  for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
+    pressure_sum += a[i * ctx->field_dof + ctx->pressure_offset];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  PetscReal average_pressure = pressure_sum / ctx->global_fluid_particle_num;
+  for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
+    a[i * ctx->field_dof + ctx->pressure_offset] -= average_pressure;
+  }
 
   VecRestoreArray(y, &a);
   VecRestoreArray(ctx->fluid_vec, &b);

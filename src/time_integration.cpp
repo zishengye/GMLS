@@ -88,14 +88,10 @@ void GMLS_Solver::ForwardEulerIntegration() {
       InitUniformParticleManifoldField();
 
       EmposeBoundaryCondition();
-
-      BuildNeighborListManifold();
     } else {
       InitUniformParticleField();
 
       EmposeBoundaryCondition();
-
-      BuildNeighborList();
     }
 
     // if (t == 0) {
@@ -211,14 +207,10 @@ void GMLS_Solver::RungeKuttaIntegration() {
     InitUniformParticleManifoldField();
 
     EmposeBoundaryCondition();
-
-    BuildNeighborListManifold();
   } else {
     InitUniformParticleField();
 
     EmposeBoundaryCondition();
-
-    BuildNeighborList();
   }
 
   __adaptive_step = 0;
@@ -233,6 +225,19 @@ void GMLS_Solver::RungeKuttaIntegration() {
     WriteDataTimeStep();
   }
 
+  // average
+  // for (int j = 0; j < 3; j++) {
+  //   double average;
+  //   average = (rigidBodyVelocity[0][j] + rigidBodyVelocity[1][j]) / 2.0;
+  //   rigidBodyVelocity[0][j] -= average;
+  //   rigidBodyVelocity[1][j] -= average;
+  //   average =
+  //       (rigidBodyAngularVelocity[0][j] + rigidBodyAngularVelocity[1][j])
+  //       / 2.0;
+  //   rigidBodyAngularVelocity[0][j] = average;
+  //   rigidBodyAngularVelocity[1][j] = average;
+  // }
+
   for (int num = 0; num < numRigidBody; num++) {
     for (int j = 0; j < 3; j++) {
       velocity_k1[num][j] = rigidBodyVelocity[num][j];
@@ -243,6 +248,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
   // setup output file
   ofstream output;
   ofstream output_runge_kutta;
+  ofstream outputVelocity;
   if (__myID == 0) {
     output.open(__trajectoryOutputFileName, ios::trunc);
     output << t << '\t';
@@ -259,11 +265,25 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
     output_runge_kutta.open("traj_runge_kutta.txt", ios::trunc);
     output_runge_kutta.close();
+
+    outputVelocity.open(__velocityOutputFileName, ios::trunc);
+    outputVelocity << t + dt << '\t';
+    for (int num = 0; num < numRigidBody; num++) {
+      for (int j = 0; j < 3; j++) {
+        outputVelocity << rigidBodyVelocity[num][j] << '\t';
+      }
+      for (int j = 0; j < 3; j++) {
+        outputVelocity << rigidBodyAngularVelocity[num][j] << '\t';
+      }
+    }
+    outputVelocity << endl;
+    outputVelocity.close();
   }
 
   // main loop
   while (t < __finalTime - 1e-5) {
     bool noFail = true;
+    bool acceptableTrial = false;
 
     // ensure end exactly at final time
     dt = min(dt, __finalTime - t);
@@ -383,6 +403,18 @@ void GMLS_Solver::RungeKuttaIntegration() {
           break;
         }
 
+        // Check if the colloids contact with each other or move out of the
+        // domain
+        if (!IsAcceptableRigidBodyPosition()) {
+          // halve the time step and restart the time integration
+          dt = 0.5 * dt;
+          acceptableTrial = false;
+          err = 100;
+          break;
+        } else {
+          acceptableTrial = true;
+        }
+
         if (__myID == 0) {
           output_runge_kutta.open("traj_runge_kutta.txt", ios::app);
           output_runge_kutta << t << '\t';
@@ -408,14 +440,10 @@ void GMLS_Solver::RungeKuttaIntegration() {
           InitUniformParticleManifoldField();
 
           EmposeBoundaryCondition();
-
-          BuildNeighborListManifold();
         } else {
           InitUniformParticleField();
 
           EmposeBoundaryCondition();
-
-          BuildNeighborList();
         }
 
         PetscPrintf(PETSC_COMM_WORLD, "start of adaptive step\n");
@@ -429,6 +457,18 @@ void GMLS_Solver::RungeKuttaIntegration() {
                       __adaptive_step);
           (this->*__equationSolver)();
         } while (NeedRefinement());
+
+        // average
+        // for (int j = 0; j < 3; j++) {
+        //   double average;
+        //   average = (rigidBodyVelocity[0][j] + rigidBodyVelocity[1][j])
+        //   / 2.0; rigidBodyVelocity[0][j] -= average; rigidBodyVelocity[1][j]
+        //   -= average; average = (rigidBodyAngularVelocity[0][j] +
+        //              rigidBodyAngularVelocity[1][j]) /
+        //             2.0;
+        //   rigidBodyAngularVelocity[0][j] = average;
+        //   rigidBodyAngularVelocity[1][j] = average;
+        // }
 
         switch (i) {
         case 1:
@@ -483,40 +523,46 @@ void GMLS_Solver::RungeKuttaIntegration() {
       }
 
       // estimate local error
-      err = 0.0;
-      for (int num = 0; num < numRigidBody; num++) {
-        if (__dim == 2) {
-          for (int j = 0; j < 2; j++) {
-            double velocity_err =
-                dt * (dc1 * velocity_k1[num][j] + dc3 * velocity_k3[num][j] +
-                      dc4 * velocity_k4[num][j] + dc5 * velocity_k5[num][j] +
-                      dc6 * velocity_k6[num][j] + dc7 * velocity_k7[num][j]);
+      if (acceptableTrial) {
+        double norm = 0.0;
+        err = 0.0;
+        for (int num = 0; num < numRigidBody; num++) {
+          if (__dim == 2) {
+            for (int j = 0; j < 2; j++) {
+              double velocity_err =
+                  dt * (dc1 * velocity_k1[num][j] + dc3 * velocity_k3[num][j] +
+                        dc4 * velocity_k4[num][j] + dc5 * velocity_k5[num][j] +
+                        dc6 * velocity_k6[num][j] + dc7 * velocity_k7[num][j]);
 
-            err += velocity_err * velocity_err;
+              err += velocity_err * velocity_err;
+              norm += rigidBodyPosition[num][j] * rigidBodyPosition[num][j];
+            }
+            double angularVelocity_err =
+                dt * (dc1 * angularVelocity_k1[num][0] +
+                      dc3 * angularVelocity_k3[num][0] +
+                      dc4 * angularVelocity_k4[num][0] +
+                      dc5 * angularVelocity_k5[num][0] +
+                      dc6 * angularVelocity_k6[num][0] +
+                      dc7 * angularVelocity_k7[num][0]);
+
+            err += angularVelocity_err * angularVelocity_err;
+            norm += rigidBodyOrientation[num][0] * rigidBodyOrientation[num][0];
           }
-          double angularVelocity_err = dt * (dc1 * angularVelocity_k1[num][0] +
-                                             dc3 * angularVelocity_k3[num][0] +
-                                             dc4 * angularVelocity_k4[num][0] +
-                                             dc5 * angularVelocity_k5[num][0] +
-                                             dc6 * angularVelocity_k6[num][0] +
-                                             dc7 * angularVelocity_k7[num][0]);
-
-          err += angularVelocity_err * angularVelocity_err;
         }
-      }
-      err = sqrt(err) / numRigidBody;
+        err = sqrt(err / norm);
 
-      if (err > rtol) {
-        noFail = false;
+        if (err > rtol) {
+          noFail = false;
 
-        PetscPrintf(PETSC_COMM_WORLD,
-                    "Current time step test failed. Error is %f\n", err);
-        // increase time step
-        dt = dt * max(0.8 * pow(err / rtol, -0.2), 0.1);
-        dt = max(dt, dtMin);
-      } else {
-        PetscPrintf(PETSC_COMM_WORLD,
-                    "Current time step test succeeded. Error is %f\n", err);
+          PetscPrintf(PETSC_COMM_WORLD,
+                      "Current time step test failed. Error is %f\n", err);
+          // increase time step
+          dt = dt * max(0.8 * pow(err / rtol, -0.2), 0.1);
+          dt = max(dt, dtMin);
+        } else {
+          PetscPrintf(PETSC_COMM_WORLD,
+                      "Current time step test succeeded. Error is %f\n", err);
+        }
       }
     }
 
@@ -603,6 +649,19 @@ void GMLS_Solver::RungeKuttaIntegration() {
       }
       output << endl;
       output.close();
+
+      outputVelocity.open(__velocityOutputFileName, ios::app);
+      outputVelocity << t + dt << '\t';
+      for (int num = 0; num < numRigidBody; num++) {
+        for (int j = 0; j < 3; j++) {
+          outputVelocity << rigidBodyVelocity[num][j] << '\t';
+        }
+        for (int j = 0; j < 3; j++) {
+          outputVelocity << rigidBodyAngularVelocity[num][j] << '\t';
+        }
+      }
+      outputVelocity << endl;
+      outputVelocity.close();
     }
 
     // increase time
