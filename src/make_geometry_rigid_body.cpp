@@ -658,7 +658,7 @@ void GMLS_Solver::UpdateRigidBodySurfaceParticlePointCloudSearch() {
   __rigidBodySurfaceParticleSize.clear();
 
   for (int i = 0; i < backgroundParticleType.size(); i++) {
-    if (particleType[i] >= 4) {
+    if (backgroundParticleType[i] >= 4) {
       __rigidBodySurfaceParticle.push_back(backgroundSourceCoord[i]);
       __rigidBodySurfaceParticleSize.push_back(backgroundParticleSize[i]);
     }

@@ -244,6 +244,10 @@ void GMLS_Solver::ClearParticle() {
 }
 
 void GMLS_Solver::InitUniformParticleField() {
+  __cutoffDistance = (__polynomialOrder + 1.0) *
+                         std::max(__particleSize0[0], __particleSize0[1]) +
+                     1e-5;
+
   static vector<vec3> &coord = __field.vector.GetHandle("coord");
 
   // adaptively adjust uniform particle distribution
@@ -388,10 +392,6 @@ bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
 
 void GMLS_Solver::InitFieldParticle() {
   static auto &coord = __field.vector.GetHandle("coord");
-
-  __cutoffDistance = (__polynomialOrder + 1.0) *
-                         std::max(__particleSize0[0], __particleSize0[1]) +
-                     1e-5;
 
   double xPos, yPos, zPos;
   vec3 normal = vec3(1.0, 0.0, 0.0);
