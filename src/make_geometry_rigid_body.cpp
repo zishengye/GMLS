@@ -159,12 +159,11 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
       double r = rigidBodySize[n];
       int M_theta = round(r * M_PI / h);
       double d_theta = r * M_PI / M_theta;
-      double d_phi = a / d_theta;
 
       for (int i = 0; i < M_theta; ++i) {
         double theta = M_PI * (i + 0.5) / M_theta;
-        int M_phi = round(2 * M_PI * r * sin(theta) / d_phi);
-        double deltaPhi = 2 * M_PI * r * sin(theta) / M_phi;
+        int M_phi = round(2 * M_PI * r * sin(theta) / h);
+        double d_phi = 2 * M_PI * r * sin(theta) / M_phi;
         for (int j = 0; j < M_phi; ++j) {
           double phi = 2 * M_PI * (j + 0.5) / M_phi;
 
@@ -173,7 +172,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
           double dPhi = 2 * M_PI / M_phi;
           double area = pow(r, 2.0) * (cos(theta0) - cos(theta1)) * dPhi;
 
-          vec3 particleSize = vec3(d_theta, deltaPhi, 0.0);
+          vec3 particleSize = vec3(d_theta, d_phi, 0.0);
           vec3 pCoord = vec3(theta, phi, 0.0);
           vec3 normal =
               vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
@@ -384,7 +383,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
       vec3 oldParticleSize = particleSize[tag];
 
       double d_theta = oldParticleSize[0] * 0.5;
-      double d_phi = d_theta;
+      double d_phi = oldParticleSize[1] * 0.5;
 
       adaptive_level[tag]++;
       newAdded[tag] = 1;
