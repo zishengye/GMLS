@@ -164,6 +164,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
       for (int i = 0; i < M_theta; ++i) {
         double theta = M_PI * (i + 0.5) / M_theta;
         int M_phi = round(2 * M_PI * r * sin(theta) / d_phi);
+        double deltaPhi = 2 * M_PI * r * sin(theta) / M_phi;
         for (int j = 0; j < M_phi; ++j) {
           double phi = 2 * M_PI * (j + 0.5) / M_phi;
 
@@ -172,7 +173,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
           double dPhi = 2 * M_PI / M_phi;
           double area = pow(r, 2.0) * (cos(theta0) - cos(theta1)) * dPhi;
 
-          vec3 particleSize = vec3(d_theta, area / d_theta, 0.0);
+          vec3 particleSize = vec3(d_theta, deltaPhi, 0.0);
           vec3 pCoord = vec3(theta, phi, 0.0);
           vec3 normal =
               vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
@@ -394,7 +395,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
         int M_phi = round(2 * M_PI * r * sin(newTheta) / d_phi);
 
         const int old_M_phi =
-            round(2 * M_PI * r * sin(theta) / oldParticleSize[0]);
+            round(2 * M_PI * r * sin(theta) / oldParticleSize[1]);
         const double oldDeltaPhi = 2 * M_PI / old_M_phi;
         const double oldPhi0 = phi - 0.5 * oldDeltaPhi;
         const double oldPhi1 = phi + 0.5 * oldDeltaPhi;
