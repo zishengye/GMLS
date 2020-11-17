@@ -244,10 +244,6 @@ void GMLS_Solver::ClearParticle() {
 }
 
 void GMLS_Solver::InitUniformParticleField() {
-  __cutoffDistance = (__polynomialOrder + 1.0) *
-                         std::max(__particleSize0[0], __particleSize0[1]) +
-                     1e-5;
-
   static vector<vec3> &coord = __field.vector.GetHandle("coord");
 
   // adaptively adjust uniform particle distribution
@@ -302,6 +298,10 @@ void GMLS_Solver::InitUniformParticleField() {
         __domainBoundingBox, __domainCount, __domain, __nX, __nY, __nI, __nJ,
         0.25 * minDistance, __maxAdaptiveLevel);
   }
+
+  __cutoffDistance = (__polynomialOrder + 1.0) *
+                         std::max(__particleSize0[0], __particleSize0[1]) +
+                     1e-5;
 
   SetDomainBoundary();
 

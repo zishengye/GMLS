@@ -86,7 +86,7 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
           if (dis.mag() < rigidBodySize[i] - 1.5 * h) {
             return -1;
           }
-          if (dis.mag() <= rigidBodySize[i] + 0.25 * h) {
+          if (dis.mag() <= rigidBodySize[i] + 0.5 * h) {
             return i;
           }
 
@@ -99,7 +99,7 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
               }
             }
 
-            if (min_dis < 0.25 * h) {
+            if (min_dis < 0.5 * h) {
               // this is a gap particle near the surface of the colloids
               return i;
             }
