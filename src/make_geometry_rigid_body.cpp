@@ -86,7 +86,7 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
           if (dis.mag() < rigidBodySize[i] - 1.5 * h) {
             return -1;
           }
-          if (dis.mag() <= rigidBodySize[i] + 0.1 * h) {
+          if (dis.mag() <= rigidBodySize[i] + 0.5 * h) {
             return i;
           }
 
@@ -394,7 +394,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
         int M_phi = round(2 * M_PI * r * sin(newTheta) / d_phi);
 
         const int old_M_phi =
-            round(2 * M_PI * r * sin(theta) / oldParticleSize[1]);
+            round(2 * M_PI * r * sin(theta) / oldParticleSize[0]);
         const double oldDeltaPhi = 2 * M_PI / old_M_phi;
         const double oldPhi0 = phi - 0.5 * oldDeltaPhi;
         const double oldPhi1 = phi + 0.5 * oldDeltaPhi;
