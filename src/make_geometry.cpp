@@ -303,6 +303,10 @@ void GMLS_Solver::InitUniformParticleField() {
 
   ClearParticle();
 
+  __cutoffDistance = (__polynomialOrder + 1.0) *
+                         std::max(__particleSize0[0], __particleSize0[1]) +
+                     1e-5;
+
   // first init the particles on the surface of colloids, then when adding field
   // particles, a neighbor search could be done to see if the distance to the
   // nearest particle on the surface is enough or not
@@ -388,10 +392,6 @@ bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
 
 void GMLS_Solver::InitFieldParticle() {
   static auto &coord = __field.vector.GetHandle("coord");
-
-  __cutoffDistance = (__polynomialOrder + 1.0) *
-                         std::max(__particleSize0[0], __particleSize0[1]) +
-                     1e-5;
 
   double xPos, yPos, zPos;
   vec3 normal = vec3(1.0, 0.0, 0.0);

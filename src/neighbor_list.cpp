@@ -296,9 +296,9 @@ void GMLS_Solver::BuildNeighborList() {
 
   static vector<int> &destinationIndex =
       __neighbor.index.GetHandle("destination index");
-  vector<int> &sendCount = __neighbor.index.Register("send count");
-  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
-  vector<int> &recvCount = __neighbor.index.Register("recv count");
+  vector<int> &sendCount = __neighbor.index.GetHandle("send count");
+  vector<int> &recvOffset = __neighbor.index.GetHandle("recv offset");
+  vector<int> &recvCount = __neighbor.index.GetHandle("recv count");
 
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -404,9 +404,9 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<int> &sendData,
 
   vector<int> &destinationIndex =
       __neighbor.index.GetHandle("destination index");
-  vector<int> &sendCount = __neighbor.index.Register("send count");
-  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
-  vector<int> &recvCount = __neighbor.index.Register("recv count");
+  vector<int> &sendCount = __neighbor.index.GetHandle("send count");
+  vector<int> &recvOffset = __neighbor.index.GetHandle("recv offset");
+  vector<int> &recvCount = __neighbor.index.GetHandle("recv count");
 
   static const int neighborNum = pow(3, __dim);
   int totalNeighborParticleNum = recvOffset[neighborNum];
@@ -457,9 +457,9 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
 
   vector<int> &destinationIndex =
       __neighbor.index.GetHandle("destination index");
-  vector<int> &sendCount = __neighbor.index.Register("send count");
-  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
-  vector<int> &recvCount = __neighbor.index.Register("recv count");
+  vector<int> &sendCount = __neighbor.index.GetHandle("send count");
+  vector<int> &recvOffset = __neighbor.index.GetHandle("recv offset");
+  vector<int> &recvCount = __neighbor.index.GetHandle("recv count");
 
   static const int neighborNum = pow(3, __dim);
   int totalNeighborParticleNum = recvOffset[neighborNum];
@@ -510,9 +510,9 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
 
   vector<int> &destinationIndex =
       __neighbor.index.GetHandle("destination index");
-  vector<int> &sendCount = __neighbor.index.Register("send count");
-  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
-  vector<int> &recvCount = __neighbor.index.Register("recv count");
+  vector<int> &sendCount = __neighbor.index.GetHandle("send count");
+  vector<int> &recvOffset = __neighbor.index.GetHandle("recv offset");
+  vector<int> &recvCount = __neighbor.index.GetHandle("recv count");
 
   static const int neighborNum = pow(3, __dim);
   int totalNeighborParticleNum = recvOffset[neighborNum];
@@ -574,9 +574,9 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vector<double>> &sendData,
 
   vector<int> &destinationIndex =
       __neighbor.index.GetHandle("destination index");
-  vector<int> &sendCount = __neighbor.index.Register("send count");
-  vector<int> &recvOffset = __neighbor.index.Register("recv offset");
-  vector<int> &recvCount = __neighbor.index.Register("recv count");
+  vector<int> &sendCount = __neighbor.index.GetHandle("send count");
+  vector<int> &recvOffset = __neighbor.index.GetHandle("recv offset");
+  vector<int> &recvCount = __neighbor.index.GetHandle("recv count");
 
   static const int neighborNum = pow(3, __dim);
   int totalNeighborParticleNum = recvOffset[neighborNum];

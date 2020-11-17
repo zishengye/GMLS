@@ -618,13 +618,16 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
                           __j[k] / field_dof) -
               neighborInclusion.begin();
 
-          if (transpose_mat[neighbor_index].size() == 0) {
-            transpose_mat[neighbor_index].push_back(i);
-          } else {
-            auto it = lower_bound(transpose_mat[neighbor_index].begin(),
-                                  transpose_mat[neighbor_index].end(), i);
-            if (*it != i) {
-              transpose_mat[neighbor_index].insert(it, i);
+          if (neighbor_index >= 0 &&
+              neighbor_index < neighborInclusion.size()) {
+            if (transpose_mat[neighbor_index].size() == 0) {
+              transpose_mat[neighbor_index].push_back(i);
+            } else {
+              auto it = lower_bound(transpose_mat[neighbor_index].begin(),
+                                    transpose_mat[neighbor_index].end(), i);
+              if (it == transpose_mat[neighbor_index].end() || *it != i) {
+                transpose_mat[neighbor_index].insert(it, i);
+              }
             }
           }
         }
@@ -648,7 +651,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
               auto it = lower_bound(connectivity[rigid_body_index1].begin(),
                                     connectivity[rigid_body_index1].end(),
                                     rigid_body_index2);
-              if (*it != rigid_body_index2) {
+              if (it == connectivity[rigid_body_index1].end() ||
+                  *it != rigid_body_index2) {
                 connectivity[rigid_body_index1].insert(it, rigid_body_index2);
               }
             }
@@ -659,7 +663,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
               auto it = lower_bound(connectivity[rigid_body_index2].begin(),
                                     connectivity[rigid_body_index2].end(),
                                     rigid_body_index1);
-              if (*it != rigid_body_index1) {
+              if (it == connectivity[rigid_body_index2].end() ||
+                  *it != rigid_body_index1) {
                 connectivity[rigid_body_index2].insert(it, rigid_body_index1);
               }
             }
@@ -688,7 +693,7 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
         for (auto item : connectivity[search_stack[search_stack_index]]) {
           auto it =
               lower_bound(maximum_group.begin(), maximum_group.end(), item);
-          if (*it != item) {
+          if (it == maximum_group.end() || *it != item) {
             maximum_group.insert(it, item);
 
             if (ungroup_rigid_body.size() != 0) {
@@ -712,7 +717,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
 
     PetscInt *ptr;
     MatGetOwnershipRanges(__mat, (const PetscInt **)(&ptr));
-    vector<int> row_range(MPIsize);
+    vector<int> row_range;
+    row_range.resize(MPIsize);
     for (int i = 0; i < MPIsize; i++)
       row_range[i] = ptr[i];
 
@@ -759,7 +765,9 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
       for (int j = 0; j < neighborInclusion.size(); j++) {
         auto pos = upper_bound(row_range.begin(), row_range.end(),
                                neighborInclusion[j]);
-        if (*pos == neighborInclusion[j])
+        if (pos == row_range.end())
+          count_per_process[MPIsize - 1]++;
+        else if (*pos == neighborInclusion[j])
           count_per_process[pos - row_range.begin()]++;
         else
           count_per_process[pos - row_range.begin() - 1]++;

@@ -679,7 +679,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   //   rtol *= 1e-4;
   // }
   KSPSolve(_ksp, _rhs, _x);
-  VecDestroy(&residual);
+  // VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
   tEnd = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "pc apply time: %fs\n", tEnd - tStart);
