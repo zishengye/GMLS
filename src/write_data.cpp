@@ -531,6 +531,7 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
   auto &_gapNormal = __gap.vector.GetHandle("normal");
   auto &_gapParticleSize = __gap.vector.GetHandle("size");
   auto &_gapParticleType = __gap.index.GetHandle("particle type");
+  auto &_gap_particle_adaptive_level = __gap.index.GetHandle("adaptive level");
 
   static auto &gapRigidBodyCoord =
       __gap.vector.GetHandle("rigid body surface coord");
@@ -753,6 +754,27 @@ void GMLS_Solver::WriteDataAdaptiveGeometry() {
               ios::app);
     for (size_t i = 0; i < gapRigidBodySize.size(); i++) {
       file << gapRigidBodySize[i][0] << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS l float 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([_gap_particle_adaptive_level, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" + to_string(__adaptive_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < _gap_particle_adaptive_level.size(); i++) {
+      file << _gap_particle_adaptive_level[i] << endl;
     }
     file.close();
   });

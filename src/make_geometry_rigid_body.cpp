@@ -120,14 +120,32 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
           vec3 dis =
               vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
                    -sin(theta) * abs_dis[0] + cos(theta) * abs_dis[1], 0.0);
+          if (attachedRigidBodyIndex >= 0) {
+            // this is a particle on the rigid body surface
+          } else {
+            if (abs(dis[0]) < half_side_length - 1.5 * h &&
+                abs(dis[1]) < half_side_length - 1.5 * h) {
+              return -1;
+            }
+            if (abs(dis[0]) < half_side_length + 0.25 * h &&
+                abs(dis[1]) < half_side_length + 0.25 * h) {
+              return i;
+            }
+            if (abs(dis[0]) < half_side_length + 1.0 * h &&
+                abs(dis[1]) < half_side_length + 1.0 * h) {
+              double min_dis = __boundingBoxSize[0];
+              for (int i = 0; i < __rigidBodySurfaceParticle.size(); i++) {
+                vec3 rci = pos - __rigidBodySurfaceParticle[i];
+                if (min_dis > rci.mag()) {
+                  min_dis = rci.mag();
+                }
+              }
 
-          if (abs(dis[0]) < half_side_length - 1.5 * h &&
-              abs(dis[1]) < half_side_length - 1.5 * h) {
-            return -1;
-          }
-          if (abs(dis[0]) < half_side_length + 0.25 * h &&
-              abs(dis[1]) < half_side_length + 0.25 * h) {
-            return i;
+              if (min_dis < 0.5 * h) {
+                // this is a gap particle near the surface of the colloids
+                return i;
+              }
+            }
           }
         }
         if (__dim == 3) {
