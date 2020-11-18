@@ -152,6 +152,20 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
         }
       }
       break;
+    case 3:
+      // triangle in 2d, tetrahedron in 3d
+      if (__dim == 2) {
+        double theta = rigidBodyOrientation[i][0];
+
+        vec3 abs_dis = pos - rigidBodyCoord[i];
+        // rotate back
+        vec3 dis =
+            vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
+                 -sin(theta) * abs_dis[0] + cos(theta) * abs_dis[1], 0.0);
+      }
+      if (__dim == 3) {
+      }
+      break;
     }
   }
 
