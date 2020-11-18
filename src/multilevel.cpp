@@ -117,8 +117,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   Kokkos::View<double *>::HostMirror old_epsilon =
       Kokkos::create_mirror_view(old_epsilon_device);
 
-  auto neighbor_needed = Compadre::GMLS::getNP(
-      __polynomialOrder, __dim, DivergenceFreeVectorTaylorPolynomial);
+  auto neighbor_needed =
+      Compadre::GMLS::getNP(2, __dim, DivergenceFreeVectorTaylorPolynomial);
   old_to_new_point_search.generateNeighborListsFromKNNSearch(
       false, new_target_coords, old_to_new_neighbor_lists, old_epsilon,
       neighbor_needed, 1.2);
@@ -127,12 +127,11 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                     old_to_new_neighbor_lists);
   Kokkos::deep_copy(old_epsilon_device, old_epsilon);
 
-  auto old_to_new_pressusre_basis =
-      new GMLS(ScalarTaylorPolynomial, PointSample, __polynomialOrder,
-               dimension, "LU", "STANDARD");
+  auto old_to_new_pressusre_basis = new GMLS(
+      ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
   auto old_to_new_velocity_basis =
-      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-               __polynomialOrder, dimension, "SVD", "STANDARD");
+      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 2,
+               dimension, "SVD", "STANDARD");
 
   // old to new pressure field transition
   old_to_new_pressusre_basis->setProblemData(
@@ -416,6 +415,10 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     }
   }
 
+  int globalParticleNum;
+  MPI_Allreduce(&localParticleNum, &globalParticleNum, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+
   IS &isg_field_lag = *isg_field_list[adaptive_step];
   IS &isg_neighbor = *isg_neighbor_list[adaptive_step];
   IS &isg_pressure = *isg_pressure_list[adaptive_step];
@@ -664,7 +667,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   PetscReal residual_norm, rhs_norm;
   VecNorm(_rhs, NORM_2, &rhs_norm);
-  residual_norm = rhs_norm;
+  residual_norm = globalParticleNum;
   Vec residual;
   VecDuplicate(_rhs, &residual);
   PetscReal rtol = 1e-8;
@@ -675,7 +678,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     VecAXPY(residual, -1.0, _rhs);
     VecNorm(residual, NORM_2, &residual_norm);
     PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
-                residual_norm / rhs_norm);
+                residual_norm / rhs_norm / (double)globalParticleNum);
     rtol *= 1e-4;
   }
   // KSPSolve(_ksp, _rhs, _x);

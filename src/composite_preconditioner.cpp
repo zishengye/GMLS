@@ -85,6 +85,18 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
                 *((*shell->multi->GetYFieldList())[0]), y, INSERT_VALUES,
                 SCATTER_REVERSE);
 
+  // orthogonalize to constant vector
+  VecGetArray(y, &a);
+  pressure_sum = 0.0;
+  for (PetscInt i = 0; i < shell->local_particle_num; i++)
+    pressure_sum += a[shell->field_dof * i + pressure_offset];
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  pressure_sum /= shell->global_particle_num;
+  for (PetscInt i = 0; i < shell->local_particle_num; i++)
+    a[shell->field_dof * i + pressure_offset] -= pressure_sum;
+  VecRestoreArray(y, &a);
+
   // stage 2
   tStart = MPI_Wtime();
   MatMult(shell->multi->getNeighborWholeMat(0), y,
@@ -116,7 +128,7 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   neighbor_vec_duration += tEnd - tStart;
 
   // orthogonalize to constant vector
-  VecGetArray(x, &a);
+  VecGetArray(y, &a);
   pressure_sum = 0.0;
   for (PetscInt i = 0; i < shell->local_particle_num; i++)
     pressure_sum += a[shell->field_dof * i + pressure_offset];
@@ -125,7 +137,7 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   pressure_sum /= shell->global_particle_num;
   for (PetscInt i = 0; i < shell->local_particle_num; i++)
     a[shell->field_dof * i + pressure_offset] -= pressure_sum;
-  VecRestoreArray(x, &a);
+  VecRestoreArray(y, &a);
 
   return 0;
 }

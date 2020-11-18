@@ -930,11 +930,11 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
     MatNullSpace nullspace;
     MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null, &nullspace);
-    MatSetNullSpace(__mat, nullspace);
+    MatSetNullSpace(__shell_mat, nullspace);
 
     KSP _ksp;
     KSPCreate(PETSC_COMM_WORLD, &_ksp);
-    KSPSetOperators(_ksp, __mat, __mat);
+    KSPSetOperators(_ksp, __shell_mat, __shell_mat);
     KSPSetFromOptions(_ksp);
 
     PC _pc;
