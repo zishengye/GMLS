@@ -168,6 +168,10 @@ void GMLS_Solver::StokesEquation() {
       __polynomialOrder, __dim, DivergenceFreeVectorTaylorPolynomial);
 
   double epsilonMultiplier = __polynomialOrder + 0.5;
+  // if (__adaptive_step < 2)
+  //   epsilonMultiplier = 4.5;
+  if (__adaptive_step == 0)
+    epsilonMultiplier = 4.5;
 
   int estimatedUpperBoundNumberNeighbors =
       pow(2, __dim) * pow(2 * epsilonMultiplier, __dim);
@@ -256,18 +260,18 @@ void GMLS_Solver::StokesEquation() {
         maxEpsilon);
 
     bool passNeighborNumCheck = true;
-    // for (int i = 0; i < localParticleNum; i++) {
-    //   if (neighborLists(i, 0) <= minNeighbors) {
-    //     __epsilon[i] +=
-    //         0.5 * (max(__particleSize0[0] * pow(0.5, __adaptive_step),
-    //                    particleSize[i][0]));
-    //     epsilon(i) = __epsilon[i];
-    //     passNeighborNumCheck = false;
-    //     if (particleType[i] != 0) {
-    //       neumannBoundaryEpsilon(fluid2NeumannBoundary[i]) = __epsilon[i];
-    //     }
-    //   }
-    // }
+    for (int i = 0; i < localParticleNum; i++) {
+      // if (neighborLists(i, 0) <= minNeighbors) {
+      // __epsilon[i] +=
+      //     0.5 * (max(__particleSize0[0] * pow(0.5, __adaptive_step),
+      //                particleSize[i][0]));
+      // epsilon(i) = __epsilon[i];
+      // passNeighborNumCheck = false;
+      // if (particleType[i] != 0) {
+      //   neumannBoundaryEpsilon(fluid2NeumannBoundary[i]) = __epsilon[i];
+      // }
+      // }
+    }
 
     int processCounter = 0;
     if (!passNeighborNumCheck) {
@@ -275,6 +279,7 @@ void GMLS_Solver::StokesEquation() {
     }
     MPI_Allreduce(MPI_IN_PLACE, &processCounter, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "process counter: %d\n", processCounter);
 
     if (processCounter == 0) {
       goodNeighborSearch = true;
@@ -1166,6 +1171,7 @@ void GMLS_Solver::StokesEquation() {
         output.close();
       }
     }
+    // A.Solve(rhs, res);
   }
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
@@ -1443,16 +1449,23 @@ void GMLS_Solver::StokesEquation() {
   }
 
   if (__adaptiveRefinement) {
-    static auto &old_coord = __field.vector.GetHandle("old coord");
-    static auto &old_particle_type =
-        __field.index.GetHandle("old particle type");
-    static auto &old_background_coord =
+    auto &old_coord = __field.vector.GetHandle("old coord");
+    auto &old_particle_type = __field.index.GetHandle("old particle type");
+    auto &old_background_coord =
         __background.vector.GetHandle("old source coord");
-    static auto &old_background_index =
+    auto &old_background_index =
         __background.index.GetHandle("old source index");
-    old_coord = coord;
-    old_particle_type = particleType;
-    old_background_coord = backgroundSourceCoord;
-    old_background_index = backgroundSourceIndex;
+
+    old_coord.clear();
+    old_particle_type.clear();
+    old_background_coord.clear();
+    old_background_index.clear();
+
+    for (int i = 0; i < coord.size(); i++) {
+      old_coord.push_back(coord[i]);
+      old_particle_type.push_back(particleType[i]);
+      old_background_coord.push_back(backgroundSourceCoord[i]);
+      old_background_index.push_back(backgroundSourceIndex[i]);
+    }
   }
 }

@@ -41,6 +41,7 @@ bool GMLS_Solver::NeedRefinement() {
     static auto &coord = __field.vector.GetHandle("coord");
 
     static auto &volume = __field.scalar.GetHandle("volume");
+    static auto &adaptive_level = __field.index.GetHandle("adaptive level");
 
     static vector<int> &offset = __neighbor.index.GetHandle("recv offset");
     int neighborNum = pow(3, __dim);
@@ -65,7 +66,6 @@ bool GMLS_Solver::NeedRefinement() {
 
     backgroundVolume.insert(backgroundVolume.end(), volume.begin(),
                             volume.end());
-
     backgroundVolume.insert(backgroundVolume.end(), recvVolume.begin(),
                             recvVolume.end());
 
@@ -293,13 +293,12 @@ bool GMLS_Solver::NeedRefinement() {
       }
     }
 
-    for (int ite = 0; ite < 10; ite++) {
+    for (int ite = 0; ite < 1; ite++) {
       vector<double> recvError;
       DataSwapAmongNeighbor(error, recvError);
 
       vector<double> backgroundError;
       backgroundError = error;
-
       backgroundError.insert(backgroundError.end(), recvError.begin(),
                              recvError.end());
 
@@ -311,11 +310,13 @@ bool GMLS_Solver::NeedRefinement() {
 
           vec3 dX = backgroundSourceCoord[neighborParticleIndex] - coord[i];
 
-          double Wabij = Wab(dX.mag(), __epsilon[i]);
+          if (dX.mag() < __epsilon[i]) {
+            double Wabij = Wab(dX.mag(), __epsilon[i]);
 
-          error[i] += backgroundError[neighborParticleIndex] *
-                      backgroundVolume[neighborParticleIndex] * Wabij;
-          totalNeighborVol += backgroundVolume[neighborParticleIndex] * Wabij;
+            error[i] += backgroundError[neighborParticleIndex] *
+                        backgroundVolume[neighborParticleIndex] * Wabij;
+            totalNeighborVol += backgroundVolume[neighborParticleIndex] * Wabij;
+          }
         }
         error[i] /= totalNeighborVol;
       }
@@ -501,15 +502,26 @@ bool GMLS_Solver::NeedRefinement() {
       splitCandidateTag.push_back(chopper[i].first);
     }
 
+    vector<int> recvAdaptiveLevel, backgroundAdaptiveLevel;
+    DataSwapAmongNeighbor(adaptive_level, recvAdaptiveLevel);
+
+    backgroundAdaptiveLevel.insert(backgroundAdaptiveLevel.end(),
+                                   adaptive_level.begin(),
+                                   adaptive_level.end());
+    backgroundAdaptiveLevel.insert(backgroundAdaptiveLevel.end(),
+                                   recvAdaptiveLevel.begin(),
+                                   recvAdaptiveLevel.end());
+
     for (int i = 0; i < splitCandidateTag.size(); i++) {
       bool isAdd = true;
       int index = splitCandidateTag[i];
-      for (int j = 0; j < velocityNeighborListsLengths(index); j++) {
-        const int neighborParticleIndex = neighborLists(index, j + 1);
-        if (backgroundVolume[neighborParticleIndex] > 1.5 * volume[index]) {
-          isAdd = false;
-        }
-      }
+      // for (int j = 0; j < velocityNeighborListsLengths(index); j++) {
+      //   const int neighborParticleIndex = neighborLists(index, j + 1);
+      //   if (backgroundAdaptiveLevel[neighborParticleIndex] <
+      //       adaptive_level[index]) {
+      //     isAdd = false;
+      //   }
+      // }
       if (isAdd) {
         splitTag.push_back(splitCandidateTag[i]);
       }

@@ -127,8 +127,8 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
                 abs(dis[1]) < half_side_length - 1.5 * h) {
               return -1;
             }
-            if (abs(dis[0]) < half_side_length + 0.25 * h &&
-                abs(dis[1]) < half_side_length + 0.25 * h) {
+            if (abs(dis[0]) < half_side_length + 0.1 * h &&
+                abs(dis[1]) < half_side_length + 0.1 * h) {
               return i;
             }
             if (abs(dis[0]) < half_side_length + 1.0 * h &&
@@ -141,7 +141,7 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
                 }
               }
 
-              if (min_dis < 0.5 * h) {
+              if (min_dis < 0.25 * h) {
                 // this is a gap particle near the surface of the colloids
                 return i;
               }
@@ -155,13 +155,69 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
     case 3:
       // triangle in 2d, tetrahedron in 3d
       if (__dim == 2) {
+        double side_length = rigidBodySize[i];
+        double height = (sqrt(3) / 2.0) * side_length;
         double theta = rigidBodyOrientation[i][0];
 
+        vec3 translation = vec3(0.0, sqrt(3) / 6.0 * side_length, 0.0);
         vec3 abs_dis = pos - rigidBodyCoord[i];
         // rotate back
         vec3 dis =
             vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
-                 -sin(theta) * abs_dis[0] + cos(theta) * abs_dis[1], 0.0);
+                 -sin(theta) * abs_dis[0] + cos(theta) * abs_dis[1], 0.0) +
+            translation;
+
+        bool possible_gap_particle = false;
+        bool gap_particle = false;
+
+        double enlarged_xlim_low = -0.5 * side_length - 0.5 * h;
+        double enlarged_xlim_high = 0.5 * side_length + 0.5 * h;
+        double enlarged_ylim_low = -0.5 * h;
+        double enlarged_ylim_high = height + 0.5 * h;
+        double exact_xlim_low = -0.5 * side_length;
+        double exact_xlim_high = 0.5 * side_length;
+        double exact_ylim_low = 0.0;
+        double exact_ylim_high = height;
+        if (attachedRigidBodyIndex >= 0) {
+          // this is a particle on the rigid body surface
+        } else {
+          if ((dis[0] > enlarged_xlim_low && dis[0] < enlarged_xlim_high) &&
+              (dis[1] > enlarged_ylim_low && dis[1] < enlarged_ylim_high)) {
+            // this is a possible particle in the gap region of the triangle
+            double dis_x = min(abs(dis[0] - exact_xlim_low),
+                               abs(dis[0] - exact_xlim_high));
+            double dis_y = sqrt(3) * dis_x;
+            if (dis[1] < 0 && dis[1] > -0.1 * h) {
+              gap_particle = true;
+            } else if (dis[1] > 0) {
+              if (dis[0] < exact_xlim_low || dis[0] > exact_xlim_high) {
+                possible_gap_particle = true;
+              } else if (dis[1] < dis_y + 0.1 * h) {
+                gap_particle = true;
+              } else if (dis[1] < dis_y + 0.5 * h) {
+                possible_gap_particle = true;
+              }
+            }
+            possible_gap_particle = true;
+          }
+
+          if (gap_particle) {
+            return i;
+          } else if (possible_gap_particle) {
+            double min_dis = __boundingBoxSize[0];
+            for (int i = 0; i < __rigidBodySurfaceParticle.size(); i++) {
+              vec3 rci = pos - __rigidBodySurfaceParticle[i];
+              if (min_dis > rci.mag()) {
+                min_dis = rci.mag();
+              }
+            }
+
+            if (min_dis < 0.25 * h) {
+              // this is a gap particle near the surface of the colloids
+              return i;
+            }
+          }
+        }
       }
       if (__dim == 3) {
       }
@@ -376,6 +432,132 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
         }
 
         break;
+
+      case 3: {
+        double theta = rigidBodyOrientation[n][0];
+        double side_length = rigidBodySize[n];
+        int side_step = side_length / __particleSize0[0];
+        double h = side_length / side_step;
+        double vol = pow(h, 2.0);
+        vec3 particleSize = vec3(h, h, 0.0);
+        vec3 increase_normal;
+        vec3 start_point;
+        vec3 normal;
+        vec3 norm;
+        vec3 pCoord = vec3(0.0, 0.0, 0.0);
+        vec3 translation = vec3(0.0, -sqrt(3) / 6.0 * side_length, 0.0);
+        // first side
+        {
+          vec3 pos = vec3(0.0, 0.5 * sqrt(3) * side_length, 0.0) + translation;
+          // rotate
+          vec3 newPos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+                             sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
+                        rigidBodyCoord[n];
+
+          norm = vec3(0.0, 1.0, 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+          if (newPos[0] >= __domain[0][0] && newPos[0] < __domain[1][0] &&
+              newPos[1] >= __domain[0][1] && newPos[1] < __domain[1][1])
+            InsertParticle(newPos, 4, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
+        }
+
+        increase_normal = vec3(cos(M_PI / 3), -sin(M_PI / 3), 0.0);
+        start_point = vec3(0.0, sqrt(3) / 2.0 * side_length, 0.0);
+        norm = vec3(cos(M_PI / 6.0), sin(M_PI / 6.0), 0.0);
+        normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                      sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+        for (int i = 0; i < side_step; i++) {
+          vec3 pos =
+              start_point + increase_normal * ((i + 0.5) * h) + translation;
+          // rotate
+          vec3 newPos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+                             sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
+                        rigidBodyCoord[n];
+
+          if (newPos[0] >= __domain[0][0] && newPos[0] < __domain[1][0] &&
+              newPos[1] >= __domain[0][1] && newPos[1] < __domain[1][1])
+            InsertParticle(newPos, 5, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
+        }
+
+        // second side
+        {
+          vec3 pos = vec3(0.5 * side_length, 0.0, 0.0) + translation;
+          // rotate
+          vec3 newPos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+                             sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
+                        rigidBodyCoord[n];
+
+          norm = vec3(cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+
+          if (newPos[0] >= __domain[0][0] && newPos[0] < __domain[1][0] &&
+              newPos[1] >= __domain[0][1] && newPos[1] < __domain[1][1])
+            InsertParticle(newPos, 4, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
+        }
+
+        increase_normal = vec3(-1.0, 0.0, 0.0);
+        start_point = vec3(0.5 * side_length, 0.0, 0.0);
+        norm = vec3(0.0, -1.0, 0.0);
+        normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                      sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+        for (int i = 0; i < side_step; i++) {
+          vec3 pos =
+              start_point + increase_normal * ((i + 0.5) * h) + translation;
+          // rotate
+          vec3 newPos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+                             sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
+                        rigidBodyCoord[n];
+
+          if (newPos[0] >= __domain[0][0] && newPos[0] < __domain[1][0] &&
+              newPos[1] >= __domain[0][1] && newPos[1] < __domain[1][1])
+            InsertParticle(newPos, 5, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
+        }
+
+        // third side
+        {
+          vec3 pos = vec3(-0.5 * side_length, 0.0, 0.0) + translation;
+          // rotate
+          vec3 newPos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+                             sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
+                        rigidBodyCoord[n];
+
+          norm = vec3(-cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+
+          if (newPos[0] >= __domain[0][0] && newPos[0] < __domain[1][0] &&
+              newPos[1] >= __domain[0][1] && newPos[1] < __domain[1][1])
+            InsertParticle(newPos, 4, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
+        }
+
+        increase_normal = vec3(cos(M_PI / 3), sin(M_PI / 3), 0.0);
+        start_point = vec3(-0.5 * side_length, 0.0, 0.0);
+        norm = vec3(-cos(M_PI / 6.0), sin(M_PI / 6.0), 0.0);
+        normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                      sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+        for (int i = 0; i < side_step; i++) {
+          vec3 pos =
+              start_point + increase_normal * ((i + 0.5) * h) + translation;
+          // rotate
+          vec3 newPos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+                             sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
+                        rigidBodyCoord[n];
+
+          if (newPos[0] >= __domain[0][0] && newPos[0] < __domain[1][0] &&
+              newPos[1] >= __domain[0][1] && newPos[1] < __domain[1][1])
+            InsertParticle(newPos, 5, particleSize, normal, localIndex, 0, vol,
+                           true, n, pCoord);
+        }
+      }
+
+      break;
       }
     }
   }
@@ -555,6 +737,43 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
         }
 
         break;
+
+      case 3: {
+        splitList[tag].clear();
+        if (particleType[tag] == 4) {
+          // corner particle
+          splitList[tag].push_back(tag);
+
+          particleSize[tag] *= 0.5;
+          volume[tag] /= 4.0;
+          adaptive_level[tag]++;
+        } else {
+          // side particle
+          splitList[tag].push_back(tag);
+
+          particleSize[tag] *= 0.5;
+          volume[tag] /= 4.0;
+          adaptive_level[tag]++;
+          newAdded[tag] = 1;
+
+          vec3 oldPos = coord[tag];
+
+          vec3 delta = vec3(-normal[tag][1], normal[tag][0], 0.0) * 0.5 *
+                       particleSize[tag][0];
+          coord[tag] = oldPos + delta;
+
+          vec3 newPos = oldPos - delta;
+
+          InsertParticle(newPos, particleType[tag], particleSize[tag],
+                         normal[tag], localIndex, adaptive_level[tag],
+                         volume[tag], true, attachedRigidBodyIndex[tag],
+                         pCoord[tag]);
+
+          splitList[tag].push_back(localIndex - 1);
+        }
+      }
+
+      break;
       }
     }
   }

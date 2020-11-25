@@ -12,6 +12,7 @@ void GMLS_Solver::WriteDataTimeStep() {
   vector<vec3> &normal = __field.vector.GetHandle("normal");
   vector<int> &particleType = __field.index.GetHandle("particle type");
   vector<int> &particleNum = __field.index.GetHandle("particle number");
+  vector<int> &newAdded = __field.index.GetHandle("new added particle flag");
   int &globalParticleNum = particleNum[1];
 
   // int thread = 3;
@@ -187,6 +188,23 @@ void GMLS_Solver::WriteDataTimeStep() {
     for (size_t i = 0; i < normal.size(); i++) {
       file << normal[i][0] << ' ' << normal[i][1] << ' ' << normal[i][2]
            << endl;
+    }
+    file.close();
+  });
+
+  MasterOperation(0, []() {
+    ofstream file;
+    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+    file << "SCALARS f int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  SerialOperation([newAdded]() {
+    ofstream file;
+    file.open("./vtk/output_step" + to_string(writeStep) + ".vtk", ios::app);
+    for (size_t i = 0; i < newAdded.size(); i++) {
+      file << newAdded[i] << endl;
     }
     file.close();
   });

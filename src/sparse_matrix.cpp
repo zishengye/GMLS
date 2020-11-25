@@ -12,17 +12,43 @@ inline bool compare_group(vector<int> group1, vector<int> group2) {
 }
 
 int PetscSparseMatrix::Write(string fileName) {
-  ofstream output(fileName, ios::trunc);
+  ofstream output;
+  int MPIsize, myID;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myID);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
-  for (int i = 0; i < __row; i++) {
-    for (vector<entry>::iterator it = __matrix[i].begin();
-         it != __matrix[i].end(); it++) {
-      output << (i + 1) << '\t' << (it->first + 1) << '\t' << it->second
-             << endl;
-    }
+  if (myID == 0) {
+    output.open(fileName, ios::trunc);
+    output.close();
   }
 
-  output.close();
+  int send_count = __row;
+  vector<int> recv_count(MPIsize);
+
+  MPI_Allgather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
+                MPI_COMM_WORLD);
+
+  vector<int> displs(MPIsize + 1);
+  displs[0] = 0;
+  for (int i = 1; i <= MPIsize; i++) {
+    displs[i] = displs[i - 1] + recv_count[i - 1];
+  }
+
+  for (int process = 0; process < MPIsize; process++) {
+    if (process == myID) {
+      output.open(fileName, ios::app);
+      for (int i = 0; i < __row; i++) {
+        for (vector<entry>::iterator it = __matrix[i].begin();
+             it != __matrix[i].end(); it++) {
+          output << (i + 1) + displs[myID] << '\t' << (it->first + 1) << '\t'
+                 << it->second << endl;
+        }
+      }
+    }
+    output.close();
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
 }
 
 int PetscSparseMatrix::FinalAssemble() {
@@ -573,6 +599,8 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
                                             int dimension, int num_rigid_body,
                                             int local_rigid_body_offset,
                                             int global_rigid_body_offset) {
+  idx_neighbor.clear();
+
   int MPIsize, myId;
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
@@ -737,7 +765,10 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
       }
 
       for (int j = 0; j < neighborInclusion.size(); j++) {
-        neighborInclusion[j] /= field_dof;
+        if (neighborInclusion[j] > global_rigid_body_offset)
+          neighborInclusion[j] = neighborInclusion[0];
+        else
+          neighborInclusion[j] /= field_dof;
       }
 
       sort(neighborInclusion.begin(), neighborInclusion.end());
@@ -809,8 +840,13 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
                                   rigid_body_dof]);
       }
 
+      sort(neighborInclusion.begin(), neighborInclusion.end());
+
       for (int j = 0; j < neighborInclusion.size(); j++) {
-        neighborInclusion[j] /= field_dof;
+        if (neighborInclusion[j] > global_rigid_body_offset) {
+          neighborInclusion[j] = neighborInclusion[0];
+        } else
+          neighborInclusion[j] /= field_dof;
       }
 
       sort(neighborInclusion.begin(), neighborInclusion.end());
@@ -889,7 +925,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
 
     PC _pc;
     KSPGetPC(_ksp, &_pc);
-    PCSetFromOptions(_pc);
+    PCSetType(_pc, PCLU);
     PCSetUp(_pc);
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");

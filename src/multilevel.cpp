@@ -127,28 +127,25 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                     old_to_new_neighbor_lists);
   Kokkos::deep_copy(old_epsilon_device, old_epsilon);
 
-  auto old_to_new_pressusre_basis = new GMLS(
-      ScalarTaylorPolynomial, PointSample, 2, dimension, "LU", "STANDARD");
+  GMLS old_to_new_pressusre_basis(ScalarTaylorPolynomial, PointSample, 2,
+                                  dimension, "SVD", "STANDARD");
   auto old_to_new_velocity_basis =
       new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 2,
                dimension, "SVD", "STANDARD");
 
   // old to new pressure field transition
-  old_to_new_pressusre_basis->setProblemData(
+  old_to_new_pressusre_basis.setProblemData(
       old_to_new_neighbor_lists_device, old_source_coords_device,
       new_target_coords_device, old_epsilon_device);
 
-  old_to_new_pressusre_basis->addTargets(ScalarPointEvaluation);
+  old_to_new_pressusre_basis.addTargets(ScalarPointEvaluation);
 
-  old_to_new_pressusre_basis->setWeightingType(WeightingFunctionType::Power);
-  old_to_new_pressusre_basis->setWeightingPower(__weightFuncOrder);
-  old_to_new_pressusre_basis->setOrderOfQuadraturePoints(2);
-  old_to_new_pressusre_basis->setDimensionOfQuadraturePoints(1);
-  old_to_new_pressusre_basis->setQuadratureType("LINE");
+  old_to_new_pressusre_basis.setWeightingType(WeightingFunctionType::Power);
+  old_to_new_pressusre_basis.setWeightingPower(__weightFuncOrder);
 
-  old_to_new_pressusre_basis->generateAlphas(1);
+  old_to_new_pressusre_basis.generateAlphas(1);
 
-  auto old_to_new_pressure_alphas = old_to_new_pressusre_basis->getAlphas();
+  auto old_to_new_pressure_alphas = old_to_new_pressusre_basis.getAlphas();
 
   // old to new velocity field transition
   old_to_new_velocity_basis->setProblemData(
@@ -156,6 +153,9 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
       new_target_coords_device, old_epsilon_device);
 
   old_to_new_velocity_basis->addTargets(VectorPointEvaluation);
+
+  old_to_new_velocity_basis->setWeightingType(WeightingFunctionType::Power);
+  old_to_new_velocity_basis->setWeightingPower(__weightFuncOrder);
 
   old_to_new_velocity_basis->generateAlphas(1);
 
@@ -223,8 +223,8 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   // compute interpolation matrix entity
   const auto pressure_old_to_new_alphas_index =
-      old_to_new_pressusre_basis->getAlphaColumnOffset(ScalarPointEvaluation, 0,
-                                                       0, 0, 0);
+      old_to_new_pressusre_basis.getAlphaColumnOffset(ScalarPointEvaluation, 0,
+                                                      0, 0, 0);
   vector<int> velocity_old_to_new_alphas_index(pow(dimension, 2));
   for (int axes1 = 0; axes1 < dimension; axes1++)
     for (int axes2 = 0; axes2 < dimension; axes2++)
@@ -281,6 +281,42 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   }
 
   I.FinalAssemble();
+
+  static vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
+
+  // if (new_local_particle_num > 11608) {
+  //   cout << coord[11607][0] << ' ' << coord[11607][1] << endl << endl;
+  //   for (int i = 0; i < old_to_new_neighbor_lists(new_actual_index[11607],
+  //   0);
+  //        i++) {
+  //     int index = old_to_new_neighbor_lists(new_actual_index[11607], i + 1);
+  //     cout << old_background_coord[index][0] << ' '
+  //          << old_background_coord[index][1] << ' '
+  //          << old_to_new_pressure_alphas(new_actual_index[11607],
+  //                                        pressure_old_to_new_alphas_index, i)
+  //          << endl;
+  //   }
+  //   cout << endl;
+  //   for (int i = 0; i < old_to_new_neighbor_lists(new_actual_index[11607],
+  //   0);
+  //        i++) {
+  //     int index = old_to_new_neighbor_lists(new_actual_index[11607], i + 1);
+  //     cout << pressure[index] << endl;
+  //   }
+
+  //   double pressure_sum = 0.0;
+  //   for (int i = 0; i < old_to_new_neighbor_lists(new_actual_index[11607],
+  //   0);
+  //        i++) {
+  //     int index = old_to_new_neighbor_lists(new_actual_index[11607], i + 1);
+  //     pressure_sum +=
+  //         pressure[index] *
+  //         old_to_new_pressure_alphas(new_actual_index[11607],
+  //                                    pressure_old_to_new_alphas_index, i);
+  //   }
+
+  //   cout << pressure_sum << endl;
+  // }
 
   // new to old restriction matrix
   if (__myID == __MPISize - 1)
@@ -357,7 +393,6 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   R.FinalAssemble();
 
-  delete old_to_new_pressusre_basis;
   delete old_to_new_velocity_basis;
 }
 
@@ -616,7 +651,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
     KSP *neighbor_relaxation_sub_ksp;
     PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
                        &neighbor_relaxation_sub_ksp);
-    KSPSetType(neighbor_relaxation_sub_ksp[0], KSPPREONLY);
+    KSPSetType(neighbor_relaxation_sub_ksp[0], KSPGMRES);
     PC neighbor_relaxation_sub_pc;
     KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
     PCSetType(neighbor_relaxation_sub_pc, PCLU);
@@ -670,17 +705,21 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   residual_norm = globalParticleNum;
   Vec residual;
   VecDuplicate(_rhs, &residual);
-  PetscReal rtol = 1e-8;
-  while (residual_norm / rhs_norm / (double)globalParticleNum > 1e-1) {
-    KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 5000);
+  PetscReal rtol = 1e-6;
+  int counter = 0;
+  do {
+    KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 200);
     KSPSolve(_ksp, _rhs, _x);
     MatMult(shell_mat, _x, residual);
     VecAXPY(residual, -1.0, _rhs);
     VecNorm(residual, NORM_2, &residual_norm);
     PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
                 residual_norm / rhs_norm / (double)globalParticleNum);
-    rtol *= 1e-4;
-  }
+    rtol *= 1e-2;
+    counter++;
+    if (counter >= 10)
+      break;
+  } while (residual_norm / rhs_norm / (double)globalParticleNum > 1e-2);
   // KSPSolve(_ksp, _rhs, _x);
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
