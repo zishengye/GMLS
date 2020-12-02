@@ -66,6 +66,8 @@ private:
   double __currentTime;
   double __currentTimePeriod;
 
+  double __epsilonMultiplier;
+
   int __coordinateSystem;
   // 1 cartesian coordinate system
   // 2 cylindrical coordinate system

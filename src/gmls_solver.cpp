@@ -209,6 +209,11 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
     __viewer = 0;
   }
 
+  if ((SearchCommand<double>(argc, argv, "-EpsilonMultiplier",
+                             __epsilonMultiplier)) == 1) {
+    __epsilonMultiplier = 0.0;
+  }
+
   // [summary of problem setup]
 
   PetscPrintf(PETSC_COMM_WORLD, "===============================\n");

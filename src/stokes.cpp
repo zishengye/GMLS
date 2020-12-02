@@ -168,10 +168,10 @@ void GMLS_Solver::StokesEquation() {
       __polynomialOrder, __dim, DivergenceFreeVectorTaylorPolynomial);
 
   double epsilonMultiplier = __polynomialOrder + 0.5;
-  // if (__adaptive_step < 2)
-  //   epsilonMultiplier = 4.5;
-  if (__adaptive_step == 0)
-    epsilonMultiplier = 4.5;
+  if (__epsilonMultiplier != 0.0)
+    epsilonMultiplier = __epsilonMultiplier;
+  if (__adaptive_step > 0)
+    epsilonMultiplier = __polynomialOrder + 0.5;
 
   int estimatedUpperBoundNumberNeighbors =
       pow(2, __dim) * pow(2 * epsilonMultiplier, __dim);
