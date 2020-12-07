@@ -18,6 +18,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   static auto &background_index = __background.index.GetHandle("source index");
   static auto &particleType = __field.index.GetHandle("particle type");
   static auto &newAdded = __field.index.GetHandle("new added particle flag");
+  static auto &particleSize = __field.vector.GetHandle("size");
 
   static auto &old_coord = __field.vector.GetHandle("old coord");
   static auto &old_particle_type = __field.index.GetHandle("old particle type");
@@ -103,7 +104,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
 
   // 2.5 = polynomial_order + 0.5 = 2 + 0.5
   int estimatedUpperBoundNumberNeighbors =
-      pow(2, dimension) * pow(2 * 2.5, dimension);
+      pow(2, dimension) * pow(2 * 3.5, dimension);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
       old_to_new_neighbor_lists_device("old to new neighbor lists",
@@ -117,11 +118,33 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   Kokkos::View<double *>::HostMirror old_epsilon =
       Kokkos::create_mirror_view(old_epsilon_device);
 
+  for (int i = 0; i < coord.size(); i++) {
+    if (newAdded[i] == 1) {
+      old_epsilon[new_actual_index[i]] = 3.5 * particleSize[i][0];
+    }
+  }
+
   auto neighbor_needed =
       Compadre::GMLS::getNP(2, __dim, DivergenceFreeVectorTaylorPolynomial);
-  old_to_new_point_search.generateNeighborListsFromKNNSearch(
-      false, new_target_coords, old_to_new_neighbor_lists, old_epsilon,
-      neighbor_needed, 1.2);
+  // old_to_new_point_search.generateNeighborListsFromKNNSearch(
+  //     false, new_target_coords, old_to_new_neighbor_lists, old_epsilon,
+  //     neighbor_needed, 1.2);
+  auto actual_neighbor_max =
+      old_to_new_point_search.generateNeighborListsFromRadiusSearch(
+          true, new_target_coords, old_to_new_neighbor_lists, old_epsilon, 0.0,
+          0.0);
+  while (actual_neighbor_max > estimatedUpperBoundNumberNeighbors) {
+    estimatedUpperBoundNumberNeighbors *= 2;
+    old_to_new_neighbor_lists_device =
+        Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
+            "old to new neighbor lists", actual_new_target,
+            estimatedUpperBoundNumberNeighbors);
+    old_to_new_neighbor_lists =
+        Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
+  }
+  old_to_new_point_search.generateNeighborListsFromRadiusSearch(
+      false, new_target_coords, old_to_new_neighbor_lists, old_epsilon, 0.0,
+      0.0);
 
   Kokkos::deep_copy(old_to_new_neighbor_lists_device,
                     old_to_new_neighbor_lists);
