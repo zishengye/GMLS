@@ -150,6 +150,9 @@ void GMLS_Solver::RungeKuttaIntegration() {
   vector<vec3> angularVelocity_k6(numRigidBody);
   vector<vec3> angularVelocity_k7(numRigidBody);
 
+  vector<double> sychronize_velocity(numRigidBody * 3);
+  vector<double> sychronize_angularVelocity(numRigidBody * 3);
+
   // ode45 algorithm parameter
   double t, dt, dtMin, rtol, atol, err, norm_y;
   rtol = 1e-5;
@@ -220,6 +223,34 @@ void GMLS_Solver::RungeKuttaIntegration() {
     PetscPrintf(PETSC_COMM_WORLD, "Adaptive level: %d\n", __adaptive_step);
     (this->*__equationSolver)();
   } while (NeedRefinement());
+
+  for (int i = 0; i < numRigidBody; i++) {
+    for (int j = 0; j < 3; j++) {
+      sychronize_velocity[i * 3 + j] = rigidBodyVelocity[i][j];
+      sychronize_angularVelocity[i * 3 + j] = rigidBodyAngularVelocity[i][j];
+    }
+  }
+
+  MPI_Bcast(sychronize_velocity.data(), numRigidBody * 3, MPI_DOUBLE, 0,
+            MPI_COMM_WORLD);
+  MPI_Bcast(sychronize_angularVelocity.data(), numRigidBody * 3, MPI_DOUBLE, 0,
+            MPI_COMM_WORLD);
+
+  for (int i = 0; i < numRigidBody; i++) {
+    for (int j = 0; j < 3; j++) {
+      rigidBodyVelocity[i][j] = sychronize_velocity[i * 3 + j];
+      rigidBodyAngularVelocity[i][j] = sychronize_angularVelocity[i * 3 + j];
+    }
+  }
+
+  if (__myID == 0) {
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < 2; j++) {
+        cout << rigidBodyVelocity[i][j] << ' ';
+      }
+      cout << endl;
+    }
+  }
 
   if (__writeData != 0) {
     WriteDataTimeStep();

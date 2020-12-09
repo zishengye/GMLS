@@ -426,12 +426,15 @@ bool GMLS_Solver::NeedRefinement() {
         "Total error for gradient of velocity: %f, with tolerance: %f\n",
         globalError, __adaptiveRefinementTolerance);
 
+    if (isnan(globalError))
+      return false;
+
     if (globalError < __adaptiveRefinementTolerance ||
         __adaptive_step >= __maxAdaptiveLevel)
       return false;
 
     // mark stage
-    double alpha = 0.9;
+    double alpha = 0.6;
 
     vector<pair<int, double>> chopper;
     pair<int, double> toAdd;
@@ -515,13 +518,13 @@ bool GMLS_Solver::NeedRefinement() {
     for (int i = 0; i < splitCandidateTag.size(); i++) {
       bool isAdd = true;
       int index = splitCandidateTag[i];
-      // for (int j = 0; j < velocityNeighborListsLengths(index); j++) {
-      //   const int neighborParticleIndex = neighborLists(index, j + 1);
-      //   if (backgroundAdaptiveLevel[neighborParticleIndex] <
-      //       adaptive_level[index]) {
-      //     isAdd = false;
-      //   }
-      // }
+      for (int j = 0; j < velocityNeighborListsLengths(index); j++) {
+        const int neighborParticleIndex = neighborLists(index, j + 1);
+        if (backgroundAdaptiveLevel[neighborParticleIndex] <
+            adaptive_level[index]) {
+          isAdd = false;
+        }
+      }
       if (isAdd) {
         splitTag.push_back(splitCandidateTag[i]);
       }

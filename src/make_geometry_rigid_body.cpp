@@ -927,5 +927,14 @@ bool GMLS_Solver::IsAcceptableRigidBodyPosition() {
     }
   }
 
+  for (int i = 0; i < rigidBodyPosition.size(); i++) {
+    for (int j = 0; j < __dim; j++) {
+      if (rigidBodyPosition[i][j] < __boundingBox[0][j] + rigidBodySize[i])
+        return false;
+      if (rigidBodyPosition[i][j] > __boundingBox[1][j] - rigidBodySize[i])
+        return false;
+    }
+  }
+
   return true;
 }

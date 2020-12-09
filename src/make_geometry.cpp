@@ -303,7 +303,7 @@ void GMLS_Solver::InitUniformParticleField() {
 
   ClearParticle();
 
-  __cutoffDistance = (__polynomialOrder + 1.0) *
+  __cutoffDistance = (__epsilonMultiplier + 1.0) *
                          std::max(__particleSize0[0], __particleSize0[1]) +
                      1e-5;
 

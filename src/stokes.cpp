@@ -170,8 +170,6 @@ void GMLS_Solver::StokesEquation() {
   double epsilonMultiplier = __polynomialOrder + 0.5;
   if (__epsilonMultiplier != 0.0)
     epsilonMultiplier = __epsilonMultiplier;
-  if (__adaptive_step > 0)
-    epsilonMultiplier = __polynomialOrder + 0.5;
 
   int estimatedUpperBoundNumberNeighbors =
       pow(2, __dim) * pow(2 * epsilonMultiplier, __dim);
@@ -203,20 +201,14 @@ void GMLS_Solver::StokesEquation() {
   double maxEpsilon = 0.0;
   __epsilon.resize(localParticleNum);
   for (int i = 0; i < numTargetCoords; i++) {
-    epsilon(i) = (max(__particleSize0[0] * pow(0.5, __adaptive_step),
-                      particleSize[i][0])) *
-                     epsilonMultiplier +
-                 1e-15;
+    epsilon(i) =
+        __particleSize0[0] * pow(0.5, adaptive_level[i]) * epsilonMultiplier;
     __epsilon[i] = epsilon(i);
     if (epsilon(i) > maxEpsilon) {
       maxEpsilon = epsilon(i);
     }
     if (particleType[i] != 0) {
-      neumannBoundaryEpsilon(counter++) =
-          (max(__particleSize0[0] * pow(0.5, __adaptive_step),
-               particleSize[i][0])) *
-              epsilonMultiplier +
-          1e-15;
+      neumannBoundaryEpsilon(counter++) = epsilon(i);
     }
   }
 
@@ -260,6 +252,8 @@ void GMLS_Solver::StokesEquation() {
         maxEpsilon);
 
     bool passNeighborNumCheck = true;
+    int minNeighbor = 100;
+    int maxNeighbor = 0;
     for (int i = 0; i < localParticleNum; i++) {
       // if (neighborLists(i, 0) <= minNeighbors) {
       // __epsilon[i] +=
@@ -271,7 +265,18 @@ void GMLS_Solver::StokesEquation() {
       //   neumannBoundaryEpsilon(fluid2NeumannBoundary[i]) = __epsilon[i];
       // }
       // }
+      if (neighborLists(i, 0) < minNeighbor)
+        minNeighbor = neighborLists(i, 0);
+      if (neighborLists(i, 0) > maxNeighbor)
+        maxNeighbor = neighborLists(i, 0);
     }
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &minNeighbor, 1, MPI_INT, MPI_MIN,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &maxNeighbor, 1, MPI_INT, MPI_MAX,
+                  MPI_COMM_WORLD);
+    PetscPrintf(MPI_COMM_WORLD, "min neighbor: %d\n", minNeighbor);
+    PetscPrintf(MPI_COMM_WORLD, "max neighbor: %d\n", maxNeighbor);
 
     int processCounter = 0;
     if (!passNeighborNumCheck) {
@@ -1170,6 +1175,7 @@ void GMLS_Solver::StokesEquation() {
         }
         output.close();
       }
+      A.Solve(rhs, res);
     }
     // A.Solve(rhs, res);
   }

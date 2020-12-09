@@ -129,22 +129,40 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   // old_to_new_point_search.generateNeighborListsFromKNNSearch(
   //     false, new_target_coords, old_to_new_neighbor_lists, old_epsilon,
   //     neighbor_needed, 1.2);
-  auto actual_neighbor_max =
-      old_to_new_point_search.generateNeighborListsFromRadiusSearch(
-          true, new_target_coords, old_to_new_neighbor_lists, old_epsilon, 0.0,
-          0.0);
-  while (actual_neighbor_max > estimatedUpperBoundNumberNeighbors) {
-    estimatedUpperBoundNumberNeighbors *= 2;
-    old_to_new_neighbor_lists_device =
-        Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
-            "old to new neighbor lists", actual_new_target,
-            estimatedUpperBoundNumberNeighbors);
-    old_to_new_neighbor_lists =
-        Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
+  size_t actual_neighbor_max;
+
+  while (true) {
+    actual_neighbor_max =
+        old_to_new_point_search.generateNeighborListsFromRadiusSearch(
+            true, new_target_coords, old_to_new_neighbor_lists, old_epsilon,
+            0.0, 0.0);
+    while (actual_neighbor_max > estimatedUpperBoundNumberNeighbors) {
+      estimatedUpperBoundNumberNeighbors *= 2;
+      old_to_new_neighbor_lists_device =
+          Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
+              "old to new neighbor lists", actual_new_target,
+              estimatedUpperBoundNumberNeighbors);
+      old_to_new_neighbor_lists =
+          Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
+    }
+    old_to_new_point_search.generateNeighborListsFromRadiusSearch(
+        false, new_target_coords, old_to_new_neighbor_lists, old_epsilon, 0.0,
+        0.0);
+
+    bool enough_neighbor = true;
+    for (int i = 0; i < coord.size(); i++) {
+      if (newAdded[i] == 1) {
+        if (old_to_new_neighbor_lists(new_actual_index[i], 0) <
+            neighbor_needed) {
+          old_epsilon[new_actual_index[i]] += 0.5 * particleSize[i][0];
+          enough_neighbor = false;
+        }
+      }
+    }
+
+    if (enough_neighbor)
+      break;
   }
-  old_to_new_point_search.generateNeighborListsFromRadiusSearch(
-      false, new_target_coords, old_to_new_neighbor_lists, old_epsilon, 0.0,
-      0.0);
 
   Kokkos::deep_copy(old_to_new_neighbor_lists_device,
                     old_to_new_neighbor_lists);
@@ -729,7 +747,10 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   Vec residual;
   VecDuplicate(_rhs, &residual);
   PetscReal rtol = 1e-6;
-  int counter = 0;
+  int counter;
+  counter = 0;
+  rtol = 1e-6;
+  bool diverged = false;
   do {
     KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 200);
     KSPSolve(_ksp, _rhs, _x);
@@ -740,9 +761,19 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
                 residual_norm / rhs_norm / (double)globalParticleNum);
     rtol *= 1e-2;
     counter++;
+
+    KSPConvergedReason convergence_reason;
+    KSPGetConvergedReason(_ksp, &convergence_reason);
+
     if (counter >= 10)
       break;
-  } while (residual_norm / rhs_norm / (double)globalParticleNum > 1e-2);
+    if (residual_norm / rhs_norm / (double)globalParticleNum > 1e3)
+      diverged = true;
+    if (convergence_reason < 0)
+      diverged = true;
+    if (diverged)
+      break;
+  } while (residual_norm / rhs_norm / (double)globalParticleNum > 1);
   // KSPSolve(_ksp, _rhs, _x);
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
@@ -752,14 +783,11 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPConvergedReason reason;
   KSPGetConvergedReason(_ksp, &reason);
 
-  if (reason < 0) {
-    return -1;
-  }
-
   VecGetArray(_x, &a);
-  for (size_t i = 0; i < rhs.size(); i++) {
-    x[i] = a[i];
-  }
+  if (reason >= 0 && counter < 10 && diverged == false)
+    for (size_t i = 0; i < rhs.size(); i++) {
+      x[i] = a[i];
+    }
   VecRestoreArray(_x, &a);
 
   KSPDestroy(&_ksp);
@@ -770,6 +798,11 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   VecDestroy(&_x);
   VecDestroy(&null_field);
   VecDestroy(&null_whole);
+
+  if (reason < 0 || counter == 10 || diverged) {
+    if (A_list.size() == 1)
+      return -1;
+  }
 
   return 0;
 }
