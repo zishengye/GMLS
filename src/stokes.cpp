@@ -202,7 +202,8 @@ void GMLS_Solver::StokesEquation() {
   __epsilon.resize(localParticleNum);
   for (int i = 0; i < numTargetCoords; i++) {
     epsilon(i) =
-        __particleSize0[0] * pow(0.5, adaptive_level[i]) * epsilonMultiplier;
+        __particleSize0[0] * pow(0.5, adaptive_level[i]) * epsilonMultiplier +
+        1e-15;
     __epsilon[i] = epsilon(i);
     if (epsilon(i) > maxEpsilon) {
       maxEpsilon = epsilon(i);

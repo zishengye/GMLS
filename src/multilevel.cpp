@@ -184,7 +184,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
   old_to_new_pressusre_basis.setWeightingType(WeightingFunctionType::Power);
   old_to_new_pressusre_basis.setWeightingPower(__weightFuncOrder);
 
-  old_to_new_pressusre_basis.generateAlphas(1);
+  old_to_new_pressusre_basis.generateAlphas(20);
 
   auto old_to_new_pressure_alphas = old_to_new_pressusre_basis.getAlphas();
 
@@ -752,7 +752,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   rtol = 1e-6;
   bool diverged = false;
   do {
-    KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 200);
+    KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 1000);
     KSPSolve(_ksp, _rhs, _x);
     MatMult(shell_mat, _x, residual);
     VecAXPY(residual, -1.0, _rhs);
