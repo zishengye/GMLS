@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _SEARCH_COMMAND_HPP_
+#define _SEARCH_COMMAND_HPP_
 
 #include <string>
 
@@ -21,3 +22,5 @@ int SearchCommand(int argc, char **argv, const std::string &commandName,
     return 1;
   }
 }
+
+#endif

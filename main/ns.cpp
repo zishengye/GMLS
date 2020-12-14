@@ -1,6 +1,6 @@
-#include "get_input_file.h"
-#include "gmls_solver.h"
-#include "search_command.h"
+#include "get_input_file.hpp"
+#include "gmls_solver.hpp"
+#include "search_command.hpp"
 
 using namespace std;
 using namespace Compadre;

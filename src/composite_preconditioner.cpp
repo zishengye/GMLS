@@ -1,4 +1,4 @@
-#include "composite_preconditioner.h"
+#include "composite_preconditioner.hpp"
 
 using namespace std;
 

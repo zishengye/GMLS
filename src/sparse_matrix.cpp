@@ -1,5 +1,5 @@
-#include "sparse_matrix.h"
-#include "composite_preconditioner.h"
+#include "sparse_matrix.hpp"
+#include "composite_preconditioner.hpp"
 
 #include <fstream>
 #include <string>

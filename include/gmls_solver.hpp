@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _GMLS_SOLVER_HPP_
+#define _GMLS_SOLVER_HPP_
 
 #include <cstdio>
 #include <cstdlib>
@@ -17,11 +18,11 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Timer.hpp>
 
-#include "info.h"
-#include "multilevel.h"
-#include "search_command.h"
-#include "sparse_matrix.h"
-#include "vec3.h"
+#include "info.hpp"
+#include "multilevel.hpp"
+#include "search_command.hpp"
+#include "sparse_matrix.hpp"
+#include "vec3.hpp"
 
 template <typename T>
 int SearchCommand(int argc, char **argv, const std::string &commandName,
@@ -405,3 +406,5 @@ public:
 
   bool IsSuccessInit() { return __successInitialized; }
 };
+
+#endif

@@ -1,6 +1,6 @@
-#include "gmls_solver.h"
-#include "manifold.h"
-#include "sparse_matrix.h"
+#include "gmls_solver.hpp"
+#include "manifold.hpp"
+#include "sparse_matrix.hpp"
 
 using namespace std;
 using namespace Compadre;

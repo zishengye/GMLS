@@ -1,9 +1,9 @@
-#ifndef _MULTILEVEL_H_
-#define _MULTILEVEL_H_
+#ifndef _MULTILEVEL_HPP_
+#define _MULTILEVEL_HPP_
 
 #include <vector>
 
-#include "sparse_matrix.h"
+#include "sparse_matrix.hpp"
 
 class multilevel {
 private:

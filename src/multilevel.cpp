@@ -1,6 +1,6 @@
-#include "multilevel.h"
-#include "composite_preconditioner.h"
-#include "gmls_solver.h"
+#include "multilevel.hpp"
+#include "composite_preconditioner.hpp"
+#include "gmls_solver.hpp"
 
 #include <algorithm>
 #include <iostream>

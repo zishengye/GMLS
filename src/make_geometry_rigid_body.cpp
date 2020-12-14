@@ -1,4 +1,4 @@
-#include "gmls_solver.h"
+#include "gmls_solver.hpp"
 
 #include <cmath>
 #include <fstream>

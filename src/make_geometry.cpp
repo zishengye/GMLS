@@ -1,5 +1,5 @@
-#include "domain_decomposition.h"
-#include "gmls_solver.h"
+#include "domain_decomposition.hpp"
+#include "gmls_solver.hpp"
 
 #include <iostream>
 

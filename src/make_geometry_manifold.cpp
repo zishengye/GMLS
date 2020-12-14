@@ -1,6 +1,6 @@
-#include "domain_decomposition.h"
-#include "gmls_solver.h"
-#include "manifold.h"
+#include "domain_decomposition.hpp"
+#include "gmls_solver.hpp"
+#include "manifold.hpp"
 
 #include <iostream>
 

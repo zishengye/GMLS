@@ -1,5 +1,5 @@
-#include "gmls_solver.h"
-#include "sparse_matrix.h"
+#include "gmls_solver.hpp"
+#include "sparse_matrix.hpp"
 
 #define PI 3.1415926
 

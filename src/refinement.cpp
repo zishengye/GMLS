@@ -1,7 +1,7 @@
 #include <limits>
 
-#include "DivergenceFree.h"
-#include "gmls_solver.h"
+#include "DivergenceFree.hpp"
+#include "gmls_solver.hpp"
 
 using namespace std;
 using namespace Compadre;

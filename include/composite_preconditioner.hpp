@@ -1,10 +1,11 @@
-#pragma once
+#ifndef _COMPOSITE_PRECONDITIONER_HPP_
+#define _COMPOSITE_PRECONDITIONER_HPP_
 
 #include <petscksp.h>
 
 #include <vector>
 
-#include "multilevel.h"
+#include "multilevel.hpp"
 
 struct HypreLUShellPC {
   multilevel *multi;
@@ -42,3 +43,5 @@ PetscErrorCode HypreConstConstraintPCSetUp(PC pc, Mat *a, PetscInt block_size);
 PetscErrorCode HypreConstConstraintPCApply(PC pc, Vec x, Vec y);
 
 PetscErrorCode HypreConstConstraintPCDestroy(PC pc);
+
+#endif
