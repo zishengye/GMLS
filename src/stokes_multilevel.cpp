@@ -1,6 +1,6 @@
-#include "multilevel.hpp"
-#include "composite_preconditioner.hpp"
+#include "stokes_multilevel.hpp"
 #include "gmls_solver.hpp"
+#include "stokes_composite_preconditioner.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -8,10 +8,9 @@
 using namespace std;
 using namespace Compadre;
 
-void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
-                                                           PetscSparseMatrix &R,
-                                                           int num_rigid_body,
-                                                           int dimension) {
+void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(
+    petsc_sparse_matrix &I, petsc_sparse_matrix &R, int num_rigid_body,
+    int dimension) {
   static auto &coord = __field.vector.GetHandle("coord");
   static auto &adaptive_level = __field.index.GetHandle("adaptive level");
   static auto &background_coord = __background.vector.GetHandle("source coord");
@@ -228,7 +227,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
       }
 
       for (int k = 0; k < velocity_dof; k++) {
-        I.setColIndex(field_dof * i + k, index);
+        I.set_col_index(field_dof * i + k, index);
       }
 
       // pressure interpolation
@@ -239,12 +238,12 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
                                    new_actual_index[i], j + 1)] +
                    velocity_dof;
       }
-      I.setColIndex(field_dof * i + velocity_dof, index);
+      I.set_col_index(field_dof * i + velocity_dof, index);
     } else {
       index.resize(1);
       for (int j = 0; j < field_dof; j++) {
         index[0] = field_dof * old_background_index[i] + j;
-        I.setColIndex(field_dof * i + j, index);
+        I.set_col_index(field_dof * i + j, index);
       }
     }
   }
@@ -257,7 +256,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
           field_dof * new_local_particle_num + i * rigid_body_dof;
       for (int j = 0; j < rigid_body_dof; j++) {
         index[0] = field_dof * old_global_particle_num + i * rigid_body_dof + j;
-        I.setColIndex(local_rigid_body_index_offset + j, index);
+        I.set_col_index(local_rigid_body_index_offset + j, index);
       }
     }
   }
@@ -321,7 +320,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     }
   }
 
-  I.FinalAssemble();
+  I.assemble();
 
   static vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
 
@@ -377,13 +376,13 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
           index[k] = background_index[splitList[i][k]] * field_dof + j;
         }
 
-        R.setColIndex(field_dof * i + j, index);
+        R.set_col_index(field_dof * i + j, index);
       }
     } else {
       index.resize(1);
       for (int k = 0; k < field_dof; k++) {
         index[0] = field_dof * background_index[i] + k;
-        R.setColIndex(field_dof * i + k, index);
+        R.set_col_index(field_dof * i + k, index);
       }
     }
   }
@@ -396,7 +395,7 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
           field_dof * old_local_particle_num + i * rigid_body_dof;
       for (int j = 0; j < rigid_body_dof; j++) {
         index[0] = field_dof * new_global_particle_num + i * rigid_body_dof + j;
-        R.setColIndex(local_rigid_body_index_offset + j, index);
+        R.set_col_index(local_rigid_body_index_offset + j, index);
       }
     }
   }
@@ -432,16 +431,16 @@ void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
     }
   }
 
-  R.FinalAssemble();
+  R.assemble();
 
   delete old_to_new_velocity_basis;
 }
 
-void multilevel::InitialGuessFromPreviousAdaptiveStep(
+void stokes_multilevel::initial_guess_from_previous_adaptive_step(
     std::vector<double> &initial_guess) {}
 
-int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
-                      std::vector<int> &idx_neighbor) {
+int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
+                             std::vector<int> &idx_neighbor) {
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nstart of linear system solving setup\n");
 
@@ -456,7 +455,7 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   vector<int> idx_pressure;
 
   PetscInt localN1, localN2;
-  Mat &mat = (*(A_list.end() - 1))->__mat;
+  Mat &mat = (*(A_list.end() - 1))->get_reference();
   MatGetOwnershipRange(mat, &localN1, &localN2);
 
   int localParticleNum;
@@ -495,419 +494,337 @@ int multilevel::Solve(std::vector<double> &rhs, std::vector<double> &x,
   MPI_Allreduce(&localParticleNum, &globalParticleNum, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
-  IS &isg_field_lag = *isg_field_list[adaptive_step];
-  IS &isg_neighbor = *isg_neighbor_list[adaptive_step];
-  IS &isg_pressure = *isg_pressure_list[adaptive_step];
+  auto isg_field = isg_field_list[adaptive_step];
+  auto isg_colloid = isg_colloid_list[adaptive_step];
+  auto isg_pressure = isg_pressure_list[adaptive_step];
 
-  ISCreateGeneral(MPI_COMM_SELF, idx_field.size(), idx_field.data(),
-                  PETSC_COPY_VALUES, &isg_field_lag);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_neighbor.size(), idx_neighbor.data(),
-                  PETSC_COPY_VALUES, &isg_neighbor);
-  ISCreateGeneral(MPI_COMM_SELF, idx_pressure.size(), idx_pressure.data(),
-                  PETSC_COPY_VALUES, &isg_pressure);
+  isg_field->create_local(idx_field);
+  isg_colloid->create(idx_neighbor);
+  isg_pressure->create_local(idx_pressure);
 
-  Vec _rhs, _x;
-  VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
-                        rhs.data(), &_rhs);
-  VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, x.size(), PETSC_DECIDE, x.data(),
-                        &_x);
+  // Vec _rhs, _x;
+  // VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
+  //                       rhs.data(), &_rhs);
+  // VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, x.size(), PETSC_DECIDE,
+  // x.data(),
+  //                       &_x);
 
-  Mat &ff = *ff_list[adaptive_step];
-  Mat &nn = *nn_list[adaptive_step];
-  Mat &nw = *nw_list[adaptive_step];
-  Mat pp;
+  // Mat &ff = *ff_list[adaptive_step];
+  // Mat &nn = *nn_list[adaptive_step];
+  // Mat &nw = *nw_list[adaptive_step];
 
-  MatCreateSubMatrix(mat, isg_neighbor, isg_neighbor, MAT_INITIAL_MATRIX, &nn);
-  MatCreateSubMatrix(mat, isg_pressure, isg_pressure, MAT_INITIAL_MATRIX, &pp);
-  MatCreateSubMatrix(mat, isg_neighbor, NULL, MAT_INITIAL_MATRIX, &nw);
+  // MatCreateSubMatrix(mat, isg_colloid->get_reference(),
+  //                    isg_colloid->get_reference(), MAT_INITIAL_MATRIX, &nn);
+  // MatCreateSubMatrix(mat, isg_colloid->get_reference(), NULL,
+  //                    MAT_INITIAL_MATRIX, &nw);
 
-  // setup current level vectors
-  x_list.push_back(new Vec);
-  y_list.push_back(new Vec);
-  b_list.push_back(new Vec);
-  r_list.push_back(new Vec);
-  t_list.push_back(new Vec);
+  // // setup current level vectors
+  // x_list.push_back(new Vec);
+  // y_list.push_back(new Vec);
+  // b_list.push_back(new Vec);
+  // r_list.push_back(new Vec);
+  // t_list.push_back(new Vec);
 
-  x_field_list.push_back(new Vec);
-  y_field_list.push_back(new Vec);
-  b_field_list.push_back(new Vec);
-  r_field_list.push_back(new Vec);
-  t_field_list.push_back(new Vec);
+  // x_field_list.push_back(new Vec);
+  // y_field_list.push_back(new Vec);
+  // b_field_list.push_back(new Vec);
+  // r_field_list.push_back(new Vec);
+  // t_field_list.push_back(new Vec);
 
-  x_neighbor_list.push_back(new Vec);
-  y_neighbor_list.push_back(new Vec);
-  b_neighbor_list.push_back(new Vec);
-  r_neighbor_list.push_back(new Vec);
-  t_neighbor_list.push_back(new Vec);
+  // x_neighbor_list.push_back(new Vec);
+  // y_neighbor_list.push_back(new Vec);
+  // b_neighbor_list.push_back(new Vec);
+  // r_neighbor_list.push_back(new Vec);
+  // t_neighbor_list.push_back(new Vec);
 
-  x_pressure_list.push_back(new Vec);
+  // x_pressure_list.push_back(new Vec);
 
-  field_relaxation_list.push_back(new KSP);
-  neighbor_relaxation_list.push_back(new KSP);
+  // field_relaxation_list.push_back(new KSP);
+  // colloid_relaxation_list.push_back(new KSP);
 
-  MatCreateVecs(mat, NULL, x_list[adaptive_step]);
-  MatCreateVecs(mat, NULL, y_list[adaptive_step]);
-  MatCreateVecs(mat, NULL, b_list[adaptive_step]);
-  MatCreateVecs(mat, NULL, r_list[adaptive_step]);
-  MatCreateVecs(mat, NULL, t_list[adaptive_step]);
+  // MatCreateVecs(mat, NULL, x_list[adaptive_step]);
+  // MatCreateVecs(mat, NULL, y_list[adaptive_step]);
+  // MatCreateVecs(mat, NULL, b_list[adaptive_step]);
+  // MatCreateVecs(mat, NULL, r_list[adaptive_step]);
+  // MatCreateVecs(mat, NULL, t_list[adaptive_step]);
 
-  MatCreateVecs(ff, NULL, x_field_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, y_field_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, b_field_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, r_field_list[adaptive_step]);
-  MatCreateVecs(ff, NULL, t_field_list[adaptive_step]);
+  // MatCreateVecs(ff, NULL, x_field_list[adaptive_step]);
+  // MatCreateVecs(ff, NULL, y_field_list[adaptive_step]);
+  // MatCreateVecs(ff, NULL, b_field_list[adaptive_step]);
+  // MatCreateVecs(ff, NULL, r_field_list[adaptive_step]);
+  // MatCreateVecs(ff, NULL, t_field_list[adaptive_step]);
 
-  MatCreateVecs(nn, NULL, x_neighbor_list[adaptive_step]);
-  MatCreateVecs(nn, NULL, y_neighbor_list[adaptive_step]);
-  MatCreateVecs(nn, NULL, b_neighbor_list[adaptive_step]);
-  MatCreateVecs(nn, NULL, r_neighbor_list[adaptive_step]);
-  MatCreateVecs(nn, NULL, t_neighbor_list[adaptive_step]);
+  // MatCreateVecs(nn, NULL, x_neighbor_list[adaptive_step]);
+  // MatCreateVecs(nn, NULL, y_neighbor_list[adaptive_step]);
+  // MatCreateVecs(nn, NULL, b_neighbor_list[adaptive_step]);
+  // MatCreateVecs(nn, NULL, r_neighbor_list[adaptive_step]);
+  // MatCreateVecs(nn, NULL, t_neighbor_list[adaptive_step]);
 
-  MatCreateVecs(pp, NULL, x_pressure_list[adaptive_step]);
+  // MatCreateVecs(pp, NULL, x_pressure_list[adaptive_step]);
 
-  // field vector scatter
-  field_scatter_list.push_back(new VecScatter);
-  VecScatterCreate(*x_list[adaptive_step], isg_field_lag,
-                   *x_field_list[adaptive_step], NULL,
-                   field_scatter_list[adaptive_step]);
+  // // field vector scatter
+  // field_scatter_list.push_back(new VecScatter);
+  // VecScatterCreate(*x_list[adaptive_step], isg_field_lag,
+  //                  *x_field_list[adaptive_step], NULL,
+  //                  field_scatter_list[adaptive_step]);
 
-  neighbor_scatter_list.push_back(new VecScatter);
-  VecScatterCreate(*x_list[adaptive_step], isg_neighbor,
-                   *x_neighbor_list[adaptive_step], NULL,
-                   neighbor_scatter_list[adaptive_step]);
-  pressure_scatter_list.push_back(new VecScatter);
-  VecScatterCreate(*x_list[adaptive_step], isg_pressure,
-                   *x_pressure_list[adaptive_step], NULL,
-                   pressure_scatter_list[adaptive_step]);
+  // neighbor_scatter_list.push_back(new VecScatter);
+  // VecScatterCreate(*x_list[adaptive_step], isg_neighbor,
+  //                  *x_neighbor_list[adaptive_step], NULL,
+  //                  neighbor_scatter_list[adaptive_step]);
+  // pressure_scatter_list.push_back(new VecScatter);
+  // VecScatterCreate(*x_list[adaptive_step], isg_pressure,
+  //                  *x_pressure_list[adaptive_step], NULL,
+  //                  pressure_scatter_list[adaptive_step]);
 
-  // setup nullspace_field
-  Vec null_whole, null_field;
-  VecDuplicate(_rhs, &null_whole);
-  VecDuplicate(*x_field_list[adaptive_step], &null_field);
+  // // setup nullspace_field
+  // Vec null_whole, null_field;
+  // VecDuplicate(_rhs, &null_whole);
+  // VecDuplicate(*x_field_list[adaptive_step], &null_field);
 
-  VecSet(null_whole, 0.0);
-  VecSet(null_field, 0.0);
+  // VecSet(null_whole, 0.0);
+  // VecSet(null_field, 0.0);
 
-  VecSet(*x_pressure_list[adaptive_step], 1.0);
+  // VecSet(*x_pressure_list[adaptive_step], 1.0);
 
-  VecScatterBegin(*pressure_scatter_list[adaptive_step],
-                  *x_pressure_list[adaptive_step], null_whole, INSERT_VALUES,
-                  SCATTER_REVERSE);
-  VecScatterEnd(*pressure_scatter_list[adaptive_step],
-                *x_pressure_list[adaptive_step], null_whole, INSERT_VALUES,
-                SCATTER_REVERSE);
+  // VecScatterBegin(*pressure_scatter_list[adaptive_step],
+  //                 *x_pressure_list[adaptive_step], null_whole, INSERT_VALUES,
+  //                 SCATTER_REVERSE);
+  // VecScatterEnd(*pressure_scatter_list[adaptive_step],
+  //               *x_pressure_list[adaptive_step], null_whole, INSERT_VALUES,
+  //               SCATTER_REVERSE);
 
-  nullspace_whole_list.push_back(new MatNullSpace);
-  MatNullSpace &nullspace_whole = *nullspace_whole_list[adaptive_step];
-  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_whole,
-                     &nullspace_whole);
-  MatSetNearNullSpace(mat, nullspace_whole);
+  // nullspace_whole_list.push_back(new MatNullSpace);
+  // MatNullSpace &nullspace_whole = *nullspace_whole_list[adaptive_step];
+  // MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_whole,
+  //                    &nullspace_whole);
+  // MatSetNearNullSpace(mat, nullspace_whole);
 
-  Vec field_pressure;
-  VecGetSubVector(null_field, isg_pressure, &field_pressure);
-  VecSet(field_pressure, 1.0);
-  VecRestoreSubVector(null_field, isg_pressure, &field_pressure);
+  // Vec field_pressure;
+  // VecGetSubVector(null_field, isg_pressure, &field_pressure);
+  // VecSet(field_pressure, 1.0);
+  // VecRestoreSubVector(null_field, isg_pressure, &field_pressure);
 
-  nullspace_field_list.push_back(new MatNullSpace);
-  MatNullSpace &nullspace_field = *nullspace_field_list[adaptive_step];
-  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_field,
-                     &nullspace_field);
-  MatSetNearNullSpace(ff, nullspace_field);
+  // nullspace_field_list.push_back(new MatNullSpace);
+  // MatNullSpace &nullspace_field = *nullspace_field_list[adaptive_step];
+  // MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_field,
+  //                    &nullspace_field);
+  // MatSetNearNullSpace(ff, nullspace_field);
 
-  // neighbor vector scatter, only needed on base level
-  if (adaptive_step == 0) {
-    MatCreateVecs(nn, NULL, &x_neighbor);
-    MatCreateVecs(nn, NULL, &y_neighbor);
-  }
+  // // neighbor vector scatter, only needed on base level
+  // if (adaptive_step == 0) {
+  //   MatCreateVecs(nn, NULL, &x_neighbor);
+  //   MatCreateVecs(nn, NULL, &y_neighbor);
+  // }
 
-  // setup preconditioner for base level
-  if (adaptive_step == 0) {
-    KSPCreate(PETSC_COMM_WORLD, &ksp_field_base);
-    KSPCreate(PETSC_COMM_WORLD, &ksp_neighbor_base);
+  // // setup preconditioner for base level
+  // if (adaptive_step == 0) {
+  //   KSPCreate(PETSC_COMM_WORLD, &ksp_field_base);
+  //   KSPCreate(PETSC_COMM_WORLD, &ksp_neighbor_base);
 
-    KSPSetOperators(ksp_field_base, ff, ff);
-    KSPSetOperators(ksp_neighbor_base, nn, nn);
+  //   KSPSetOperators(ksp_field_base, ff, ff);
+  //   KSPSetOperators(ksp_neighbor_base, nn, nn);
 
-    KSPSetType(ksp_field_base, KSPPREONLY);
-    KSPSetType(ksp_neighbor_base, KSPPREONLY);
+  //   KSPSetType(ksp_field_base, KSPPREONLY);
+  //   KSPSetType(ksp_neighbor_base, KSPPREONLY);
 
-    PC pc_field_base;
-    PC pc_neighbor_base;
+  //   PC pc_field_base;
+  //   PC pc_neighbor_base;
 
-    KSPGetPC(ksp_field_base, &pc_field_base);
-    PCSetType(pc_field_base, PCHYPRE);
-    PCSetFromOptions(pc_field_base);
-    PCSetUp(pc_field_base);
+  //   KSPGetPC(ksp_field_base, &pc_field_base);
+  //   PCSetType(pc_field_base, PCHYPRE);
+  //   PCSetFromOptions(pc_field_base);
+  //   PCSetUp(pc_field_base);
 
-    KSPGetPC(ksp_neighbor_base, &pc_neighbor_base);
-    PCSetType(pc_neighbor_base, PCBJACOBI);
-    PCSetUp(pc_neighbor_base);
-    PetscInt local_row, local_col;
-    MatGetLocalSize(nn, &local_row, &local_col);
-    if (local_row > 0) {
-      KSP *bjacobi_ksp;
-      PCBJacobiGetSubKSP(pc_neighbor_base, NULL, NULL, &bjacobi_ksp);
-      KSPSetType(bjacobi_ksp[0], KSPPREONLY);
-      PC bjacobi_pc;
-      KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
-      PCSetType(bjacobi_pc, PCLU);
-      // PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
-      // PetscOptionsSetValue(NULL, "-pc_hypre_type", "euclid");
-      PCSetFromOptions(bjacobi_pc);
-      PCSetUp(bjacobi_pc);
-      KSPSetUp(bjacobi_ksp[0]);
-    }
+  //   KSPGetPC(ksp_neighbor_base, &pc_neighbor_base);
+  //   PCSetType(pc_neighbor_base, PCBJACOBI);
+  //   PCSetUp(pc_neighbor_base);
+  //   PetscInt local_row, local_col;
+  //   MatGetLocalSize(nn, &local_row, &local_col);
+  //   if (local_row > 0) {
+  //     KSP *bjacobi_ksp;
+  //     PCBJacobiGetSubKSP(pc_neighbor_base, NULL, NULL, &bjacobi_ksp);
+  //     KSPSetType(bjacobi_ksp[0], KSPPREONLY);
+  //     PC bjacobi_pc;
+  //     KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
+  //     PCSetType(bjacobi_pc, PCLU);
+  //     // PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
+  //     // PetscOptionsSetValue(NULL, "-pc_hypre_type", "euclid");
+  //     PCSetFromOptions(bjacobi_pc);
+  //     PCSetUp(bjacobi_pc);
+  //     KSPSetUp(bjacobi_ksp[0]);
+  //   }
 
-    KSPSetUp(ksp_field_base);
-    KSPSetUp(ksp_neighbor_base);
-  }
+  //   KSPSetUp(ksp_field_base);
+  //   KSPSetUp(ksp_neighbor_base);
+  // }
 
-  // setup relaxation on field for current level
-  KSPCreate(MPI_COMM_WORLD, field_relaxation_list[adaptive_step]);
+  // // setup relaxation on field for current level
+  // KSPCreate(MPI_COMM_WORLD, field_relaxation_list[adaptive_step]);
 
-  KSPSetType(*field_relaxation_list[adaptive_step], KSPPREONLY);
-  KSPSetOperators(*field_relaxation_list[adaptive_step], ff, ff);
+  // KSPSetType(*field_relaxation_list[adaptive_step], KSPPREONLY);
+  // KSPSetOperators(*field_relaxation_list[adaptive_step], ff, ff);
 
-  PC field_relaxation_pc;
-  KSPGetPC(*field_relaxation_list[adaptive_step], &field_relaxation_pc);
-  PCSetType(field_relaxation_pc, PCSOR);
-  PCSetFromOptions(field_relaxation_pc);
-  PCSetUp(field_relaxation_pc);
+  // PC field_relaxation_pc;
+  // KSPGetPC(*field_relaxation_list[adaptive_step], &field_relaxation_pc);
+  // PCSetType(field_relaxation_pc, PCSOR);
+  // PCSetFromOptions(field_relaxation_pc);
+  // PCSetUp(field_relaxation_pc);
 
-  KSPSetUp(*field_relaxation_list[adaptive_step]);
+  // KSPSetUp(*field_relaxation_list[adaptive_step]);
 
-  // setup relaxation on neighbor for current level
-  KSPCreate(MPI_COMM_WORLD, neighbor_relaxation_list[adaptive_step]);
+  // // setup relaxation on neighbor for current level
+  // KSPCreate(MPI_COMM_WORLD, colloid_relaxation_list[adaptive_step]);
 
-  KSPSetType(*neighbor_relaxation_list[adaptive_step], KSPPREONLY);
-  KSPSetOperators(*neighbor_relaxation_list[adaptive_step], nn, nn);
+  // KSPSetType(*colloid_relaxation_list[adaptive_step], KSPPREONLY);
+  // KSPSetOperators(*colloid_relaxation_list[adaptive_step], nn, nn);
 
-  PC neighbor_relaxation_pc;
-  KSPGetPC(*neighbor_relaxation_list[adaptive_step], &neighbor_relaxation_pc);
-  PCSetType(neighbor_relaxation_pc, PCBJACOBI);
-  PCSetUp(neighbor_relaxation_pc);
-  PetscInt local_row, local_col;
-  MatGetLocalSize(nn, &local_row, &local_col);
-  if (local_row > 0) {
-    KSP *neighbor_relaxation_sub_ksp;
-    PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
-                       &neighbor_relaxation_sub_ksp);
-    KSPSetType(neighbor_relaxation_sub_ksp[0], KSPGMRES);
-    PC neighbor_relaxation_sub_pc;
-    KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
-    PCSetType(neighbor_relaxation_sub_pc, PCLU);
-    PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERMUMPS);
-    PCSetUp(neighbor_relaxation_sub_pc);
-    KSPSetUp(neighbor_relaxation_sub_ksp[0]);
-  }
+  // PC neighbor_relaxation_pc;
+  // KSPGetPC(*colloid_relaxation_list[adaptive_step], &neighbor_relaxation_pc);
+  // PCSetType(neighbor_relaxation_pc, PCBJACOBI);
+  // PCSetUp(neighbor_relaxation_pc);
+  // PetscInt local_row, local_col;
+  // MatGetLocalSize(nn, &local_row, &local_col);
+  // if (local_row > 0) {
+  //   KSP *neighbor_relaxation_sub_ksp;
+  //   PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
+  //                      &neighbor_relaxation_sub_ksp);
+  //   KSPSetType(neighbor_relaxation_sub_ksp[0], KSPGMRES);
+  //   PC neighbor_relaxation_sub_pc;
+  //   KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
+  //   PCSetType(neighbor_relaxation_sub_pc, PCLU);
+  //   PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERMUMPS);
+  //   PCSetUp(neighbor_relaxation_sub_pc);
+  //   KSPSetUp(neighbor_relaxation_sub_ksp[0]);
+  // }
 
-  KSPSetUp(*neighbor_relaxation_list[adaptive_step]);
+  // KSPSetUp(*colloid_relaxation_list[adaptive_step]);
 
-  Mat shell_mat = (*(A_list.end() - 1))->__shell_mat;
+  // Mat shell_mat = (*(A_list.end() - 1))->get_shell_reference();
 
-  KSP _ksp;
-  KSPCreate(PETSC_COMM_WORLD, &_ksp);
-  KSPSetOperators(_ksp, shell_mat, shell_mat);
-  KSPSetFromOptions(_ksp);
+  // KSP _ksp;
+  // KSPCreate(PETSC_COMM_WORLD, &_ksp);
+  // KSPSetOperators(_ksp, shell_mat, shell_mat);
+  // KSPSetFromOptions(_ksp);
 
-  PC _pc;
+  // PC _pc;
 
-  KSPGetPC(_ksp, &_pc);
-  PCSetType(_pc, PCSHELL);
+  // KSPGetPC(_ksp, &_pc);
+  // PCSetType(_pc, PCSHELL);
 
-  HypreLUShellPC *shell_ctx;
-  HypreLUShellPCCreate(&shell_ctx);
-  if (A_list.size() == 1) {
-    PCShellSetApply(_pc, HypreLUShellPCApply);
-    PCShellSetContext(_pc, shell_ctx);
-    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+  // HypreLUShellPC *shell_ctx;
+  // HypreLUShellPCCreate(&shell_ctx);
+  // if (A_list.size() == 1) {
+  //   PCShellSetApply(_pc, HypreLUShellPCApply);
+  //   PCShellSetContext(_pc, shell_ctx);
+  //   PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, this, _x, localParticleNum, fieldDof);
-  } else {
-    MPI_Barrier(MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD, "start of multilevel preconditioner setup\n");
+  //   HypreLUShellPCSetUp(_pc, this, _x, localParticleNum, fieldDof);
+  // } else {
+  //   MPI_Barrier(MPI_COMM_WORLD);
+  //   PetscPrintf(PETSC_COMM_WORLD,
+  //               "start of stokes_multilevel preconditioner setup\n");
 
-    PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
-    PCShellSetContext(_pc, shell_ctx);
-    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+  //   PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
+  //   PCShellSetContext(_pc, shell_ctx);
+  //   PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, this, _x, localParticleNum, fieldDof);
-  }
+  //   HypreLUShellPCSetUp(_pc, this, _x, localParticleNum, fieldDof);
+  // }
 
-  double tStart, tEnd;
-  PetscScalar *a;
+  // double tStart, tEnd;
+  // PetscScalar *a;
 
-  KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
-  MPI_Barrier(MPI_COMM_WORLD);
-  tStart = MPI_Wtime();
-  PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-  PetscReal residual_norm, rhs_norm;
-  VecNorm(_rhs, NORM_2, &rhs_norm);
-  residual_norm = globalParticleNum;
-  Vec residual;
-  VecDuplicate(_rhs, &residual);
-  PetscReal rtol = 1e-6;
-  int counter;
-  counter = 0;
-  rtol = 1e-6;
-  bool diverged = false;
-  do {
-    KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 1000);
-    KSPSolve(_ksp, _rhs, _x);
-    MatMult(shell_mat, _x, residual);
-    VecAXPY(residual, -1.0, _rhs);
-    VecNorm(residual, NORM_2, &residual_norm);
-    PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
-                residual_norm / rhs_norm / (double)globalParticleNum);
-    rtol *= 1e-2;
-    counter++;
+  // KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // tStart = MPI_Wtime();
+  // PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
+  // PetscReal residual_norm, rhs_norm;
+  // VecNorm(_rhs, NORM_2, &rhs_norm);
+  // residual_norm = globalParticleNum;
+  // Vec residual;
+  // VecDuplicate(_rhs, &residual);
+  // PetscReal rtol = 1e-6;
+  // int counter;
+  // counter = 0;
+  // rtol = 1e-6;
+  // bool diverged = false;
+  // do {
+  //   KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 1000);
+  //   KSPSolve(_ksp, _rhs, _x);
+  //   MatMult(shell_mat, _x, residual);
+  //   VecAXPY(residual, -1.0, _rhs);
+  //   VecNorm(residual, NORM_2, &residual_norm);
+  //   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+  //               residual_norm / rhs_norm / (double)globalParticleNum);
+  //   rtol *= 1e-2;
+  //   counter++;
 
-    KSPConvergedReason convergence_reason;
-    KSPGetConvergedReason(_ksp, &convergence_reason);
+  //   KSPConvergedReason convergence_reason;
+  //   KSPGetConvergedReason(_ksp, &convergence_reason);
 
-    if (counter >= 10)
-      break;
-    if (residual_norm / rhs_norm / (double)globalParticleNum > 1e3)
-      diverged = true;
-    if (convergence_reason < 0)
-      diverged = true;
-    if (diverged)
-      break;
-  } while (residual_norm / rhs_norm / (double)globalParticleNum > 1);
-  // KSPSolve(_ksp, _rhs, _x);
-  VecDestroy(&residual);
-  PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
-  tEnd = MPI_Wtime();
-  PetscPrintf(PETSC_COMM_WORLD, "pc apply time: %fs\n", tEnd - tStart);
+  //   if (counter >= 10)
+  //     break;
+  //   if (residual_norm / rhs_norm / (double)globalParticleNum > 1e3)
+  //     diverged = true;
+  //   if (convergence_reason < 0)
+  //     diverged = true;
+  //   if (diverged)
+  //     break;
+  // } while (residual_norm / rhs_norm / (double)globalParticleNum > 1);
+  // // KSPSolve(_ksp, _rhs, _x);
+  // VecDestroy(&residual);
+  // PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
+  // tEnd = MPI_Wtime();
+  // PetscPrintf(PETSC_COMM_WORLD, "pc apply time: %fs\n", tEnd - tStart);
 
-  KSPConvergedReason reason;
-  KSPGetConvergedReason(_ksp, &reason);
+  // KSPConvergedReason reason;
+  // KSPGetConvergedReason(_ksp, &reason);
 
-  VecGetArray(_x, &a);
-  if (reason >= 0 && counter < 10 && diverged == false)
-    for (size_t i = 0; i < rhs.size(); i++) {
-      x[i] = a[i];
-    }
-  VecRestoreArray(_x, &a);
+  // VecGetArray(_x, &a);
+  // if (reason >= 0 && counter < 10 && diverged == false)
+  //   for (size_t i = 0; i < rhs.size(); i++) {
+  //     x[i] = a[i];
+  //   }
+  // VecRestoreArray(_x, &a);
 
-  KSPDestroy(&_ksp);
+  // KSPDestroy(&_ksp);
 
-  MatDestroy(&pp);
+  // VecDestroy(&_rhs);
+  // VecDestroy(&_x);
+  // VecDestroy(&null_field);
+  // VecDestroy(&null_whole);
 
-  VecDestroy(&_rhs);
-  VecDestroy(&_x);
-  VecDestroy(&null_field);
-  VecDestroy(&null_whole);
-
-  if (reason < 0 || counter == 10 || diverged) {
-    if (A_list.size() == 1)
-      return -1;
-  }
+  // if (reason < 0 || counter == 10 || diverged) {
+  //   if (A_list.size() == 1)
+  //     return -1;
+  // }
 
   return 0;
 }
 
-void multilevel::clear() {
+void stokes_multilevel::clear() {
   MPI_Barrier(MPI_COMM_WORLD);
 
-  for (int i = 0; i < current_adaptive_level; i++) {
-    KSPDestroy(field_relaxation_list[i]);
-    KSPDestroy(neighbor_relaxation_list[i]);
-
-    delete field_relaxation_list[i];
-    delete neighbor_relaxation_list[i];
-  }
-  field_relaxation_list.clear();
-  neighbor_relaxation_list.clear();
-
   if (base_level_initialized) {
-    KSPDestroy(&ksp_field_base);
-    KSPDestroy(&ksp_neighbor_base);
-
-    VecDestroy(&x_neighbor);
-    VecDestroy(&y_neighbor);
-
-    base_level_initialized = false;
+    ksp_field_base.reset();
+    ksp_colloid_base.reset();
   }
 
-  // mat clearance
-  for (int i = 0; i < current_adaptive_level; i++) {
-    MatNullSpaceDestroy(nullspace_whole_list[i]);
-    MatNullSpaceDestroy(nullspace_field_list[i]);
+  base_level_initialized = false;
 
-    delete nullspace_whole_list[i];
-    delete nullspace_field_list[i];
+  x_pressure_list.clear();
 
-    MatSetNearNullSpace(A_list[i]->__mat, NULL);
-    delete A_list[i];
-    delete I_list[i];
-    delete R_list[i];
+  isg_field_list.clear();
+  isg_colloid_list.clear();
+  isg_pressure_list.clear();
 
-    MatSetNearNullSpace(*ff_list[i], NULL);
-    MatDestroy(ff_list[i]);
-    MatDestroy(nn_list[i]);
-    MatDestroy(nw_list[i]);
+  field_scatter_list.clear();
+  colloid_scatter_list.clear();
+  pressure_scatter_list.clear();
 
-    delete ff_list[i];
-    delete nn_list[i];
-    delete nw_list[i];
-
-    VecDestroy(x_list[i]);
-    VecDestroy(y_list[i]);
-    VecDestroy(b_list[i]);
-    VecDestroy(r_list[i]);
-    VecDestroy(t_list[i]);
-
-    delete x_list[i];
-    delete y_list[i];
-    delete b_list[i];
-    delete r_list[i];
-    delete t_list[i];
-
-    VecDestroy(x_field_list[i]);
-    VecDestroy(y_field_list[i]);
-    VecDestroy(b_field_list[i]);
-    VecDestroy(r_field_list[i]);
-    VecDestroy(t_field_list[i]);
-
-    delete x_field_list[i];
-    delete y_field_list[i];
-    delete b_field_list[i];
-    delete r_field_list[i];
-    delete t_field_list[i];
-
-    VecDestroy(x_neighbor_list[i]);
-    VecDestroy(y_neighbor_list[i]);
-    VecDestroy(b_neighbor_list[i]);
-    VecDestroy(r_neighbor_list[i]);
-    VecDestroy(t_neighbor_list[i]);
-
-    delete x_neighbor_list[i];
-    delete y_neighbor_list[i];
-    delete b_neighbor_list[i];
-    delete r_neighbor_list[i];
-    delete t_neighbor_list[i];
-
-    VecDestroy(x_pressure_list[i]);
-
-    delete x_pressure_list[i];
-
-    ISDestroy(isg_field_list[i]);
-    ISDestroy(isg_neighbor_list[i]);
-    ISDestroy(isg_pressure_list[i]);
-
-    delete isg_field_list[i];
-    delete isg_neighbor_list[i];
-    delete isg_pressure_list[i];
-
-    VecScatterDestroy(field_scatter_list[i]);
-    VecScatterDestroy(neighbor_scatter_list[i]);
-    VecScatterDestroy(pressure_scatter_list[i]);
-
-    delete field_scatter_list[i];
-    delete neighbor_scatter_list[i];
-    delete pressure_scatter_list[i];
-  }
+  nullspace_whole_list.clear();
+  nullspace_field_list.clear();
 
   A_list.clear();
   I_list.clear();
@@ -929,24 +846,11 @@ void multilevel::clear() {
   r_field_list.clear();
   t_field_list.clear();
 
-  x_neighbor_list.clear();
-  y_neighbor_list.clear();
-  b_neighbor_list.clear();
-  r_neighbor_list.clear();
-  t_neighbor_list.clear();
-
-  x_pressure_list.clear();
-
-  isg_field_list.clear();
-  isg_neighbor_list.clear();
-  isg_pressure_list.clear();
-
-  field_scatter_list.clear();
-  neighbor_scatter_list.clear();
-  pressure_scatter_list.clear();
-
-  nullspace_whole_list.clear();
-  nullspace_field_list.clear();
+  x_colloid_list.clear();
+  y_colloid_list.clear();
+  b_colloid_list.clear();
+  r_colloid_list.clear();
+  t_colloid_list.clear();
 
   current_adaptive_level = 0;
 }

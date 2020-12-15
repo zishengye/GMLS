@@ -35,13 +35,15 @@ int main(int argc, char *argv[]) {
 
   Kokkos::initialize(inputCommandCount, inputCommand);
 
-  GMLS_Solver ns(inputCommandCount, inputCommand);
+  {
+    GMLS_Solver ns(inputCommandCount, inputCommand);
 
-  if (!ns.IsSuccessInit()) {
-    return -1;
+    if (!ns.IsSuccessInit()) {
+      return -1;
+    }
+
+    ns.TimeIntegration();
   }
-
-  ns.TimeIntegration();
 
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();

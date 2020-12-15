@@ -1,6 +1,6 @@
 #include "gmls_solver.hpp"
 #include "manifold.hpp"
-#include "sparse_matrix.hpp"
+#include "petsc_sparse_matrix.hpp"
 
 #define PI 3.1415926
 
@@ -106,7 +106,7 @@ void GMLS_Solver::PoissonEquationManifold() {
 
   //   PetscPrintf(PETSC_COMM_WORLD, "\nGenerating Poisson Matrix...\n");
 
-  //   PetscSparseMatrix A(__particle.localParticleNum,
+  //   petsc_sparse_matrix A(__particle.localParticleNum,
   //                       __particle.globalParticleNum);
   //   for (int i = 0; i < __particle.localParticleNum; i++) {
   //     const int currentParticleLocalIndex = i;
@@ -127,7 +127,7 @@ void GMLS_Solver::PoissonEquationManifold() {
   //   }
 
   //   MPI_Barrier(MPI_COMM_WORLD);
-  //   A.FinalAssemble();
+  //   A.assemble();
 
   //   PetscPrintf(PETSC_COMM_WORLD, "\nPoisson Matrix Assembled\n");
 

@@ -19,9 +19,9 @@
 #include <Kokkos_Timer.hpp>
 
 #include "info.hpp"
-#include "multilevel.hpp"
+#include "petsc_sparse_matrix.hpp"
 #include "search_command.hpp"
-#include "sparse_matrix.hpp"
+#include "stokes_multilevel.hpp"
 #include "vec3.hpp"
 
 template <typename T>
@@ -93,7 +93,7 @@ private:
   std::string __velocityOutputFileName;
   bool __rigidBodyInclusion;
 
-  multilevel _multi;
+  stokes_multilevel _multi;
 
   // gmls info
   gmlsInfo __gmls;
@@ -355,11 +355,12 @@ private:
   void NavierStokesEquation();
 
   // equation multigrid solving
-  void BuildInterpolationAndRestrictionMatrices(PetscSparseMatrix &I,
-                                                PetscSparseMatrix &R,
+  void BuildInterpolationAndRestrictionMatrices(petsc_sparse_matrix &I,
+                                                petsc_sparse_matrix &R,
                                                 int num_rigid_body,
                                                 int dimension);
-  void InitialGuessFromPreviousAdaptiveStep(PetscSparseMatrix &I,
+  void
+  initial_guess_from_previous_adaptive_step(petsc_sparse_matrix &I,
                                             std::vector<double> &initial_guess);
 
   // function pointer

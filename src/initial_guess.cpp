@@ -2,8 +2,8 @@
 
 using namespace std;
 
-void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
-    PetscSparseMatrix &I, vector<double> &initial_guess) {
+void GMLS_Solver::initial_guess_from_previous_adaptive_step(
+    petsc_sparse_matrix &I, vector<double> &initial_guess) {
   // set initial guess for field values
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
   static vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
@@ -64,8 +64,8 @@ void GMLS_Solver::InitialGuessFromPreviousAdaptiveStep(
                         PETSC_DECIDE, previous_result.data(),
                         &previous_result_vec);
 
-  MatCreateVecs(I.__mat, NULL, &initial_guess_vec);
-  MatMult(I.__mat, previous_result_vec, initial_guess_vec);
+  MatCreateVecs(I.get_reference(), NULL, &initial_guess_vec);
+  MatMult(I.get_reference(), previous_result_vec, initial_guess_vec);
 
   velocity.resize(new_local_particle_num);
   pressure.resize(new_local_particle_num);

@@ -8,7 +8,8 @@
                 "/usr/include/c++/7",
                 "/opt/petsc/include",
                 "/opt/compadre/include",
-                "/opt/kokkos/include"
+                "/opt/kokkos/include",
+                "/usr/include/openmpi"
             ],
             "defines": [
                 "_DEBUG",
@@ -28,7 +29,8 @@
                     "/usr/include/c++/7",
                     "/opt/petsc/include",
                     "/opt/compadre/include",
-                    "/opt/kokkos/include"
+                    "/opt/kokkos/include",
+                    "/usr/include/openmpi"
                 ]
             },
             "windowsSdkVersion": "8.1",
