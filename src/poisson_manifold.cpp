@@ -7,7 +7,7 @@
 using namespace std;
 using namespace Compadre;
 
-void GMLS_Solver::PoissonEquationManifold() {
+void gmls_solver::PoissonEquationManifold() {
   //   // create source and target coords
   //   int numSourceCoords = __backgroundParticle.coord.size();
   //   int numTargetCoords = __particle.X.size();

@@ -1,6 +1,7 @@
 #include "get_input_file.hpp"
 #include "gmls_solver.hpp"
 #include "search_command.hpp"
+#include "trilinos_wrapper.hpp"
 
 using namespace std;
 using namespace Compadre;
@@ -33,10 +34,10 @@ int main(int argc, char *argv[]) {
   double tStart, tEnd;
   tStart = MPI_Wtime();
 
-  Kokkos::initialize(inputCommandCount, inputCommand);
+  Tpetra::ScopeGuard tscope(&inputCommandCount, &inputCommand);
 
   {
-    GMLS_Solver ns(inputCommandCount, inputCommand);
+    gmls_solver ns(inputCommandCount, inputCommand);
 
     if (!ns.IsSuccessInit()) {
       return -1;
@@ -50,8 +51,6 @@ int main(int argc, char *argv[]) {
 
   PetscPrintf(MPI_COMM_WORLD, "Program execution duration: %fs\n",
               tEnd - tStart);
-
-  Kokkos::finalize();
 
   PetscFinalize();
 

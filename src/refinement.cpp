@@ -21,7 +21,7 @@ bool pairCompare(const std::pair<int, double> &firstElem,
   return firstElem.second > secondElem.second;
 }
 
-bool GMLS_Solver::NeedRefinement() {
+bool gmls_solver::NeedRefinement() {
   if (__adaptiveRefinement != 0) {
     // prepare stage
 

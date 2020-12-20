@@ -28,7 +28,7 @@ template <typename T>
 int SearchCommand(int argc, char **argv, const std::string &commandName,
                   T &res);
 
-class GMLS_Solver {
+class gmls_solver {
 private:
   // MPI setting
   int __myID;
@@ -364,11 +364,11 @@ private:
                                             std::vector<double> &initial_guess);
 
   // function pointer
-  void (GMLS_Solver::*__equationSolver)(void);
-  void (GMLS_Solver::*__equationSolverInitialization)(void);
-  void (GMLS_Solver::*__equationSolverFinalization)(void);
-  void (GMLS_Solver::*__particleUniformInitializer)(void);
-  void (GMLS_Solver::*__splitMerger)(void);
+  void (gmls_solver::*__equationSolver)(void);
+  void (gmls_solver::*__equationSolverInitialization)(void);
+  void (gmls_solver::*__equationSolverFinalization)(void);
+  void (gmls_solver::*__particleUniformInitializer)(void);
+  void (gmls_solver::*__splitMerger)(void);
 
   // time integration scheme
   void ForwardEulerIntegration();
@@ -401,7 +401,7 @@ private:
   void WriteDataAdaptiveGeometry();
 
 public:
-  GMLS_Solver(int argc, char **argv);
+  gmls_solver(int argc, char **argv);
 
   void TimeIntegration();
 

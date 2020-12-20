@@ -5,7 +5,7 @@
 
 using namespace std;
 
-void GMLS_Solver::InitNeighborListManifold() {
+void gmls_solver::InitNeighborListManifold() {
   vector<int> &neighborFlag = __neighbor.index.GetHandle("neighbor flag");
 
   int neighborNum = pow(3, 2);
@@ -33,7 +33,7 @@ void GMLS_Solver::InitNeighborListManifold() {
   }
 }
 
-void GMLS_Solver::BuildNeighborListManifold() {
+void gmls_solver::BuildNeighborListManifold() {
   static vector<int> &neighborFlag =
       __neighbor.index.GetHandle("neighbor flag");
   static vector<vec3> &backgroundSourceCoord =

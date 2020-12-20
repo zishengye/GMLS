@@ -5,7 +5,7 @@
 
 using namespace std;
 
-void GMLS_Solver::WriteDataTimeStep() {
+void gmls_solver::WriteDataTimeStep() {
   static int writeStep = 0;
   vector<vec3> &coord = __field.vector.GetHandle("coord");
   vector<vec3> &particleSize = __field.vector.GetHandle("size");
@@ -323,7 +323,7 @@ void GMLS_Solver::WriteDataTimeStep() {
   writeStep++;
 }
 
-void GMLS_Solver::WriteDataAdaptiveStep() {
+void gmls_solver::WriteDataAdaptiveStep() {
   auto &coord = __field.vector.GetHandle("coord");
   auto &particleSize = __field.vector.GetHandle("size");
   auto &normal = __field.vector.GetHandle("normal");
@@ -532,7 +532,7 @@ void GMLS_Solver::WriteDataAdaptiveStep() {
   });
 }
 
-void GMLS_Solver::WriteDataAdaptiveGeometry() {
+void gmls_solver::WriteDataAdaptiveGeometry() {
   auto &coord = __field.vector.GetHandle("coord");
   auto &particleSize = __field.vector.GetHandle("size");
   auto &normal = __field.vector.GetHandle("normal");

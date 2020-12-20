@@ -12,7 +12,7 @@ inline double correct_radius(double x) {
   return x;
 }
 
-void GMLS_Solver::TimeIntegration() {
+void gmls_solver::TimeIntegration() {
   InitParticle();
 
   _multi.init(__dim);
@@ -42,21 +42,21 @@ void GMLS_Solver::TimeIntegration() {
 
   // equation type selection and initialization
   if (__equationType == "Stokes" && __manifoldOrder == 0) {
-    __equationSolverInitialization = &GMLS_Solver::StokesEquationInitialization;
-    __equationSolver = &GMLS_Solver::StokesEquation;
-    __equationSolverFinalization = &GMLS_Solver::StokesEquationFinalization;
+    __equationSolverInitialization = &gmls_solver::StokesEquationInitialization;
+    __equationSolver = &gmls_solver::StokesEquation;
+    __equationSolverFinalization = &gmls_solver::StokesEquationFinalization;
   }
 
   if (__equationType == "Poisson" && __manifoldOrder == 0) {
-    __equationSolver = &GMLS_Solver::PoissonEquation;
+    __equationSolver = &gmls_solver::PoissonEquation;
   }
 
   if (__equationType == "Poisson" && __manifoldOrder > 0) {
-    __equationSolver = &GMLS_Solver::PoissonEquationManifold;
+    __equationSolver = &gmls_solver::PoissonEquationManifold;
   }
 
   if (__equationType == "Diffusion" && __manifoldOrder > 0) {
-    __equationSolver = &GMLS_Solver::DiffusionEquationManifold;
+    __equationSolver = &gmls_solver::DiffusionEquationManifold;
   }
 
   if (__timeIntegrationMethod == "ForwardEuler") {
@@ -73,7 +73,7 @@ void GMLS_Solver::TimeIntegration() {
     Clear();
 }
 
-void GMLS_Solver::ForwardEulerIntegration() {
+void gmls_solver::ForwardEulerIntegration() {
   (this->*__equationSolverInitialization)();
 
   for (double t = 0; t < __finalTime + 1e-5; t += __dtMax) {
@@ -118,7 +118,7 @@ void GMLS_Solver::ForwardEulerIntegration() {
   (this->*__equationSolverFinalization)();
 }
 
-void GMLS_Solver::RungeKuttaIntegration() {
+void gmls_solver::RungeKuttaIntegration() {
   (this->*__equationSolverInitialization)();
 
   vector<vec3> &rigidBodyPosition = __rigidBody.vector.GetHandle("position");

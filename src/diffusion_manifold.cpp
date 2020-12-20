@@ -7,7 +7,7 @@
 using namespace std;
 using namespace Compadre;
 
-void GMLS_Solver::DiffusionEquationManifold() {
+void gmls_solver::DiffusionEquationManifold() {
   //   // create source and target coords
   //   int numSourceCoords = __backgroundParticle.coord.size();
   //   int numTargetCoords = __particle.X.size();

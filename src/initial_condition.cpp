@@ -7,4 +7,4 @@ using namespace Compadre;
 
 #define PI 3.1415926
 
-void GMLS_Solver::InitialCondition() {}
+void gmls_solver::InitialCondition() {}

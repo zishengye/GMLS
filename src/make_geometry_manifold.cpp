@@ -8,7 +8,7 @@ using namespace std;
 
 #define PI 3.1415926
 
-void GMLS_Solver::SetBoundingBoxManifold() {
+void gmls_solver::SetBoundingBoxManifold() {
   __coordinateSystem = 2;
 
   __boundingBoxSize[0] = 2 * PI;
@@ -27,7 +27,7 @@ void GMLS_Solver::SetBoundingBoxManifold() {
   }
 }
 
-void GMLS_Solver::SetBoundingBoxBoundaryManifold() {
+void gmls_solver::SetBoundingBoxBoundaryManifold() {
   __boundingBoxBoundaryType.resize(4);
 
   for (int i = 0; i < 4; i++) {
@@ -35,7 +35,7 @@ void GMLS_Solver::SetBoundingBoxBoundaryManifold() {
   }
 }
 
-void GMLS_Solver::SetDomainBoundaryManifold() {
+void gmls_solver::SetDomainBoundaryManifold() {
   // four edges as boundary
   // 0 down edge
   // 1 right edge
@@ -67,7 +67,7 @@ void GMLS_Solver::SetDomainBoundaryManifold() {
   }
 }
 
-void GMLS_Solver::InitDomainDecompositionManifold() {
+void gmls_solver::InitDomainDecompositionManifold() {
   ProcessSplit(__nX, __nY, __nI, __nJ, __MPISize, __myID);
   // BoundingBoxSplit(__boundingBoxSize, __boundingBoxCount, __boundingBox,
   //                  __particleSize0, __domainBoundingBox, __domainCount,
@@ -78,7 +78,7 @@ void GMLS_Solver::InitDomainDecompositionManifold() {
   InitNeighborListManifold();
 }
 
-void GMLS_Solver::InitUniformParticleManifoldField() {
+void gmls_solver::InitUniformParticleManifoldField() {
   static vector<vec3> &coord = __field.vector.GetHandle("coord");
   static vector<int> &globalIndex = __field.index.GetHandle("global index");
   static vector<int> &particleNum = __field.index.GetHandle("particle number");
@@ -115,7 +115,7 @@ void GMLS_Solver::InitUniformParticleManifoldField() {
   }
 }
 
-void GMLS_Solver::InitFieldParticleManifold() {
+void gmls_solver::InitFieldParticleManifold() {
   __cutoffDistance = 4.5 * std::max(__particleSize0[0], __particleSize0[1]);
 
   // double xPos, yPos;
@@ -156,7 +156,7 @@ void GMLS_Solver::InitFieldParticleManifold() {
   }
 }
 
-void GMLS_Solver::InitFieldBoundaryParticleManifold() {
+void gmls_solver::InitFieldBoundaryParticleManifold() {
   static vector<vec3> &coord = __field.vector.GetHandle("coord");
   static vector<vec3> &chartCoord = __field.vector.GetHandle("chart coord");
 

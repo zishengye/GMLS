@@ -2,7 +2,7 @@
 
 using namespace std;
 
-void GMLS_Solver::initial_guess_from_previous_adaptive_step(
+void gmls_solver::initial_guess_from_previous_adaptive_step(
     petsc_sparse_matrix &I, vector<double> &initial_guess) {
   // set initial guess for field values
   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");

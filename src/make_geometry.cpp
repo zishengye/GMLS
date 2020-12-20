@@ -6,7 +6,7 @@
 using namespace std;
 using namespace Compadre;
 
-void GMLS_Solver::SetBoundingBox() {
+void gmls_solver::SetBoundingBox() {
   if (__dim == 3) {
     __boundingBox.push_back(vec3(-__boundingBoxSize[0] / 2.0,
                                  -__boundingBoxSize[1] / 2.0,
@@ -22,7 +22,7 @@ void GMLS_Solver::SetBoundingBox() {
   }
 }
 
-void GMLS_Solver::SetBoundingBoxBoundary() {
+void gmls_solver::SetBoundingBoxBoundary() {
   if (__dim == 2) {
     __boundingBoxBoundaryType.resize(4);
 
@@ -38,7 +38,7 @@ void GMLS_Solver::SetBoundingBoxBoundary() {
   }
 }
 
-void GMLS_Solver::SetDomainBoundary() {
+void gmls_solver::SetDomainBoundary() {
   if (__dim == 3) {
     // six faces as boundary
     // 0 front face
@@ -117,7 +117,7 @@ void GMLS_Solver::SetDomainBoundary() {
   }
 }
 
-void GMLS_Solver::InitDomainDecomposition() {
+void gmls_solver::InitDomainDecomposition() {
   if (__dim == 3) {
     ProcessSplit(__nX, __nY, __nZ, __nI, __nJ, __nK, __MPISize, __myID);
   } else if (__dim == 2) {
@@ -127,9 +127,9 @@ void GMLS_Solver::InitDomainDecomposition() {
   InitNeighborList();
 }
 
-void GMLS_Solver::FinalizeDomainDecomposition() {}
+void gmls_solver::FinalizeDomainDecomposition() {}
 
-void GMLS_Solver::InitParticle() {
+void gmls_solver::InitParticle() {
   __background.vector.Register("coord");
   __background.vector.Register("source coord");
   __background.index.Register("index");
@@ -165,7 +165,7 @@ void GMLS_Solver::InitParticle() {
   __gap.index.Register("rigid body surface attached rigid body index");
 }
 
-void GMLS_Solver::ClearParticle() {
+void gmls_solver::ClearParticle() {
   static auto &backgroundCoord = __background.vector.GetHandle("coord");
   static auto &sourceCoord = __background.vector.GetHandle("source coord");
   static auto &backgroundIndex = __background.index.GetHandle("index");
@@ -243,7 +243,7 @@ void GMLS_Solver::ClearParticle() {
   gapRigidBodyAttachedRigidBodyIndex.clear();
 }
 
-void GMLS_Solver::InitUniformParticleField() {
+void gmls_solver::InitUniformParticleField() {
   static vector<vec3> &coord = __field.vector.GetHandle("coord");
 
   // adaptively adjust uniform particle distribution
@@ -320,7 +320,7 @@ void GMLS_Solver::InitUniformParticleField() {
   BuildNeighborList();
 }
 
-void GMLS_Solver::ParticleIndex() {
+void gmls_solver::ParticleIndex() {
   static auto &coord = __field.vector.GetHandle("coord");
   static auto &normal = __field.vector.GetHandle("normal");
   static auto &particleSize = __field.vector.GetHandle("size");
@@ -388,9 +388,9 @@ void GMLS_Solver::ParticleIndex() {
   }
 }
 
-bool GMLS_Solver::IsInGap(vec3 &xScalar) { return false; }
+bool gmls_solver::IsInGap(vec3 &xScalar) { return false; }
 
-void GMLS_Solver::InitFieldParticle() {
+void gmls_solver::InitFieldParticle() {
   static auto &coord = __field.vector.GetHandle("coord");
 
   double xPos, yPos, zPos;
@@ -743,7 +743,7 @@ void GMLS_Solver::InitFieldParticle() {
   }
 }
 
-void GMLS_Solver::InitFieldBoundaryParticle() {
+void gmls_solver::InitFieldBoundaryParticle() {
   static vector<vec3> &coord = __field.vector.GetHandle("coord");
 
   double xPos, yPos, zPos;
@@ -1130,7 +1130,7 @@ void GMLS_Solver::InitFieldBoundaryParticle() {
   }
 }
 
-void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
+void gmls_solver::SplitParticle(vector<int> &splitTag) {
   auto &particleType = __field.index.GetHandle("particle type");
   auto &particleSize = __field.vector.GetHandle("size");
   auto &adaptive_level = __field.index.GetHandle("adaptive level");
@@ -1309,7 +1309,7 @@ void GMLS_Solver::SplitParticle(vector<int> &splitTag) {
   BuildNeighborList();
 }
 
-void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
+void gmls_solver::SplitFieldParticle(vector<int> &splitTag) {
   static auto &coord = __field.vector.GetHandle("coord");
   static auto &normal = __field.vector.GetHandle("normal");
   static auto &particleSize = __field.vector.GetHandle("size");
@@ -1425,7 +1425,7 @@ void GMLS_Solver::SplitFieldParticle(vector<int> &splitTag) {
   }
 }
 
-void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
+void gmls_solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
   static auto &coord = __field.vector.GetHandle("coord");
   static auto &normal = __field.vector.GetHandle("normal");
   static auto &particleSize = __field.vector.GetHandle("size");
@@ -1586,7 +1586,7 @@ void GMLS_Solver::SplitFieldBoundaryParticle(vector<int> &splitTag) {
   }
 }
 
-void GMLS_Solver::SplitGapParticle(vector<int> &splitTag) {
+void gmls_solver::SplitGapParticle(vector<int> &splitTag) {
   static auto &coord = __field.vector.GetHandle("coord");
 
   int localIndex = coord.size();

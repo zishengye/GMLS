@@ -2,4 +2,4 @@
 
 using namespace std;
 
-void GMLS_Solver::EmposeBoundaryCondition() {}
+void gmls_solver::EmposeBoundaryCondition() {}

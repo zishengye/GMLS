@@ -19,7 +19,7 @@ void solution(double r, double phi, double omega, double &u, double &v) {
   v = vr * sin(phi) + vt * cos(phi);
 }
 
-void GMLS_Solver::StokesEquationInitialization() {
+void gmls_solver::StokesEquationInitialization() {
   __field.vector.Register("fluid velocity");
   __field.scalar.Register("fluid pressure");
 
@@ -39,7 +39,7 @@ void GMLS_Solver::StokesEquationInitialization() {
   *all_velocity = nullptr;
 }
 
-void GMLS_Solver::StokesEquationFinalization() {
+void gmls_solver::StokesEquationFinalization() {
   auto all_pressure = __gmls.GetPointer("pressure basis");
   auto neumann_pressure = __gmls.GetPointer("pressure basis neumann boundary");
   auto all_velocity = __gmls.GetPointer("velocity basis");
@@ -49,7 +49,7 @@ void GMLS_Solver::StokesEquationFinalization() {
   delete *all_velocity;
 }
 
-void GMLS_Solver::StokesEquation() {
+void gmls_solver::StokesEquation() {
   static vector<vec3> &backgroundSourceCoord =
       __background.vector.GetHandle("source coord");
   static vector<int> &backgroundSourceIndex =

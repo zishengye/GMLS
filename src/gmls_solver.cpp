@@ -4,7 +4,7 @@
 
 using namespace std;
 
-GMLS_Solver::GMLS_Solver(int argc, char **argv) {
+gmls_solver::gmls_solver(int argc, char **argv) {
   __adaptive_step = 0;
   // [default setup]
   __successInitialized = false;
@@ -255,4 +255,4 @@ GMLS_Solver::GMLS_Solver(int argc, char **argv) {
   MPI_Barrier(MPI_COMM_WORLD);
 }
 
-void GMLS_Solver::Clear() { _multi.clear(); }
+void gmls_solver::Clear() { _multi.clear(); }

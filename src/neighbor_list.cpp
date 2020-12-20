@@ -5,7 +5,7 @@
 
 using namespace std;
 
-void GMLS_Solver::InitNeighborList() {
+void gmls_solver::InitNeighborList() {
   vector<int> &neighborFlag = __neighbor.index.Register("neighbor flag");
 
   int neighborNum = pow(3, __dim);
@@ -76,7 +76,7 @@ void GMLS_Solver::InitNeighborList() {
     recvOffset[i] = 0;
 }
 
-void GMLS_Solver::BuildNeighborList() {
+void gmls_solver::BuildNeighborList() {
   static vector<int> &neighborFlag =
       __neighbor.index.GetHandle("neighbor flag");
   static vector<vec3> &backgroundSourceCoord =
@@ -395,7 +395,7 @@ void GMLS_Solver::BuildNeighborList() {
   PetscPrintf(PETSC_COMM_WORLD, "finish of building neighbor list\n");
 }
 
-void GMLS_Solver::DataSwapAmongNeighbor(vector<int> &sendData,
+void gmls_solver::DataSwapAmongNeighbor(vector<int> &sendData,
                                         vector<int> &recvData) {
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -448,7 +448,7 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<int> &sendData,
   MPI_Barrier(MPI_COMM_WORLD);
 }
 
-void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
+void gmls_solver::DataSwapAmongNeighbor(vector<double> &sendData,
                                         vector<double> &recvData) {
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -501,7 +501,7 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<double> &sendData,
   MPI_Barrier(MPI_COMM_WORLD);
 }
 
-void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
+void gmls_solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
                                         vector<vec3> &recvData) {
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -564,7 +564,7 @@ void GMLS_Solver::DataSwapAmongNeighbor(vector<vec3> &sendData,
   MPI_Barrier(MPI_COMM_WORLD);
 }
 
-void GMLS_Solver::DataSwapAmongNeighbor(vector<vector<double>> &sendData,
+void gmls_solver::DataSwapAmongNeighbor(vector<vector<double>> &sendData,
                                         vector<vector<double>> &recvData,
                                         const int unitLength = 1) {
   MPI_Barrier(MPI_COMM_WORLD);

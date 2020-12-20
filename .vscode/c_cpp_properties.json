@@ -9,7 +9,8 @@
                 "/opt/petsc/include",
                 "/opt/compadre/include",
                 "/opt/kokkos/include",
-                "/usr/include/openmpi"
+                "/usr/include/openmpi",
+                "/opt/trilinos/include"
             ],
             "defines": [
                 "_DEBUG",
@@ -30,7 +31,8 @@
                     "/opt/petsc/include",
                     "/opt/compadre/include",
                     "/opt/kokkos/include",
-                    "/usr/include/openmpi"
+                    "/usr/include/openmpi",
+                    "/opt/trilinos/include"
                 ]
             },
             "windowsSdkVersion": "8.1",

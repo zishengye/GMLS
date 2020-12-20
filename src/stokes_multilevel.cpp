@@ -8,7 +8,7 @@
 using namespace std;
 using namespace Compadre;
 
-void GMLS_Solver::BuildInterpolationAndRestrictionMatrices(
+void gmls_solver::BuildInterpolationAndRestrictionMatrices(
     petsc_sparse_matrix &I, petsc_sparse_matrix &R, int num_rigid_body,
     int dimension) {
   static auto &coord = __field.vector.GetHandle("coord");

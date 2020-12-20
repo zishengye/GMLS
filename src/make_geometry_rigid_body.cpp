@@ -7,7 +7,7 @@
 
 using namespace std;
 
-void GMLS_Solver::InitRigidBody() {
+void gmls_solver::InitRigidBody() {
   vector<vec3> &rigidBodyPosition = __rigidBody.vector.Register("position");
   vector<vec3> &rigidBodyOrientation =
       __rigidBody.vector.Register("orientation");
@@ -63,7 +63,7 @@ void GMLS_Solver::InitRigidBody() {
   }
 }
 
-int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
+int gmls_solver::IsInRigidBody(const vec3 &pos, double h,
                                int attachedRigidBodyIndex) {
   static vector<vec3> &rigidBodyCoord =
       __rigidBody.vector.GetHandle("position");
@@ -228,7 +228,7 @@ int GMLS_Solver::IsInRigidBody(const vec3 &pos, double h,
   return -2;
 }
 
-void GMLS_Solver::InitRigidBodySurfaceParticle() {
+void gmls_solver::InitRigidBodySurfaceParticle() {
   static vector<vec3> &rigidBodyCoord =
       __rigidBody.vector.GetHandle("position");
   static vector<vec3> &rigidBodyOrientation =
@@ -563,7 +563,7 @@ void GMLS_Solver::InitRigidBodySurfaceParticle() {
   }
 }
 
-void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
+void gmls_solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
   static auto &coord = __field.vector.GetHandle("coord");
   static auto &normal = __field.vector.GetHandle("normal");
   static auto &particleSize = __field.vector.GetHandle("size");
@@ -779,7 +779,7 @@ void GMLS_Solver::SplitRigidBodySurfaceParticle(vector<int> &splitTag) {
   }
 }
 
-void GMLS_Solver::SplitGapRigidBodyParticle(vector<int> &splitTag) {
+void gmls_solver::SplitGapRigidBodyParticle(vector<int> &splitTag) {
   static auto &coord = __field.vector.GetHandle("coord");
 
   int localIndex = coord.size();
@@ -876,7 +876,7 @@ void GMLS_Solver::SplitGapRigidBodyParticle(vector<int> &splitTag) {
   }
 }
 
-void GMLS_Solver::UpdateRigidBodySurfaceParticlePointCloudSearch() {
+void gmls_solver::UpdateRigidBodySurfaceParticlePointCloudSearch() {
   static auto &particleType = __field.index.GetHandle("particle type");
   static auto &particleSize = __field.vector.GetHandle("size");
   static vector<vec3> &backgroundSourceCoord =
@@ -915,7 +915,7 @@ void GMLS_Solver::UpdateRigidBodySurfaceParticlePointCloudSearch() {
   }
 }
 
-bool GMLS_Solver::IsAcceptableRigidBodyPosition() {
+bool gmls_solver::IsAcceptableRigidBodyPosition() {
   vector<vec3> &rigidBodyPosition = __rigidBody.vector.Register("position");
   vector<double> &rigidBodySize = __rigidBody.scalar.Register("size");
 
