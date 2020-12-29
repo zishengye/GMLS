@@ -10,7 +10,7 @@
 struct HypreLUShellPC {
   stokes_multilevel *multi;
 
-  int adaptive_level;
+  int refinement_level;
 
   PetscInt local_particle_num, global_particle_num, field_dof;
 };

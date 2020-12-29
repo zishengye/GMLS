@@ -9,14 +9,11 @@ class petsc_is {
 private:
   IS is;
 
-  // control flags
-  bool is_created;
-
 public:
-  petsc_is() : is_created(false) {}
+  petsc_is() : is(PETSC_NULL) {}
 
   ~petsc_is() {
-    if (is_created)
+    if (is != PETSC_NULL)
       ISDestroy(&is);
   }
 
@@ -24,6 +21,8 @@ public:
   void create_local(std::vector<int> &idx);
 
   IS &get_reference() { return is; }
+
+  IS *get_pointer() { return &is; }
 };
 
 #endif

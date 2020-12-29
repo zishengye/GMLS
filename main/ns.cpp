@@ -39,11 +39,11 @@ int main(int argc, char *argv[]) {
   {
     gmls_solver ns(inputCommandCount, inputCommand);
 
-    if (!ns.IsSuccessInit()) {
+    if (!ns.is_initialized()) {
       return -1;
     }
 
-    ns.TimeIntegration();
+    ns.time_integration();
   }
 
   MPI_Barrier(MPI_COMM_WORLD);

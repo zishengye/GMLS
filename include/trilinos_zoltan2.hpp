@@ -37,7 +37,7 @@ private:
   int rank, size;
 
 public:
-  trilinos_rcp_partitioner() : params("test params") {
+  trilinos_rcp_partitioner() : params("zoltan2 params") {
     comm = Tpetra::getDefaultComm();
 
     rank = comm->getRank();

@@ -5,213 +5,167 @@
 using namespace std;
 
 gmls_solver::gmls_solver(int argc, char **argv) {
-  __adaptive_step = 0;
+  current_refinement_step = 0;
   // [default setup]
-  __successInitialized = false;
+  initialization_status = false;
 
   // change stdout to log file
 
   MPI_Barrier(MPI_COMM_WORLD);
 
   // MPI setup
-  MPI_Comm_size(MPI_COMM_WORLD, &__MPISize);
-  MPI_Comm_rank(MPI_COMM_WORLD, &__myID);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   char processor_name[MPI_MAX_PROCESSOR_NAME];
   int name_len;
   MPI_Get_processor_name(processor_name, &name_len);
-  // SerialOperation([processor_name, this]() {
+  // serial_operation([processor_name, this]() {
   //   cout << "[Process " << __myID << "], on " << processor_name << endl;
   // });
 
   string outputFileName;
   if (SearchCommand<string>(argc, argv, "-OutputFile", outputFileName) == 0) {
-    if (__myID == 0) {
+    if (rank == 0) {
       freopen(outputFileName.data(), "w", stdout);
     }
   }
 
   // default dimension is 3
-  if (SearchCommand<int>(argc, argv, "-Dim", __dim) == 1) {
-    __dim = 3;
+  if (SearchCommand<int>(argc, argv, "-Dim", dim) == 1) {
+    dim = 3;
   } else {
-    if (__dim > 3 || __dim < 1) {
+    if (dim > 3 || dim < 1) {
       PetscPrintf(PETSC_COMM_WORLD, "Wrong dimension!\n");
       return;
     }
   }
 
+  // default spacing is 0.1
+  if (SearchCommand<double>(argc, argv, "-Spacing", spacing) == 1) {
+    spacing = 0.1;
+  }
+
   // default time integration method is forward euler method
-  if (SearchCommand<string>(argc, argv, "-TimeIntegration",
-                            __timeIntegrationMethod) == 1) {
-    __timeIntegrationMethod = "ForwardEuler";
+  if (SearchCommand<string>(argc, argv, "-time_integration",
+                            time_integration_method) == 1) {
+    time_integration_method = "ForwardEuler";
   } else {
     // TODO: check the correctness of the command
   }
 
   // default governing equation is Navier-Stokes equation
-  if (SearchCommand<string>(argc, argv, "-EquationType", __equationType) == 1) {
-    __equationType = "Navier-Stokes";
+  if (SearchCommand<string>(argc, argv, "-EquationType", equation_type) == 1) {
+    equation_type = "Navier-Stokes";
   } else {
     // TODO: check the correctness of the command
   }
 
   // default particle scheme is Eulerian particles
-  if ((SearchCommand<string>(argc, argv, "-Scheme", __schemeType)) == 1) {
-    __schemeType = "Eulerian";
+  if ((SearchCommand<string>(argc, argv, "-Scheme", scheme_type)) == 1) {
+    scheme_type = "Eulerian";
   } else {
     // TODO: check the correctness of the command
   }
 
   // defalut discretization order is 2
-  if ((SearchCommand<int>(argc, argv, "-PolynomialOrder", __polynomialOrder)) ==
+  if ((SearchCommand<int>(argc, argv, "-PolynomialOrder", polynomial_order)) ==
       1) {
-    __polynomialOrder = 2;
+    polynomial_order = 2;
   } else {
     // TODO: check the correctness of the command
   }
 
   if ((SearchCommand<int>(argc, argv, "-WeightingFunctionOrder",
-                          __weightFuncOrder)) == 1) {
-    __weightFuncOrder = 4;
+                          weight_func_order)) == 1) {
+    weight_func_order = 4;
   } else {
     // TODO: check the correctness of the command
   }
 
   // default serial output
-  if ((SearchCommand<int>(argc, argv, "-WriteData", __writeData)) == 1) {
-    __writeData = 0;
+  if ((SearchCommand<int>(argc, argv, "-WriteData", write_data)) == 1) {
+    write_data = 0;
   }
 
-  if ((SearchCommand<int>(argc, argv, "-AdaptiveRefinement",
-                          __adaptiveRefinement)) == 1) {
-    __adaptiveRefinement = 0;
+  string refinement_field_name;
+  if ((SearchCommand<int>(argc, argv, "-Refinement", refinement_method)) == 1) {
+    refinement_method = 0;
   } else {
-    if ((SearchCommand<double>(argc, argv, "-AdaptiveRefinementTolerance",
-                               __adaptiveRefinementTolerance)) == 1) {
-      __adaptiveRefinementTolerance = 1e-3;
+    if ((SearchCommand<double>(argc, argv, "-RefinementTolerance",
+                               refinement_tolerance)) == 1) {
+      refinement_tolerance = 1e-3;
+    }
+    if ((SearchCommand<int>(argc, argv, "-MaxRefinementLevel",
+                            max_refinement_level)) == 1) {
+      max_refinement_level = 4;
     }
 
-    if ((SearchCommand<string>(argc, argv, "-AdaptiveBaseField",
-                               __adaptive_base_field)) == 1) {
-      __adaptive_base_field = "Pressure";
-    }
-
-    if ((SearchCommand<int>(argc, argv, "-MaxAdaptiveLevel",
-                            __maxAdaptiveLevel)) == 1) {
-      __maxAdaptiveLevel = 4;
-    }
-  }
-
-  if ((SearchCommand<int>(argc, argv, "-AutoRefinement", __autoRefinement)) ==
-      1) {
-    __autoRefinement = 0;
-  }
-
-  // default manifold flag is off
-  if ((SearchCommand<int>(argc, argv, "-ManifoldOrder", __manifoldOrder)) ==
-      1) {
-    __manifoldOrder = 0;
-  } else {
-    if (__manifoldOrder < 0) {
-      return;
+    if ((SearchCommand<string>(argc, argv, "-RefinementField",
+                               refinement_field_name)) == 1) {
+      refinement_field = 1;
+    } else {
+      refinement_field = 1;
+      if (refinement_field_name == "Velocity") {
+        refinement_field = 1;
+      }
+      if (refinement_field_name == "Pressure") {
+        refinement_field = 2;
+      }
     }
   }
 
   // [optional command]
   if (SearchCommand<string>(argc, argv, "-rigid_body_input",
-                            __rigidBodyInputFileName) == 0) {
-    __rigidBodyInclusion = true;
+                            rigid_body_input_file_name) == 0) {
+    rigid_body_inclusion = true;
     if (SearchCommand<string>(argc, argv, "-traj_output",
-                              __trajectoryOutputFileName) == 1) {
-      __trajectoryOutputFileName = "traj.txt";
+                              trajectory_output_file_name) == 1) {
+      trajectory_output_file_name = "traj.txt";
     }
     if (SearchCommand<string>(argc, argv, "-vel_output",
-                              __velocityOutputFileName) == 1) {
-      __velocityOutputFileName = "vel.txt";
+                              velocity_output_file_name) == 1) {
+      velocity_output_file_name = "vel.txt";
     }
   } else {
-    __rigidBodyInclusion = false;
+    rigid_body_inclusion = false;
   }
 
   // [parameter must appear in command]
-
-  // discretization parameter
-  if (__dim == 3) {
-    int xCheck = SearchCommand<int>(argc, argv, "-Mx", __boundingBoxCount[0]);
-    int yCheck = SearchCommand<int>(argc, argv, "-My", __boundingBoxCount[1]);
-    int zCheck = SearchCommand<int>(argc, argv, "-Mz", __boundingBoxCount[2]);
-
-    if ((xCheck == 1) && (yCheck == 1) && (zCheck == 1)) {
-      return;
-    } else {
-      // TODO: check the correctness of the command
-    }
-
-    xCheck = SearchCommand<double>(argc, argv, "-X", __boundingBoxSize[0]);
-    yCheck = SearchCommand<double>(argc, argv, "-Y", __boundingBoxSize[1]);
-    zCheck = SearchCommand<double>(argc, argv, "-Z", __boundingBoxSize[2]);
-    if (xCheck == 1)
-      __boundingBoxSize[0] = 2.0;
-    if (yCheck == 1)
-      __boundingBoxSize[1] = 2.0;
-    if (zCheck == 1)
-      __boundingBoxSize[2] = 2.0;
-  } else if (__dim == 2) {
-    int xCheck = SearchCommand<int>(argc, argv, "-Mx", __boundingBoxCount[0]);
-    int yCheck = SearchCommand<int>(argc, argv, "-My", __boundingBoxCount[1]);
-    if ((xCheck == 1) && (yCheck == 1)) {
-      return;
-    } else {
-      // TODO: check the correctness of the command
-    }
-
-    xCheck = SearchCommand<double>(argc, argv, "-X", __boundingBoxSize[0]);
-    yCheck = SearchCommand<double>(argc, argv, "-Y", __boundingBoxSize[1]);
-    if (xCheck == 1)
-      __boundingBoxSize[0] = 2.0;
-    if (yCheck == 1)
-      __boundingBoxSize[1] = 2.0;
-    __boundingBoxSize[2] = 0.0;
-  } else {
-    PetscPrintf(PETSC_COMM_WORLD, "Please specify discretization parameter!\n");
-    return;
-  }
-
   // final time
-  if ((SearchCommand<double>(argc, argv, "-ft", __finalTime)) == 1) {
+  if ((SearchCommand<double>(argc, argv, "-ft", final_time)) == 1) {
     return;
-  } else if (__finalTime < 0.0) {
+  } else if (final_time < 0.0) {
     return;
   }
 
   // time step
-  if ((SearchCommand<double>(argc, argv, "-dt", __dtMax)) == 1) {
+  if ((SearchCommand<double>(argc, argv, "-dt", max_dt)) == 1) {
     return;
-  } else if (__dtMax < 0.0) {
+  } else if (max_dt < 0.0) {
     return;
   }
 
   // kinetic viscosity distance
-  if ((SearchCommand<double>(argc, argv, "-eta", __eta)) == 1) {
+  if ((SearchCommand<double>(argc, argv, "-eta", eta)) == 1) {
     return;
-  } else if (__eta < 0.0) {
-    return;
-  }
-
-  if ((SearchCommand<int>(argc, argv, "-BatchSize", __batchSize)) == 1) {
-    return;
-  } else if (__batchSize < 0) {
+  } else if (eta < 0.0) {
     return;
   }
 
-  if ((SearchCommand<int>(argc, argv, "-Viewer", __viewer)) == 1) {
-    __viewer = 0;
+  if ((SearchCommand<int>(argc, argv, "-BatchSize", batch_size)) == 1) {
+    return;
+  } else if (batch_size < 0) {
+    return;
+  }
+
+  if ((SearchCommand<int>(argc, argv, "-Viewer", use_viewer)) == 1) {
+    use_viewer = 0;
   }
 
   if ((SearchCommand<double>(argc, argv, "-EpsilonMultiplier",
-                             __epsilonMultiplier)) == 1) {
-    __epsilonMultiplier = 0.0;
+                             epsilon_multipler)) == 1) {
+    epsilon_multipler = 0.0;
   }
 
   // [summary of problem setup]
@@ -219,40 +173,51 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   PetscPrintf(PETSC_COMM_WORLD, "===============================\n");
   PetscPrintf(PETSC_COMM_WORLD, "==== Problem setup summary ====\n");
   PetscPrintf(PETSC_COMM_WORLD, "===============================\n");
-  PetscPrintf(PETSC_COMM_WORLD, "==> Dimension: %d\n", __dim);
+  PetscPrintf(PETSC_COMM_WORLD, "==> Dimension: %d\n", dim);
   PetscPrintf(PETSC_COMM_WORLD, "==> Governing equation: %s\n",
-              __equationType.c_str());
-  PetscPrintf(PETSC_COMM_WORLD, "==> Time interval: %fs\n", __dtMax);
-  PetscPrintf(PETSC_COMM_WORLD, "==> Final time: %fs\n", __finalTime);
-  PetscPrintf(PETSC_COMM_WORLD, "==> Polynomial order: %d\n",
-              __polynomialOrder);
-  if (__dim == 3) {
-    PetscPrintf(PETSC_COMM_WORLD, "==> Particle count in X axis: %d\n",
-                __boundingBoxCount[0]);
-    PetscPrintf(PETSC_COMM_WORLD, "==> Particle count in Y axis: %d\n",
-                __boundingBoxCount[1]);
-    PetscPrintf(PETSC_COMM_WORLD, "==> Particle count in Z axis: %d\n",
-                __boundingBoxCount[2]);
+              equation_type.c_str());
+  PetscPrintf(PETSC_COMM_WORLD, "==> Time interval: %fs\n", max_dt);
+  PetscPrintf(PETSC_COMM_WORLD, "==> Final time: %fs\n", final_time);
+  PetscPrintf(PETSC_COMM_WORLD, "==> Polynomial order: %d\n", polynomial_order);
+  PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", eta);
+  if (refinement_method != 0) {
+    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement: on\n");
+    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement method:  %d\n",
+                refinement_method);
+    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement tolerance:  %f\n",
+                refinement_tolerance);
+    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement field: %s(%d)\n",
+                refinement_field_name.c_str(), refinement_field);
+    PetscPrintf(PETSC_COMM_WORLD, "==> Maximum refinement level: %d\n",
+                max_refinement_level);
   } else {
-    PetscPrintf(PETSC_COMM_WORLD, "==> Particle count in X axis: %d\n",
-                __boundingBoxCount[0]);
-    PetscPrintf(PETSC_COMM_WORLD, "==> Particle count in Y axis: %d\n",
-                __boundingBoxCount[1]);
-  }
-  PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", __eta);
-  if (__adaptiveRefinement) {
-    PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: on\n");
-    PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement tolerance:  %f\n",
-                __adaptiveRefinementTolerance);
-    PetscPrintf(PETSC_COMM_WORLD, "==> Maximum adaptive refinement level: %d\n",
-                __maxAdaptiveLevel);
-  } else {
-    PetscPrintf(PETSC_COMM_WORLD, "==> Adaptive refinement: off\n");
+    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement: off\n");
   }
 
-  __successInitialized = true;
+  initialization_status = true;
 
   MPI_Barrier(MPI_COMM_WORLD);
-}
 
-void gmls_solver::Clear() { _multi.clear(); }
+  geo_mgr = make_shared<particle_geometry>();
+  rb_mgr = make_shared<rigid_body_manager>();
+
+  geo_mgr->init(dim, STANDARD_PROBLEM, refinement_method, spacing);
+  rb_mgr->init(rigid_body_input_file_name, dim);
+  geo_mgr->init_rigid_body(rb_mgr);
+
+  // equation type selection and initialization
+  if (equation_type == "Stokes") {
+    equation_mgr = make_shared<stokes_equation>();
+  }
+
+  if (equation_type == "Poisson") {
+  }
+
+  if (equation_type == "Poisson") {
+  }
+
+  if (equation_type == "Diffusion") {
+  }
+
+  equation_mgr->init(geo_mgr, rb_mgr, polynomial_order, dim, refinement_field);
+}

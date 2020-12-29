@@ -41,7 +41,7 @@ class petsc_sparse_matrix {
 private:
   fluid_colloid_matrix_context __ctx;
 
-  bool __is_assembled, __is_shell_assembled, __is_ctx_assembled;
+  bool is_assembled, is_shell_assembled, is_ctx_assembled;
 
   typedef std::pair<PetscInt, double> entry;
   std::vector<std::vector<entry>> __matrix;
@@ -58,18 +58,18 @@ private:
 
 public:
   petsc_sparse_matrix()
-      : __is_ctx_assembled(false), __is_shell_assembled(false),
-        __is_assembled(false), __row(0), __col(0), __Col(0),
-        __out_process_row(0), __out_process_reduction(0) {}
+      : is_ctx_assembled(false), is_shell_assembled(false), is_assembled(false),
+        __row(0), __col(0), __Col(0), __out_process_row(0),
+        __out_process_reduction(0), __mat(PETSC_NULL), __shell_mat(PETSC_NULL) {
+  }
 
   // only for square matrix
   petsc_sparse_matrix(PetscInt m /* local # of rows */,
                       PetscInt N /* global # of cols */,
                       PetscInt out_process_row = 0,
                       PetscInt out_process_row_reduction = 0)
-      : __is_ctx_assembled(false), __is_shell_assembled(false),
-        __is_assembled(false), __row(m), __col(m), __Col(N),
-        __out_process_row(out_process_row),
+      : is_ctx_assembled(false), is_shell_assembled(false), is_assembled(false),
+        __row(m), __col(m), __Col(N), __out_process_row(out_process_row),
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
     __out_process_matrix.resize(out_process_row);
@@ -80,20 +80,23 @@ public:
                       PetscInt N /* global # of cols */,
                       PetscInt out_process_row = 0,
                       PetscInt out_process_row_reduction = 0)
-      : __is_ctx_assembled(false), __is_shell_assembled(false),
-        __is_assembled(false), __row(m), __col(n), __Col(N),
-        __out_process_row(out_process_row),
+      : is_ctx_assembled(false), is_shell_assembled(false), is_assembled(false),
+        __row(m), __col(n), __Col(N), __out_process_row(out_process_row),
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
     __out_process_matrix.resize(out_process_row);
   }
 
   ~petsc_sparse_matrix() {
-    if (__is_assembled)
+    if (is_assembled || __mat != PETSC_NULL) {
+      MatSetNearNullSpace(__mat, NULL);
       MatDestroy(&__mat);
-    if (__is_shell_assembled)
+    }
+    if (is_shell_assembled || __shell_mat != PETSC_NULL) {
+      MatSetNearNullSpace(__shell_mat, NULL);
       MatDestroy(&__shell_mat);
-    if (__is_ctx_assembled) {
+    }
+    if (is_ctx_assembled) {
       MatDestroy(&__ctx.colloid_part);
       MatDestroy(&__ctx.fluid_part);
       VecDestroy(&__ctx.colloid_vec);
@@ -125,13 +128,24 @@ public:
 
   Mat &get_reference() { return __mat; }
 
+  Mat *get_pointer() { return &__mat; }
+
   Mat &get_shell_reference() { return __shell_mat; }
 
+  Mat *get_shell_pointer() { return &__shell_mat; }
+
   Mat &get_operator_reference() {
-    if (__is_shell_assembled)
+    if (is_shell_assembled)
       return __shell_mat;
     else
       return __mat;
+  }
+
+  Mat *get_operator_pointer() {
+    if (is_shell_assembled)
+      return &__shell_mat;
+    else
+      return &__mat;
   }
 
   inline void set_col_index(const PetscInt row, std::vector<PetscInt> &index);
@@ -149,7 +163,7 @@ public:
   int assemble(petsc_sparse_matrix &mat, int blockSize, int num_rigid_body,
                int rigid_body_dof);
 
-  int extract_neighbor_index(std::vector<int> &idx_neighbor, int dimension,
+  int extract_neighbor_index(std::vector<int> &idx_colloid, int dimension,
                              int num_rigid_body, int local_rigid_body_offset,
                              int global_rigid_body_offset);
 
@@ -161,7 +175,7 @@ public:
   void solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
              int numRigidBody);
   void solve(std::vector<double> &rhs, std::vector<double> &x,
-             std::vector<int> &idx_neighbor, int dimension, int numRigidBody,
+             std::vector<int> &idx_colloid, int dimension, int numRigidBody,
              int adaptive_step, petsc_sparse_matrix &I, petsc_sparse_matrix &R);
   // two field solver with rigid body inclusion
 

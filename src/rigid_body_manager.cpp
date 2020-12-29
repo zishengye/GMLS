@@ -8,7 +8,7 @@ using namespace std;
 void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
   ifstream input(rigid_body_input_file_name, ios::in);
   if (!input.is_open()) {
-    PetscPrintf(PETSC_COMM_WORLD, "rigid body input file not exist\n");
+    PetscPrintf(PETSC_COMM_WORLD, "rigid body input file does not exist\n");
     return;
   }
 
@@ -45,3 +45,5 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
      */
   }
 }
+
+bool rigid_body_manager::rigid_body_collision_detection() { return false; }

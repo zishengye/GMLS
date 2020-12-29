@@ -27,6 +27,8 @@ public:
 
   const int get_rigid_body_num() { return rigid_body_position.size(); }
 
+  std::vector<int> &get_rigid_body_type() { return rigid_body_type; }
+
   const int get_rigid_body_type(const int _rigid_body_index) {
     if (_rigid_body_index < rigid_body_position.size()) {
       return rigid_body_type[_rigid_body_index];
@@ -34,6 +36,8 @@ public:
       return -1;
     }
   }
+
+  std::vector<double> &get_rigid_body_size() { return rigid_body_size; }
 
   const double get_rigid_body_size(const int _rigid_body_index) {
     if (_rigid_body_index < rigid_body_position.size()) {
@@ -61,6 +65,12 @@ public:
     } else {
       return vec3(0.0, 0.0, 0.0);
     }
+  }
+
+  std::vector<vec3> &get_velocity() { return rigid_body_velocity; }
+
+  std::vector<vec3> &get_angular_velocity() {
+    return rigid_body_angular_velocity;
   }
 
   void set_position(int _rigid_body_index, vec3 &_position) {

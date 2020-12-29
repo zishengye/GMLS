@@ -165,7 +165,7 @@ int petsc_sparse_matrix::assemble() {
                               PETSC_DECIDE, __i.data(), __j.data(),
                               __val.data(), &__mat);
 
-  __is_assembled = true;
+  is_assembled = true;
 
   return __nnz;
 }
@@ -317,7 +317,7 @@ int petsc_sparse_matrix::assemble(int block_size) {
                                   __val.data());
   }
 
-  __is_assembled = true;
+  is_assembled = true;
 
   __i.clear();
   __j.clear();
@@ -490,7 +490,7 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
                                   __val.data());
   }
 
-  pmat.__is_assembled = true;
+  pmat.is_assembled = true;
 
   // non-block version
   __i.resize(__row + 1);
@@ -594,19 +594,19 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
                             __Col, __i.data(), __j.data(), __val.data(),
                             &(__ctx.fluid_part));
 
-  __is_assembled = true;
-  __is_shell_assembled = true;
-  __is_ctx_assembled = true;
+  is_assembled = true;
+  is_shell_assembled = true;
+  is_ctx_assembled = true;
 
   return __nnz;
 }
 
-int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_neighbor,
+int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
                                                 int dimension,
                                                 int num_rigid_body,
                                                 int local_rigid_body_offset,
                                                 int global_rigid_body_offset) {
-  idx_neighbor.clear();
+  idx_colloid.clear();
 
   int MPIsize, myId;
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
@@ -899,13 +899,13 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_neighbor,
         MPI_Status stat;
         MPI_Recv(&neighborInclusionSize, 1, MPI_INT, MPIsize - 1, 0,
                  MPI_COMM_WORLD, &stat);
-        idx_neighbor.resize(neighborInclusionSize);
-        MPI_Recv(idx_neighbor.data(), neighborInclusionSize, MPI_INT,
+        idx_colloid.resize(neighborInclusionSize);
+        MPI_Recv(idx_colloid.data(), neighborInclusionSize, MPI_INT,
                  MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
       }
     } else {
       if (myId == MPIsize - 1)
-        idx_neighbor = move(neighborInclusion);
+        idx_colloid = move(neighborInclusion);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -917,7 +917,7 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_neighbor,
 }
 
 void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x) {
-  if (__is_assembled) {
+  if (is_assembled) {
     petsc_vector _rhs, _x;
     _rhs.create(rhs);
     _x.create(_rhs);
@@ -947,7 +947,7 @@ void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x) {
 
 void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x,
                                 PetscInt block_size) {
-  if (__is_assembled) {
+  if (is_assembled) {
     petsc_vector _rhs, _x, _null;
     _rhs.create(rhs);
     _x.create(_rhs);
@@ -1187,8 +1187,7 @@ void solve(petsc_sparse_matrix &A, petsc_sparse_matrix &Bt,
            petsc_sparse_matrix &B, petsc_sparse_matrix &C, vector<double> &f,
            vector<double> &g, vector<double> &x, vector<double> &y,
            int numRigid, int rigidBodyDof) {
-  if (!A.__is_assembled || !Bt.__is_assembled || !B.__is_assembled ||
-      !C.__is_assembled)
+  if (!A.is_assembled || !Bt.is_assembled || !B.is_assembled || !C.is_assembled)
     return;
 
   // setup rhs
@@ -1436,7 +1435,7 @@ void solve(petsc_sparse_matrix &A, petsc_sparse_matrix &Bt,
 }
 
 void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x,
-                                vector<int> &idx_neighbor, int dimension,
+                                vector<int> &idx_colloid, int dimension,
                                 int numRigidBody, int adatptive_step,
                                 petsc_sparse_matrix &I,
                                 petsc_sparse_matrix &R) {
@@ -1492,7 +1491,7 @@ void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x,
 
   ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
                   PETSC_COPY_VALUES, &isg_field);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_neighbor.size(), idx_neighbor.data(),
+  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid.size(), idx_colloid.data(),
                   PETSC_COPY_VALUES, &isg_neighbor);
   ISCreateGeneral(MPI_COMM_WORLD, idx_global.size(), idx_global.data(),
                   PETSC_COPY_VALUES, &isg_global);

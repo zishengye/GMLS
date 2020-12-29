@@ -19,7 +19,7 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, stokes_multilevel *multi, Vec x,
 
   shell->multi = multi;
 
-  shell->adaptive_level = shell->multi->get_interpolation_list().size();
+  shell->refinement_level = shell->multi->get_interpolation_list().size();
 
   shell->local_particle_num = local_particle_num;
   shell->field_dof = field_dof;
@@ -33,12 +33,6 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, stokes_multilevel *multi, Vec x,
 }
 
 PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
-  static double amg_duration = 0.0;
-  static double matvec_duration = 0.0;
-  static double lu_duration = 0.0;
-  static double neighbor_vec_duration = 0.0;
-
-  double tStart, tEnd;
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -72,12 +66,9 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
                 shell->multi->get_x_field_list()[0]->get_reference(),
                 INSERT_VALUES, SCATTER_FORWARD);
 
-  tStart = MPI_Wtime();
   KSPSolve(shell->multi->get_field_base()->get_reference(),
            shell->multi->get_x_field_list()[0]->get_reference(),
            shell->multi->get_y_field_list()[0]->get_reference());
-  tEnd = MPI_Wtime();
-  amg_duration += tEnd - tStart;
 
   VecScatterBegin(shell->multi->get_field_scatter_list()[0]->get_reference(),
                   shell->multi->get_y_field_list()[0]->get_reference(), y,
@@ -99,11 +90,11 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecRestoreArray(y, &a);
 
   // stage 2
-  tStart = MPI_Wtime();
+
+  shell->multi->get_colloid_whole_mat(0)->get_reference();
+  shell->multi->get_colloid_x()->get_reference();
   MatMult(shell->multi->get_colloid_whole_mat(0)->get_reference(), y,
           shell->multi->get_colloid_x()->get_reference());
-  tEnd = MPI_Wtime();
-  matvec_duration += tEnd - tStart;
 
   VecScatterBegin(shell->multi->get_colloid_scatter_list()[0]->get_reference(),
                   x, shell->multi->get_colloid_y()->get_reference(),
@@ -115,22 +106,16 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecAXPY(shell->multi->get_colloid_y()->get_reference(), -1.0,
           shell->multi->get_colloid_x()->get_reference());
 
-  tStart = MPI_Wtime();
   KSPSolve(shell->multi->get_colloid_base()->get_reference(),
            shell->multi->get_colloid_y()->get_reference(),
            shell->multi->get_colloid_x()->get_reference());
-  tEnd = MPI_Wtime();
-  lu_duration += tEnd - tStart;
 
-  tStart = MPI_Wtime();
   VecScatterBegin(shell->multi->get_colloid_scatter_list()[0]->get_reference(),
                   shell->multi->get_colloid_x()->get_reference(), y, ADD_VALUES,
                   SCATTER_REVERSE);
   VecScatterEnd(shell->multi->get_colloid_scatter_list()[0]->get_reference(),
                 shell->multi->get_colloid_x()->get_reference(), y, ADD_VALUES,
                 SCATTER_REVERSE);
-  tEnd = MPI_Wtime();
-  neighbor_vec_duration += tEnd - tStart;
 
   // orthogonalize to constant vector
   VecGetArray(y, &a);
@@ -156,12 +141,11 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   PetscReal pressure_sum;
   PetscInt size;
 
-  VecCopy(
-      x,
-      shell->multi->get_b_list()[shell->adaptive_level - 1]->get_reference());
+  VecCopy(x,
+          shell->multi->get_b_list()[shell->refinement_level]->get_reference());
 
   // sweep down
-  for (int i = shell->adaptive_level - 1; i > 0; i--) {
+  for (int i = shell->refinement_level; i > 0; i--) {
     // pre-smooth
     // orthogonalize to constant vector
     // VecScatterBegin(*((*shell->multi->get_pressure_scatter_list())[i]),
@@ -269,7 +253,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     //               SCATTER_REVERSE);
 
     // restriction
-    MatMult(shell->multi->getA(i).get_reference(),
+    MatMult(shell->multi->getA(i)->get_reference(),
             shell->multi->get_x_list()[i]->get_reference(),
             shell->multi->get_r_list()[i]->get_reference());
 
@@ -288,7 +272,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
     VecScale(shell->multi->get_r_list()[i]->get_reference(), -1.0);
 
-    Mat &R = shell->multi->get_restriction_list()[i]->get_reference();
+    Mat &R = shell->multi->get_restriction_list()[i - 1]->get_reference();
     Vec &v1 = shell->multi->get_r_list()[i]->get_reference();
     Vec &v2 = shell->multi->get_b_list()[i - 1]->get_reference();
     MatMult(R, v1, v2);
@@ -396,9 +380,9 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   //               SCATTER_REVERSE);
 
   // sweep up
-  for (int i = 1; i < shell->adaptive_level; i++) {
+  for (int i = 1; i <= shell->refinement_level; i++) {
     // interpolation
-    Mat &I = shell->multi->get_interpolation_list()[i]->get_reference();
+    Mat &I = shell->multi->get_interpolation_list()[i - 1]->get_reference();
     Vec &v1 = shell->multi->get_t_list()[i]->get_reference();
     Vec &v2 = shell->multi->get_x_list()[i - 1]->get_reference();
     MatMult(I, v2, v1);
@@ -432,7 +416,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     VecAXPY(shell->multi->get_x_list()[i]->get_reference(), 1.0,
             shell->multi->get_t_list()[i]->get_reference());
 
-    MatMult(shell->multi->getA(i).get_reference(),
+    MatMult(shell->multi->getA(i)->get_reference(),
             shell->multi->get_x_list()[i]->get_reference(),
             shell->multi->get_r_list()[i]->get_reference());
 
@@ -520,9 +504,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     //               SCATTER_REVERSE);
   }
 
-  VecCopy(
-      shell->multi->get_x_list()[shell->adaptive_level - 1]->get_reference(),
-      y);
+  VecCopy(shell->multi->get_x_list()[shell->refinement_level]->get_reference(),
+          y);
 
   return 0;
 }

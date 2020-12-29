@@ -8,31 +8,10 @@
 using namespace std;
 using namespace Compadre;
 
-void gmls_solver::BuildInterpolationAndRestrictionMatrices(
-    petsc_sparse_matrix &I, petsc_sparse_matrix &R, int num_rigid_body,
-    int dimension) {
-  static auto &coord = __field.vector.GetHandle("coord");
-  static auto &adaptive_level = __field.index.GetHandle("adaptive level");
-  static auto &background_coord = __background.vector.GetHandle("source coord");
-  static auto &background_index = __background.index.GetHandle("source index");
-  static auto &particleType = __field.index.GetHandle("particle type");
-  static auto &newAdded = __field.index.GetHandle("new added particle flag");
-  static auto &particleSize = __field.vector.GetHandle("size");
-
-  static auto &old_coord = __field.vector.GetHandle("old coord");
-  static auto &old_particle_type = __field.index.GetHandle("old particle type");
-  static auto &old_background_coord =
-      __background.vector.GetHandle("old source coord");
-  static auto &old_background_index =
-      __background.index.GetHandle("old source index");
-
-  vector<int> recvParticleType;
-  DataSwapAmongNeighbor(particleType, recvParticleType);
-
-  vector<int> backgroundParticleType = particleType;
-  backgroundParticleType.insert(backgroundParticleType.end(),
-                                recvParticleType.begin(),
-                                recvParticleType.end());
+void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
+                                                        int _dimension) {
+  petsc_sparse_matrix &I = *(getI(current_refinement_level - 1));
+  petsc_sparse_matrix &R = *(getR(current_refinement_level - 1));
 
   int field_dof = dimension + 1;
   int velocity_dof = dimension;
@@ -43,762 +22,815 @@ void gmls_solver::BuildInterpolationAndRestrictionMatrices(
   int translation_dof = dimension;
   int rotation_dof = (dimension == 3) ? 3 : 1;
 
-  int old_local_particle_num = old_coord.size();
-  int new_local_particle_num = coord.size();
+  {
+    auto &coord = *(geo_mgr->get_current_work_particle_coord());
+    auto &new_added = *(geo_mgr->get_current_work_particle_new_added());
+    auto &spacing = *(geo_mgr->get_current_work_particle_spacing());
 
-  int old_global_particle_num, new_global_particle_num;
+    auto &old_coord = *(geo_mgr->get_last_work_particle_coord());
 
-  MPI_Allreduce(&old_local_particle_num, &old_global_particle_num, 1, MPI_INT,
-                MPI_SUM, MPI_COMM_WORLD);
-  MPI_Allreduce(&new_local_particle_num, &new_global_particle_num, 1, MPI_INT,
-                MPI_SUM, MPI_COMM_WORLD);
+    auto &old_source_coord = *(geo_mgr->get_clll_particle_coord());
+    auto &old_source_index = *(geo_mgr->get_clll_particle_index());
 
-  int old_local_dof = field_dof * old_local_particle_num;
-  int old_global_dof = field_dof * old_global_particle_num;
-  int new_local_dof = field_dof * new_local_particle_num;
-  int new_global_dof = field_dof * new_global_particle_num;
+    int new_local_particle_num = coord.size();
 
-  Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-      old_source_coords_device("old source coordinates",
-                               old_background_coord.size(), 3);
-  Kokkos::View<double **>::HostMirror old_source_coords =
-      Kokkos::create_mirror_view(old_source_coords_device);
+    int new_global_particle_num;
 
-  int actual_new_target = 0;
-  vector<int> new_actual_index(coord.size());
-  for (int i = 0; i < coord.size(); i++) {
-    new_actual_index[i] = actual_new_target;
-    if (newAdded[i] == 1)
-      actual_new_target++;
-  }
+    MPI_Allreduce(&new_local_particle_num, &new_global_particle_num, 1, MPI_INT,
+                  MPI_SUM, MPI_COMM_WORLD);
 
-  Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-      new_target_coords_device("new target coordinates", actual_new_target, 3);
-  Kokkos::View<double **>::HostMirror new_target_coords =
-      Kokkos::create_mirror_view(new_target_coords_device);
+    int new_local_dof = field_dof * new_local_particle_num;
+    int new_global_dof = field_dof * new_global_particle_num;
 
-  // copy old source coords
-  for (int i = 0; i < old_background_coord.size(); i++) {
-    for (int j = 0; j < dimension; j++)
-      old_source_coords(i, j) = old_background_coord[i][j];
-  }
+    int old_local_particle_num = old_coord.size();
+    int old_global_particle_num;
 
-  // copy new target coords
-  int counter = 0;
-  for (int i = 0; i < coord.size(); i++) {
-    if (newAdded[i] == 1) {
-      for (int j = 0; j < dimension; j++) {
-        new_target_coords(counter, j) = coord[i][j];
-      }
+    MPI_Allreduce(&old_local_particle_num, &old_global_particle_num, 1, MPI_INT,
+                  MPI_SUM, MPI_COMM_WORLD);
 
-      counter++;
-    }
-  }
+    int old_local_dof, old_global_dof;
+    old_local_dof = old_local_particle_num * field_dof;
+    old_global_dof = old_global_particle_num * field_dof;
 
-  Kokkos::deep_copy(old_source_coords_device, old_source_coords);
-  Kokkos::deep_copy(new_target_coords_device, new_target_coords);
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+        old_source_coords_device("old source coordinates",
+                                 old_source_coord.size(), 3);
+    Kokkos::View<double **>::HostMirror old_source_coords_host =
+        Kokkos::create_mirror_view(old_source_coords_device);
 
-  auto old_to_new_point_search(
-      CreatePointCloudSearch(old_source_coords_device, dimension));
-
-  // 2.5 = polynomial_order + 0.5 = 2 + 0.5
-  int estimatedUpperBoundNumberNeighbors =
-      pow(2, dimension) * pow(2 * 3.5, dimension);
-
-  Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-      old_to_new_neighbor_lists_device("old to new neighbor lists",
-                                       actual_new_target,
-                                       estimatedUpperBoundNumberNeighbors);
-  Kokkos::View<int **>::HostMirror old_to_new_neighbor_lists =
-      Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
-
-  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> old_epsilon_device(
-      "h supports", actual_new_target);
-  Kokkos::View<double *>::HostMirror old_epsilon =
-      Kokkos::create_mirror_view(old_epsilon_device);
-
-  for (int i = 0; i < coord.size(); i++) {
-    if (newAdded[i] == 1) {
-      old_epsilon[new_actual_index[i]] = 3.5 * particleSize[i][0];
-    }
-  }
-
-  auto neighbor_needed =
-      Compadre::GMLS::getNP(2, __dim, DivergenceFreeVectorTaylorPolynomial);
-  // old_to_new_point_search.generateNeighborListsFromKNNSearch(
-  //     false, new_target_coords, old_to_new_neighbor_lists, old_epsilon,
-  //     neighbor_needed, 1.2);
-  size_t actual_neighbor_max;
-
-  while (true) {
-    actual_neighbor_max =
-        old_to_new_point_search.generateNeighborListsFromRadiusSearch(
-            true, new_target_coords, old_to_new_neighbor_lists, old_epsilon,
-            0.0, 0.0);
-    while (actual_neighbor_max > estimatedUpperBoundNumberNeighbors) {
-      estimatedUpperBoundNumberNeighbors *= 2;
-      old_to_new_neighbor_lists_device =
-          Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
-              "old to new neighbor lists", actual_new_target,
-              estimatedUpperBoundNumberNeighbors);
-      old_to_new_neighbor_lists =
-          Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
-    }
-    old_to_new_point_search.generateNeighborListsFromRadiusSearch(
-        false, new_target_coords, old_to_new_neighbor_lists, old_epsilon, 0.0,
-        0.0);
-
-    bool enough_neighbor = true;
+    int actual_new_target = 0;
+    vector<int> new_actual_index(coord.size());
     for (int i = 0; i < coord.size(); i++) {
-      if (newAdded[i] == 1) {
-        if (old_to_new_neighbor_lists(new_actual_index[i], 0) <
-            neighbor_needed) {
-          old_epsilon[new_actual_index[i]] += 0.5 * particleSize[i][0];
-          enough_neighbor = false;
+      new_actual_index[i] = actual_new_target;
+      if (new_added[i] < 0)
+        actual_new_target++;
+    }
+
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+        new_target_coords_device("new target coordinates", actual_new_target,
+                                 3);
+    Kokkos::View<double **>::HostMirror new_target_coords_host =
+        Kokkos::create_mirror_view(new_target_coords_device);
+
+    // copy old source coords
+    for (int i = 0; i < old_source_coord.size(); i++) {
+      for (int j = 0; j < dimension; j++)
+        old_source_coords_host(i, j) = old_source_coord[i][j];
+    }
+
+    // copy new target coords
+    int counter = 0;
+    for (int i = 0; i < coord.size(); i++) {
+      if (new_added[i] < 0) {
+        for (int j = 0; j < dimension; j++) {
+          new_target_coords_host(counter, j) = coord[i][j];
+        }
+
+        counter++;
+      }
+    }
+
+    Kokkos::deep_copy(old_source_coords_device, old_source_coords_host);
+    Kokkos::deep_copy(new_target_coords_device, new_target_coords_host);
+
+    auto old_to_new_point_search(
+        CreatePointCloudSearch(old_source_coords_host, dimension));
+
+    int estimated_num_neighbor_max =
+        pow(2, dimension) * pow(2 * 3.0, dimension);
+
+    Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+        old_to_new_neighbor_lists_device("old to new neighbor lists",
+                                         actual_new_target,
+                                         estimated_num_neighbor_max);
+    Kokkos::View<int **>::HostMirror old_to_new_neighbor_lists_host =
+        Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
+
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> old_epsilon_device(
+        "h supports", actual_new_target);
+    Kokkos::View<double *>::HostMirror old_epsilon_host =
+        Kokkos::create_mirror_view(old_epsilon_device);
+
+    for (int i = 0; i < coord.size(); i++) {
+      if (new_added[i] < 0) {
+        old_epsilon_host[new_actual_index[i]] = 3.0 * spacing[i];
+      }
+    }
+
+    auto neighbor_needed = Compadre::GMLS::getNP(
+        2, dimension, DivergenceFreeVectorTaylorPolynomial);
+    size_t actual_neighbor_max;
+
+    while (true) {
+      actual_neighbor_max =
+          old_to_new_point_search.generateNeighborListsFromRadiusSearch(
+              true, new_target_coords_host, old_to_new_neighbor_lists_host,
+              old_epsilon_host, 0.0, 0.0);
+      while (actual_neighbor_max > estimated_num_neighbor_max) {
+        estimated_num_neighbor_max *= 2;
+        old_to_new_neighbor_lists_device =
+            Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
+                "old to new neighbor lists", actual_new_target,
+                estimated_num_neighbor_max);
+        old_to_new_neighbor_lists_host =
+            Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
+      }
+      old_to_new_point_search.generateNeighborListsFromRadiusSearch(
+          false, new_target_coords_host, old_to_new_neighbor_lists_host,
+          old_epsilon_host, 0.0, 0.0);
+
+      bool enough_neighbor = true;
+      for (int i = 0; i < coord.size(); i++) {
+        if (new_added[i] < 0) {
+          if (old_to_new_neighbor_lists_host(new_actual_index[i], 0) <
+              neighbor_needed) {
+            old_epsilon_host[new_actual_index[i]] += 0.5 * spacing[i];
+            enough_neighbor = false;
+          }
         }
       }
+
+      if (enough_neighbor)
+        break;
     }
 
-    if (enough_neighbor)
-      break;
-  }
+    Kokkos::deep_copy(old_to_new_neighbor_lists_device,
+                      old_to_new_neighbor_lists_host);
+    Kokkos::deep_copy(old_epsilon_device, old_epsilon_host);
 
-  Kokkos::deep_copy(old_to_new_neighbor_lists_device,
-                    old_to_new_neighbor_lists);
-  Kokkos::deep_copy(old_epsilon_device, old_epsilon);
+    GMLS old_to_new_pressusre_basis(ScalarTaylorPolynomial, PointSample, 2,
+                                    dimension, "SVD", "STANDARD");
+    GMLS old_to_new_velocity_basis(DivergenceFreeVectorTaylorPolynomial,
+                                   VectorPointSample, 2, dimension, "SVD",
+                                   "STANDARD");
 
-  GMLS old_to_new_pressusre_basis(ScalarTaylorPolynomial, PointSample, 2,
-                                  dimension, "SVD", "STANDARD");
-  auto old_to_new_velocity_basis =
-      new GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 2,
-               dimension, "SVD", "STANDARD");
+    // old to new pressure field transition
+    old_to_new_pressusre_basis.setProblemData(
+        old_to_new_neighbor_lists_device, old_source_coords_device,
+        new_target_coords_device, old_epsilon_device);
 
-  // old to new pressure field transition
-  old_to_new_pressusre_basis.setProblemData(
-      old_to_new_neighbor_lists_device, old_source_coords_device,
-      new_target_coords_device, old_epsilon_device);
+    old_to_new_pressusre_basis.addTargets(ScalarPointEvaluation);
 
-  old_to_new_pressusre_basis.addTargets(ScalarPointEvaluation);
+    old_to_new_pressusre_basis.setWeightingType(WeightingFunctionType::Power);
+    old_to_new_pressusre_basis.setWeightingPower(4);
 
-  old_to_new_pressusre_basis.setWeightingType(WeightingFunctionType::Power);
-  old_to_new_pressusre_basis.setWeightingPower(__weightFuncOrder);
+    old_to_new_pressusre_basis.generateAlphas(20);
 
-  old_to_new_pressusre_basis.generateAlphas(20);
+    auto old_to_new_pressure_alphas = old_to_new_pressusre_basis.getAlphas();
 
-  auto old_to_new_pressure_alphas = old_to_new_pressusre_basis.getAlphas();
+    // old to new velocity field transition
+    old_to_new_velocity_basis.setProblemData(
+        old_to_new_neighbor_lists_device, old_source_coords_device,
+        new_target_coords_device, old_epsilon_device);
 
-  // old to new velocity field transition
-  old_to_new_velocity_basis->setProblemData(
-      old_to_new_neighbor_lists_device, old_source_coords_device,
-      new_target_coords_device, old_epsilon_device);
+    old_to_new_velocity_basis.addTargets(VectorPointEvaluation);
 
-  old_to_new_velocity_basis->addTargets(VectorPointEvaluation);
+    old_to_new_velocity_basis.setWeightingType(WeightingFunctionType::Power);
+    old_to_new_velocity_basis.setWeightingPower(4);
 
-  old_to_new_velocity_basis->setWeightingType(WeightingFunctionType::Power);
-  old_to_new_velocity_basis->setWeightingPower(__weightFuncOrder);
+    old_to_new_velocity_basis.generateAlphas(20);
 
-  old_to_new_velocity_basis->generateAlphas(1);
+    auto old_to_new_velocity_alphas = old_to_new_velocity_basis.getAlphas();
 
-  auto old_to_new_velocity_alphas = old_to_new_velocity_basis->getAlphas();
-
-  // old to new interpolation matrix
-  if (__myID == __MPISize - 1)
-    I.resize(new_local_dof + rigid_body_dof * num_rigid_body,
-             old_local_dof + rigid_body_dof * num_rigid_body,
-             old_global_dof + rigid_body_dof * num_rigid_body);
-  else
-    I.resize(new_local_dof, old_local_dof,
-             old_global_dof + rigid_body_dof * num_rigid_body);
-  // compute matrix graph
-  vector<PetscInt> index;
-  for (int i = 0; i < new_local_particle_num; i++) {
-    if (newAdded[i] == 1) {
-      // velocity interpolation
-      index.resize(old_to_new_neighbor_lists(new_actual_index[i], 0) *
-                   velocity_dof);
-      for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
-           j++) {
-        for (int k = 0; k < velocity_dof; k++) {
-          index[j * velocity_dof + k] =
-              field_dof * old_background_index[old_to_new_neighbor_lists(
-                              new_actual_index[i], j + 1)] +
-              k;
-        }
-      }
-
-      for (int k = 0; k < velocity_dof; k++) {
-        I.set_col_index(field_dof * i + k, index);
-      }
-
-      // pressure interpolation
-      index.resize(old_to_new_neighbor_lists(new_actual_index[i], 0));
-      for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
-           j++) {
-        index[j] = field_dof * old_background_index[old_to_new_neighbor_lists(
-                                   new_actual_index[i], j + 1)] +
-                   velocity_dof;
-      }
-      I.set_col_index(field_dof * i + velocity_dof, index);
-    } else {
-      index.resize(1);
-      for (int j = 0; j < field_dof; j++) {
-        index[0] = field_dof * old_background_index[i] + j;
-        I.set_col_index(field_dof * i + j, index);
-      }
-    }
-  }
-
-  // rigid body
-  if (__myID == __MPISize - 1) {
-    index.resize(1);
-    for (int i = 0; i < num_rigid_body; i++) {
-      int local_rigid_body_index_offset =
-          field_dof * new_local_particle_num + i * rigid_body_dof;
-      for (int j = 0; j < rigid_body_dof; j++) {
-        index[0] = field_dof * old_global_particle_num + i * rigid_body_dof + j;
-        I.set_col_index(local_rigid_body_index_offset + j, index);
-      }
-    }
-  }
-
-  // compute interpolation matrix entity
-  const auto pressure_old_to_new_alphas_index =
-      old_to_new_pressusre_basis.getAlphaColumnOffset(ScalarPointEvaluation, 0,
-                                                      0, 0, 0);
-  vector<int> velocity_old_to_new_alphas_index(pow(dimension, 2));
-  for (int axes1 = 0; axes1 < dimension; axes1++)
-    for (int axes2 = 0; axes2 < dimension; axes2++)
-      velocity_old_to_new_alphas_index[axes1 * dimension + axes2] =
-          old_to_new_velocity_basis->getAlphaColumnOffset(VectorPointEvaluation,
-                                                          axes1, 0, axes2, 0);
-
-  for (int i = 0; i < new_local_particle_num; i++) {
-    if (newAdded[i] == 1) {
-      for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
-           j++) {
-        for (int axes1 = 0; axes1 < dimension; axes1++)
-          for (int axes2 = 0; axes2 < dimension; axes2++)
-            I.increment(
-                field_dof * i + axes1,
-                field_dof * old_background_index[old_to_new_neighbor_lists(
+    // old to new interpolation matrix
+    if (mpi_rank == mpi_size - 1)
+      I.resize(new_local_dof + rigid_body_dof * num_rigid_body,
+               old_local_dof + rigid_body_dof * num_rigid_body,
+               old_global_dof + rigid_body_dof * num_rigid_body);
+    else
+      I.resize(new_local_dof, old_local_dof,
+               old_global_dof + rigid_body_dof * num_rigid_body);
+    // compute matrix graph
+    vector<PetscInt> index;
+    for (int i = 0; i < new_local_particle_num; i++) {
+      if (new_added[i] < 0) {
+        // velocity interpolation
+        index.resize(old_to_new_neighbor_lists_host(new_actual_index[i], 0) *
+                     velocity_dof);
+        for (int j = 0;
+             j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
+          for (int k = 0; k < velocity_dof; k++) {
+            index[j * velocity_dof + k] =
+                field_dof * old_source_index[old_to_new_neighbor_lists_host(
                                 new_actual_index[i], j + 1)] +
-                    axes2,
-                old_to_new_velocity_alphas(
-                    new_actual_index[i],
-                    velocity_old_to_new_alphas_index[axes1 * dimension + axes2],
-                    j));
-      }
+                k;
+          }
+        }
 
-      for (int j = 0; j < old_to_new_neighbor_lists(new_actual_index[i], 0);
-           j++) {
-        I.increment(field_dof * i + velocity_dof,
-                    field_dof * old_background_index[old_to_new_neighbor_lists(
-                                    new_actual_index[i], j + 1)] +
-                        velocity_dof,
-                    old_to_new_pressure_alphas(new_actual_index[i],
-                                               pressure_old_to_new_alphas_index,
-                                               j));
-      }
-    } else {
-      for (int j = 0; j < field_dof; j++) {
-        I.increment(field_dof * i + j, field_dof * old_background_index[i] + j,
-                    1.0);
-      }
-    }
-  }
+        for (int k = 0; k < velocity_dof; k++) {
+          I.set_col_index(field_dof * i + k, index);
+        }
 
-  // rigid body
-  if (__myID == __MPISize - 1) {
-    for (int i = 0; i < num_rigid_body; i++) {
-      int local_rigid_body_index_offset =
-          field_dof * new_local_particle_num + i * rigid_body_dof;
-      for (int j = 0; j < rigid_body_dof; j++) {
-        I.increment(
-            local_rigid_body_index_offset + j,
-            field_dof * old_global_particle_num + i * rigid_body_dof + j, 1.0);
+        // pressure interpolation
+        index.resize(old_to_new_neighbor_lists_host(new_actual_index[i], 0));
+        for (int j = 0;
+             j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
+          index[j] =
+              field_dof * old_source_index[old_to_new_neighbor_lists_host(
+                              new_actual_index[i], j + 1)] +
+              velocity_dof;
+        }
+        I.set_col_index(field_dof * i + velocity_dof, index);
+      } else {
+        index.resize(1);
+        for (int j = 0; j < field_dof; j++) {
+          index[0] = field_dof * new_added[i] + j;
+          I.set_col_index(field_dof * i + j, index);
+        }
       }
     }
+
+    // rigid body
+    if (mpi_rank == mpi_size - 1) {
+      index.resize(1);
+      for (int i = 0; i < num_rigid_body; i++) {
+        int local_rigid_body_index_offset =
+            field_dof * new_local_particle_num + i * rigid_body_dof;
+        for (int j = 0; j < rigid_body_dof; j++) {
+          index[0] =
+              field_dof * old_global_particle_num + i * rigid_body_dof + j;
+          I.set_col_index(local_rigid_body_index_offset + j, index);
+        }
+      }
+    }
+
+    // compute interpolation matrix entity
+    const auto pressure_old_to_new_alphas_index =
+        old_to_new_pressusre_basis.getAlphaColumnOffset(ScalarPointEvaluation,
+                                                        0, 0, 0, 0);
+    vector<int> velocity_old_to_new_alphas_index(pow(dimension, 2));
+    for (int axes1 = 0; axes1 < dimension; axes1++)
+      for (int axes2 = 0; axes2 < dimension; axes2++)
+        velocity_old_to_new_alphas_index[axes1 * dimension + axes2] =
+            old_to_new_velocity_basis.getAlphaColumnOffset(
+                VectorPointEvaluation, axes1, 0, axes2, 0);
+
+    for (int i = 0; i < new_local_particle_num; i++) {
+      if (new_added[i] < 0) {
+        for (int j = 0;
+             j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
+          for (int axes1 = 0; axes1 < dimension; axes1++)
+            for (int axes2 = 0; axes2 < dimension; axes2++)
+              I.increment(
+                  field_dof * i + axes1,
+                  field_dof * old_source_index[old_to_new_neighbor_lists_host(
+                                  new_actual_index[i], j + 1)] +
+                      axes2,
+                  old_to_new_velocity_alphas(
+                      new_actual_index[i],
+                      velocity_old_to_new_alphas_index[axes1 * dimension +
+                                                       axes2],
+                      j));
+        }
+
+        for (int j = 0;
+             j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
+          I.increment(
+              field_dof * i + velocity_dof,
+              field_dof * old_source_index[old_to_new_neighbor_lists_host(
+                              new_actual_index[i], j + 1)] +
+                  velocity_dof,
+              old_to_new_pressure_alphas(new_actual_index[i],
+                                         pressure_old_to_new_alphas_index, j));
+        }
+      } else {
+        for (int j = 0; j < field_dof; j++) {
+          I.increment(field_dof * i + j, field_dof * new_added[i] + j, 1.0);
+        }
+      }
+    }
+
+    // rigid body
+    if (mpi_rank == mpi_size - 1) {
+      for (int i = 0; i < num_rigid_body; i++) {
+        int local_rigid_body_index_offset =
+            field_dof * new_local_particle_num + i * rigid_body_dof;
+        for (int j = 0; j < rigid_body_dof; j++) {
+          I.increment(local_rigid_body_index_offset + j,
+                      field_dof * old_global_particle_num + i * rigid_body_dof +
+                          j,
+                      1.0);
+        }
+      }
+    }
+
+    I.assemble();
   }
 
-  I.assemble();
+  {
+    auto &coord = *(geo_mgr->get_current_work_particle_coord());
 
-  static vector<double> &pressure = __field.scalar.GetHandle("fluid pressure");
+    auto &source_coord = *(geo_mgr->get_llcl_particle_coord());
+    auto &source_index = *(geo_mgr->get_llcl_particle_index());
+    auto &source_particle_type = *(geo_mgr->get_llcl_particle_type());
 
-  // if (new_local_particle_num > 11608) {
-  //   cout << coord[11607][0] << ' ' << coord[11607][1] << endl << endl;
-  //   for (int i = 0; i < old_to_new_neighbor_lists(new_actual_index[11607],
-  //   0);
-  //        i++) {
-  //     int index = old_to_new_neighbor_lists(new_actual_index[11607], i + 1);
-  //     cout << old_background_coord[index][0] << ' '
-  //          << old_background_coord[index][1] << ' '
-  //          << old_to_new_pressure_alphas(new_actual_index[11607],
-  //                                        pressure_old_to_new_alphas_index, i)
-  //          << endl;
-  //   }
-  //   cout << endl;
-  //   for (int i = 0; i < old_to_new_neighbor_lists(new_actual_index[11607],
-  //   0);
-  //        i++) {
-  //     int index = old_to_new_neighbor_lists(new_actual_index[11607], i + 1);
-  //     cout << pressure[index] << endl;
-  //   }
+    auto &old_coord = *(geo_mgr->get_last_work_particle_coord());
+    auto &old_index = *(geo_mgr->get_last_work_particle_index());
+    auto &old_particle_type = *(geo_mgr->get_last_work_particle_type());
+    auto &old_spacing = *(geo_mgr->get_last_work_particle_spacing());
 
-  //   double pressure_sum = 0.0;
-  //   for (int i = 0; i < old_to_new_neighbor_lists(new_actual_index[11607],
-  //   0);
-  //        i++) {
-  //     int index = old_to_new_neighbor_lists(new_actual_index[11607], i + 1);
-  //     pressure_sum +=
-  //         pressure[index] *
-  //         old_to_new_pressure_alphas(new_actual_index[11607],
-  //                                    pressure_old_to_new_alphas_index, i);
-  //   }
+    int old_local_particle_num = old_coord.size();
+    int old_global_particle_num;
 
-  //   cout << pressure_sum << endl;
-  // }
+    MPI_Allreduce(&old_local_particle_num, &old_global_particle_num, 1, MPI_INT,
+                  MPI_SUM, MPI_COMM_WORLD);
 
-  // new to old restriction matrix
-  if (__myID == __MPISize - 1)
-    R.resize(old_local_dof + num_rigid_body * rigid_body_dof,
-             new_local_dof + num_rigid_body * rigid_body_dof,
-             new_global_dof + num_rigid_body * rigid_body_dof);
-  else
-    R.resize(old_local_dof, new_local_dof,
-             new_global_dof + num_rigid_body * rigid_body_dof);
+    int old_local_dof = field_dof * old_local_particle_num;
+    int old_global_dof = field_dof * old_global_particle_num;
 
-  // compute restriction matrix graph
-  for (int i = 0; i < old_local_particle_num; i++) {
-    if (fieldParticleSplitTag[i]) {
-      index.resize(splitList[i].size());
+    int new_local_particle_num = coord.size();
+
+    int new_global_particle_num;
+
+    MPI_Allreduce(&new_local_particle_num, &new_global_particle_num, 1, MPI_INT,
+                  MPI_SUM, MPI_COMM_WORLD);
+
+    int new_local_dof = field_dof * new_local_particle_num;
+    int new_global_dof = field_dof * new_global_particle_num;
+
+    // new to old restriction matrix
+    if (mpi_rank == mpi_size - 1)
+      R.resize(old_local_dof + num_rigid_body * rigid_body_dof,
+               new_local_dof + num_rigid_body * rigid_body_dof,
+               new_global_dof + num_rigid_body * rigid_body_dof);
+    else
+      R.resize(old_local_dof, new_local_dof,
+               new_global_dof + num_rigid_body * rigid_body_dof);
+
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coords_device(
+        "old source coordinates", source_coord.size(), 3);
+    Kokkos::View<double **>::HostMirror source_coords_host =
+        Kokkos::create_mirror_view(source_coords_device);
+
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> target_coords_device(
+        "new target coordinates", old_coord.size(), 3);
+    Kokkos::View<double **>::HostMirror target_coords_host =
+        Kokkos::create_mirror_view(target_coords_device);
+
+    // copy old source coords
+    for (int i = 0; i < source_coord.size(); i++) {
+      for (int j = 0; j < dimension; j++)
+        source_coords_host(i, j) = source_coord[i][j];
+    }
+
+    // copy new target coords
+    for (int i = 0; i < old_coord.size(); i++) {
+      for (int j = 0; j < dimension; j++) {
+        target_coords_host(i, j) = old_coord[i][j];
+      }
+    }
+
+    auto point_search(CreatePointCloudSearch(source_coords_host, dimension));
+
+    int estimated_num_neighbor_max =
+        pow(2, dimension) * pow(2 * 3.0, dimension);
+
+    Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_lists_device(
+        "old to new neighbor lists", old_coord.size(),
+        estimated_num_neighbor_max);
+    Kokkos::View<int **>::HostMirror neighbor_lists_host =
+        Kokkos::create_mirror_view(neighbor_lists_device);
+
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
+        "h supports", old_coord.size());
+    Kokkos::View<double *>::HostMirror epsilon_host =
+        Kokkos::create_mirror_view(epsilon_device);
+
+    for (int i = 0; i < old_coord.size(); i++) {
+      epsilon_host(i) = old_spacing[i];
+    }
+
+    point_search.generateNeighborListsFromRadiusSearch(
+        true, target_coords_host, neighbor_lists_host, epsilon_host, 0.0, 0.0);
+
+    for (int i = 0; i < old_coord.size(); i++) {
+      bool is_boundary = (old_particle_type[i] == 0) ? false : true;
+      vector<int> index;
+      for (int j = 0; j < neighbor_lists_host(i, 0); j++) {
+        int neighbor_index = neighbor_lists_host(i, j + 1);
+        bool is_neighbor_boundary =
+            (old_particle_type[neighbor_index]) ? false : true;
+        if (is_boundary == is_neighbor_boundary)
+          index.push_back(neighbor_index);
+      }
+      neighbor_lists_host(i, 0) = index.size();
+      for (int j = 0; j < index.size(); j++) {
+        neighbor_lists_host(i, j + 1) = index[j];
+      }
+    }
+
+    Kokkos::deep_copy(neighbor_lists_device, neighbor_lists_host);
+    Kokkos::deep_copy(epsilon_device, epsilon_host);
+
+    // compute restriction matrix graph
+    vector<PetscInt> index;
+    for (int i = 0; i < old_local_particle_num; i++) {
+      index.resize(neighbor_lists_host(i, 0));
       for (int j = 0; j < field_dof; j++) {
-        for (int k = 0; k < splitList[i].size(); k++) {
-          index[k] = background_index[splitList[i][k]] * field_dof + j;
+        for (int k = 0; k < neighbor_lists_host(i, 0); k++) {
+          int neighbor_index = neighbor_lists_host(i, k + 1);
+          index[k] = source_index[neighbor_index] * field_dof + j;
         }
 
         R.set_col_index(field_dof * i + j, index);
       }
-    } else {
+    }
+
+    // rigid body
+    if (mpi_rank == mpi_size - 1) {
       index.resize(1);
-      for (int k = 0; k < field_dof; k++) {
-        index[0] = field_dof * background_index[i] + k;
-        R.set_col_index(field_dof * i + k, index);
-      }
-    }
-  }
-
-  // rigid body
-  if (__myID == __MPISize - 1) {
-    index.resize(1);
-    for (int i = 0; i < num_rigid_body; i++) {
-      int local_rigid_body_index_offset =
-          field_dof * old_local_particle_num + i * rigid_body_dof;
-      for (int j = 0; j < rigid_body_dof; j++) {
-        index[0] = field_dof * new_global_particle_num + i * rigid_body_dof + j;
-        R.set_col_index(local_rigid_body_index_offset + j, index);
-      }
-    }
-  }
-
-  for (int i = 0; i < old_local_particle_num; i++) {
-    if (fieldParticleSplitTag[i]) {
-      for (int j = 0; j < field_dof; j++) {
-        for (int k = 0; k < splitList[i].size(); k++) {
-          R.increment(field_dof * i + j,
-                      background_index[splitList[i][k]] * field_dof + j,
-                      1.0 / splitList[i].size());
+      for (int i = 0; i < num_rigid_body; i++) {
+        int local_rigid_body_index_offset =
+            field_dof * old_local_particle_num + i * rigid_body_dof;
+        for (int j = 0; j < rigid_body_dof; j++) {
+          index[0] =
+              field_dof * new_global_particle_num + i * rigid_body_dof + j;
+          R.set_col_index(local_rigid_body_index_offset + j, index);
         }
       }
-    } else {
-      for (int k = 0; k < field_dof; k++) {
-        R.increment(field_dof * i + k, field_dof * background_index[i] + k,
-                    1.0);
+    }
+
+    for (int i = 0; i < old_local_particle_num; i++) {
+      for (int j = 0; j < field_dof; j++) {
+        for (int k = 0; k < neighbor_lists_host(i, 0); k++) {
+          int neighbor_index = neighbor_lists_host(i, k + 1);
+          R.increment(field_dof * i + j,
+                      source_index[neighbor_index] * field_dof + j,
+                      1.0 / neighbor_lists_host(i, 0));
+        }
       }
     }
-  }
 
-  // rigid body
-  if (__myID == __MPISize - 1) {
-    index.resize(1);
-    for (int i = 0; i < num_rigid_body; i++) {
-      int local_rigid_body_index_offset =
-          field_dof * old_local_particle_num + i * rigid_body_dof;
-      for (int j = 0; j < rigid_body_dof; j++) {
-        R.increment(
-            local_rigid_body_index_offset + j,
-            field_dof * new_global_particle_num + i * rigid_body_dof + j, 1.0);
+    // rigid body
+    if (mpi_rank == mpi_size - 1) {
+      index.resize(1);
+      for (int i = 0; i < num_rigid_body; i++) {
+        int local_rigid_body_index_offset =
+            field_dof * old_local_particle_num + i * rigid_body_dof;
+        for (int j = 0; j < rigid_body_dof; j++) {
+          R.increment(local_rigid_body_index_offset + j,
+                      field_dof * new_global_particle_num + i * rigid_body_dof +
+                          j,
+                      1.0);
+        }
       }
     }
+
+    R.assemble();
   }
-
-  R.assemble();
-
-  delete old_to_new_velocity_basis;
 }
 
 void stokes_multilevel::initial_guess_from_previous_adaptive_step(
     std::vector<double> &initial_guess) {}
 
 int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
-                             std::vector<int> &idx_neighbor) {
+                             std::vector<int> &idx_colloid) {
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nstart of linear system solving setup\n");
 
-  int adaptive_step = A_list.size() - 1;
+  int refinement_step = A_list.size() - 1;
 
-  int fieldDof = dimension + 1;
-  int velocityDof = dimension;
-  int pressureDof = 1;
-  int rigidBodyDof = (dimension == 3) ? 6 : 3;
+  int filed_dof = dimension + 1;
+  int velocity_dof = dimension;
+  int pressure_dof = 1;
+  int rigid_body_dof = (dimension == 3) ? 6 : 3;
 
   vector<int> idx_field;
   vector<int> idx_pressure;
 
-  PetscInt localN1, localN2;
-  Mat &mat = (*(A_list.end() - 1))->get_reference();
-  MatGetOwnershipRange(mat, &localN1, &localN2);
+  PetscInt local_n1, local_n2;
+  Mat &mat = getA(refinement_step)->get_reference();
+  MatGetOwnershipRange(mat, &local_n1, &local_n2);
 
-  int localParticleNum;
-  if (myid != mpi_size - 1) {
-    localParticleNum = (localN2 - localN1) / fieldDof;
-    idx_field.resize(fieldDof * localParticleNum);
-    idx_pressure.resize(localParticleNum);
+  int local_particle_num;
+  if (mpi_rank != mpi_size - 1) {
+    local_particle_num = (local_n2 - local_n1) / filed_dof;
+    idx_field.resize(filed_dof * local_particle_num);
+    idx_pressure.resize(local_particle_num);
 
-    for (int i = 0; i < localParticleNum; i++) {
+    for (int i = 0; i < local_particle_num; i++) {
       for (int j = 0; j < dimension; j++) {
-        idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
+        idx_field[filed_dof * i + j] = local_n1 + filed_dof * i + j;
       }
-      idx_field[fieldDof * i + velocityDof] =
-          localN1 + fieldDof * i + velocityDof;
+      idx_field[filed_dof * i + velocity_dof] =
+          local_n1 + filed_dof * i + velocity_dof;
 
-      idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
+      idx_pressure[i] = local_n1 + filed_dof * i + velocity_dof;
     }
   } else {
-    localParticleNum =
-        (localN2 - localN1 - num_rigid_body * rigidBodyDof) / fieldDof;
-    idx_field.resize(fieldDof * localParticleNum);
-    idx_pressure.resize(localParticleNum);
+    local_particle_num =
+        (local_n2 - local_n1 - num_rigid_body * rigid_body_dof) / filed_dof;
+    idx_field.resize(filed_dof * local_particle_num);
+    idx_pressure.resize(local_particle_num);
 
-    for (int i = 0; i < localParticleNum; i++) {
+    for (int i = 0; i < local_particle_num; i++) {
       for (int j = 0; j < dimension; j++) {
-        idx_field[fieldDof * i + j] = localN1 + fieldDof * i + j;
+        idx_field[filed_dof * i + j] = local_n1 + filed_dof * i + j;
       }
-      idx_field[fieldDof * i + velocityDof] =
-          localN1 + fieldDof * i + velocityDof;
+      idx_field[filed_dof * i + velocity_dof] =
+          local_n1 + filed_dof * i + velocity_dof;
 
-      idx_pressure[i] = localN1 + fieldDof * i + velocityDof;
+      idx_pressure[i] = local_n1 + filed_dof * i + velocity_dof;
     }
   }
 
-  int globalParticleNum;
-  MPI_Allreduce(&localParticleNum, &globalParticleNum, 1, MPI_INT, MPI_SUM,
+  int global_particle_num;
+  MPI_Allreduce(&local_particle_num, &global_particle_num, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
-  auto isg_field = isg_field_list[adaptive_step];
-  auto isg_colloid = isg_colloid_list[adaptive_step];
-  auto isg_pressure = isg_pressure_list[adaptive_step];
+  auto isg_field = isg_field_list[refinement_step];
+  auto isg_colloid = isg_colloid_list[refinement_step];
+  auto isg_pressure = isg_pressure_list[refinement_step];
 
   isg_field->create_local(idx_field);
-  isg_colloid->create(idx_neighbor);
+  isg_colloid->create(idx_colloid);
   isg_pressure->create_local(idx_pressure);
 
-  // Vec _rhs, _x;
-  // VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
-  //                       rhs.data(), &_rhs);
-  // VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, x.size(), PETSC_DECIDE,
-  // x.data(),
-  //                       &_x);
+  petsc_vector _rhs, _x;
+  _rhs.create(rhs);
+  _x.create(x);
 
-  // Mat &ff = *ff_list[adaptive_step];
-  // Mat &nn = *nn_list[adaptive_step];
-  // Mat &nw = *nw_list[adaptive_step];
+  Mat &ff = ff_list[refinement_step]->get_reference();
+  Mat &nn = nn_list[refinement_step]->get_reference();
+  Mat &nw = nw_list[refinement_step]->get_reference();
+  Mat pp;
 
-  // MatCreateSubMatrix(mat, isg_colloid->get_reference(),
-  //                    isg_colloid->get_reference(), MAT_INITIAL_MATRIX, &nn);
-  // MatCreateSubMatrix(mat, isg_colloid->get_reference(), NULL,
-  //                    MAT_INITIAL_MATRIX, &nw);
+  MatCreateSubMatrix(mat, isg_colloid->get_reference(),
+                     isg_colloid->get_reference(), MAT_INITIAL_MATRIX,
+                     nn_list[refinement_step]->get_pointer());
+  MatCreateSubMatrix(mat, isg_colloid->get_reference(), NULL,
+                     MAT_INITIAL_MATRIX,
+                     nw_list[refinement_step]->get_pointer());
+  MatCreateSubMatrix(mat, isg_pressure->get_reference(),
+                     isg_pressure->get_reference(), MAT_INITIAL_MATRIX, &pp);
 
-  // // setup current level vectors
-  // x_list.push_back(new Vec);
-  // y_list.push_back(new Vec);
-  // b_list.push_back(new Vec);
-  // r_list.push_back(new Vec);
-  // t_list.push_back(new Vec);
+  // setup current level vectors
+  x_list.push_back(make_shared<petsc_vector>());
+  b_list.push_back(make_shared<petsc_vector>());
+  r_list.push_back(make_shared<petsc_vector>());
+  t_list.push_back(make_shared<petsc_vector>());
 
-  // x_field_list.push_back(new Vec);
-  // y_field_list.push_back(new Vec);
-  // b_field_list.push_back(new Vec);
-  // r_field_list.push_back(new Vec);
-  // t_field_list.push_back(new Vec);
+  x_field_list.push_back(make_shared<petsc_vector>());
+  y_field_list.push_back(make_shared<petsc_vector>());
+  b_field_list.push_back(make_shared<petsc_vector>());
+  r_field_list.push_back(make_shared<petsc_vector>());
 
-  // x_neighbor_list.push_back(new Vec);
-  // y_neighbor_list.push_back(new Vec);
-  // b_neighbor_list.push_back(new Vec);
-  // r_neighbor_list.push_back(new Vec);
-  // t_neighbor_list.push_back(new Vec);
+  x_colloid_list.push_back(make_shared<petsc_vector>());
+  b_colloid_list.push_back(make_shared<petsc_vector>());
 
-  // x_pressure_list.push_back(new Vec);
+  x_pressure_list.push_back(make_shared<petsc_vector>());
 
-  // field_relaxation_list.push_back(new KSP);
-  // colloid_relaxation_list.push_back(new KSP);
+  field_relaxation_list.push_back(make_shared<petsc_ksp>());
+  colloid_relaxation_list.push_back(make_shared<petsc_ksp>());
 
-  // MatCreateVecs(mat, NULL, x_list[adaptive_step]);
-  // MatCreateVecs(mat, NULL, y_list[adaptive_step]);
-  // MatCreateVecs(mat, NULL, b_list[adaptive_step]);
-  // MatCreateVecs(mat, NULL, r_list[adaptive_step]);
-  // MatCreateVecs(mat, NULL, t_list[adaptive_step]);
+  MatCreateVecs(mat, NULL, &(x_list[refinement_step]->get_reference()));
+  MatCreateVecs(mat, NULL, &(b_list[refinement_step]->get_reference()));
+  MatCreateVecs(mat, NULL, &(r_list[refinement_step]->get_reference()));
+  MatCreateVecs(mat, NULL, &(t_list[refinement_step]->get_reference()));
 
-  // MatCreateVecs(ff, NULL, x_field_list[adaptive_step]);
-  // MatCreateVecs(ff, NULL, y_field_list[adaptive_step]);
-  // MatCreateVecs(ff, NULL, b_field_list[adaptive_step]);
-  // MatCreateVecs(ff, NULL, r_field_list[adaptive_step]);
-  // MatCreateVecs(ff, NULL, t_field_list[adaptive_step]);
+  MatCreateVecs(ff, NULL, &(x_field_list[refinement_step]->get_reference()));
+  MatCreateVecs(ff, NULL, &(y_field_list[refinement_step]->get_reference()));
+  MatCreateVecs(ff, NULL, &(b_field_list[refinement_step]->get_reference()));
+  MatCreateVecs(ff, NULL, &(r_field_list[refinement_step]->get_reference()));
 
-  // MatCreateVecs(nn, NULL, x_neighbor_list[adaptive_step]);
-  // MatCreateVecs(nn, NULL, y_neighbor_list[adaptive_step]);
-  // MatCreateVecs(nn, NULL, b_neighbor_list[adaptive_step]);
-  // MatCreateVecs(nn, NULL, r_neighbor_list[adaptive_step]);
-  // MatCreateVecs(nn, NULL, t_neighbor_list[adaptive_step]);
+  MatCreateVecs(nn, NULL, &(x_colloid_list[refinement_step]->get_reference()));
+  MatCreateVecs(nn, NULL, &(b_colloid_list[refinement_step]->get_reference()));
 
-  // MatCreateVecs(pp, NULL, x_pressure_list[adaptive_step]);
+  MatCreateVecs(pp, NULL, &(x_pressure_list[refinement_step]->get_reference()));
 
-  // // field vector scatter
-  // field_scatter_list.push_back(new VecScatter);
-  // VecScatterCreate(*x_list[adaptive_step], isg_field_lag,
-  //                  *x_field_list[adaptive_step], NULL,
-  //                  field_scatter_list[adaptive_step]);
+  // field vector scatter
+  field_scatter_list.push_back(make_shared<petsc_vecscatter>());
+  VecScatterCreate(x_list[refinement_step]->get_reference(),
+                   isg_field->get_reference(),
+                   x_field_list[refinement_step]->get_reference(), NULL,
+                   field_scatter_list[refinement_step]->get_pointer());
 
-  // neighbor_scatter_list.push_back(new VecScatter);
-  // VecScatterCreate(*x_list[adaptive_step], isg_neighbor,
-  //                  *x_neighbor_list[adaptive_step], NULL,
-  //                  neighbor_scatter_list[adaptive_step]);
-  // pressure_scatter_list.push_back(new VecScatter);
-  // VecScatterCreate(*x_list[adaptive_step], isg_pressure,
-  //                  *x_pressure_list[adaptive_step], NULL,
-  //                  pressure_scatter_list[adaptive_step]);
+  colloid_scatter_list.push_back(make_shared<petsc_vecscatter>());
+  VecScatterCreate(x_list[refinement_step]->get_reference(),
+                   isg_colloid->get_reference(),
+                   x_colloid_list[refinement_step]->get_reference(), NULL,
+                   colloid_scatter_list[refinement_step]->get_pointer());
+  pressure_scatter_list.push_back(make_shared<petsc_vecscatter>());
+  VecScatterCreate(x_list[refinement_step]->get_reference(),
+                   isg_pressure->get_reference(),
+                   x_pressure_list[refinement_step]->get_reference(), NULL,
+                   pressure_scatter_list[refinement_step]->get_pointer());
 
-  // // setup nullspace_field
-  // Vec null_whole, null_field;
-  // VecDuplicate(_rhs, &null_whole);
-  // VecDuplicate(*x_field_list[adaptive_step], &null_field);
+  // setup nullspace_field
+  Vec null_whole, null_field;
+  VecDuplicate(_rhs.get_reference(), &null_whole);
+  VecDuplicate(x_field_list[refinement_step]->get_reference(), &null_field);
 
-  // VecSet(null_whole, 0.0);
-  // VecSet(null_field, 0.0);
+  VecSet(null_whole, 0.0);
+  VecSet(null_field, 0.0);
 
-  // VecSet(*x_pressure_list[adaptive_step], 1.0);
+  VecSet(x_pressure_list[refinement_step]->get_reference(), 1.0);
 
-  // VecScatterBegin(*pressure_scatter_list[adaptive_step],
-  //                 *x_pressure_list[adaptive_step], null_whole, INSERT_VALUES,
-  //                 SCATTER_REVERSE);
-  // VecScatterEnd(*pressure_scatter_list[adaptive_step],
-  //               *x_pressure_list[adaptive_step], null_whole, INSERT_VALUES,
-  //               SCATTER_REVERSE);
+  VecScatterBegin(pressure_scatter_list[refinement_step]->get_reference(),
+                  x_pressure_list[refinement_step]->get_reference(), null_whole,
+                  INSERT_VALUES, SCATTER_REVERSE);
+  VecScatterEnd(pressure_scatter_list[refinement_step]->get_reference(),
+                x_pressure_list[refinement_step]->get_reference(), null_whole,
+                INSERT_VALUES, SCATTER_REVERSE);
 
-  // nullspace_whole_list.push_back(new MatNullSpace);
-  // MatNullSpace &nullspace_whole = *nullspace_whole_list[adaptive_step];
-  // MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_whole,
-  //                    &nullspace_whole);
-  // MatSetNearNullSpace(mat, nullspace_whole);
+  MatNullSpace nullspace_whole;
+  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_whole,
+                     &nullspace_whole);
+  MatSetNearNullSpace(mat, nullspace_whole);
 
-  // Vec field_pressure;
-  // VecGetSubVector(null_field, isg_pressure, &field_pressure);
-  // VecSet(field_pressure, 1.0);
-  // VecRestoreSubVector(null_field, isg_pressure, &field_pressure);
+  Vec field_pressure;
+  VecGetSubVector(null_field, isg_pressure->get_reference(), &field_pressure);
+  VecSet(field_pressure, 1.0);
+  VecRestoreSubVector(null_field, isg_pressure->get_reference(),
+                      &field_pressure);
 
-  // nullspace_field_list.push_back(new MatNullSpace);
-  // MatNullSpace &nullspace_field = *nullspace_field_list[adaptive_step];
-  // MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_field,
-  //                    &nullspace_field);
-  // MatSetNearNullSpace(ff, nullspace_field);
+  MatNullSpace nullspace_field;
+  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_field,
+                     &nullspace_field);
+  MatSetNearNullSpace(ff, nullspace_field);
 
-  // // neighbor vector scatter, only needed on base level
-  // if (adaptive_step == 0) {
-  //   MatCreateVecs(nn, NULL, &x_neighbor);
-  //   MatCreateVecs(nn, NULL, &y_neighbor);
-  // }
+  // neighbor vector scatter, only needed on base level
+  if (refinement_step == 0) {
+    MatCreateVecs(nn, NULL, x_colloid->get_pointer());
+    MatCreateVecs(nn, NULL, y_colloid->get_pointer());
+  }
 
-  // // setup preconditioner for base level
-  // if (adaptive_step == 0) {
-  //   KSPCreate(PETSC_COMM_WORLD, &ksp_field_base);
-  //   KSPCreate(PETSC_COMM_WORLD, &ksp_neighbor_base);
+  // setup preconditioner for base level
+  if (refinement_step == 0) {
+    KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
+    KSPCreate(PETSC_COMM_WORLD, &ksp_colloid_base->get_reference());
 
-  //   KSPSetOperators(ksp_field_base, ff, ff);
-  //   KSPSetOperators(ksp_neighbor_base, nn, nn);
+    KSPSetOperators(ksp_field_base->get_reference(), ff, ff);
+    KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
 
-  //   KSPSetType(ksp_field_base, KSPPREONLY);
-  //   KSPSetType(ksp_neighbor_base, KSPPREONLY);
+    KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
+    KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
 
-  //   PC pc_field_base;
-  //   PC pc_neighbor_base;
+    PC pc_field_base;
+    PC pc_neighbor_base;
 
-  //   KSPGetPC(ksp_field_base, &pc_field_base);
-  //   PCSetType(pc_field_base, PCHYPRE);
-  //   PCSetFromOptions(pc_field_base);
-  //   PCSetUp(pc_field_base);
+    KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
+    PCSetType(pc_field_base, PCHYPRE);
+    PCSetFromOptions(pc_field_base);
+    PCSetUp(pc_field_base);
 
-  //   KSPGetPC(ksp_neighbor_base, &pc_neighbor_base);
-  //   PCSetType(pc_neighbor_base, PCBJACOBI);
-  //   PCSetUp(pc_neighbor_base);
-  //   PetscInt local_row, local_col;
-  //   MatGetLocalSize(nn, &local_row, &local_col);
-  //   if (local_row > 0) {
-  //     KSP *bjacobi_ksp;
-  //     PCBJacobiGetSubKSP(pc_neighbor_base, NULL, NULL, &bjacobi_ksp);
-  //     KSPSetType(bjacobi_ksp[0], KSPPREONLY);
-  //     PC bjacobi_pc;
-  //     KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
-  //     PCSetType(bjacobi_pc, PCLU);
-  //     // PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
-  //     // PetscOptionsSetValue(NULL, "-pc_hypre_type", "euclid");
-  //     PCSetFromOptions(bjacobi_pc);
-  //     PCSetUp(bjacobi_pc);
-  //     KSPSetUp(bjacobi_ksp[0]);
-  //   }
+    KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
+    PCSetType(pc_neighbor_base, PCBJACOBI);
+    PCSetUp(pc_neighbor_base);
+    PetscInt local_row, local_col;
+    MatGetLocalSize(nn, &local_row, &local_col);
+    if (local_row > 0) {
+      KSP *bjacobi_ksp;
+      PCBJacobiGetSubKSP(pc_neighbor_base, NULL, NULL, &bjacobi_ksp);
+      KSPSetType(bjacobi_ksp[0], KSPPREONLY);
+      PC bjacobi_pc;
+      KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
+      PCSetType(bjacobi_pc, PCLU);
+      PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
+      // PetscOptionsSetValue(NULL, "-pc_hypre_type", "euclid");
+      PCSetFromOptions(bjacobi_pc);
+      PCSetUp(bjacobi_pc);
+      KSPSetUp(bjacobi_ksp[0]);
+    }
 
-  //   KSPSetUp(ksp_field_base);
-  //   KSPSetUp(ksp_neighbor_base);
-  // }
+    KSPSetUp(ksp_field_base->get_reference());
+    KSPSetUp(ksp_colloid_base->get_reference());
+  }
 
-  // // setup relaxation on field for current level
-  // KSPCreate(MPI_COMM_WORLD, field_relaxation_list[adaptive_step]);
+  // setup relaxation on field for current level
+  KSPCreate(MPI_COMM_WORLD,
+            field_relaxation_list[refinement_step]->get_pointer());
 
-  // KSPSetType(*field_relaxation_list[adaptive_step], KSPPREONLY);
-  // KSPSetOperators(*field_relaxation_list[adaptive_step], ff, ff);
+  KSPSetType(field_relaxation_list[refinement_step]->get_reference(),
+             KSPPREONLY);
+  KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
+                  ff);
 
-  // PC field_relaxation_pc;
-  // KSPGetPC(*field_relaxation_list[adaptive_step], &field_relaxation_pc);
-  // PCSetType(field_relaxation_pc, PCSOR);
-  // PCSetFromOptions(field_relaxation_pc);
-  // PCSetUp(field_relaxation_pc);
+  PC field_relaxation_pc;
+  KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
+           &field_relaxation_pc);
+  PCSetType(field_relaxation_pc, PCSOR);
+  PCSetFromOptions(field_relaxation_pc);
+  PCSetUp(field_relaxation_pc);
 
-  // KSPSetUp(*field_relaxation_list[adaptive_step]);
+  KSPSetUp(field_relaxation_list[refinement_step]->get_reference());
 
-  // // setup relaxation on neighbor for current level
-  // KSPCreate(MPI_COMM_WORLD, colloid_relaxation_list[adaptive_step]);
+  // setup relaxation on neighbor for current level
+  KSPCreate(MPI_COMM_WORLD,
+            colloid_relaxation_list[refinement_step]->get_pointer());
 
-  // KSPSetType(*colloid_relaxation_list[adaptive_step], KSPPREONLY);
-  // KSPSetOperators(*colloid_relaxation_list[adaptive_step], nn, nn);
+  KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
+             KSPPREONLY);
+  KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(), nn,
+                  nn);
 
-  // PC neighbor_relaxation_pc;
-  // KSPGetPC(*colloid_relaxation_list[adaptive_step], &neighbor_relaxation_pc);
-  // PCSetType(neighbor_relaxation_pc, PCBJACOBI);
-  // PCSetUp(neighbor_relaxation_pc);
-  // PetscInt local_row, local_col;
-  // MatGetLocalSize(nn, &local_row, &local_col);
-  // if (local_row > 0) {
-  //   KSP *neighbor_relaxation_sub_ksp;
-  //   PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
-  //                      &neighbor_relaxation_sub_ksp);
-  //   KSPSetType(neighbor_relaxation_sub_ksp[0], KSPGMRES);
-  //   PC neighbor_relaxation_sub_pc;
-  //   KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
-  //   PCSetType(neighbor_relaxation_sub_pc, PCLU);
-  //   PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERMUMPS);
-  //   PCSetUp(neighbor_relaxation_sub_pc);
-  //   KSPSetUp(neighbor_relaxation_sub_ksp[0]);
-  // }
+  PC neighbor_relaxation_pc;
+  KSPGetPC(colloid_relaxation_list[refinement_step]->get_reference(),
+           &neighbor_relaxation_pc);
+  PCSetType(neighbor_relaxation_pc, PCBJACOBI);
+  PCSetUp(neighbor_relaxation_pc);
+  PetscInt local_row, local_col;
+  MatGetLocalSize(nn, &local_row, &local_col);
+  if (local_row > 0) {
+    KSP *neighbor_relaxation_sub_ksp;
+    PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
+                       &neighbor_relaxation_sub_ksp);
+    KSPSetType(neighbor_relaxation_sub_ksp[0], KSPGMRES);
+    PC neighbor_relaxation_sub_pc;
+    KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
+    PCSetType(neighbor_relaxation_sub_pc, PCLU);
+    PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERMUMPS);
+    PCSetUp(neighbor_relaxation_sub_pc);
+    KSPSetUp(neighbor_relaxation_sub_ksp[0]);
+  }
 
-  // KSPSetUp(*colloid_relaxation_list[adaptive_step]);
+  KSPSetUp(colloid_relaxation_list[refinement_step]->get_reference());
 
-  // Mat shell_mat = (*(A_list.end() - 1))->get_shell_reference();
+  Mat &shell_mat = (*(A_list.end() - 1))->get_shell_reference();
 
-  // KSP _ksp;
-  // KSPCreate(PETSC_COMM_WORLD, &_ksp);
-  // KSPSetOperators(_ksp, shell_mat, shell_mat);
-  // KSPSetFromOptions(_ksp);
+  KSP _ksp;
+  KSPCreate(PETSC_COMM_WORLD, &_ksp);
+  KSPSetOperators(_ksp, shell_mat, shell_mat);
+  KSPSetFromOptions(_ksp);
 
-  // PC _pc;
+  PC _pc;
 
-  // KSPGetPC(_ksp, &_pc);
-  // PCSetType(_pc, PCSHELL);
+  KSPGetPC(_ksp, &_pc);
+  PCSetType(_pc, PCSHELL);
 
-  // HypreLUShellPC *shell_ctx;
-  // HypreLUShellPCCreate(&shell_ctx);
-  // if (A_list.size() == 1) {
-  //   PCShellSetApply(_pc, HypreLUShellPCApply);
-  //   PCShellSetContext(_pc, shell_ctx);
-  //   PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+  HypreLUShellPC *shell_ctx;
+  HypreLUShellPCCreate(&shell_ctx);
+  if (A_list.size() == 1) {
+    PCShellSetApply(_pc, HypreLUShellPCApply);
+    PCShellSetContext(_pc, shell_ctx);
+    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-  //   HypreLUShellPCSetUp(_pc, this, _x, localParticleNum, fieldDof);
-  // } else {
-  //   MPI_Barrier(MPI_COMM_WORLD);
-  //   PetscPrintf(PETSC_COMM_WORLD,
-  //               "start of stokes_multilevel preconditioner setup\n");
+    HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
+                        filed_dof);
+  } else {
+    MPI_Barrier(MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD,
+                "start of stokes_multilevel preconditioner setup\n");
 
-  //   PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
-  //   PCShellSetContext(_pc, shell_ctx);
-  //   PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+    PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
+    PCShellSetContext(_pc, shell_ctx);
+    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-  //   HypreLUShellPCSetUp(_pc, this, _x, localParticleNum, fieldDof);
-  // }
+    HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
+                        filed_dof);
+  }
 
-  // double tStart, tEnd;
-  // PetscScalar *a;
+  KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
+  PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
+  PetscReal residual_norm, rhs_norm;
+  VecNorm(_rhs.get_reference(), NORM_2, &rhs_norm);
+  residual_norm = global_particle_num;
+  Vec residual;
+  VecDuplicate(_rhs.get_reference(), &residual);
+  PetscReal rtol = 1e-6;
+  int counter;
+  counter = 0;
+  rtol = 1e-6;
+  bool diverged = false;
+  do {
+    KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 1000);
+    KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
+    MatMult(shell_mat, _x.get_reference(), residual);
+    VecAXPY(residual, -1.0, _rhs.get_reference());
+    VecNorm(residual, NORM_2, &residual_norm);
+    PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+                residual_norm / rhs_norm / (double)global_particle_num);
+    rtol *= 1e-2;
+    counter++;
 
-  // KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
-  // MPI_Barrier(MPI_COMM_WORLD);
-  // tStart = MPI_Wtime();
-  // PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-  // PetscReal residual_norm, rhs_norm;
-  // VecNorm(_rhs, NORM_2, &rhs_norm);
-  // residual_norm = globalParticleNum;
-  // Vec residual;
-  // VecDuplicate(_rhs, &residual);
-  // PetscReal rtol = 1e-6;
-  // int counter;
-  // counter = 0;
-  // rtol = 1e-6;
-  // bool diverged = false;
-  // do {
-  //   KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 1000);
-  //   KSPSolve(_ksp, _rhs, _x);
-  //   MatMult(shell_mat, _x, residual);
-  //   VecAXPY(residual, -1.0, _rhs);
-  //   VecNorm(residual, NORM_2, &residual_norm);
-  //   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
-  //               residual_norm / rhs_norm / (double)globalParticleNum);
-  //   rtol *= 1e-2;
-  //   counter++;
+    KSPConvergedReason convergence_reason;
+    KSPGetConvergedReason(_ksp, &convergence_reason);
 
-  //   KSPConvergedReason convergence_reason;
-  //   KSPGetConvergedReason(_ksp, &convergence_reason);
+    if (counter >= 10)
+      break;
+    if (residual_norm / rhs_norm / (double)global_particle_num > 1e3)
+      diverged = true;
+    if (convergence_reason < 0)
+      diverged = true;
+    if (diverged)
+      break;
+  } while (residual_norm / rhs_norm / (double)global_particle_num > 1);
+  VecDestroy(&residual);
+  PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
-  //   if (counter >= 10)
-  //     break;
-  //   if (residual_norm / rhs_norm / (double)globalParticleNum > 1e3)
-  //     diverged = true;
-  //   if (convergence_reason < 0)
-  //     diverged = true;
-  //   if (diverged)
-  //     break;
-  // } while (residual_norm / rhs_norm / (double)globalParticleNum > 1);
-  // // KSPSolve(_ksp, _rhs, _x);
-  // VecDestroy(&residual);
-  // PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
-  // tEnd = MPI_Wtime();
-  // PetscPrintf(PETSC_COMM_WORLD, "pc apply time: %fs\n", tEnd - tStart);
+  KSPConvergedReason reason;
+  KSPGetConvergedReason(_ksp, &reason);
 
-  // KSPConvergedReason reason;
-  // KSPGetConvergedReason(_ksp, &reason);
+  _x.copy(x);
 
-  // VecGetArray(_x, &a);
-  // if (reason >= 0 && counter < 10 && diverged == false)
-  //   for (size_t i = 0; i < rhs.size(); i++) {
-  //     x[i] = a[i];
-  //   }
-  // VecRestoreArray(_x, &a);
+  KSPDestroy(&_ksp);
 
-  // KSPDestroy(&_ksp);
+  VecDestroy(&null_field);
+  VecDestroy(&null_whole);
 
-  // VecDestroy(&_rhs);
-  // VecDestroy(&_x);
-  // VecDestroy(&null_field);
-  // VecDestroy(&null_whole);
-
-  // if (reason < 0 || counter == 10 || diverged) {
-  //   if (A_list.size() == 1)
-  //     return -1;
-  // }
+  MatDestroy(&pp);
+  MatNullSpaceDestroy(&nullspace_whole);
+  MatNullSpaceDestroy(&nullspace_field);
 
   return 0;
 }
@@ -822,9 +854,6 @@ void stokes_multilevel::clear() {
   field_scatter_list.clear();
   colloid_scatter_list.clear();
   pressure_scatter_list.clear();
-
-  nullspace_whole_list.clear();
-  nullspace_field_list.clear();
 
   A_list.clear();
   I_list.clear();
@@ -852,5 +881,5 @@ void stokes_multilevel::clear() {
   r_colloid_list.clear();
   t_colloid_list.clear();
 
-  current_adaptive_level = 0;
+  current_refinement_level = -1;
 }

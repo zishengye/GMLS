@@ -9,14 +9,11 @@ class petsc_vector {
 private:
   Vec vec;
 
-  // control flags
-  bool is_created;
-
 public:
-  petsc_vector() : is_created(false) {}
+  petsc_vector() : vec(PETSC_NULL) {}
 
   ~petsc_vector() {
-    if (is_created)
+    if (vec != PETSC_NULL)
       VecDestroy(&vec);
   }
 
@@ -26,6 +23,8 @@ public:
   void copy(std::vector<double> &_vec);
 
   Vec &get_reference() { return vec; }
+
+  Vec *get_pointer() { return &vec; }
 };
 
 #endif

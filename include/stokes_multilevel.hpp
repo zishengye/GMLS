@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include "particle_geometry.hpp"
 #include "petsc_wrapper.hpp"
 
 class stokes_multilevel {
@@ -56,12 +57,9 @@ private:
   std::vector<ksp_type> field_relaxation_list;
   std::vector<ksp_type> colloid_relaxation_list;
 
-  std::vector<MatNullSpace *> nullspace_whole_list;
-  std::vector<MatNullSpace *> nullspace_field_list;
-
   ksp_type ksp_field_base, ksp_colloid_base;
 
-  int myid, mpi_size;
+  int mpi_rank, mpi_size;
 
   int dimension, num_rigid_body;
 
@@ -69,82 +67,90 @@ private:
 
   bool base_level_initialized;
 
-  int current_adaptive_level;
+  int current_refinement_level;
+
+  std::shared_ptr<particle_geometry> geo_mgr;
 
 public:
   stokes_multilevel()
-      : base_level_initialized(false), current_adaptive_level(0) {}
+      : base_level_initialized(false), current_refinement_level(-1) {}
 
-  ~stokes_multilevel() {}
+  ~stokes_multilevel() { clear(); }
 
-  void init(int _dimension) {
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  void init(int _dimension, std::shared_ptr<particle_geometry> _geo_mgr) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
     set_dimension(_dimension);
+
+    geo_mgr = _geo_mgr;
   }
+
+  void reset() { clear(); }
 
   inline void set_dimension(int _dimension) { dimension = _dimension; }
 
   inline void set_num_rigid_body(int _num_rigid_body) {
     num_rigid_body = _num_rigid_body;
+
+    x_colloid = std::make_shared<petsc_vector>();
+    y_colloid = std::make_shared<petsc_vector>();
   }
 
   inline int get_dimension() { return dimension; }
 
   inline int get_num_rigid_body() { return num_rigid_body; }
 
-  petsc_sparse_matrix &getA(int num_level) { return *A_list[num_level]; }
-  petsc_sparse_matrix &getI(int num_level) { return *I_list[num_level]; }
-  petsc_sparse_matrix &getR(int num_level) { return *R_list[num_level]; }
-  ksp_type &get_field_relaxation(int num_level) {
+  matrix_type getA(int num_level) { return A_list[num_level]; }
+  matrix_type getI(int num_level) { return I_list[num_level]; }
+  matrix_type getR(int num_level) { return R_list[num_level]; }
+  ksp_type get_field_relaxation(int num_level) {
     return field_relaxation_list[num_level];
   }
-  ksp_type &get_colloid_relaxation(int num_level) {
+  ksp_type get_colloid_relaxation(int num_level) {
     return colloid_relaxation_list[num_level];
   }
-  ksp_type &get_field_base() { return ksp_field_base; }
-  ksp_type &get_colloid_base() { return ksp_colloid_base; }
+  ksp_type get_field_base() { return ksp_field_base; }
+  ksp_type get_colloid_base() { return ksp_colloid_base; }
 
-  matrix_type &get_field_mat(int num_level) { return ff_list[num_level]; }
-  matrix_type &get_colloid_whole_mat(int num_level) {
+  matrix_type get_field_mat(int num_level) { return ff_list[num_level]; }
+  matrix_type get_colloid_whole_mat(int num_level) {
     return nw_list[num_level];
   }
 
-  vector_type &get_colloid_x() { return x_colloid; }
-  vector_type &get_colloid_y() { return y_colloid; }
+  vector_type get_colloid_x() { return x_colloid; }
+  vector_type get_colloid_y() { return y_colloid; }
 
   void add_new_level() {
     if (!base_level_initialized) {
-      ksp_field_base = std::make_shared<petsc_ksp>(petsc_ksp());
-      ksp_colloid_base = std::make_shared<petsc_ksp>(petsc_ksp());
+      ksp_field_base = std::make_shared<petsc_ksp>();
+      ksp_colloid_base = std::make_shared<petsc_ksp>();
     }
+
+    A_list.push_back(std::make_shared<petsc_sparse_matrix>());
+    if (base_level_initialized) {
+      I_list.push_back(std::make_shared<petsc_sparse_matrix>());
+      R_list.push_back(std::make_shared<petsc_sparse_matrix>());
+    }
+
     base_level_initialized = true;
-    current_adaptive_level++;
+    current_refinement_level++;
 
-    A_list.push_back(
-        std::make_shared<petsc_sparse_matrix>(petsc_sparse_matrix()));
-    I_list.push_back(
-        std::make_shared<petsc_sparse_matrix>(petsc_sparse_matrix()));
-    R_list.push_back(
-        std::make_shared<petsc_sparse_matrix>(petsc_sparse_matrix()));
+    isg_field_list.push_back(std::make_shared<petsc_is>());
+    isg_colloid_list.push_back(std::make_shared<petsc_is>());
+    isg_pressure_list.push_back(std::make_shared<petsc_is>());
 
-    isg_field_list.push_back(std::make_shared<petsc_is>(petsc_is()));
-    isg_colloid_list.push_back(std::make_shared<petsc_is>(petsc_is()));
-    isg_pressure_list.push_back(std::make_shared<petsc_is>(petsc_is()));
-
-    ff_list.push_back(
-        std::make_shared<petsc_sparse_matrix>(petsc_sparse_matrix()));
-    nn_list.push_back(
-        std::make_shared<petsc_sparse_matrix>(petsc_sparse_matrix()));
-    nw_list.push_back(
-        std::make_shared<petsc_sparse_matrix>(petsc_sparse_matrix()));
+    ff_list.push_back(std::make_shared<petsc_sparse_matrix>());
+    nn_list.push_back(std::make_shared<petsc_sparse_matrix>());
+    nw_list.push_back(std::make_shared<petsc_sparse_matrix>());
   }
 
   void clear();
 
   void
   initial_guess_from_previous_adaptive_step(std::vector<double> &initial_guess);
+  void build_interpolation_restriction(const int _num_rigid_body,
+                                       const int _dim);
 
   std::vector<matrix_type> &get_interpolation_list() { return I_list; }
   std::vector<matrix_type> &get_restriction_list() { return R_list; }

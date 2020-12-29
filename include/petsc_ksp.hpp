@@ -8,16 +8,14 @@
 
 class petsc_ksp {
 private:
-  KSP __ksp;
-
-  bool __is_setup;
+  KSP ksp;
 
 public:
-  petsc_ksp() : __is_setup(false) {}
+  petsc_ksp() : ksp(PETSC_NULL) {}
 
   ~petsc_ksp() {
-    if (__is_setup) {
-      KSPDestroy(&__ksp);
+    if (ksp != PETSC_NULL) {
+      KSPDestroy(&ksp);
     }
   }
 
@@ -27,7 +25,9 @@ public:
 
   void solve(petsc_vector &rhs, petsc_vector &p);
 
-  KSP &get_reference() { return __ksp; }
+  KSP &get_reference() { return ksp; }
+
+  KSP *get_pointer() { return &ksp; }
 };
 
 #endif

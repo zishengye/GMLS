@@ -10,19 +10,19 @@ class petsc_vecscatter {
 private:
   VecScatter vec_scatter;
 
-  bool is_created;
-
 public:
-  petsc_vecscatter() : is_created(false) {}
+  petsc_vecscatter() : vec_scatter(PETSC_NULL) {}
 
   ~petsc_vecscatter() {
-    if (is_created)
+    if (vec_scatter != PETSC_NULL)
       VecScatterDestroy(&vec_scatter);
   }
 
   void create(petsc_is &is, petsc_vector &vec1, petsc_vector &vec2);
 
   VecScatter &get_reference() { return vec_scatter; }
+
+  VecScatter *get_pointer() { return &vec_scatter; }
 };
 
 #endif
