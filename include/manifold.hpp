@@ -1,9 +1,10 @@
-#pragma once
+#ifndef _MANIFOLD_HPP_
+#define _MANIFOLD_HPP_
 
 #include <cmath>
 #include <iostream>
 
-#include "vec3.h"
+#include "vec3.hpp"
 
 using namespace std;
 
@@ -27,3 +28,5 @@ inline vec3 ManifoldNorm(double xScalar, double y) {
 
   return normal;
 }
+
+#endif

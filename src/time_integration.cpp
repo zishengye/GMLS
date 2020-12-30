@@ -1,4 +1,4 @@
-#include "gmls_solver.h"
+#include "gmls_solver.hpp"
 
 using namespace std;
 using namespace Compadre;
@@ -12,124 +12,58 @@ inline double correct_radius(double x) {
   return x;
 }
 
-void GMLS_Solver::TimeIntegration() {
-  InitParticle();
-
-  _multi.init(__dim);
-
-  if (__manifoldOrder == 0) {
-    SetBoundingBox();
-    SetBoundingBoxBoundary();
-
-    InitRigidBody();
-
-    InitDomainDecomposition();
-
-    if (__adaptiveRefinement) {
-      __field.vector.Register("old coord");
-      __field.index.Register("old particle type");
-      __background.vector.Register("old source coord");
-      __background.index.Register("old source index");
-    }
-  } else {
-    SetBoundingBoxManifold();
-    SetBoundingBoxBoundaryManifold();
-
-    InitRigidBody();
-
-    InitDomainDecompositionManifold();
+void gmls_solver::time_integration() {
+  if (time_integration_method == "ForwardEuler") {
+    foward_euler_integration();
   }
 
-  // equation type selection and initialization
-  if (__equationType == "Stokes" && __manifoldOrder == 0) {
-    __equationSolverInitialization = &GMLS_Solver::StokesEquationInitialization;
-    __equationSolver = &GMLS_Solver::StokesEquation;
-    __equationSolverFinalization = &GMLS_Solver::StokesEquationFinalization;
+  if (time_integration_method == "RK4") {
+    adaptive_runge_kutta_intagration();
   }
-
-  if (__equationType == "Poisson" && __manifoldOrder == 0) {
-    __equationSolver = &GMLS_Solver::PoissonEquation;
-  }
-
-  if (__equationType == "Poisson" && __manifoldOrder > 0) {
-    __equationSolver = &GMLS_Solver::PoissonEquationManifold;
-  }
-
-  if (__equationType == "Diffusion" && __manifoldOrder > 0) {
-    __equationSolver = &GMLS_Solver::DiffusionEquationManifold;
-  }
-
-  if (__timeIntegrationMethod == "ForwardEuler") {
-    ForwardEulerIntegration();
-  }
-
-  if (__timeIntegrationMethod == "RK4") {
-    RungeKuttaIntegration();
-  }
-
-  FinalizeDomainDecomposition();
-
-  if (__rigidBodyInclusion)
-    Clear();
 }
 
-void GMLS_Solver::ForwardEulerIntegration() {
-  (this->*__equationSolverInitialization)();
-
-  for (double t = 0; t < __finalTime + 1e-5; t += __dtMax) {
+void gmls_solver::foward_euler_integration() {
+  for (double t = 0; t < final_time + 1e-5; t += max_dt) {
     PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
     PetscPrintf(PETSC_COMM_WORLD, "==== Start of time integration ====\n");
     PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
     PetscPrintf(PETSC_COMM_WORLD, "==> Current time: %f s\n", t);
-    PetscPrintf(PETSC_COMM_WORLD, "==> current time step: %f s\n", __dtMax);
+    PetscPrintf(PETSC_COMM_WORLD, "==> current time step: %f s\n", max_dt);
 
     PetscPrintf(PETSC_COMM_WORLD, "\nGenerating uniform particle field...\n");
-    if (__manifoldOrder > 0) {
-      InitUniformParticleManifoldField();
-
-      EmposeBoundaryCondition();
-    } else {
-      InitUniformParticleField();
-
-      EmposeBoundaryCondition();
-    }
+    geo_mgr->generate_uniform_particle();
 
     // if (t == 0) {
     //   InitialCondition();
     // }
 
-    __adaptive_step = 0;
+    current_refinement_step = 0;
+    equation_mgr->reset();
     do {
-      if (__writeData)
-        WriteDataAdaptiveGeometry();
-      PetscPrintf(PETSC_COMM_WORLD, "Adaptive level: %d\n", __adaptive_step);
-      (this->*__equationSolver)();
-    } while (NeedRefinement());
+      if (write_data)
+        write_refinement_data_geometry_only();
+      PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
+                  current_refinement_step);
+      equation_mgr->update();
+    } while (refinement());
 
     PetscPrintf(PETSC_COMM_WORLD, "\n=================================\n");
     PetscPrintf(PETSC_COMM_WORLD, "==== End of time integration ====\n");
     PetscPrintf(PETSC_COMM_WORLD, "=================================\n\n");
 
-    if (__writeData != 0) {
-      WriteDataTimeStep();
+    if (write_data != 0) {
+      write_time_step_data();
     }
   }
-
-  (this->*__equationSolverFinalization)();
 }
 
-void GMLS_Solver::RungeKuttaIntegration() {
-  (this->*__equationSolverInitialization)();
+void gmls_solver::adaptive_runge_kutta_intagration() {
+  vector<vec3> &rigidBodyPosition = rb_mgr->get_position();
+  vector<vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
+  vector<vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
+  vector<vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
 
-  vector<vec3> &rigidBodyPosition = __rigidBody.vector.GetHandle("position");
-  vector<vec3> &rigidBodyOrientation =
-      __rigidBody.vector.GetHandle("orientation");
-  vector<vec3> &rigidBodyVelocity = __rigidBody.vector.GetHandle("velocity");
-  vector<vec3> &rigidBodyAngularVelocity =
-      __rigidBody.vector.GetHandle("angular velocity");
-  vector<double> &rigidBodySize = __rigidBody.scalar.GetHandle("size");
-
-  int numRigidBody = rigidBodyVelocity.size();
+  int numRigidBody = rb_mgr->get_rigid_body_num();
 
   vector<vec3> position0(numRigidBody);
   vector<vec3> orientation0(numRigidBody);
@@ -150,11 +84,14 @@ void GMLS_Solver::RungeKuttaIntegration() {
   vector<vec3> angularVelocity_k6(numRigidBody);
   vector<vec3> angularVelocity_k7(numRigidBody);
 
+  vector<double> sychronize_velocity(numRigidBody * 3);
+  vector<double> sychronize_angularVelocity(numRigidBody * 3);
+
   // ode45 algorithm parameter
   double t, dt, dtMin, rtol, atol, err, norm_y;
   rtol = 1e-5;
   atol = 1e-10;
-  dt = __dtMax;
+  dt = max_dt;
   t = 0;
   dtMin = 1e-10;
 
@@ -200,29 +137,42 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
   PetscPrintf(PETSC_COMM_WORLD, "\n==================\n");
   PetscPrintf(PETSC_COMM_WORLD, "initial evaluation\n");
-  PetscPrintf(PETSC_COMM_WORLD, "start of adaptive step\n");
+  PetscPrintf(PETSC_COMM_WORLD, "start of refinement step\n");
 
   // get initial value
-  if (__manifoldOrder > 0) {
-    InitUniformParticleManifoldField();
+  geo_mgr->generate_uniform_particle();
 
-    EmposeBoundaryCondition();
-  } else {
-    InitUniformParticleField();
+  current_refinement_step = 0;
+  equation_mgr->reset();
+  do {
+    if (write_data)
+      write_refinement_data_geometry_only();
+    PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
+                current_refinement_step);
+    equation_mgr->update();
+  } while (refinement());
 
-    EmposeBoundaryCondition();
+  for (int i = 0; i < numRigidBody; i++) {
+    for (int j = 0; j < 3; j++) {
+      sychronize_velocity[i * 3 + j] = rigidBodyVelocity[i][j];
+      sychronize_angularVelocity[i * 3 + j] = rigidBodyAngularVelocity[i][j];
+    }
   }
 
-  __adaptive_step = 0;
-  do {
-    if (__writeData)
-      WriteDataAdaptiveGeometry();
-    PetscPrintf(PETSC_COMM_WORLD, "Adaptive level: %d\n", __adaptive_step);
-    (this->*__equationSolver)();
-  } while (NeedRefinement());
+  MPI_Bcast(sychronize_velocity.data(), numRigidBody * 3, MPI_DOUBLE, 0,
+            MPI_COMM_WORLD);
+  MPI_Bcast(sychronize_angularVelocity.data(), numRigidBody * 3, MPI_DOUBLE, 0,
+            MPI_COMM_WORLD);
 
-  if (__writeData != 0) {
-    WriteDataTimeStep();
+  for (int i = 0; i < numRigidBody; i++) {
+    for (int j = 0; j < 3; j++) {
+      rigidBodyVelocity[i][j] = sychronize_velocity[i * 3 + j];
+      rigidBodyAngularVelocity[i][j] = sychronize_angularVelocity[i * 3 + j];
+    }
+  }
+
+  if (write_data != 0) {
+    write_time_step_data();
   }
 
   // average
@@ -249,8 +199,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
   ofstream output;
   ofstream output_runge_kutta;
   ofstream outputVelocity;
-  if (__myID == 0) {
-    output.open(__trajectoryOutputFileName, ios::trunc);
+  if (rank == 0) {
+    output.open(trajectory_output_file_name, ios::trunc);
     output << t << '\t';
     for (int num = 0; num < numRigidBody; num++) {
       for (int j = 0; j < 3; j++) {
@@ -266,7 +216,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
     output_runge_kutta.open("traj_runge_kutta.txt", ios::trunc);
     output_runge_kutta.close();
 
-    outputVelocity.open(__velocityOutputFileName, ios::trunc);
+    outputVelocity.open(velocity_output_file_name, ios::trunc);
     outputVelocity << t + dt << '\t';
     for (int num = 0; num < numRigidBody; num++) {
       for (int j = 0; j < 3; j++) {
@@ -281,12 +231,12 @@ void GMLS_Solver::RungeKuttaIntegration() {
   }
 
   // main loop
-  while (t < __finalTime - 1e-5) {
+  while (t < final_time - 1e-5) {
     bool noFail = true;
     bool acceptableTrial = false;
 
     // ensure end exactly at final time
-    dt = min(dt, __finalTime - t);
+    dt = min(dt, final_time - t);
 
     for (int num = 0; num < numRigidBody; num++) {
       for (int j = 0; j < 3; j++) {
@@ -405,7 +355,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
 
         // Check if the colloids contact with each other or move out of the
         // domain
-        if (!IsAcceptableRigidBodyPosition()) {
+        if (rb_mgr->rigid_body_collision_detection()) {
           // halve the time step and restart the time integration
           dt = 0.5 * dt;
           acceptableTrial = false;
@@ -415,7 +365,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
           acceptableTrial = true;
         }
 
-        if (__myID == 0) {
+        if (rank == 0) {
           output_runge_kutta.open("traj_runge_kutta.txt", ios::app);
           output_runge_kutta << t << '\t';
           for (int num = 0; num < numRigidBody; num++) {
@@ -436,27 +386,20 @@ void GMLS_Solver::RungeKuttaIntegration() {
           output_runge_kutta.close();
         }
 
-        if (__manifoldOrder > 0) {
-          InitUniformParticleManifoldField();
+        geo_mgr->generate_uniform_particle();
 
-          EmposeBoundaryCondition();
-        } else {
-          InitUniformParticleField();
+        PetscPrintf(PETSC_COMM_WORLD, "start of refinement step\n");
 
-          EmposeBoundaryCondition();
-        }
-
-        PetscPrintf(PETSC_COMM_WORLD, "start of adaptive step\n");
-
-        // adaptive refinement loop
-        __adaptive_step = 0;
+        // refinement loop
+        current_refinement_step = 0;
+        equation_mgr->reset();
         do {
-          if (__writeData)
-            WriteDataAdaptiveGeometry();
-          PetscPrintf(PETSC_COMM_WORLD, "Adaptive level: %d\n",
-                      __adaptive_step);
-          (this->*__equationSolver)();
-        } while (NeedRefinement());
+          if (write_data)
+            write_refinement_data_geometry_only();
+          PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
+                      current_refinement_step);
+          equation_mgr->update();
+        } while (refinement());
 
         // average
         // for (int j = 0; j < 3; j++) {
@@ -527,7 +470,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
         double norm = 0.0;
         err = 0.0;
         for (int num = 0; num < numRigidBody; num++) {
-          if (__dim == 2) {
+          if (dim == 2) {
             for (int j = 0; j < 2; j++) {
               double velocity_err =
                   dt * (dc1 * velocity_k1[num][j] + dc3 * velocity_k3[num][j] +
@@ -571,8 +514,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
     PetscPrintf(PETSC_COMM_WORLD, "=================================\n\n");
 
     // output current time step result
-    if (__myID == 0) {
-      output.open(__trajectoryOutputFileName, ios::app);
+    if (rank == 0) {
+      output.open(trajectory_output_file_name, ios::app);
 
       const double bi12 = -static_cast<double>(183) / static_cast<double>(64);
       const double bi13 = static_cast<double>(37) / static_cast<double>(12);
@@ -650,7 +593,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
       output << endl;
       output.close();
 
-      outputVelocity.open(__velocityOutputFileName, ios::app);
+      outputVelocity.open(velocity_output_file_name, ios::app);
       outputVelocity << t + dt << '\t';
       for (int num = 0; num < numRigidBody; num++) {
         for (int j = 0; j < 3; j++) {
@@ -677,7 +620,7 @@ void GMLS_Solver::RungeKuttaIntegration() {
       }
     }
 
-    dt = min(dt, __dtMax);
+    dt = min(dt, max_dt);
 
     // reset k1 for next step
     for (int num = 0; num < numRigidBody; num++) {
@@ -687,10 +630,8 @@ void GMLS_Solver::RungeKuttaIntegration() {
       }
     }
 
-    if (__writeData != 0) {
-      WriteDataTimeStep();
+    if (write_data != 0) {
+      write_time_step_data();
     }
   }
-
-  (this->*__equationSolverFinalization)();
 }

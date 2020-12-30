@@ -3,7 +3,7 @@
 ## How to access the source files
 
 ```
-git clone wpan@panlab-07.me.wisc.edu:~/git/GMLS_Solver.git
+git clone wpan@panlab-07.me.wisc.edu:~/git/gmls_solver.git
 ```
 
 
@@ -79,6 +79,9 @@ cmake \
     \
     ..
 ```
+
+[Trilinos]
+cmake -D Trilinos_ENABLE_Zoltan2:BOOL=ON -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX_PATH -D Trilinos_ENABLE_Fortran:BOOL=OFF -D TPL_ENABLE_MPI:BOOL=ON -D Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES=OFF ../
 
 ## How to executate the program
 

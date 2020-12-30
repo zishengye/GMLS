@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _INFO_HPP_
+#define _INFO_HPP_
 
 #include <cstdio>
 #include <cstdlib>
@@ -9,7 +10,7 @@
 
 #include "Compadre_GMLS.hpp"
 
-#include "vec3.h"
+#include "vec3.hpp"
 
 template <class T> class infoEntity {
 private:
@@ -53,3 +54,5 @@ struct QueueInfo {
   infoEntity<std::list<double>> scalar;
   infoEntity<std::list<int>> index;
 };
+
+#endif

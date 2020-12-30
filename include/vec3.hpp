@@ -1,5 +1,7 @@
-#pragma once
+#ifndef _VEC3_HPP_
+#define _VEC3_HPP_
 
+#include <cmath>
 #include <fstream>
 #include <vector>
 
@@ -23,25 +25,25 @@ public:
 
   const T operator[](const int i) const { return data[i]; }
 
-  void operator+=(triple<T> y) {
+  void operator+=(const triple<T> y) {
     data[0] += y[0];
     data[1] += y[1];
     data[2] += y[2];
   }
 
-  void operator-=(triple<T> y) {
+  void operator-=(const triple<T> y) {
     data[0] -= y[0];
     data[1] -= y[1];
     data[2] -= y[2];
   }
 
-  void operator=(triple<T> y) {
+  void operator=(const triple<T> y) {
     data[0] = y[0];
     data[1] = y[1];
     data[2] = y[2];
   }
 
-  void operator*=(double a) {
+  void operator*=(const double a) {
     data[0] *= a;
     data[1] *= a;
     data[2] *= a;
@@ -85,3 +87,5 @@ template <class T> double maxmag(std::vector<triple<T>> maxof) {
 }
 
 typedef triple<double> vec3;
+
+#endif

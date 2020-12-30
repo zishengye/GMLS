@@ -6,7 +6,7 @@
 -ft 0.005 -dt 0.01 -eta 1.0 -rho 1.0
 
 # problem type
--EquationType Stokes -TimeIntegration ForwardEuler
+-EquationType Stokes -time_integration ForwardEuler
 
 # linear solver setup
 -ksp_type gmres -ksp_converged_reason -ksp_gmres_modifiedgramschmidt 1 -ksp_gmres_restart 50 -ksp_gmres_cgs_refinement_type refine_always -ksp_divtol 1e10

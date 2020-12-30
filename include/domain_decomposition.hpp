@@ -1,11 +1,12 @@
-#pragma once
+#ifndef _DOMAIN_DECOMPOSITION_HPP_
+#define _DOMAIN_DECOMPOSITION_HPP_
 
 #include <cmath>
 #include <iostream>
 #include <tgmath.h>
 #include <vector>
 
-#include "vec3.h"
+#include "vec3.hpp"
 
 static void ProcessSplit(int &nX, int &nY, int &nI, int &nJ, const int nProc,
                          const int ID) {
@@ -201,3 +202,5 @@ static int BoundingBoxSplit(vec3 &boundingBoxSize,
 
   return 0;
 }
+
+#endif

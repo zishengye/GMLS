@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _PETSC_SPARSE_MATRIX_HPP_
+#define _PETSC_SPARSE_MATRIX_HPP_
 
 #include <algorithm>
 #include <assert.h>
@@ -11,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include <petscksp.h>
+#include "petsc_vector.hpp"
 
 inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
   return (i.first < j.first);
@@ -36,11 +37,11 @@ struct fluid_colloid_matrix_context {
 
 PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y);
 
-class PetscSparseMatrix {
+class petsc_sparse_matrix {
 private:
   fluid_colloid_matrix_context __ctx;
 
-  bool __isAssembled, __shellIsAssembled, __isCtxAssembled;
+  bool is_assembled, is_shell_assembled, is_ctx_assembled;
 
   typedef std::pair<PetscInt, double> entry;
   std::vector<std::vector<entry>> __matrix;
@@ -53,46 +54,49 @@ private:
   std::vector<PetscInt> __j;
   std::vector<PetscReal> __val;
 
-public:
   Mat __mat, __shell_mat;
 
-  PetscSparseMatrix()
-      : __isCtxAssembled(false), __shellIsAssembled(false),
-        __isAssembled(false), __row(0), __col(0), __Col(0),
-        __out_process_row(0), __out_process_reduction(0) {}
+public:
+  petsc_sparse_matrix()
+      : is_ctx_assembled(false), is_shell_assembled(false), is_assembled(false),
+        __row(0), __col(0), __Col(0), __out_process_row(0),
+        __out_process_reduction(0), __mat(PETSC_NULL), __shell_mat(PETSC_NULL) {
+  }
 
   // only for square matrix
-  PetscSparseMatrix(PetscInt m /* local # of rows */,
-                    PetscInt N /* global # of cols */,
-                    PetscInt out_process_row = 0,
-                    PetscInt out_process_row_reduction = 0)
-      : __isCtxAssembled(false), __shellIsAssembled(false),
-        __isAssembled(false), __row(m), __col(m), __Col(N),
-        __out_process_row(out_process_row),
+  petsc_sparse_matrix(PetscInt m /* local # of rows */,
+                      PetscInt N /* global # of cols */,
+                      PetscInt out_process_row = 0,
+                      PetscInt out_process_row_reduction = 0)
+      : is_ctx_assembled(false), is_shell_assembled(false), is_assembled(false),
+        __row(m), __col(m), __Col(N), __out_process_row(out_process_row),
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
     __out_process_matrix.resize(out_process_row);
   }
 
-  PetscSparseMatrix(PetscInt m /* local # of rows */,
-                    PetscInt n /* local # of cols */,
-                    PetscInt N /* global # of cols */,
-                    PetscInt out_process_row = 0,
-                    PetscInt out_process_row_reduction = 0)
-      : __isCtxAssembled(false), __shellIsAssembled(false),
-        __isAssembled(false), __row(m), __col(n), __Col(N),
-        __out_process_row(out_process_row),
+  petsc_sparse_matrix(PetscInt m /* local # of rows */,
+                      PetscInt n /* local # of cols */,
+                      PetscInt N /* global # of cols */,
+                      PetscInt out_process_row = 0,
+                      PetscInt out_process_row_reduction = 0)
+      : is_ctx_assembled(false), is_shell_assembled(false), is_assembled(false),
+        __row(m), __col(n), __Col(N), __out_process_row(out_process_row),
         __out_process_reduction(out_process_row_reduction) {
     __matrix.resize(m);
     __out_process_matrix.resize(out_process_row);
   }
 
-  ~PetscSparseMatrix() {
-    if (__isAssembled)
+  ~petsc_sparse_matrix() {
+    if (is_assembled || __mat != PETSC_NULL) {
+      MatSetNearNullSpace(__mat, NULL);
       MatDestroy(&__mat);
-    if (__shellIsAssembled)
+    }
+    if (is_shell_assembled || __shell_mat != PETSC_NULL) {
+      MatSetNearNullSpace(__shell_mat, NULL);
       MatDestroy(&__shell_mat);
-    if (__isCtxAssembled) {
+    }
+    if (is_ctx_assembled) {
       MatDestroy(&__ctx.colloid_part);
       MatDestroy(&__ctx.fluid_part);
       VecDestroy(&__ctx.colloid_vec);
@@ -122,48 +126,69 @@ public:
     __out_process_matrix.resize(out_process_row);
   }
 
-  inline void setColIndex(const PetscInt row, std::vector<PetscInt> &index);
-  inline void setOutProcessColIndex(const PetscInt row,
-                                    std::vector<PetscInt> &index);
+  Mat &get_reference() { return __mat; }
+
+  Mat *get_pointer() { return &__mat; }
+
+  Mat &get_shell_reference() { return __shell_mat; }
+
+  Mat *get_shell_pointer() { return &__shell_mat; }
+
+  Mat &get_operator_reference() {
+    if (is_shell_assembled)
+      return __shell_mat;
+    else
+      return __mat;
+  }
+
+  Mat *get_operator_pointer() {
+    if (is_shell_assembled)
+      return &__shell_mat;
+    else
+      return &__mat;
+  }
+
+  inline void set_col_index(const PetscInt row, std::vector<PetscInt> &index);
+  inline void set_out_process_col_index(const PetscInt row,
+                                        std::vector<PetscInt> &index);
   inline void increment(const PetscInt i, const PetscInt j, double daij);
-  inline void outProcessIncrement(const PetscInt i, const PetscInt j,
-                                  double daij);
+  inline void out_process_increment(const PetscInt i, const PetscInt j,
+                                    double daij);
 
-  int Write(std::string filename);
+  int write(std::string filename);
 
-  int StructureAssemble();
-  int FinalAssemble();
-  int FinalAssemble(int blockSize);
-  int FinalAssemble(int blockSize, int num_rigid_body, int rigid_body_dof);
-  int FinalAssemble(Mat &mat, int blockSize, int num_rigid_body,
-                    int rigid_body_dof);
+  int assemble();
+  int assemble(int blockSize);
+  int assemble(int blockSize, int num_rigid_body, int rigid_body_dof);
+  int assemble(petsc_sparse_matrix &mat, int blockSize, int num_rigid_body,
+               int rigid_body_dof);
 
-  int ExtractNeighborIndex(std::vector<int> &idx_neighbor, int dimension,
-                           int num_rigid_body, int local_rigid_body_offset,
-                           int global_rigid_body_offset);
+  int extract_neighbor_index(std::vector<int> &idx_colloid, int dimension,
+                             int num_rigid_body, int local_rigid_body_offset,
+                             int global_rigid_body_offset);
 
   // (*this) * x = rhs
-  void Solve(std::vector<double> &rhs,
+  void solve(std::vector<double> &rhs,
              std::vector<double> &x); // simple solver
-  void Solve(std::vector<double> &rhs, std::vector<double> &x,
+  void solve(std::vector<double> &rhs, std::vector<double> &x,
              PetscInt blockSize); // simple solver
-  void Solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
+  void solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
              int numRigidBody);
-  void Solve(std::vector<double> &rhs, std::vector<double> &x,
-             std::vector<int> &idx_neighbor, int dimension, int numRigidBody,
-             int adaptive_step, PetscSparseMatrix &I, PetscSparseMatrix &R);
+  void solve(std::vector<double> &rhs, std::vector<double> &x,
+             std::vector<int> &idx_colloid, int dimension, int numRigidBody,
+             int adaptive_step, petsc_sparse_matrix &I, petsc_sparse_matrix &R);
   // two field solver with rigid body inclusion
 
   // [A Bt; B C] * [x; y] = [f; g]
-  friend void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt,
-                    PetscSparseMatrix &B, PetscSparseMatrix &C,
+  friend void solve(petsc_sparse_matrix &A, petsc_sparse_matrix &Bt,
+                    petsc_sparse_matrix &B, petsc_sparse_matrix &C,
                     std::vector<double> &f, std::vector<double> &g,
                     std::vector<double> &x, std::vector<double> &y,
                     int numRigidBody, int rigidBodyDof);
 };
 
-void PetscSparseMatrix::setColIndex(const PetscInt row,
-                                    std::vector<PetscInt> &index) {
+void petsc_sparse_matrix::set_col_index(const PetscInt row,
+                                        std::vector<PetscInt> &index) {
   sort(index.begin(), index.end());
   __matrix[row].resize(index.size());
   size_t counter = 0;
@@ -181,8 +206,8 @@ void PetscSparseMatrix::setColIndex(const PetscInt row,
   }
 }
 
-void PetscSparseMatrix::setOutProcessColIndex(const PetscInt row,
-                                              std::vector<PetscInt> &index) {
+void petsc_sparse_matrix::set_out_process_col_index(
+    const PetscInt row, std::vector<PetscInt> &index) {
   sort(index.begin(), index.end());
   __out_process_matrix[row - __out_process_reduction].resize(index.size());
   size_t counter = 0;
@@ -202,8 +227,8 @@ void PetscSparseMatrix::setOutProcessColIndex(const PetscInt row,
   }
 }
 
-void PetscSparseMatrix::increment(const PetscInt i, const PetscInt j,
-                                  const double daij) {
+void petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
+                                    const double daij) {
   if (std::abs(daij) > 1e-15) {
     auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
                           entry(j, daij), compare_index);
@@ -220,8 +245,9 @@ void PetscSparseMatrix::increment(const PetscInt i, const PetscInt j,
   }
 }
 
-void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
-                                            const double daij) {
+void petsc_sparse_matrix::out_process_increment(const PetscInt i,
+                                                const PetscInt j,
+                                                const double daij) {
   if (std::abs(daij) > 1e-15) {
     PetscInt in = i - __out_process_reduction;
     auto it = lower_bound(__out_process_matrix[in].begin(),
@@ -240,3 +266,5 @@ void PetscSparseMatrix::outProcessIncrement(const PetscInt i, const PetscInt j,
                 << std::endl;
   }
 }
+
+#endif

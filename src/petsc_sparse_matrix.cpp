@@ -1,5 +1,7 @@
-#include "sparse_matrix.h"
-#include "composite_preconditioner.h"
+#include "stokes_composite_preconditioner.hpp"
+
+#include "petsc_ksp.hpp"
+#include "petsc_sparse_matrix.hpp"
 
 #include <fstream>
 #include <string>
@@ -11,22 +13,48 @@ inline bool compare_group(vector<int> group1, vector<int> group2) {
   return group1.size() > group2.size();
 }
 
-int PetscSparseMatrix::Write(string fileName) {
-  ofstream output(fileName, ios::trunc);
+int petsc_sparse_matrix::write(string fileName) {
+  ofstream output;
+  int MPIsize, myID;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myID);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
-  for (int i = 0; i < __row; i++) {
-    for (vector<entry>::iterator it = __matrix[i].begin();
-         it != __matrix[i].end(); it++) {
-      output << (i + 1) << '\t' << (it->first + 1) << '\t' << it->second
-             << endl;
-    }
+  if (myID == 0) {
+    output.open(fileName, ios::trunc);
+    output.close();
   }
 
-  output.close();
+  int send_count = __row;
+  vector<int> recv_count(MPIsize);
+
+  MPI_Allgather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
+                MPI_COMM_WORLD);
+
+  vector<int> displs(MPIsize + 1);
+  displs[0] = 0;
+  for (int i = 1; i <= MPIsize; i++) {
+    displs[i] = displs[i - 1] + recv_count[i - 1];
+  }
+
+  for (int process = 0; process < MPIsize; process++) {
+    if (process == myID) {
+      output.open(fileName, ios::app);
+      for (int i = 0; i < __row; i++) {
+        for (vector<entry>::iterator it = __matrix[i].begin();
+             it != __matrix[i].end(); it++) {
+          output << (i + 1) + displs[myID] << '\t' << (it->first + 1) << '\t'
+                 << it->second << endl;
+        }
+      }
+    }
+    output.close();
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
 }
 
-int PetscSparseMatrix::FinalAssemble() {
-  // move data from outProcessIncrement
+int petsc_sparse_matrix::assemble() {
+  // move data from out_process_increment
   int myid, MPIsize;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
@@ -137,13 +165,13 @@ int PetscSparseMatrix::FinalAssemble() {
                               PETSC_DECIDE, __i.data(), __j.data(),
                               __val.data(), &__mat);
 
-  __isAssembled = true;
+  is_assembled = true;
 
   return __nnz;
 }
 
-int PetscSparseMatrix::FinalAssemble(int blockSize) {
-  // move data from outProcessIncrement
+int petsc_sparse_matrix::assemble(int block_size) {
+  // move data from out_process_increment
   int myid, MPIsize;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
@@ -212,7 +240,7 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
   }
 
   // block version matrix
-  auto block_row = __row / blockSize;
+  auto block_row = __row / block_size;
 
   __i.resize(block_row + 1);
   __j.clear();
@@ -223,11 +251,11 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
   __i[0] = 0;
   for (int i = 0; i < block_row; i++) {
     block_col_indices.clear();
-    for (int j = 0; j < blockSize; j++) {
-      for (int k = 0; k < __matrix[i * blockSize + j].size(); k++) {
-        if (__matrix[i * blockSize + j][k].first < __Col)
-          block_col_indices.push_back(__matrix[i * blockSize + j][k].first /
-                                      blockSize);
+    for (int j = 0; j < block_size; j++) {
+      for (int k = 0; k < __matrix[i * block_size + j].size(); k++) {
+        if (__matrix[i * block_size + j][k].first < __Col)
+          block_col_indices.push_back(__matrix[i * block_size + j][k].first /
+                                      block_size);
       }
     }
 
@@ -243,7 +271,7 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     __j.insert(__j.end(), block_col_indices.begin(), block_col_indices.end());
   }
 
-  auto blockStorage = blockSize * blockSize;
+  auto blockStorage = block_size * block_size;
 
   __val.resize(nnz_block * blockStorage);
 
@@ -252,12 +280,12 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
   }
 
   for (int i = 0; i < __row; i++) {
-    int block_row_index = i / blockSize;
-    int local_row_index = i % blockSize;
+    int block_row_index = i / block_size;
+    int local_row_index = i % block_size;
     for (int j = 0; j < __matrix[i].size(); j++) {
       if (__matrix[i][j].first < __Col) {
-        int block_col_index = __matrix[i][j].first / blockSize;
-        int local_col_index = __matrix[i][j].first % blockSize;
+        int block_col_index = __matrix[i][j].first / block_size;
+        int local_col_index = __matrix[i][j].first % block_size;
 
         auto it = lower_bound(__j.begin() + __i[block_row_index],
                               __j.begin() + __i[block_row_index + 1],
@@ -265,7 +293,7 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
 
         auto disp = it - __j.begin();
         __val[blockStorage * disp + local_col_index +
-              local_row_index * blockSize] = __matrix[i][j].second;
+              local_row_index * block_size] = __matrix[i][j].second;
       }
     }
   }
@@ -275,21 +303,21 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
     MatCreate(MPI_COMM_WORLD, &__mat);
     MatSetSizes(__mat, __row, __col, PETSC_DECIDE, __Col);
     MatSetType(__mat, MATMPIBAIJ);
-    MatSetBlockSize(__mat, blockSize);
+    MatSetBlockSize(__mat, block_size);
     MatSetUp(__mat);
-    MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
+    MatMPIBAIJSetPreallocationCSR(__mat, block_size, __i.data(), __j.data(),
                                   __val.data());
   } else {
     MatCreate(MPI_COMM_WORLD, &__mat);
     MatSetSizes(__mat, __row, __col, PETSC_DECIDE, PETSC_DECIDE);
     MatSetType(__mat, MATMPIBAIJ);
-    MatSetBlockSize(__mat, blockSize);
+    MatSetBlockSize(__mat, block_size);
     MatSetUp(__mat);
-    MatMPIBAIJSetPreallocationCSR(__mat, blockSize, __i.data(), __j.data(),
+    MatMPIBAIJSetPreallocationCSR(__mat, block_size, __i.data(), __j.data(),
                                   __val.data());
   }
 
-  __isAssembled = true;
+  is_assembled = true;
 
   __i.clear();
   __j.clear();
@@ -301,12 +329,12 @@ int PetscSparseMatrix::FinalAssemble(int blockSize) {
   return __nnz;
 }
 
-int PetscSparseMatrix::FinalAssemble(int blockSize, int num_rigid_body,
-                                     int rigid_body_dof) {}
+int petsc_sparse_matrix::assemble(int block_size, int num_rigid_body,
+                                  int rigid_body_dof) {}
 
-int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
-                                     int num_rigid_body, int rigid_body_dof) {
-  // move data from outProcessIncrement
+int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
+                                  int num_rigid_body, int rigid_body_dof) {
+  // move data from out_process_increment
   int myid, MPIsize;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
@@ -385,7 +413,7 @@ int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
     col_block = __col;
   }
 
-  auto block_row = row_block / blockSize;
+  auto block_row = row_block / block_size;
 
   __i.resize(block_row + 1);
   __j.clear();
@@ -395,11 +423,11 @@ int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
   int nnz_block = 0;
   for (int i = 0; i < block_row; i++) {
     block_col_indices.clear();
-    for (int j = 0; j < blockSize; j++) {
-      for (int k = 0; k < __matrix[i * blockSize + j].size(); k++) {
-        if (__matrix[i * blockSize + j][k].first < Col_block)
-          block_col_indices.push_back(__matrix[i * blockSize + j][k].first /
-                                      blockSize);
+    for (int j = 0; j < block_size; j++) {
+      for (int k = 0; k < __matrix[i * block_size + j].size(); k++) {
+        if (__matrix[i * block_size + j][k].first < Col_block)
+          block_col_indices.push_back(__matrix[i * block_size + j][k].first /
+                                      block_size);
       }
     }
 
@@ -415,7 +443,7 @@ int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
     __j.insert(__j.end(), block_col_indices.begin(), block_col_indices.end());
   }
 
-  auto blockStorage = blockSize * blockSize;
+  auto blockStorage = block_size * block_size;
 
   __val.resize(nnz_block * blockStorage);
 
@@ -424,12 +452,12 @@ int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
   }
 
   for (int i = 0; i < row_block; i++) {
-    int block_row_index = i / blockSize;
-    int local_row_index = i % blockSize;
+    int block_row_index = i / block_size;
+    int local_row_index = i % block_size;
     for (int j = 0; j < __matrix[i].size(); j++) {
       if (__matrix[i][j].first < Col_block) {
-        int block_col_index = __matrix[i][j].first / blockSize;
-        int local_col_index = __matrix[i][j].first % blockSize;
+        int block_col_index = __matrix[i][j].first / block_size;
+        int local_col_index = __matrix[i][j].first % block_size;
 
         auto it = lower_bound(__j.begin() + __i[block_row_index],
                               __j.begin() + __i[block_row_index + 1],
@@ -437,28 +465,32 @@ int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
 
         auto disp = it - __j.begin();
         __val[blockStorage * disp + local_col_index +
-              local_row_index * blockSize] = __matrix[i][j].second;
+              local_row_index * block_size] = __matrix[i][j].second;
       }
     }
   }
+
+  Mat &mat = pmat.get_reference();
 
   if (Col_block != 0) {
     MatCreate(MPI_COMM_WORLD, &mat);
     MatSetSizes(mat, row_block, col_block, PETSC_DECIDE, Col_block);
     MatSetType(mat, MATMPIBAIJ);
-    MatSetBlockSize(mat, blockSize);
+    MatSetBlockSize(mat, block_size);
     MatSetUp(mat);
-    MatMPIBAIJSetPreallocationCSR(mat, blockSize, __i.data(), __j.data(),
+    MatMPIBAIJSetPreallocationCSR(mat, block_size, __i.data(), __j.data(),
                                   __val.data());
   } else {
     MatCreate(MPI_COMM_WORLD, &mat);
     MatSetSizes(mat, row_block, col_block, PETSC_DECIDE, PETSC_DECIDE);
     MatSetType(mat, MATMPIBAIJ);
-    MatSetBlockSize(mat, blockSize);
+    MatSetBlockSize(mat, block_size);
     MatSetUp(mat);
-    MatMPIBAIJSetPreallocationCSR(mat, blockSize, __i.data(), __j.data(),
+    MatMPIBAIJSetPreallocationCSR(mat, block_size, __i.data(), __j.data(),
                                   __val.data());
   }
+
+  pmat.is_assembled = true;
 
   // non-block version
   __i.resize(__row + 1);
@@ -543,12 +575,12 @@ int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
   __ctx.fluid_local_size = local_size;
   __ctx.rigid_body_size = num_rigid_body * rigid_body_dof;
 
-  __ctx.local_fluid_particle_num = local_size / blockSize;
-  __ctx.field_dof = blockSize;
+  __ctx.local_fluid_particle_num = local_size / block_size;
+  __ctx.field_dof = block_size;
   MPI_Allreduce(&(__ctx.local_fluid_particle_num),
                 &(__ctx.global_fluid_particle_num), 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
-  __ctx.pressure_offset = blockSize - 1;
+  __ctx.pressure_offset = block_size - 1;
 
   __ctx.myid = myid;
   __ctx.mpisize = MPIsize;
@@ -562,17 +594,20 @@ int PetscSparseMatrix::FinalAssemble(Mat &mat, int blockSize,
                             __Col, __i.data(), __j.data(), __val.data(),
                             &(__ctx.fluid_part));
 
-  __isAssembled = true;
-  __shellIsAssembled = true;
-  __isCtxAssembled = true;
+  is_assembled = true;
+  is_shell_assembled = true;
+  is_ctx_assembled = true;
 
   return __nnz;
 }
 
-int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
-                                            int dimension, int num_rigid_body,
-                                            int local_rigid_body_offset,
-                                            int global_rigid_body_offset) {
+int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
+                                                int dimension,
+                                                int num_rigid_body,
+                                                int local_rigid_body_offset,
+                                                int global_rigid_body_offset) {
+  idx_colloid.clear();
+
   int MPIsize, myId;
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
@@ -737,7 +772,10 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
       }
 
       for (int j = 0; j < neighborInclusion.size(); j++) {
-        neighborInclusion[j] /= field_dof;
+        if (neighborInclusion[j] > global_rigid_body_offset)
+          neighborInclusion[j] = neighborInclusion[0];
+        else
+          neighborInclusion[j] /= field_dof;
       }
 
       sort(neighborInclusion.begin(), neighborInclusion.end());
@@ -809,8 +847,13 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
                                   rigid_body_dof]);
       }
 
+      sort(neighborInclusion.begin(), neighborInclusion.end());
+
       for (int j = 0; j < neighborInclusion.size(); j++) {
-        neighborInclusion[j] /= field_dof;
+        if (neighborInclusion[j] > global_rigid_body_offset) {
+          neighborInclusion[j] = neighborInclusion[0];
+        } else
+          neighborInclusion[j] /= field_dof;
       }
 
       sort(neighborInclusion.begin(), neighborInclusion.end());
@@ -856,13 +899,13 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
         MPI_Status stat;
         MPI_Recv(&neighborInclusionSize, 1, MPI_INT, MPIsize - 1, 0,
                  MPI_COMM_WORLD, &stat);
-        idx_neighbor.resize(neighborInclusionSize);
-        MPI_Recv(idx_neighbor.data(), neighborInclusionSize, MPI_INT,
+        idx_colloid.resize(neighborInclusionSize);
+        MPI_Recv(idx_colloid.data(), neighborInclusionSize, MPI_INT,
                  MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
       }
     } else {
       if (myId == MPIsize - 1)
-        idx_neighbor = move(neighborInclusion);
+        idx_colloid = move(neighborInclusion);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -873,14 +916,14 @@ int PetscSparseMatrix::ExtractNeighborIndex(vector<int> &idx_neighbor,
   return 0;
 }
 
-void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
-  if (__isAssembled) {
-    Vec _rhs, _x;
-    VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, rhs.size(), PETSC_DECIDE,
-                          rhs.data(), &_rhs);
-    VecDuplicate(_rhs, &_x);
+void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x) {
+  if (is_assembled) {
+    petsc_vector _rhs, _x;
+    _rhs.create(rhs);
+    _x.create(_rhs);
 
-    KSP _ksp;
+    petsc_ksp ksp;
+    KSP &_ksp = ksp.get_reference();
     KSPCreate(PETSC_COMM_WORLD, &_ksp);
     KSPSetOperators(_ksp, __mat, __mat);
     KSPSetFromOptions(_ksp);
@@ -889,39 +932,33 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x) {
 
     PC _pc;
     KSPGetPC(_ksp, &_pc);
-    PCSetFromOptions(_pc);
+    PCSetType(_pc, PCLU);
     PCSetUp(_pc);
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-    KSPSolve(_ksp, _rhs, _x);
+    KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
     MPI_Barrier(MPI_COMM_WORLD);
 
     KSPDestroy(&_ksp);
 
-    PetscScalar *a;
-    VecGetArray(_x, &a);
-    for (size_t i = 0; i < rhs.size(); i++) {
-      x[i] = a[i];
-    }
-
-    VecDestroy(&_rhs);
-    VecDestroy(&_x);
+    _x.copy(x);
   }
 }
 
-void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
-                              PetscInt blockSize) {
-  if (__isAssembled) {
-    Vec _rhs, _x, null;
-    VecCreateMPIWithArray(PETSC_COMM_WORLD, blockSize, rhs.size(), PETSC_DECIDE,
-                          rhs.data(), &_rhs);
-    VecDuplicate(_rhs, &_x);
-    VecDuplicate(_rhs, &null);
+void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x,
+                                PetscInt block_size) {
+  if (is_assembled) {
+    petsc_vector _rhs, _x, _null;
+    _rhs.create(rhs);
+    _x.create(_rhs);
+    _null.create(_rhs);
+
+    Vec &null = _null.get_reference();
 
     PetscScalar *a;
     VecGetArray(null, &a);
     for (size_t i = 0; i < rhs.size(); i++) {
-      if (i % blockSize == blockSize - 1)
+      if (i % block_size == block_size - 1)
         a[i] = 1.0;
       else
         a[i] = 0.0;
@@ -932,10 +969,10 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null, &nullspace);
     MatSetNullSpace(__shell_mat, nullspace);
 
-    KSP _ksp;
-    KSPCreate(PETSC_COMM_WORLD, &_ksp);
-    KSPSetOperators(_ksp, __shell_mat, __shell_mat);
-    KSPSetFromOptions(_ksp);
+    petsc_ksp ksp;
+    ksp.setup(__shell_mat);
+
+    KSP &_ksp = ksp.get_reference();
 
     PC _pc;
     KSPGetPC(_ksp, &_pc);
@@ -948,33 +985,21 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
     PCShellSetContext(_pc, shell_ctx);
     PCShellSetDestroy(_pc, HypreConstConstraintPCDestroy);
 
-    HypreConstConstraintPCSetUp(_pc, &__mat, blockSize);
-
-    KSPSetUp(_ksp);
+    HypreConstConstraintPCSetUp(_pc, &__mat, block_size);
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-    KSPSolve(_ksp, _rhs, _x);
+    KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
     MPI_Barrier(MPI_COMM_WORLD);
 
-    KSPDestroy(&_ksp);
+    _x.copy(x);
 
-    VecGetArray(_x, &a);
-    for (size_t i = 0; i < rhs.size(); i++) {
-      x[i] = a[i];
-    }
-    VecRestoreArray(_x, &a);
-
-    VecDestroy(&_rhs);
-    VecDestroy(&_x);
-    VecDestroy(&null);
-
-    MatSetNearNullSpace(__mat, NULL);
+    MatSetNearNullSpace(__shell_mat, NULL);
     MatNullSpaceDestroy(&nullspace);
   }
 }
 
-void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
-                              int dimension, int numRigidBody) {
+void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x,
+                                int dimension, int numRigidBody) {
   int fieldDof = dimension + 1;
   int velocityDof = dimension;
   int pressureDof = 1;
@@ -1158,12 +1183,11 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
   ISDestroy(&isg_pressure);
 }
 
-void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
-           PetscSparseMatrix &C, vector<double> &f, vector<double> &g,
-           vector<double> &x, vector<double> &y, int numRigid,
-           int rigidBodyDof) {
-  if (!A.__isAssembled || !Bt.__isAssembled || !B.__isAssembled ||
-      !C.__isAssembled)
+void solve(petsc_sparse_matrix &A, petsc_sparse_matrix &Bt,
+           petsc_sparse_matrix &B, petsc_sparse_matrix &C, vector<double> &f,
+           vector<double> &g, vector<double> &x, vector<double> &y,
+           int numRigid, int rigidBodyDof) {
+  if (!A.is_assembled || !Bt.is_assembled || !B.is_assembled || !C.is_assembled)
     return;
 
   // setup rhs
@@ -1410,10 +1434,11 @@ void Solve(PetscSparseMatrix &A, PetscSparseMatrix &Bt, PetscSparseMatrix &B,
   VecDestroy(&_diag);
 }
 
-void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
-                              vector<int> &idx_neighbor, int dimension,
-                              int numRigidBody, int adatptive_step,
-                              PetscSparseMatrix &I, PetscSparseMatrix &R) {
+void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x,
+                                vector<int> &idx_colloid, int dimension,
+                                int numRigidBody, int adatptive_step,
+                                petsc_sparse_matrix &I,
+                                petsc_sparse_matrix &R) {
   int fieldDof = dimension + 1;
   int velocityDof = dimension;
   int pressureDof = 1;
@@ -1466,7 +1491,7 @@ void PetscSparseMatrix::Solve(vector<double> &rhs, vector<double> &x,
 
   ISCreateGeneral(MPI_COMM_WORLD, idx_field.size(), idx_field.data(),
                   PETSC_COPY_VALUES, &isg_field);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_neighbor.size(), idx_neighbor.data(),
+  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid.size(), idx_colloid.data(),
                   PETSC_COPY_VALUES, &isg_neighbor);
   ISCreateGeneral(MPI_COMM_WORLD, idx_global.size(), idx_global.data(),
                   PETSC_COPY_VALUES, &isg_global);
