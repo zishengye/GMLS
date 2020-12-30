@@ -105,6 +105,82 @@ bool gmls_solver::refinement() {
     split_tag[chopper[i].first] = 1;
   }
 
+  // prevent over splitting
+  vector<int> candidate_split_tag(split_tag), ghost_split_tag;
+  geo_mgr->ghost_forward(split_tag, ghost_split_tag);
+
+  auto &source_coord = *(geo_mgr->get_current_work_ghost_particle_coord());
+  auto &coord = *(geo_mgr->get_current_work_particle_coord());
+  auto &spacing = *(geo_mgr->get_current_work_particle_spacing());
+  auto &adaptive_level = *(geo_mgr->get_current_work_particle_adaptive_level());
+  vector<int> source_adaptive_level;
+  geo_mgr->ghost_forward(adaptive_level, source_adaptive_level);
+
+  int num_source_coord = source_coord.size();
+  int num_target_coord = coord.size();
+
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coord_device(
+      "source coordinates", num_source_coord, 3);
+  Kokkos::View<double **>::HostMirror source_coord_host =
+      Kokkos::create_mirror_view(source_coord_device);
+
+  for (size_t i = 0; i < num_source_coord; i++) {
+    for (int j = 0; j < 3; j++) {
+      source_coord_host(i, j) = source_coord[i][j];
+    }
+  }
+
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> target_coord_device(
+      "target coordinates", num_target_coord, 3);
+  Kokkos::View<double **>::HostMirror target_coord_host =
+      Kokkos::create_mirror_view(target_coord_device);
+
+  for (int i = 0; i < local_particle_num; i++) {
+    for (int j = 0; j < 3; j++) {
+      target_coord_host(i, j) = coord[i][j];
+    }
+  }
+
+  Kokkos::deep_copy(source_coord_device, source_coord_host);
+  Kokkos::deep_copy(target_coord_device, target_coord_host);
+
+  auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
+
+  auto min_num_neighbor = Compadre::GMLS::getNP(
+      polynomial_order, dim, DivergenceFreeVectorTaylorPolynomial);
+
+  int estimated_max_num_neighbor =
+      pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
+      "neighbor lists", num_target_coord, estimated_max_num_neighbor);
+  Kokkos::View<int **>::HostMirror neighbor_list_host =
+      Kokkos::create_mirror_view(neighbor_list_device);
+
+  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
+      "h supports", num_target_coord);
+  Kokkos::View<double *>::HostMirror epsilon_host =
+      Kokkos::create_mirror_view(epsilon_device);
+
+  for (int i = 0; i < num_target_coord; i++) {
+    epsilon_host(i) = spacing[i] * epsilon_multiplier + 1e-15;
+  }
+
+  point_cloud_search.generateNeighborListsFromRadiusSearch(
+      false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
+
+  for (int i = 0; i < num_target_coord; i++) {
+    if (candidate_split_tag[i] == 0) {
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        int neighbor_index = neighbor_list_host(i, j + 1);
+        if (ghost_split_tag[neighbor_index] == 1 &&
+            source_adaptive_level[neighbor_index] - adaptive_level[i] > 0) {
+          split_tag[i] = 1;
+        }
+      }
+    }
+  }
+
   if (write_data)
     write_refinement_data();
 

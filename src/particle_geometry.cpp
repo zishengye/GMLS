@@ -2721,7 +2721,7 @@ void particle_geometry::split_gap_particle(vector<int> &split_tag) {
           for (int j = -1; j < 2; j += 2) {
             double new_spacing = gap_spacing[tag] * 0.5;
             vec3 new_pos = origin + vec3(i * x_delta, j * y_delta, 0.0);
-            double new_volume = gap_volume[tag] / 8.0;
+            double new_volume = gap_volume[tag] / 4.0;
             insert_particle(new_pos, gap_particle_type[tag], new_spacing,
                             gap_normal[tag], gap_adaptive_level[tag] + 1,
                             new_volume);

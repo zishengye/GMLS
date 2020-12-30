@@ -38,6 +38,7 @@ void gmls_solver::foward_euler_integration() {
     // }
 
     current_refinement_step = 0;
+    equation_mgr->reset();
     do {
       if (write_data)
         write_refinement_data_geometry_only();
@@ -142,6 +143,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
   geo_mgr->generate_uniform_particle();
 
   current_refinement_step = 0;
+  equation_mgr->reset();
   do {
     if (write_data)
       write_refinement_data_geometry_only();
@@ -353,7 +355,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
 
         // Check if the colloids contact with each other or move out of the
         // domain
-        if (!rb_mgr->rigid_body_collision_detection()) {
+        if (rb_mgr->rigid_body_collision_detection()) {
           // halve the time step and restart the time integration
           dt = 0.5 * dt;
           acceptableTrial = false;
@@ -390,6 +392,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
 
         // refinement loop
         current_refinement_step = 0;
+        equation_mgr->reset();
         do {
           if (write_data)
             write_refinement_data_geometry_only();

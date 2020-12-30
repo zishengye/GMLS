@@ -66,7 +66,7 @@ private:
   double current_simulation_time;
   double current_time_period;
 
-  double epsilon_multipler;
+  double epsilon_multiplier;
   double spacing;
 
   int coordinate_system;

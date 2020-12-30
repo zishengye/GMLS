@@ -380,6 +380,9 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
       }
     }
 
+    Kokkos::deep_copy(target_coords_device, target_coords_host);
+    Kokkos::deep_copy(source_coords_device, source_coords_host);
+
     auto point_search(CreatePointCloudSearch(source_coords_host, dimension));
 
     int estimated_num_neighbor_max =
@@ -397,25 +400,35 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         Kokkos::create_mirror_view(epsilon_device);
 
     for (int i = 0; i < old_coord.size(); i++) {
-      epsilon_host(i) = old_spacing[i];
+      epsilon_host(i) = sqrt(2.0) * old_spacing[i];
     }
 
     point_search.generateNeighborListsFromRadiusSearch(
-        true, target_coords_host, neighbor_lists_host, epsilon_host, 0.0, 0.0);
+        false, target_coords_host, neighbor_lists_host, epsilon_host, 0.0, 0.0);
 
     for (int i = 0; i < old_coord.size(); i++) {
       bool is_boundary = (old_particle_type[i] == 0) ? false : true;
       vector<int> index;
+      int corresponding_index = -1;
       for (int j = 0; j < neighbor_lists_host(i, 0); j++) {
         int neighbor_index = neighbor_lists_host(i, j + 1);
         bool is_neighbor_boundary =
-            (old_particle_type[neighbor_index]) ? false : true;
+            (source_particle_type[neighbor_index] == 0) ? false : true;
         if (is_boundary == is_neighbor_boundary)
           index.push_back(neighbor_index);
+        vec3 dX = source_coord[neighbor_index] - old_coord[i];
+        if (dX.mag() < 1e-15) {
+          corresponding_index = neighbor_index;
+        }
       }
-      neighbor_lists_host(i, 0) = index.size();
-      for (int j = 0; j < index.size(); j++) {
-        neighbor_lists_host(i, j + 1) = index[j];
+      if (corresponding_index == -1) {
+        neighbor_lists_host(i, 0) = index.size();
+        for (int j = 0; j < index.size(); j++) {
+          neighbor_lists_host(i, j + 1) = index[j];
+        }
+      } else {
+        neighbor_lists_host(i, 0) = 1;
+        neighbor_lists_host(i, 1) = corresponding_index;
       }
     }
 

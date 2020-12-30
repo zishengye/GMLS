@@ -47,7 +47,7 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   }
 
   // default time integration method is forward euler method
-  if (SearchCommand<string>(argc, argv, "-time_integration",
+  if (SearchCommand<string>(argc, argv, "-TimeIntegration",
                             time_integration_method) == 1) {
     time_integration_method = "ForwardEuler";
   } else {
@@ -148,6 +148,7 @@ gmls_solver::gmls_solver(int argc, char **argv) {
 
   // kinetic viscosity distance
   if ((SearchCommand<double>(argc, argv, "-eta", eta)) == 1) {
+    eta = 1.0;
     return;
   } else if (eta < 0.0) {
     return;
@@ -164,8 +165,8 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   }
 
   if ((SearchCommand<double>(argc, argv, "-EpsilonMultiplier",
-                             epsilon_multipler)) == 1) {
-    epsilon_multipler = 0.0;
+                             epsilon_multiplier)) == 1) {
+    epsilon_multiplier = 0.0;
   }
 
   // [summary of problem setup]
@@ -176,6 +177,8 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   PetscPrintf(PETSC_COMM_WORLD, "==> Dimension: %d\n", dim);
   PetscPrintf(PETSC_COMM_WORLD, "==> Governing equation: %s\n",
               equation_type.c_str());
+  PetscPrintf(PETSC_COMM_WORLD, "==> Time integration scheme: %s\n",
+              time_integration_method.c_str());
   PetscPrintf(PETSC_COMM_WORLD, "==> Time interval: %fs\n", max_dt);
   PetscPrintf(PETSC_COMM_WORLD, "==> Final time: %fs\n", final_time);
   PetscPrintf(PETSC_COMM_WORLD, "==> Polynomial order: %d\n", polynomial_order);
@@ -219,5 +222,6 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   if (equation_type == "Diffusion") {
   }
 
-  equation_mgr->init(geo_mgr, rb_mgr, polynomial_order, dim, refinement_field);
+  equation_mgr->init(geo_mgr, rb_mgr, polynomial_order, dim, refinement_field,
+                     epsilon_multiplier, eta);
 }
