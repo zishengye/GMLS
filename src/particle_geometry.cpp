@@ -114,6 +114,88 @@ static int bounding_box_split(vec3 &bounding_box_size,
       bounding_box_size[1] / y * (j + 1) + bounding_box_low[1];
 }
 
+static int bounding_box_split(vec3 &bounding_box_size,
+                              triple<int> &bounding_box_count,
+                              vec3 &bounding_box_low, double _spacing,
+                              vec3 &domain_bounding_box_low,
+                              vec3 &domain_bounding_box_high, vec3 &domain_low,
+                              vec3 &domain_high, triple<int> &domain_count,
+                              const int x, const int y, const int z,
+                              const int i, const int j, const int k) {
+  for (int ite = 0; ite < 3; ite++) {
+    bounding_box_count[ite] = bounding_box_size[ite] / _spacing;
+  }
+
+  std::vector<int> count_x;
+  std::vector<int> count_y;
+  std::vector<int> count_z;
+
+  for (int ite = 0; ite < x; ite++) {
+    if (bounding_box_count[0] % x > ite) {
+      count_x.push_back(bounding_box_count[0] / x + 1);
+    } else {
+      count_x.push_back(bounding_box_count[0] / x);
+    }
+  }
+
+  for (int ite = 0; ite < y; ite++) {
+    if (bounding_box_count[1] % y > ite) {
+      count_y.push_back(bounding_box_count[1] / y + 1);
+    } else {
+      count_y.push_back(bounding_box_count[1] / y);
+    }
+  }
+
+  for (int ite = 0; ite < z; ite++) {
+    if (bounding_box_count[2] % z > ite) {
+      count_z.push_back(bounding_box_count[2] / z + 1);
+    } else {
+      count_z.push_back(bounding_box_count[2] / z);
+    }
+  }
+
+  domain_count[0] = count_x[i];
+  domain_count[1] = count_y[j];
+  domain_count[2] = count_z[k];
+
+  double x_start = bounding_box_low[0];
+  double y_start = bounding_box_low[1];
+  double z_start = bounding_box_low[2];
+  for (int ite = 0; ite < i; ite++) {
+    x_start += count_x[ite] * _spacing;
+  }
+  for (int ite = 0; ite < j; ite++) {
+    y_start += count_y[ite] * _spacing;
+  }
+  for (int ite = 0; ite < k; ite++) {
+    z_start += count_z[ite] * _spacing;
+  }
+
+  double x_end = x_start + count_x[i] * _spacing;
+  double y_end = y_start + count_y[j] * _spacing;
+  double z_end = z_start + count_z[k] * _spacing;
+
+  domain_low[0] = x_start;
+  domain_low[1] = y_start;
+  domain_low[2] = z_start;
+  domain_high[0] = x_end;
+  domain_high[1] = y_end;
+  domain_high[2] = z_end;
+
+  domain_bounding_box_low[0] =
+      bounding_box_size[0] / x * i + bounding_box_low[0];
+  domain_bounding_box_low[1] =
+      bounding_box_size[1] / y * j + bounding_box_low[1];
+  domain_bounding_box_low[2] =
+      bounding_box_size[2] / z * k + bounding_box_low[2];
+  domain_bounding_box_high[0] =
+      bounding_box_size[0] / x * (i + 1) + bounding_box_low[0];
+  domain_bounding_box_high[1] =
+      bounding_box_size[1] / y * (j + 1) + bounding_box_low[1];
+  domain_bounding_box_high[2] =
+      bounding_box_size[2] / z * (k + 1) + bounding_box_low[2];
+}
+
 void particle_geometry::init(const int _dim, const int _problem_type,
                              const int _refinement_type, double _spacing,
                              double _cutoff_multiplier,
@@ -152,6 +234,12 @@ void particle_geometry::init(const int _dim, const int _problem_type,
                        _spacing, domain_bounding_box[0], domain_bounding_box[1],
                        domain[0], domain[1], domain_count, process_x, process_y,
                        process_i, process_j);
+  }
+  if (dim == 3) {
+    bounding_box_split(bounding_box_size, bounding_box_count, bounding_box[0],
+                       _spacing, domain_bounding_box[0], domain_bounding_box[1],
+                       domain[0], domain[1], domain_count, process_x, process_y,
+                       process_z, process_i, process_j, process_k);
   }
 
   init_domain_boundary();
