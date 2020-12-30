@@ -89,17 +89,15 @@ void stokes_equation::build_coefficient_matrix() {
   velocity_basis.reset();
   pressure_neumann_basis.reset();
 
-  pressure_basis =
-      make_shared<GMLS>(VectorTaylorPolynomial, StaggeredEdgeIntegralSample,
-                        StaggeredEdgeAnalyticGradientIntegralSample, poly_order,
-                        dim, "SVD", "STANDARD");
+  pressure_basis = make_shared<GMLS>(
+      ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
+      poly_order, dim, "SVD", "STANDARD");
   velocity_basis =
       make_shared<GMLS>(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
                         poly_order, dim, "SVD", "STANDARD");
-  pressure_neumann_basis =
-      make_shared<GMLS>(VectorTaylorPolynomial, StaggeredEdgeIntegralSample,
-                        StaggeredEdgeAnalyticGradientIntegralSample, poly_order,
-                        dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
+  pressure_neumann_basis = make_shared<GMLS>(
+      ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
+      poly_order, dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
 
   vector<vec3> &rigid_body_position = rb_mgr->get_position();
   const int num_rigid_body = rb_mgr->get_rigid_body_num();
@@ -402,8 +400,10 @@ void stokes_equation::build_coefficient_matrix() {
 
   pressure_neumann_basis->setTangentBundle(tangent_bundle_device);
 
-  vector<TargetOperation> pressure_neumann_operation(1);
+  vector<TargetOperation> pressure_neumann_operation(3);
   pressure_neumann_operation[0] = DivergenceOfVectorPointEvaluation;
+  pressure_neumann_operation[1] = GradientOfScalarPointEvaluation;
+  pressure_neumann_operation[2] = ScalarPointEvaluation;
 
   pressure_neumann_basis->clearTargets();
   pressure_neumann_basis->addTargets(pressure_neumann_operation);
@@ -1535,21 +1535,8 @@ void stokes_equation::calculate_error() {
 
   auto neighbor_list = velocity_basis->getNeighborLists();
 
+  // error estimation base on velocity
   if (error_esimation_method == VELOCITY_ERROR_EST) {
-    vector<int> velocity_gradient_index;
-    velocity_gradient_index.resize(pow(dim, 3));
-    for (int i = 0; i < dim; i++) {
-      for (int j = 0; j < dim; j++) {
-        for (int k = 0; k < dim; k++) {
-          velocity_gradient_index[(i * dim + j) * dim + k] =
-              velocity_basis->getAlphaColumnOffset(
-                  GradientOfVectorPointEvaluation, i, j, k, 0);
-        }
-      }
-    }
-
-    auto velocity_alpha = velocity_basis->getAlphas();
-
     vector<vec3> ghost_velocity;
     geo_mgr->ghost_forward(velocity, ghost_velocity);
 
@@ -1573,7 +1560,7 @@ void stokes_equation::calculate_error() {
             .applyFullPolynomialCoefficientsBasisToDataAllComponents<
                 double **, Kokkos::HostSpace>(ghost_velocity_device);
 
-    auto gradient =
+    auto direct_gradient =
         velocity_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
             double **, Kokkos::HostSpace>(ghost_velocity_device,
                                           GradientOfVectorPointEvaluation);
@@ -1593,7 +1580,8 @@ void stokes_equation::calculate_error() {
                            coefficients_size);
 
     // estimate stage
-    vector<vector<double>> recovered_gradient, ghost_recovered_gradient;
+    auto &recovered_gradient = gradient;
+    vector<vector<double>> ghost_recovered_gradient;
     recovered_gradient.resize(local_particle_num);
     const int gradient_component_num = pow(dim, 2);
     for (int i = 0; i < local_particle_num; i++) {
@@ -1694,11 +1682,11 @@ void stokes_equation::calculate_error() {
         for (int axes2 = axes1; axes2 < dim; axes2++) {
           if (axes1 == axes2)
             local_direct_gradient_norm +=
-                pow(gradient(i, axes1 * dim + axes2), 2) * volume[i];
+                pow(direct_gradient(i, axes1 * dim + axes2), 2) * volume[i];
           else {
             local_direct_gradient_norm +=
-                pow(0.5 * (gradient(i, axes1 * dim + axes2) +
-                           gradient(i, axes2 * dim + axes1)),
+                pow(0.5 * (direct_gradient(i, axes1 * dim + axes2) +
+                           direct_gradient(i, axes2 * dim + axes1)),
                     2) *
                 volume[i];
           }
@@ -1707,15 +1695,8 @@ void stokes_equation::calculate_error() {
     }
   }
 
+  // error estimation based on pressure
   if (error_esimation_method == PRESSURE_ERROR_EST) {
-    vector<int> pressure_gradient_index;
-    pressure_gradient_index.resize(pow(dim, 2));
-    for (int i = 0; i < dim; i++)
-      pressure_gradient_index.push_back(pressure_basis->getAlphaColumnOffset(
-          GradientOfScalarPointEvaluation, i, 0, 0, 0));
-
-    auto pressure_alpha = pressure_basis->getAlphas();
-
     vector<double> ghost_pressure;
     geo_mgr->ghost_forward(pressure, ghost_pressure);
 
@@ -1737,12 +1718,45 @@ void stokes_equation::calculate_error() {
             .applyFullPolynomialCoefficientsBasisToDataAllComponents<
                 double **, Kokkos::HostSpace>(ghost_pressure_device);
 
-    auto gradient =
+    auto direct_gradient =
         pressure_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
-            double **, Kokkos::HostSpace>(ghost_pressure_device,
-                                          GradientOfScalarPointEvaluation);
+            double **, Kokkos::HostSpace>(
+            ghost_pressure_device, GradientOfScalarPointEvaluation,
+            StaggeredEdgeAnalyticGradientIntegralSample);
 
     auto coefficients_size = pressure_basis->getPolynomialCoefficientsSize();
+
+    // boundary needs special treatment
+    {
+      Evaluator pressure_neumann_evaluator(pressure_neumann_basis.get());
+
+      auto coefficients_neumann =
+          pressure_neumann_evaluator
+              .applyFullPolynomialCoefficientsBasisToDataAllComponents<
+                  double **, Kokkos::HostSpace>(ghost_pressure_device);
+
+      auto direct_gradient_neumann =
+          pressure_neumann_evaluator
+              .applyAlphasToDataAllComponentsAllTargetSites<double **,
+                                                            Kokkos::HostSpace>(
+                  ghost_pressure_device, GradientOfScalarPointEvaluation,
+                  StaggeredEdgeAnalyticGradientIntegralSample);
+
+      int counter = 0;
+
+      auto &particle_type = *(geo_mgr->get_current_work_particle_type());
+      for (int i = 0; i < local_particle_num; i++) {
+        if (particle_type[i] != 0) {
+          for (int j = 0; j < coefficients_size; j++) {
+            coefficients(i, j) = coefficients_neumann(counter, j);
+          }
+          for (int j = 0; j < dim; j++) {
+            direct_gradient(i, j) = direct_gradient_neumann(counter, j);
+          }
+          counter++;
+        }
+      }
+    }
 
     vector<vector<double>> coefficients_chunk(local_particle_num);
     for (int i = 0; i < local_particle_num; i++) {
@@ -1758,8 +1772,16 @@ void stokes_equation::calculate_error() {
                            coefficients_size);
 
     // estimate stage
-    vector<vec3> recovered_gradient, ghost_recovered_gradient;
+    auto &recovered_gradient = gradient;
+    vector<vector<double>> ghost_recovered_gradient;
     recovered_gradient.resize(local_particle_num);
+
+    for (int i = 0; i < local_particle_num; i++) {
+      recovered_gradient[i].resize(dim);
+      for (int axes1 = 0; axes1 < dim; axes1++) {
+        recovered_gradient[i][axes1] = 0.0;
+      }
+    }
 
     for (int i = 0; i < local_particle_num; i++) {
       for (int j = 0; j < neighbor_list(i, 0); j++) {
@@ -1776,7 +1798,7 @@ void stokes_equation::calculate_error() {
       }
     }
 
-    geo_mgr->ghost_forward(recovered_gradient, ghost_recovered_gradient);
+    geo_mgr->ghost_forward(recovered_gradient, ghost_recovered_gradient, dim);
 
     for (int i = 0; i < local_particle_num; i++) {
       vec3 reconstructed_gradient;
@@ -1791,8 +1813,7 @@ void stokes_equation::calculate_error() {
           total_neighbor_vol += source_volume[neighbor_index];
           for (int axes1 = 0; axes1 < dim; axes1++) {
             reconstructed_gradient[axes1] = calStaggeredScalarGrad(
-                axes1, dim, dX, poly_order, ghost_epsilon[i],
-                ghost_coefficients_chunk[i]);
+                axes1, dim, dX, poly_order, epsilon[i], coefficients_chunk[i]);
           }
 
           for (int axes1 = 0; axes1 < dim; axes1++) {
@@ -1808,7 +1829,8 @@ void stokes_equation::calculate_error() {
       local_error += error[i] * volume[i];
 
       for (int axes1 = 0; axes1 < dim; axes1++) {
-        local_direct_gradient_norm += pow(gradient(i, axes1), 2) * volume[i];
+        local_direct_gradient_norm +=
+            pow(direct_gradient(i, axes1), 2) * volume[i];
       }
     }
   }

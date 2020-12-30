@@ -197,6 +197,23 @@ void gmls_solver::write_time_step_data() {
     file.close();
   });
 
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/output_step" + to_string(write_step) + ".vtk", ios::app);
+    file << "SCALARS domain int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  serial_operation([particle_type, this]() {
+    ofstream file;
+    file.open("./vtk/output_step" + to_string(write_step) + ".vtk", ios::app);
+    for (size_t i = 0; i < particle_type.size(); i++) {
+      file << rank << endl;
+    }
+    file.close();
+  });
+
   // physical data output, equation type depedent
   if (equation_type == "Diffusion") {
   }
@@ -261,235 +278,467 @@ void gmls_solver::write_time_step_data() {
       file.close();
     });
 
-    // master_operation(0, [this]() {
-    //   ofstream file;
-    //   file.open("./vtk/output_step" + to_string(write_step) + ".vtk",
-    //   ios::app); file << "SCALARS err float 1" << endl; file << "LOOKUP_TABLE
-    //   default " << endl; file.close();
-    // });
+    if (refinement_field == 1) {
+      // gradient of velocity
+      auto &gradient = equation_mgr->get_gradient();
+      master_operation(0, [this]() {
+        ofstream file;
+        file.open("./vtk/output_step" + to_string(write_step) + ".vtk",
+                  ios::app);
+        file << "SCALARS dUX float " + to_string(dim) << endl;
+        file << "LOOKUP_TABLE default" << endl;
+        file.close();
+      });
 
-    // serial_operation([error, this]() {
-    //   ofstream file;
-    //   file.open("./vtk/output_step" + to_string(write_step) + ".vtk",
-    //   ios::app); for (size_t i = 0; i < error.size(); i++) {
-    //     file << sqrt(error[i]) << endl;
-    //   }
-    //   file.close();
-    // });
+      serial_operation([gradient, this]() {
+        ofstream file;
+        file.open("./vtk/output_step" + to_string(write_step) + ".vtk",
+                  ios::app);
+        for (size_t i = 0; i < gradient.size(); i++) {
+          for (int axes = 0; axes < dim; axes++) {
+            file << ((abs(gradient[i][axes]) > 1e-10) ? gradient[i][axes] : 0.0)
+                 << ' ';
+          }
+          file << endl;
+        }
+        file.close();
+      });
+
+      if (dim > 1) {
+        master_operation(0, [this]() {
+          ofstream file;
+          file.open("./vtk/output_step" + to_string(write_step) + ".vtk",
+                    ios::app);
+          file << "SCALARS dUY float " + to_string(dim) << endl;
+          file << "LOOKUP_TABLE default" << endl;
+          file.close();
+        });
+
+        serial_operation([gradient, this]() {
+          ofstream file;
+          file.open("./vtk/output_step" + to_string(write_step) + ".vtk",
+                    ios::app);
+          for (size_t i = 0; i < gradient.size(); i++) {
+            for (int axes = 0; axes < dim; axes++) {
+              file << ((abs(gradient[i][axes + dim]) > 1e-10)
+                           ? gradient[i][axes]
+                           : 0.0)
+                   << ' ';
+            }
+            file << endl;
+          }
+          file.close();
+        });
+      }
+
+      if (dim > 2) {
+        master_operation(0, [this]() {
+          ofstream file;
+          file.open("./vtk/output_step" + to_string(write_step) + ".vtk",
+                    ios::app);
+          file << "SCALARS dUZ float " + to_string(dim) << endl;
+          file << "LOOKUP_TABLE default" << endl;
+          file.close();
+        });
+
+        serial_operation([gradient, this]() {
+          ofstream file;
+          file.open("./vtk/output_step" + to_string(write_step) + ".vtk",
+                    ios::app);
+          for (size_t i = 0; i < gradient.size(); i++) {
+            for (int axes = 0; axes < dim; axes++) {
+              file << ((abs(gradient[i][axes + dim * 2]) > 1e-10)
+                           ? gradient[i][axes]
+                           : 0.0)
+                   << ' ';
+            }
+            file << endl;
+          }
+          file.close();
+        });
+      }
+    }
+
+    if (refinement_field == 2) {
+      // gradient of pressure
+      auto &gradient = equation_mgr->get_gradient();
+      master_operation(0, [this]() {
+        ofstream file;
+        file.open("./vtk/output_step" + to_string(write_step) + ".vtk",
+                  ios::app);
+        file << "SCALARS dP float " + to_string(dim) << endl;
+        file << "LOOKUP_TABLE default" << endl;
+        file.close();
+      });
+
+      serial_operation([gradient, this]() {
+        ofstream file;
+        file.open("./vtk/output_step" + to_string(write_step) + ".vtk",
+                  ios::app);
+        for (size_t i = 0; i < gradient.size(); i++) {
+          for (int axes = 0; axes < dim; axes++) {
+            file << ((abs(gradient[i][axes]) > 1e-10) ? gradient[i][axes] : 0.0)
+                 << ' ';
+          }
+          file << endl;
+        }
+        file.close();
+      });
+    }
   }
 
   write_step++;
 }
 
 void gmls_solver::write_refinement_data() {
-  // auto &coord = __field.vector.GetHandle("coord");
-  // auto &particleSize = __field.vector.GetHandle("size");
-  // auto &normal = __field.vector.GetHandle("normal");
-  // auto &particleType = __field.index.GetHandle("particle type");
-  // auto &particleNum = __field.index.GetHandle("particle number");
-  // auto &adaptive_level = __field.index.GetHandle("adaptive level");
-  // int &globalParticleNum = particleNum[1];
+  vector<vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
+  vector<vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
+  vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
+  vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
+  vector<int> &adaptive_level =
+      *(geo_mgr->get_current_work_particle_adaptive_level());
 
-  // auto &velocity = __field.vector.GetHandle("fluid velocity");
-  // auto &pressure = __field.scalar.GetHandle("fluid pressure");
-  // auto &error = __field.scalar.GetHandle("error");
-  // auto &volume = __field.scalar.GetHandle("volume");
+  int local_particle_num;
+  int global_particle_num;
 
-  // PetscPrintf(PETSC_COMM_WORLD, "writing adaptive step output\n");
+  local_particle_num = coord.size();
+  MPI_Allreduce(&local_particle_num, &global_particle_num, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
 
-  // master_operation(0, [globalParticleNum, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::trunc);
-  //   if (!file.is_open()) {
-  //     cout << "adaptive step output file open failed\n";
-  //   }
-  //   file << "# vtk DataFile Version 2.0" << endl;
-  //   file << "particlePositions" << endl;
-  //   file << "ASCII" << endl;
-  //   file << "DATASET POLYDATA " << endl;
-  //   file << " POINTS " << globalParticleNum << " float" << endl;
-  //   file.close();
-  // });
+  PetscPrintf(PETSC_COMM_WORLD, "writing adaptive step output\n");
 
-  // serial_operation([coord, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < coord.size(); i++) {
-  //     file << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] <<
-  //     endl;
-  //   }
-  //   file.close();
-  // });
+  master_operation(0, [global_particle_num, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::trunc);
+    if (!file.is_open()) {
+      cout << "adaptive step output file open failed\n";
+    }
+    file << "# vtk DataFile Version 2.0" << endl;
+    file << "particlePositions" << endl;
+    file << "ASCII" << endl;
+    file << "DATASET POLYDATA " << endl;
+    file << " POINTS " << global_particle_num << " float" << endl;
+    file.close();
+  });
 
-  // master_operation(0, [globalParticleNum, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "POINT_DATA " << globalParticleNum << endl;
-  //   file.close();
-  // });
+  serial_operation([coord, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < coord.size(); i++) {
+      file << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << endl;
+    }
+    file.close();
+  });
 
-  // master_operation(0, [this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "SCALARS ID int 1" << endl;
-  //   file << "LOOKUP_TABLE default" << endl;
-  //   file.close();
-  // });
+  master_operation(0, [global_particle_num, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    file << "POINT_DATA " << global_particle_num << endl;
+    file.close();
+  });
 
-  // serial_operation([particleType, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < particleType.size(); i++) {
-  //     file << particleType[i] << endl;
-  //   }
-  //   file.close();
-  // });
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS ID int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
 
-  // master_operation(0, [this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "SCALARS l int 1" << endl;
-  //   file << "LOOKUP_TABLE default" << endl;
-  //   file.close();
-  // });
+  serial_operation([particle_type, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < particle_type.size(); i++) {
+      file << particle_type[i] << endl;
+    }
+    file.close();
+  });
 
-  // serial_operation([adaptive_level, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < adaptive_level.size(); i++) {
-  //     file << adaptive_level[i] << endl;
-  //   }
-  //   file.close();
-  // });
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS l int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
 
-  // master_operation(0, [this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "SCALARS d float 1" << endl;
-  //   file << "LOOKUP_TABLE default " << endl;
-  //   file.close();
-  // });
+  serial_operation([adaptive_level, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < adaptive_level.size(); i++) {
+      file << adaptive_level[i] << endl;
+    }
+    file.close();
+  });
 
-  // serial_operation([particleSize, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < particleSize.size(); i++) {
-  //     file << particleSize[i][0] << endl;
-  //   }
-  //   file.close();
-  // });
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS d float 1" << endl;
+    file << "LOOKUP_TABLE default " << endl;
+    file.close();
+  });
 
-  // master_operation(0, [this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "SCALARS vol float 1" << endl;
-  //   file << "LOOKUP_TABLE default " << endl;
-  //   file.close();
-  // });
+  serial_operation([spacing, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < spacing.size(); i++) {
+      file << spacing[i] << endl;
+    }
+    file.close();
+  });
 
-  // serial_operation([volume, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < volume.size(); i++) {
-  //     file << volume[i] << endl;
-  //   }
-  //   file.close();
-  // });
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS n float " + to_string(dim) << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
 
-  // master_operation(0, [this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "SCALARS err float 1" << endl;
-  //   file << "LOOKUP_TABLE default " << endl;
-  //   file.close();
-  // });
+  serial_operation([normal, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < normal.size(); i++) {
+      for (int axes = 0; axes < dim; axes++) {
+        file << ((abs(normal[i][axes]) > 1e-10) ? normal[i][axes] : 0.0) << ' ';
+      }
+      file << endl;
+    }
+    file.close();
+  });
 
-  // serial_operation([error, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < error.size(); i++) {
-  //     file << sqrt(error[i]) << endl;
-  //   }
-  //   file.close();
-  // });
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS domain int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
 
-  // master_operation(0, [this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "SCALARS p float 1" << endl;
-  //   file << "LOOKUP_TABLE default " << endl;
-  //   file.close();
-  // });
+  serial_operation([particle_type, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < particle_type.size(); i++) {
+      file << rank << endl;
+    }
+    file.close();
+  });
 
-  // serial_operation([pressure, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < pressure.size(); i++) {
-  //     file << ((abs(pressure[i]) > 1e-10) ? pressure[i] : 0.0) << endl;
-  //   }
-  //   file.close();
-  // });
+  if (equation_type == "Stokes") {
+    vector<vec3> &velocity = equation_mgr->get_velocity();
+    vector<double> &pressure = equation_mgr->get_pressure();
+    vector<double> &error = equation_mgr->get_error();
 
-  // master_operation(0, [this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "SCALARS u float " + to_string(__dim) << endl;
-  //   file << "LOOKUP_TABLE default" << endl;
-  //   file.close();
-  // });
+    master_operation(0, [this]() {
+      ofstream file;
+      file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                    ".vtk",
+                ios::app);
+      file << "SCALARS err float 1" << endl;
+      file << "LOOKUP_TABLE default " << endl;
+      file.close();
+    });
 
-  // serial_operation([velocity, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < velocity.size(); i++) {
-  //     for (int axes = 0; axes < __dim; axes++) {
-  //       file << ((abs(velocity[i][axes]) > 1e-10) ? velocity[i][axes] : 0.0)
-  //            << ' ';
-  //     }
-  //     file << endl;
-  //   }
-  //   file.close();
-  // });
+    serial_operation([error, this]() {
+      ofstream file;
+      file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                    ".vtk",
+                ios::app);
+      for (size_t i = 0; i < error.size(); i++) {
+        file << error[i] << endl;
+      }
+      file.close();
+    });
 
-  // master_operation(0, [this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   file << "SCALARS n float " + to_string(__dim) << endl;
-  //   file << "LOOKUP_TABLE default" << endl;
-  //   file.close();
-  // });
+    master_operation(0, [this]() {
+      ofstream file;
+      file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                    ".vtk",
+                ios::app);
+      file << "SCALARS p float 1" << endl;
+      file << "LOOKUP_TABLE default " << endl;
+      file.close();
+    });
 
-  // serial_operation([normal, this]() {
-  //   ofstream file;
-  //   file.open("./vtk/adaptive_step" + to_string(__adaptive_step) + ".vtk",
-  //             ios::app);
-  //   for (size_t i = 0; i < normal.size(); i++) {
-  //     for (int axes = 0; axes < __dim; axes++) {
-  //       file << ((abs(normal[i][axes]) > 1e-10) ? normal[i][axes] : 0.0) << '
-  //       ';
-  //     }
-  //     file << endl;
-  //   }
-  //   file.close();
-  // });
+    serial_operation([pressure, this]() {
+      ofstream file;
+      file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                    ".vtk",
+                ios::app);
+      for (size_t i = 0; i < pressure.size(); i++) {
+        file << ((abs(pressure[i]) > 1e-10) ? pressure[i] : 0.0) << endl;
+      }
+      file.close();
+    });
+
+    master_operation(0, [this]() {
+      ofstream file;
+      file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                    ".vtk",
+                ios::app);
+      file << "SCALARS u float " + to_string(dim) << endl;
+      file << "LOOKUP_TABLE default" << endl;
+      file.close();
+    });
+
+    serial_operation([velocity, this]() {
+      ofstream file;
+      file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                    ".vtk",
+                ios::app);
+      for (size_t i = 0; i < velocity.size(); i++) {
+        for (int axes = 0; axes < dim; axes++) {
+          file << ((abs(velocity[i][axes]) > 1e-10) ? velocity[i][axes] : 0.0)
+               << ' ';
+        }
+        file << endl;
+      }
+      file.close();
+    });
+
+    if (refinement_field == 1) {
+      // gradient of velocity
+      auto &gradient = equation_mgr->get_gradient();
+      master_operation(0, [this]() {
+        ofstream file;
+        file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                      ".vtk",
+                  ios::app);
+        file << "SCALARS dUX float " + to_string(dim) << endl;
+        file << "LOOKUP_TABLE default" << endl;
+        file.close();
+      });
+
+      serial_operation([gradient, this]() {
+        ofstream file;
+        file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                      ".vtk",
+                  ios::app);
+        for (size_t i = 0; i < gradient.size(); i++) {
+          for (int axes = 0; axes < dim; axes++) {
+            file << ((abs(gradient[i][axes]) > 1e-10) ? gradient[i][axes] : 0.0)
+                 << ' ';
+          }
+          file << endl;
+        }
+        file.close();
+      });
+
+      if (dim > 1) {
+        master_operation(0, [this]() {
+          ofstream file;
+          file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                        ".vtk",
+                    ios::app);
+          file << "SCALARS dUY float " + to_string(dim) << endl;
+          file << "LOOKUP_TABLE default" << endl;
+          file.close();
+        });
+
+        serial_operation([gradient, this]() {
+          ofstream file;
+          file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                        ".vtk",
+                    ios::app);
+          for (size_t i = 0; i < gradient.size(); i++) {
+            for (int axes = 0; axes < dim; axes++) {
+              file << ((abs(gradient[i][axes + dim]) > 1e-10)
+                           ? gradient[i][axes]
+                           : 0.0)
+                   << ' ';
+            }
+            file << endl;
+          }
+          file.close();
+        });
+      }
+
+      if (dim > 2) {
+        master_operation(0, [this]() {
+          ofstream file;
+          file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                        ".vtk",
+                    ios::app);
+          file << "SCALARS dUZ float " + to_string(dim) << endl;
+          file << "LOOKUP_TABLE default" << endl;
+          file.close();
+        });
+
+        serial_operation([gradient, this]() {
+          ofstream file;
+          file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                        ".vtk",
+                    ios::app);
+          for (size_t i = 0; i < gradient.size(); i++) {
+            for (int axes = 0; axes < dim; axes++) {
+              file << ((abs(gradient[i][axes + dim * 2]) > 1e-10)
+                           ? gradient[i][axes]
+                           : 0.0)
+                   << ' ';
+            }
+            file << endl;
+          }
+          file.close();
+        });
+      }
+    }
+
+    if (refinement_field == 2) {
+      // gradient of pressure
+      auto &gradient = equation_mgr->get_gradient();
+      master_operation(0, [this]() {
+        ofstream file;
+        file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                      ".vtk",
+                  ios::app);
+        file << "SCALARS dP float " + to_string(dim) << endl;
+        file << "LOOKUP_TABLE default" << endl;
+        file.close();
+      });
+
+      serial_operation([gradient, this]() {
+        ofstream file;
+        file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                      ".vtk",
+                  ios::app);
+        for (size_t i = 0; i < gradient.size(); i++) {
+          for (int axes = 0; axes < dim; axes++) {
+            file << ((abs(gradient[i][axes]) > 1e-10) ? gradient[i][axes] : 0.0)
+                 << ' ';
+          }
+          file << endl;
+        }
+        file.close();
+      });
+    }
+  }
 }
 
 void gmls_solver::write_refinement_data_geometry_only() {

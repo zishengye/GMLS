@@ -46,6 +46,9 @@ private:
   std::vector<vec3> velocity;
   std::vector<double> pressure;
 
+  std::vector<std::vector<double>> gradient;
+  int gradient_component_num;
+
   int poly_order;
   int dim;
   int error_esimation_method;
@@ -80,6 +83,8 @@ public:
   std::vector<vec3> &get_velocity() { return velocity; }
 
   std::vector<double> &get_pressure() { return pressure; }
+
+  std::vector<std::vector<double>> &get_gradient() { return gradient; }
 
   std::vector<double> &get_error() { return error; }
 

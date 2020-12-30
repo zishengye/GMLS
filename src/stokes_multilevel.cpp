@@ -174,7 +174,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
     old_to_new_pressusre_basis.setWeightingType(WeightingFunctionType::Power);
     old_to_new_pressusre_basis.setWeightingPower(4);
 
-    old_to_new_pressusre_basis.generateAlphas(20);
+    old_to_new_pressusre_basis.generateAlphas(1);
 
     auto old_to_new_pressure_alphas = old_to_new_pressusre_basis.getAlphas();
 
@@ -188,7 +188,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
     old_to_new_velocity_basis.setWeightingType(WeightingFunctionType::Power);
     old_to_new_velocity_basis.setWeightingPower(4);
 
-    old_to_new_velocity_basis.generateAlphas(20);
+    old_to_new_velocity_basis.generateAlphas(1);
 
     auto old_to_new_velocity_alphas = old_to_new_velocity_basis.getAlphas();
 
