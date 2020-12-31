@@ -78,11 +78,13 @@ void stokes_equation::build_coefficient_matrix() {
   auto &source_index = *(geo_mgr->get_current_work_ghost_particle_index());
   auto &coord = *(geo_mgr->get_current_work_particle_coord());
   auto &normal = *(geo_mgr->get_current_work_particle_normal());
+  auto &p_spacing = *(geo_mgr->get_current_work_particle_p_spacing());
   auto &spacing = *(geo_mgr->get_current_work_particle_spacing());
   auto &adaptive_level = *(geo_mgr->get_current_work_particle_adaptive_level());
   auto &particle_type = *(geo_mgr->get_current_work_particle_type());
   auto &attached_rigid_body =
       *(geo_mgr->get_current_work_particle_attached_rigid_body());
+  auto &num_neighbor = *(geo_mgr->get_current_work_particle_num_neighbor());
 
   // update basis
   pressure_basis.reset();
@@ -317,6 +319,11 @@ void stokes_equation::build_coefficient_matrix() {
 
       counter++;
     }
+  }
+
+  num_neighbor.resize(num_target_coord);
+  for (int i = 0; i < num_target_coord; i++) {
+    num_neighbor[i] = neighbor_list_host(i, 0);
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -690,8 +697,8 @@ void stokes_equation::build_coefficient_matrix() {
           // corner point
           dA = vec3(0.0, 0.0, 0.0);
         } else {
-          dA = (dim == 3) ? (normal[i] * spacing[i] * spacing[i])
-                          : (normal[i] * spacing[i]);
+          dA = (dim == 3) ? (normal[i] * p_spacing[i][0] * p_spacing[i][1])
+                          : (normal[i] * p_spacing[i][0]);
         }
 
         // apply pressure
@@ -1594,29 +1601,35 @@ void stokes_equation::calculate_error() {
     }
 
     for (int i = 0; i < local_particle_num; i++) {
+      int counter = 0;
       for (int j = 0; j < neighbor_list(i, 0); j++) {
         const int neighbor_index = neighbor_list(i, j + 1);
 
         vec3 dX = coord[i] - source_coord[neighbor_index];
-        for (int axes1 = 0; axes1 < dim; axes1++) {
-          for (int axes2 = 0; axes2 < dim; axes2++) {
-            if (dim == 2)
-              recovered_gradient[i][axes1 * dim + axes2] +=
-                  calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1], poly_order,
-                                      ghost_epsilon[neighbor_index],
-                                      ghost_coefficients_chunk[neighbor_index]);
-            if (dim == 3)
-              recovered_gradient[i][axes1 * dim + axes2] +=
-                  calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1], dX[2],
-                                      poly_order, ghost_epsilon[neighbor_index],
-                                      ghost_coefficients_chunk[neighbor_index]);
+        if (dX.mag() < ghost_epsilon[neighbor_index]) {
+          for (int axes1 = 0; axes1 < dim; axes1++) {
+            for (int axes2 = 0; axes2 < dim; axes2++) {
+              if (dim == 2)
+                recovered_gradient[i][axes1 * dim + axes2] +=
+                    calDivFreeBasisGrad(
+                        axes1, axes2, dX[0], dX[1], poly_order,
+                        ghost_epsilon[neighbor_index],
+                        ghost_coefficients_chunk[neighbor_index]);
+              if (dim == 3)
+                recovered_gradient[i][axes1 * dim + axes2] +=
+                    calDivFreeBasisGrad(
+                        axes1, axes2, dX[0], dX[1], dX[2], poly_order,
+                        ghost_epsilon[neighbor_index],
+                        ghost_coefficients_chunk[neighbor_index]);
+            }
           }
+          counter++;
         }
       }
 
       for (int axes1 = 0; axes1 < dim; axes1++) {
         for (int axes2 = 0; axes2 < dim; axes2++) {
-          recovered_gradient[i][axes1 * dim + axes2] /= neighbor_list(i, 0);
+          recovered_gradient[i][axes1 * dim + axes2] /= counter;
         }
       }
     }
@@ -1784,17 +1797,23 @@ void stokes_equation::calculate_error() {
     }
 
     for (int i = 0; i < local_particle_num; i++) {
+      int counter = 0;
       for (int j = 0; j < neighbor_list(i, 0); j++) {
         const int neighbor_index = neighbor_list(i, j + 1);
 
         vec3 dX = coord[i] - source_coord[neighbor_index];
-        for (int axes1 = 0; axes1 < dim; axes1++) {
-          recovered_gradient[i][axes1] +=
-              calStaggeredScalarGrad(axes1, dim, dX, poly_order,
-                                     ghost_epsilon[neighbor_index],
-                                     ghost_coefficients_chunk[neighbor_index]) /
-              neighbor_list(i, 0);
+        if (dX.mag() < ghost_epsilon[neighbor_index]) {
+          for (int axes1 = 0; axes1 < dim; axes1++) {
+            recovered_gradient[i][axes1] += calStaggeredScalarGrad(
+                axes1, dim, dX, poly_order, ghost_epsilon[neighbor_index],
+                ghost_coefficients_chunk[neighbor_index]);
+          }
+          counter++;
         }
+      }
+
+      for (int axes1 = 0; axes1 < dim; axes1++) {
+        recovered_gradient[i][axes1] /= counter;
       }
     }
 

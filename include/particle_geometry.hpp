@@ -35,6 +35,7 @@ private:
   // work domain
   vec_type current_local_work_particle_coord;
   vec_type current_local_work_particle_normal;
+  vec_type current_local_work_particle_p_spacing;
   real_type current_local_work_particle_spacing;
   real_type current_local_work_particle_volume;
   int_type current_local_work_particle_index;
@@ -42,6 +43,7 @@ private:
   int_type current_local_work_particle_adaptive_level;
   int_type current_local_work_particle_new_added;
   int_type current_local_work_particle_attached_rigid_body;
+  int_type current_local_work_particle_num_neighbor;
 
   vec_type last_local_work_particle_coord;
   vec_type last_local_work_particle_normal;
@@ -194,6 +196,10 @@ public:
     return current_local_work_particle_normal;
   }
 
+  vec_type get_current_work_particle_p_spacing() {
+    return current_local_work_particle_p_spacing;
+  }
+
   real_type get_current_work_particle_spacing() {
     return current_local_work_particle_spacing;
   }
@@ -220,6 +226,10 @@ public:
 
   int_type get_current_work_particle_attached_rigid_body() {
     return current_local_work_particle_attached_rigid_body;
+  }
+
+  int_type get_current_work_particle_num_neighbor() {
+    return current_local_work_particle_num_neighbor;
   }
 
   vec_type get_current_work_ghost_particle_coord() {

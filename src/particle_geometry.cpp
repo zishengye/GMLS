@@ -205,7 +205,7 @@ void particle_geometry::init(const int _dim, const int _problem_type,
   refinement_type = _refinement_type;
   spacing = _spacing;
   cutoff_multiplier = _cutoff_multiplier;
-  cutoff_distance = _spacing * cutoff_multiplier;
+  cutoff_distance = _spacing * (cutoff_multiplier + 0.5);
 
   if (geometry_input_file_name != "") {
   } else {
@@ -253,6 +253,7 @@ void particle_geometry::generate_uniform_particle() {
   // prepare data storage
   current_local_work_particle_coord = make_shared<vector<vec3>>();
   current_local_work_particle_normal = make_shared<vector<vec3>>();
+  current_local_work_particle_p_spacing = make_shared<vector<vec3>>();
   current_local_work_particle_spacing = make_shared<vector<double>>();
   current_local_work_particle_volume = make_shared<vector<double>>();
   current_local_work_particle_index = make_shared<vector<int>>();
@@ -260,6 +261,7 @@ void particle_geometry::generate_uniform_particle() {
   current_local_work_particle_adaptive_level = make_shared<vector<int>>();
   current_local_work_particle_new_added = make_shared<vector<int>>();
   current_local_work_particle_attached_rigid_body = make_shared<vector<int>>();
+  current_local_work_particle_num_neighbor = make_shared<vector<int>>();
 
   current_local_work_ghost_particle_coord = make_shared<vector<vec3>>();
   current_local_work_ghost_particle_volume = make_shared<vector<double>>();
@@ -297,6 +299,8 @@ void particle_geometry::generate_uniform_particle() {
                    current_local_work_particle_coord);
   mitigate_forward(current_local_managing_particle_normal,
                    current_local_work_particle_normal);
+  mitigate_forward(current_local_managing_particle_p_spacing,
+                   current_local_work_particle_p_spacing);
   mitigate_forward(current_local_managing_particle_spacing,
                    current_local_work_particle_spacing);
   mitigate_forward(current_local_managing_particle_volume,
@@ -1380,6 +1384,7 @@ void particle_geometry::refine(vector<int> &split_tag) {
 
   current_local_work_particle_coord = make_shared<vector<vec3>>();
   current_local_work_particle_normal = make_shared<vector<vec3>>();
+  current_local_work_particle_p_spacing = make_shared<vector<vec3>>();
   current_local_work_particle_spacing = make_shared<vector<double>>();
   current_local_work_particle_volume = make_shared<vector<double>>();
   current_local_work_particle_index = make_shared<vector<int>>();
@@ -1396,6 +1401,8 @@ void particle_geometry::refine(vector<int> &split_tag) {
                    current_local_work_particle_coord);
   mitigate_forward(current_local_managing_particle_normal,
                    current_local_work_particle_normal);
+  mitigate_forward(current_local_managing_particle_p_spacing,
+                   current_local_work_particle_p_spacing);
   mitigate_forward(current_local_managing_particle_spacing,
                    current_local_work_particle_spacing);
   mitigate_forward(current_local_managing_particle_volume,
@@ -2636,9 +2643,8 @@ void particle_geometry::split_rigid_body_surface_particle(
       case 1:
         // cicle
         {
-          const double delta_theta =
-              spacing[tag] * 0.25 /
-              rigid_body_size[attached_rigid_body_index[tag]];
+          double r = rigid_body_size[attached_rigid_body_index[tag]];
+          const double delta_theta = 0.25 * p_spacing[tag][0] / r;
 
           double theta = p_coord[tag][0];
 

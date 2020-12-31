@@ -19,8 +19,6 @@ void trilinos_rcp_partitioner::partition(vector<long long> &index,
     z[i] = coord[i][2];
   }
 
-  cout << local_particle_num << endl;
-
   inputAdapter_t *ia = new inputAdapter_t(
       local_particle_num, index.data(), x.data(), y.data(), z.data(), 1, 1, 1);
 

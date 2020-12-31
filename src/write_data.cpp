@@ -11,6 +11,8 @@ void gmls_solver::write_time_step_data() {
   vector<vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
   vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
   vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
+  vector<int> &num_neighbor =
+      *(geo_mgr->get_current_work_particle_num_neighbor());
 
   int local_particle_num;
   int global_particle_num;
@@ -158,6 +160,23 @@ void gmls_solver::write_time_step_data() {
     file.open("./vtk/output_step" + to_string(write_step) + ".vtk", ios::app);
     for (size_t i = 0; i < particle_type.size(); i++) {
       file << particle_type[i] << endl;
+    }
+    file.close();
+  });
+
+  master_operation(0, []() {
+    ofstream file;
+    file.open("./vtk/output_step" + to_string(write_step) + ".vtk", ios::app);
+    file << "SCALARS nn int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  serial_operation([num_neighbor]() {
+    ofstream file;
+    file.open("./vtk/output_step" + to_string(write_step) + ".vtk", ios::app);
+    for (size_t i = 0; i < num_neighbor.size(); i++) {
+      file << num_neighbor[i] << endl;
     }
     file.close();
   });
@@ -394,9 +413,12 @@ void gmls_solver::write_refinement_data() {
   vector<vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
   vector<vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
   vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
+  vector<double> &volume = *(geo_mgr->get_current_work_particle_volume());
   vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
   vector<int> &adaptive_level =
       *(geo_mgr->get_current_work_particle_adaptive_level());
+  vector<int> &num_neighbor =
+      *(geo_mgr->get_current_work_particle_num_neighbor());
 
   int local_particle_num;
   int global_particle_num;
@@ -469,6 +491,27 @@ void gmls_solver::write_refinement_data() {
     file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
                   ".vtk",
               ios::app);
+    file << "SCALARS nn int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  serial_operation([num_neighbor, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < num_neighbor.size(); i++) {
+      file << num_neighbor[i] << endl;
+    }
+    file.close();
+  });
+
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
     file << "SCALARS l int 1" << endl;
     file << "LOOKUP_TABLE default" << endl;
     file.close();
@@ -502,6 +545,27 @@ void gmls_solver::write_refinement_data() {
               ios::app);
     for (size_t i = 0; i < spacing.size(); i++) {
       file << spacing[i] << endl;
+    }
+    file.close();
+  });
+
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS vol float 1" << endl;
+    file << "LOOKUP_TABLE default " << endl;
+    file.close();
+  });
+
+  serial_operation([volume, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < volume.size(); i++) {
+      file << volume[i] << endl;
     }
     file.close();
   });
