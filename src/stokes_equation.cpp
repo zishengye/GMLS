@@ -1103,13 +1103,25 @@ void stokes_equation::build_rhs() {
       double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
       double p3 = cos(theta) * pr - sin(theta) * pt;
 
-      rhs[field_dof * i + 3] =
-          bi * (normal[i][0] * p1 + normal[i][1] * p2 + normal[i][2] * p3);
+      // rhs[field_dof * i + 3] =
+      //     bi * (normal[i][0] * p1 + normal[i][1] * p2 + normal[i][2] * p3);
     }
   }
 
   if (rank == size - 1) {
     rhs[local_rigid_body_offset + 2] = 6 * M_PI * RR * u;
+  }
+
+  // make sure pressure term is orthogonal to the constant
+  double rhs_pressure_sum = 0.0;
+  for (int i = 0; i < local_particle_num; i++) {
+    rhs_pressure_sum += rhs[field_dof * i + velocity_dof];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &rhs_pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  rhs_pressure_sum /= global_particle_num;
+  for (int i = 0; i < local_particle_num; i++) {
+    rhs[field_dof * i + velocity_dof] -= rhs_pressure_sum;
   }
 }
 
