@@ -112,6 +112,8 @@ static int bounding_box_split(vec3 &bounding_box_size,
       bounding_box_size[0] / x * (i + 1) + bounding_box_low[0];
   domain_bounding_box_high[1] =
       bounding_box_size[1] / y * (j + 1) + bounding_box_low[1];
+
+  return 0;
 }
 
 static int bounding_box_split(vec3 &bounding_box_size,
@@ -194,6 +196,8 @@ static int bounding_box_split(vec3 &bounding_box_size,
       bounding_box_size[1] / y * (j + 1) + bounding_box_low[1];
   domain_bounding_box_high[2] =
       bounding_box_size[2] / z * (k + 1) + bounding_box_low[2];
+
+  return 0;
 }
 
 void particle_geometry::init(const int _dim, const int _problem_type,
