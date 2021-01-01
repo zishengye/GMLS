@@ -827,7 +827,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       diverged = true;
     if (diverged)
       break;
-  } while (residual_norm / rhs_norm / (double)global_particle_num > 1);
+  } while (residual_norm / rhs_norm / (double)global_particle_num > 1e-5);
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 

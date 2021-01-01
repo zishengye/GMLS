@@ -1080,8 +1080,8 @@ void stokes_equation::build_rhs() {
       double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
       double p3 = cos(theta) * pr - sin(theta) * pt;
 
-      rhs[field_dof * i + 3] =
-          bi * (normal[i][0] * p1 + normal[i][1] * p2 + normal[i][2] * p3);
+      // rhs[field_dof * i + 3] =
+      //     bi * (normal[i][0] * p1 + normal[i][1] * p2 + normal[i][2] * p3);
     } else if (particle_type[i] >= 4) {
       double x = coord[i][0];
       double y = coord[i][1];
@@ -1226,6 +1226,8 @@ void stokes_equation::solve_step() {
       for (int j = 0; j < translation_dof; j++) {
         translation_velocity[i * translation_dof + j] =
             rigid_body_velocity[i][j];
+
+        cout << rigid_body_velocity[i][j] << endl;
       }
       for (int j = 0; j < rotation_dof; j++) {
         angular_velocity[i * rotation_dof + j] =
@@ -1316,17 +1318,17 @@ void stokes_equation::check_solution() {
     }
 
     if (dim == 3) {
-      // double x = coord[i][0];
-      // double y = coord[i][1];
-      // double z = coord[i][2];
+      double x = coord[i][0];
+      double y = coord[i][1];
+      double z = coord[i][2];
 
-      // double r = sqrt(x * x + y * y + z * z);
-      // double theta = acos(z / r);
+      double r = sqrt(x * x + y * y + z * z);
+      double theta = acos(z / r);
 
-      // double true_pressure = -3 / 2 * RR / pow(r, 2.0) * u * cos(theta);
+      double true_pressure = -3 / 2 * RR / pow(r, 2.0) * u * cos(theta);
 
-      // true_pressure_mean += true_pressure;
-      // pressure_mean += pressure[i];
+      true_pressure_mean += true_pressure;
+      pressure_mean += pressure[i];
     }
   }
 
