@@ -150,7 +150,7 @@ bool gmls_solver::refinement() {
       polynomial_order, dim, DivergenceFreeVectorTaylorPolynomial);
 
   int estimated_max_num_neighbor =
-      pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);
+      2 * pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
       "neighbor lists", num_target_coord, estimated_max_num_neighbor);

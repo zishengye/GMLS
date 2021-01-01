@@ -1897,8 +1897,8 @@ void particle_geometry::generate_rigid_body_surface_particle() {
 
           double theta0 = M_PI * i / M_theta;
           double theta1 = M_PI * (i + 1) / M_theta;
-          double d_phi = 2 * M_PI / M_phi;
-          double area = pow(r, 2.0) * (cos(theta0) - cos(theta1)) * d_phi;
+          // double d_phi = 2 * M_PI / M_phi;
+          // double area = pow(r, 2.0) * (cos(theta0) - cos(theta1)) * d_phi;
 
           vec3 p_spacing = vec3(d_theta, d_phi, 0);
 
@@ -2585,19 +2585,20 @@ void particle_geometry::split_rigid_body_surface_particle(
       const double old_delta_theta = p_spacing[tag][0] / r;
       const double delta_theta = 0.5 * old_delta_theta;
 
-      double d_theta = old_delta_theta * 0.5;
-      double d_phi = d_theta;
+      double d_theta = 0.5 * p_spacing[tag][0];
+      double d_phi = 0.5 * p_spacing[tag][1];
+
+      const int old_M_phi =
+          round(2 * M_PI * r * sin(theta) / p_spacing[tag][1]);
+
+      const double old_delta_phi = 2 * M_PI / old_M_phi;
+      const double old_phi0 = phi - 0.5 * old_delta_phi;
+      const double old_phi1 = phi + 0.5 * old_delta_phi;
 
       bool insert = false;
       for (int i = -1; i < 2; i += 2) {
         double new_theta = theta + i * delta_theta * 0.5;
         int M_phi = round(2 * M_PI * r * sin(new_theta) / d_phi);
-
-        const int old_M_phi =
-            round(2 * M_PI * r * sin(theta) / p_spacing[tag][1]);
-        const double old_delta_phi = 2 * M_PI / old_M_phi;
-        const double old_phi0 = phi - 0.5 * old_delta_phi;
-        const double old_phi1 = phi + 0.5 * old_delta_phi;
         for (int j = 0; j < M_phi; j++) {
           double new_phi = 2 * M_PI * (j + 0.5) / M_phi;
           if (new_phi >= old_phi0 && new_phi <= old_phi1) {
@@ -2620,6 +2621,7 @@ void particle_geometry::split_rigid_body_surface_particle(
               normal[tag] = new_normal;
               spacing[tag] /= 2.0;
               p_coord[tag] = vec3(new_theta, new_phi, 0.0);
+              p_spacing[tag] = new_p_spacing;
               adaptive_level[tag]++;
               new_added[tag] = -1;
 
@@ -2629,7 +2631,7 @@ void particle_geometry::split_rigid_body_surface_particle(
               insert_particle(new_pos, particle_type[tag], spacing[tag],
                               new_normal, adaptive_level[tag], vol, true,
                               attached_rigid_body_index[tag],
-                              vec3(new_theta, new_phi, 0.0));
+                              vec3(new_theta, new_phi, 0.0), new_p_spacing);
             }
           }
         }
