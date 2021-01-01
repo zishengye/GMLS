@@ -204,7 +204,8 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   geo_mgr = make_shared<particle_geometry>();
   rb_mgr = make_shared<rigid_body_manager>();
 
-  geo_mgr->init(dim, STANDARD_PROBLEM, refinement_method, spacing);
+  geo_mgr->init(dim, STANDARD_PROBLEM, refinement_method, spacing,
+                epsilon_multiplier);
   rb_mgr->init(rigid_body_input_file_name, dim);
   geo_mgr->init_rigid_body(rb_mgr);
 
