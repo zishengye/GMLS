@@ -20,7 +20,7 @@ bool gmls_solver::refinement() {
   double global_error = equation_mgr->get_estimated_error();
 
   PetscPrintf(PETSC_COMM_WORLD,
-              "Total error for gradient of velocity: %f, with tolerance: %f\n",
+              "Total error for gradient: %f, with tolerance: %f\n",
               global_error, refinement_tolerance);
 
   if (isnan(global_error) || global_error < refinement_tolerance) {
