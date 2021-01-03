@@ -106,7 +106,7 @@ static int bounding_box_split(vec3 &bounding_box_size,
 
   domain_bounding_box_low[0] =
       bounding_box_size[0] / x * i + bounding_box_low[0];
-  domain_bounding_box_high[1] =
+  domain_bounding_box_low[1] =
       bounding_box_size[1] / y * j + bounding_box_low[1];
   domain_bounding_box_high[0] =
       bounding_box_size[0] / x * (i + 1) + bounding_box_low[0];
