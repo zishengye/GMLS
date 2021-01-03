@@ -86,8 +86,13 @@ static int bounding_box_split(vec3 &bounding_box_size,
   domain_count[0] = count_x[i];
   domain_count[1] = count_y[j];
 
-  double x_start = bounding_box_low[0];
-  double y_start = bounding_box_low[1];
+  double offset_x =
+      0.5 * (bounding_box_size[0] - bounding_box_count[0] * _spacing);
+  double offset_y =
+      0.5 * (bounding_box_size[1] - bounding_box_count[1] * _spacing);
+
+  double x_start = bounding_box_low[0] + offset_x;
+  double y_start = bounding_box_low[1] + offset_y;
 
   for (int ite = 0; ite < i; ite++) {
     x_start += count_x[ite] * _spacing;
@@ -160,9 +165,17 @@ static int bounding_box_split(vec3 &bounding_box_size,
   domain_count[1] = count_y[j];
   domain_count[2] = count_z[k];
 
-  double x_start = bounding_box_low[0];
-  double y_start = bounding_box_low[1];
-  double z_start = bounding_box_low[2];
+  double offset_x =
+      0.5 * (bounding_box_size[0] - bounding_box_count[0] * _spacing);
+  double offset_y =
+      0.5 * (bounding_box_size[1] - bounding_box_count[1] * _spacing);
+  double offset_z =
+      0.5 * (bounding_box_size[2] - bounding_box_count[2] * _spacing);
+
+  double x_start = bounding_box_low[0] + offset_x;
+  double y_start = bounding_box_low[1] + offset_y;
+  double z_start = bounding_box_low[2] + offset_z;
+
   for (int ite = 0; ite < i; ite++) {
     x_start += count_x[ite] * _spacing;
   }
