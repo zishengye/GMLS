@@ -1149,7 +1149,7 @@ void stokes_equation::solve_step() {
 
   // build interpolation and resitriction operators
   double timer1, timer2;
-  if (num_rigid_body != 0 && current_refinement_level != 0) {
+  if (current_refinement_level != 0) {
     timer1 = MPI_Wtime();
 
     multi_mgr->build_interpolation_restriction(num_rigid_body, dim);
