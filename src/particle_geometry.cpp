@@ -35,7 +35,7 @@ static void process_split(int &x, int &y, int &z, int &i, int &j, int &k,
   x = cbrt(size);
   bool splitFound = false;
   while (x > 0 && splitFound == false) {
-    y = x;
+    y = sqrt(size / x);
     while (y > 0 && splitFound == false) {
       z = size / (x * y);
       if (size == (x * y * z)) {
