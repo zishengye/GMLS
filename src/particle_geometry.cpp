@@ -2257,7 +2257,7 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
 
   auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
 
-  int estimated_num_neighbor_max = 2 * pow(2, dim);
+  int estimated_num_neighbor_max = 4 * pow(2, dim);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
       "neighbor lists", num_target_coord, estimated_num_neighbor_max);

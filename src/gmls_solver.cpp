@@ -169,6 +169,18 @@ gmls_solver::gmls_solver(int argc, char **argv) {
     epsilon_multiplier = 0.0;
   }
 
+  int compress_memory_flag;
+  bool compress_memory;
+  if ((SearchCommand<int>(argc, argv, "-CompressMemory",
+                          compress_memory_flag)) == 1) {
+    compress_memory_flag = 0;
+  }
+  if (compress_memory_flag == 0) {
+    compress_memory = false;
+  } else {
+    compress_memory = true;
+  }
+
   // [summary of problem setup]
 
   PetscPrintf(PETSC_COMM_WORLD, "===============================\n");
@@ -191,6 +203,8 @@ gmls_solver::gmls_solver(int argc, char **argv) {
                 refinement_tolerance);
     PetscPrintf(PETSC_COMM_WORLD, "==> Refinement field: %s(%d)\n",
                 refinement_field_name.c_str(), refinement_field);
+    PetscPrintf(PETSC_COMM_WORLD, "==> Compress memory usage: %s\n",
+                (compress_memory == true) ? "True" : "False");
     PetscPrintf(PETSC_COMM_WORLD, "==> Maximum refinement level: %d\n",
                 max_refinement_level);
   } else {
@@ -224,5 +238,5 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   }
 
   equation_mgr->init(geo_mgr, rb_mgr, polynomial_order, dim, refinement_field,
-                     epsilon_multiplier, eta);
+                     epsilon_multiplier, batch_size, eta, compress_memory);
 }

@@ -30,7 +30,7 @@ bool gmls_solver::refinement() {
   vector<double> &error = equation_mgr->get_error();
 
   // mark stage
-  double alpha = 0.6;
+  double alpha = 0.8;
 
   vector<pair<int, double>> chopper;
   pair<int, double> to_add;

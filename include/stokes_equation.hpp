@@ -35,6 +35,7 @@ private:
 
   std::vector<double> epsilon;
   std::vector<double> ghost_epsilon;
+  std::vector<std::vector<int>> neighbor_list;
 
   std::vector<double> rhs;
   std::vector<double> res;
@@ -61,6 +62,10 @@ private:
 
   int current_refinement_level;
 
+  int number_of_batches;
+
+  bool compress_memory;
+
 public:
   stokes_equation() {}
 
@@ -68,7 +73,9 @@ public:
             std::shared_ptr<rigid_body_manager> _rb_mgr, const int _poly_order,
             const int _dim,
             const int _error_estimation_method = VELOCITY_ERROR_EST,
-            const double _epsilon_multiplier = 0.0, const double _eta = 1.0);
+            const double _epsilon_multiplier = 0.0,
+            const int _number_of_batches = 1, const double _eta = 1.0,
+            const bool _compress_memory = false);
   void reset();
   void update();
 

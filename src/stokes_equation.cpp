@@ -3,6 +3,7 @@
 #include "gmls_solver.hpp"
 #include "petsc_sparse_matrix.hpp"
 
+#include <algorithm>
 #include <iomanip>
 
 using namespace std;
@@ -31,7 +32,8 @@ void stokes_equation::init(shared_ptr<particle_geometry> _geo_mgr,
                            const int _poly_order, const int _dim,
                            const int _error_estimation_method,
                            const double _epsilon_multiplier,
-                           const double _eta) {
+                           const int _number_of_batches, const double _eta,
+                           const bool _compress_memory) {
   geo_mgr = _geo_mgr;
   rb_mgr = _rb_mgr;
   eta = _eta;
@@ -46,6 +48,9 @@ void stokes_equation::init(shared_ptr<particle_geometry> _geo_mgr,
   } else {
     epsilon_multiplier = _poly_order + 1.0;
   }
+
+  number_of_batches = _number_of_batches;
+  compress_memory = _compress_memory;
 
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -104,8 +109,6 @@ void stokes_equation::build_coefficient_matrix() {
 
   vector<vec3> &rigid_body_position = rb_mgr->get_position();
   const int num_rigid_body = 0;
-
-  const int number_of_batches = 1;
 
   double timer1, timer2;
   MPI_Barrier(MPI_COMM_WORLD);
@@ -327,6 +330,14 @@ void stokes_equation::build_coefficient_matrix() {
     num_neighbor[i] = neighbor_list_host(i, 0);
   }
 
+  neighbor_list.resize(num_target_coord);
+  for (int i = 0; i < num_target_coord; i++) {
+    neighbor_list[i].resize(neighbor_list_host(i, 0));
+    for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+      neighbor_list[i][j] = neighbor_list_host(i, j + 1);
+    }
+  }
+
   MPI_Barrier(MPI_COMM_WORLD);
 
   Kokkos::deep_copy(neighbor_list_device, neighbor_list_host);
@@ -352,7 +363,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_basis->setDimensionOfQuadraturePoints(1);
   pressure_basis->setQuadratureType("LINE");
 
-  pressure_basis->generateAlphas(number_of_batches, true);
+  pressure_basis->generateAlphas(number_of_batches, !compress_memory);
 
   auto pressure_alpha = pressure_basis->getAlphas();
 
@@ -378,7 +389,7 @@ void stokes_equation::build_coefficient_matrix() {
   velocity_basis->setWeightingType(WeightingFunctionType::Power);
   velocity_basis->setWeightingPower(4);
 
-  velocity_basis->generateAlphas(number_of_batches, true);
+  velocity_basis->generateAlphas(number_of_batches, !compress_memory);
 
   auto velocity_alpha = velocity_basis->getAlphas();
 
@@ -422,7 +433,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_neumann_basis->setDimensionOfQuadraturePoints(1);
   pressure_neumann_basis->setQuadratureType("LINE");
 
-  pressure_neumann_basis->generateAlphas(number_of_batches, true);
+  pressure_neumann_basis->generateAlphas(number_of_batches, !compress_memory);
 
   auto pressure_neumann_alpha = pressure_neumann_basis->getAlphas();
 
@@ -1514,7 +1525,9 @@ void stokes_equation::check_solution() {
 }
 
 void stokes_equation::calculate_error() {
+  double timer1, timer2;
   MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "\nstart of error estimation\n");
 
   // prepare stage
@@ -1537,8 +1550,6 @@ void stokes_equation::calculate_error() {
     error[i] = 0.0;
   }
 
-  auto neighbor_list = velocity_basis->getNeighborLists();
-
   // error estimation base on velocity
   if (error_esimation_method == VELOCITY_ERROR_EST) {
     vector<vec3> ghost_velocity;
@@ -1559,11 +1570,6 @@ void stokes_equation::calculate_error() {
 
     Evaluator velocity_evaluator(velocity_basis.get());
 
-    auto coefficients =
-        velocity_evaluator
-            .applyFullPolynomialCoefficientsBasisToDataAllComponents<
-                double **, Kokkos::HostSpace>(ghost_velocity_device);
-
     auto direct_gradient =
         velocity_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
             double **, Kokkos::HostSpace>(ghost_velocity_device,
@@ -1573,13 +1579,114 @@ void stokes_equation::calculate_error() {
 
     vector<vector<double>> coefficients_chunk, ghost_coefficients_chunk;
     coefficients_chunk.resize(local_particle_num);
-    for (int i = 0; i < local_particle_num; i++) {
-      coefficients_chunk[i].resize(coefficients_size);
-      for (int j = 0; j < coefficients_size; j++) {
-        coefficients_chunk[i][j] = coefficients(i, j);
+
+    if (!compress_memory) {
+      auto coefficients =
+          velocity_evaluator
+              .applyFullPolynomialCoefficientsBasisToDataAllComponents<
+                  double **, Kokkos::HostSpace>(ghost_velocity_device);
+
+      for (int i = 0; i < local_particle_num; i++) {
+        coefficients_chunk[i].resize(coefficients_size);
+        for (int j = 0; j < coefficients_size; j++) {
+          coefficients_chunk[i][j] = coefficients(i, j);
+        }
+      }
+    } else {
+      int batch_size = local_particle_num / number_of_batches + 1;
+
+      Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+          source_coord_device("source coordinates", source_coord.size(), 3);
+      Kokkos::View<double **>::HostMirror source_coord_host =
+          Kokkos::create_mirror_view(source_coord_device);
+
+      for (size_t i = 0; i < source_coord.size(); i++) {
+        for (int j = 0; j < 3; j++) {
+          source_coord_host(i, j) = source_coord[i][j];
+        }
+      }
+
+      Kokkos::deep_copy(source_coord_device, source_coord_host);
+
+      for (int i = 0; i < number_of_batches; i++) {
+        int start = i * batch_size;
+        int end = min(local_particle_num, (i + 1) * batch_size);
+        int num_target = end - start;
+
+        auto velocity_basis_sub =
+            GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
+                 poly_order, dim, "SVD", "STANDARD");
+
+        Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+            target_coord_device("target coordinates", num_target, 3);
+        Kokkos::View<double **>::HostMirror target_coord_host =
+            Kokkos::create_mirror_view(target_coord_device);
+
+        for (int j = 0; j < num_target; j++) {
+          for (int k = 0; k < 3; k++) {
+            target_coord_host(j, k) = coord[j + start][k];
+          }
+        }
+
+        Kokkos::deep_copy(target_coord_device, target_coord_host);
+
+        int estimated_max_num_neighbor =
+            pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);
+
+        Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+            neighbor_list_device("neighbor lists", num_target,
+                                 estimated_max_num_neighbor);
+        Kokkos::View<int **>::HostMirror neighbor_list_host =
+            Kokkos::create_mirror_view(neighbor_list_device);
+
+        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
+            "h supports", num_target);
+        Kokkos::View<double *>::HostMirror epsilon_host =
+            Kokkos::create_mirror_view(epsilon_device);
+
+        for (int j = 0; j < num_target; j++) {
+          epsilon_host(j) = epsilon[j + start];
+          neighbor_list_host(j, 0) = neighbor_list[j + start].size();
+          for (int k = 0; k < neighbor_list[j + start].size(); k++) {
+            neighbor_list_host(j, k + 1) = neighbor_list[j + start][k];
+          }
+        }
+
+        Kokkos::deep_copy(neighbor_list_device, neighbor_list_host);
+        Kokkos::deep_copy(epsilon_device, epsilon_host);
+
+        velocity_basis_sub.setProblemData(neighbor_list_device,
+                                          source_coord_device,
+                                          target_coord_device, epsilon_device);
+
+        vector<TargetOperation> velocity_operation(1);
+        velocity_operation[0] = ScalarPointEvaluation;
+
+        velocity_basis_sub.clearTargets();
+        velocity_basis_sub.addTargets(velocity_operation);
+
+        velocity_basis_sub.setWeightingType(WeightingFunctionType::Power);
+        velocity_basis_sub.setWeightingPower(4);
+
+        velocity_basis_sub.generateAlphas(1, true);
+
+        Evaluator velocity_evaluator_sub(&velocity_basis_sub);
+
+        auto coefficients_sub =
+            velocity_evaluator_sub
+                .applyFullPolynomialCoefficientsBasisToDataAllComponents<
+                    double **, Kokkos::HostSpace>(ghost_velocity_device);
+
+        for (int j = 0; j < num_target; j++) {
+          coefficients_chunk[j + start].resize(coefficients_size);
+          for (int k = 0; k < coefficients_size; k++) {
+            coefficients_chunk[j + start][k] = coefficients_sub(j, k);
+          }
+        }
       }
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
     geo_mgr->ghost_forward(coefficients_chunk, ghost_coefficients_chunk,
                            coefficients_size);
 
@@ -1599,8 +1706,8 @@ void stokes_equation::calculate_error() {
 
     for (int i = 0; i < local_particle_num; i++) {
       int counter = 0;
-      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
-        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
+      for (int j = 0; j < neighbor_list[i].size(); j++) {
+        const int neighbor_index = neighbor_list[i][j];
 
         vec3 dX = coord[i] - source_coord[neighbor_index];
         if (dX.mag() < ghost_epsilon[neighbor_index]) {
@@ -1630,8 +1737,8 @@ void stokes_equation::calculate_error() {
       vector<double> reconstructed_gradient(gradient_component_num);
       double total_neighbor_vol = 0.0;
       // loop over all neighbors
-      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
-        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
+      for (int j = 0; j < neighbor_list[i].size(); j++) {
+        const int neighbor_index = neighbor_list[i][j];
 
         vec3 dX = source_coord[neighbor_index] - coord[i];
 
@@ -1780,8 +1887,8 @@ void stokes_equation::calculate_error() {
 
     for (int i = 0; i < local_particle_num; i++) {
       int counter = 0;
-      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
-        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
+      for (int j = 0; j < neighbor_list[i].size(); j++) {
+        const int neighbor_index = neighbor_list[i][j];
 
         vec3 dX = coord[i] - source_coord[neighbor_index];
         if (dX.mag() < ghost_epsilon[neighbor_index]) {
@@ -1805,8 +1912,8 @@ void stokes_equation::calculate_error() {
       vec3 reconstructed_gradient;
       double total_neighbor_vol = 0.0;
       // loop over all neighbors
-      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
-        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
+      for (int j = 0; j < neighbor_list[i].size(); j++) {
+        const int neighbor_index = neighbor_list[i][j];
 
         vec3 dX = source_coord[neighbor_index] - coord[i];
 
@@ -1844,8 +1951,8 @@ void stokes_equation::calculate_error() {
     for (int i = 0; i < local_particle_num; i++) {
       error[i] = 0.0;
       double total_neighbor_vol = 0.0;
-      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
-        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
+      for (int j = 0; j < neighbor_list[i].size(); j++) {
+        const int neighbor_index = neighbor_list[i][j];
 
         vec3 dX = source_coord[neighbor_index] - coord[i];
 
@@ -1875,4 +1982,8 @@ void stokes_equation::calculate_error() {
   for (int i = 0; i < local_particle_num; i++) {
     error[i] = sqrt(error[i]);
   }
+
+  timer2 = MPI_Wtime();
+  PetscPrintf(PETSC_COMM_WORLD, "Duration of error estimation: %fs\n",
+              timer2 - timer1);
 }
