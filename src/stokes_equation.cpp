@@ -264,7 +264,7 @@ void stokes_equation::build_coefficient_matrix() {
     // pointCloudSearch.generateNeighborListsFromKNNSearch(
     //     false, targetCoords, neighborLists, epsilon, 10, 1.05);
 
-    point_cloud_search.generateSymmetricNeighborListsFromRadiusSearch(
+    point_cloud_search.generate2DSymmetricNeighborListsFromRadiusSearch(
         false, target_coord_host, neighbor_list_host, ghost_epsilon_host, 0.0,
         max_epsilon);
 
@@ -352,7 +352,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_basis->setDimensionOfQuadraturePoints(1);
   pressure_basis->setQuadratureType("LINE");
 
-  pressure_basis->generateAlphas(number_of_batches);
+  pressure_basis->generateAlphas(number_of_batches, true);
 
   auto pressure_alpha = pressure_basis->getAlphas();
 
@@ -378,7 +378,7 @@ void stokes_equation::build_coefficient_matrix() {
   velocity_basis->setWeightingType(WeightingFunctionType::Power);
   velocity_basis->setWeightingPower(4);
 
-  velocity_basis->generateAlphas(number_of_batches);
+  velocity_basis->generateAlphas(number_of_batches, true);
 
   auto velocity_alpha = velocity_basis->getAlphas();
 
@@ -422,7 +422,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_neumann_basis->setDimensionOfQuadraturePoints(1);
   pressure_neumann_basis->setQuadratureType("LINE");
 
-  pressure_neumann_basis->generateAlphas(number_of_batches);
+  pressure_neumann_basis->generateAlphas(number_of_batches, true);
 
   auto pressure_neumann_alpha = pressure_neumann_basis->getAlphas();
 
@@ -641,9 +641,9 @@ void stokes_equation::build_coefficient_matrix() {
             const int velocity_global_index =
                 field_dof * neighbor_particle_index + axes2;
 
-            const double Lij =
-                eta * velocity_alpha(
-                          i, velocity_curl_curl_index[axes1 * dim + axes2], j);
+            auto alpha_index = velocity_basis->getAlphaIndexHost(
+                i, velocity_curl_curl_index[axes1 * dim + axes2]);
+            const double Lij = eta * velocity_alpha(alpha_index + j);
 
             A.increment(velocity_local_index, velocity_global_index, Lij);
           }
@@ -741,9 +741,12 @@ void stokes_equation::build_coefficient_matrix() {
                 const int velocity_gradient_index_2 =
                     velocity_gradient_index[(axes2 * dim + axes1) * dim +
                                             axes3];
-                const double sigma =
-                    eta * (velocity_alpha(i, velocity_gradient_index_1, j) +
-                           velocity_alpha(i, velocity_gradient_index_2, j));
+                auto alpha_index1 = velocity_basis->getAlphaIndexHost(
+                    i, velocity_gradient_index_1);
+                auto alpha_index2 = velocity_basis->getAlphaIndexHost(
+                    i, velocity_gradient_index_2);
+                const double sigma = eta * (velocity_alpha(alpha_index1 + j) +
+                                            velocity_alpha(alpha_index2 + j));
 
                 f[axes1] += sigma * dA[axes2];
               }
@@ -787,9 +790,9 @@ void stokes_equation::build_coefficient_matrix() {
           const int velocity_global_index =
               field_dof * neighbor_particle_index + axes2;
           for (int axes1 = 0; axes1 < dim; axes1++) {
-            const double Lij =
-                eta * velocity_alpha(
-                          i, velocity_curl_curl_index[axes1 * dim + axes2], j);
+            auto alpha_index = velocity_basis->getAlphaIndexHost(
+                i, velocity_curl_curl_index[axes1 * dim + axes2]);
+            const double Lij = eta * velocity_alpha(alpha_index + j);
 
             gradient += normal[i][axes1] * Lij;
           }
@@ -808,7 +811,9 @@ void stokes_equation::build_coefficient_matrix() {
         const int pressure_neighbor_global_index =
             field_dof * neighbor_particle_index + velocity_dof;
 
-        const double Aij = pressure_alpha(i, pressure_laplacian_index, j);
+        auto alpha_index =
+            pressure_basis->getAlphaIndexHost(i, pressure_laplacian_index);
+        const double Aij = pressure_alpha(alpha_index + j);
 
         // laplacian p
         A.increment(pressure_local_index, pressure_neighbor_global_index, Aij);
@@ -818,8 +823,9 @@ void stokes_equation::build_coefficient_matrix() {
           const int velocity_local_index =
               field_dof * current_particle_local_index + axes1;
 
-          const double Dijx =
-              pressure_alpha(i, pressure_gradient_index[axes1], j);
+          auto alpha_index = pressure_basis->getAlphaIndexHost(
+              i, pressure_gradient_index[axes1]);
+          const double Dijx = pressure_alpha(alpha_index + j);
 
           // grad p
           A.increment(velocity_local_index, pressure_neighbor_global_index,
@@ -838,8 +844,9 @@ void stokes_equation::build_coefficient_matrix() {
         const int pressure_neighbor_global_index =
             field_dof * neighbor_particle_index + velocity_dof;
 
-        const double Aij = pressure_neumann_alpha(
-            neumann_index, pressure_neumann_laplacian_index, j);
+        auto alpha_index = pressure_neumann_basis->getAlphaIndexHost(
+            neumann_index, pressure_neumann_laplacian_index);
+        const double Aij = pressure_neumann_alpha(alpha_index + j);
 
         // laplacian p
         A.increment(pressure_local_index, pressure_neighbor_global_index, Aij);
@@ -1056,7 +1063,7 @@ void stokes_equation::build_rhs() {
       const int neumann_index = neumann_map[i];
       const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
           DivergenceOfVectorPointEvaluation, neumann_index,
-          neumann_neighbor_list(neumann_index, 0));
+          neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
 
       double r = sqrt(x * x + y * y + z * z);
       double theta = acos(z / r);
@@ -1094,7 +1101,7 @@ void stokes_equation::build_rhs() {
       const int neumann_index = neumann_map[i];
       const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
           DivergenceOfVectorPointEvaluation, neumann_index,
-          neumann_neighbor_list(neumann_index, 0));
+          neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
 
       double pr = 3 * RR / pow(r, 3) * u * cos(theta);
       double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
@@ -1589,8 +1596,8 @@ void stokes_equation::calculate_error() {
 
     for (int i = 0; i < local_particle_num; i++) {
       int counter = 0;
-      for (int j = 0; j < neighbor_list(i, 0); j++) {
-        const int neighbor_index = neighbor_list(i, j + 1);
+      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
+        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
 
         vec3 dX = coord[i] - source_coord[neighbor_index];
         if (dX.mag() < ghost_epsilon[neighbor_index]) {
@@ -1628,8 +1635,8 @@ void stokes_equation::calculate_error() {
       vector<double> reconstructed_gradient(gradient_component_num);
       double total_neighbor_vol = 0.0;
       // loop over all neighbors
-      for (int j = 0; j < neighbor_list(i, 0); j++) {
-        const int neighbor_index = neighbor_list(i, j + 1);
+      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
+        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
 
         vec3 dX = source_coord[neighbor_index] - coord[i];
 
@@ -1785,8 +1792,8 @@ void stokes_equation::calculate_error() {
 
     for (int i = 0; i < local_particle_num; i++) {
       int counter = 0;
-      for (int j = 0; j < neighbor_list(i, 0); j++) {
-        const int neighbor_index = neighbor_list(i, j + 1);
+      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
+        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
 
         vec3 dX = coord[i] - source_coord[neighbor_index];
         if (dX.mag() < ghost_epsilon[neighbor_index]) {
@@ -1810,8 +1817,8 @@ void stokes_equation::calculate_error() {
       vec3 reconstructed_gradient;
       double total_neighbor_vol = 0.0;
       // loop over all neighbors
-      for (int j = 0; j < neighbor_list(i, 0); j++) {
-        const int neighbor_index = neighbor_list(i, j + 1);
+      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
+        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
 
         vec3 dX = source_coord[neighbor_index] - coord[i];
 
@@ -1849,8 +1856,8 @@ void stokes_equation::calculate_error() {
     for (int i = 0; i < local_particle_num; i++) {
       error[i] = 0.0;
       double total_neighbor_vol = 0.0;
-      for (int j = 0; j < neighbor_list(i, 0); j++) {
-        const int neighbor_index = neighbor_list(i, j + 1);
+      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
+        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
 
         vec3 dX = source_coord[neighbor_index] - coord[i];
 

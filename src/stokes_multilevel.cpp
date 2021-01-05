@@ -123,7 +123,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
 
     while (true) {
       actual_neighbor_max =
-          old_to_new_point_search.generateNeighborListsFromRadiusSearch(
+          old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
               true, new_target_coords_host, old_to_new_neighbor_lists_host,
               old_epsilon_host, 0.0, 0.0);
       while (actual_neighbor_max > estimated_num_neighbor_max) {
@@ -135,7 +135,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         old_to_new_neighbor_lists_host =
             Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
       }
-      old_to_new_point_search.generateNeighborListsFromRadiusSearch(
+      old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
           false, new_target_coords_host, old_to_new_neighbor_lists_host,
           old_epsilon_host, 0.0, 0.0);
 
@@ -270,28 +270,29 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         for (int j = 0;
              j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
           for (int axes1 = 0; axes1 < dimension; axes1++)
-            for (int axes2 = 0; axes2 < dimension; axes2++)
+            for (int axes2 = 0; axes2 < dimension; axes2++) {
+              auto alpha_index = old_to_new_velocity_basis.getAlphaIndexHost(
+                  new_actual_index[i],
+                  velocity_old_to_new_alphas_index[axes1 * dimension + axes2]);
               I.increment(
                   field_dof * i + axes1,
                   field_dof * old_source_index[old_to_new_neighbor_lists_host(
                                   new_actual_index[i], j + 1)] +
                       axes2,
-                  old_to_new_velocity_alphas(
-                      new_actual_index[i],
-                      velocity_old_to_new_alphas_index[axes1 * dimension +
-                                                       axes2],
-                      j));
+                  old_to_new_velocity_alphas(alpha_index + j));
+            }
         }
 
         for (int j = 0;
              j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
-          I.increment(
-              field_dof * i + velocity_dof,
-              field_dof * old_source_index[old_to_new_neighbor_lists_host(
-                              new_actual_index[i], j + 1)] +
-                  velocity_dof,
-              old_to_new_pressure_alphas(new_actual_index[i],
-                                         pressure_old_to_new_alphas_index, j));
+          auto alpha_index = old_to_new_pressusre_basis.getAlphaIndexHost(
+              new_actual_index[i], pressure_old_to_new_alphas_index);
+          I.increment(field_dof * i + velocity_dof,
+                      field_dof *
+                              old_source_index[old_to_new_neighbor_lists_host(
+                                  new_actual_index[i], j + 1)] +
+                          velocity_dof,
+                      old_to_new_pressure_alphas(alpha_index + j));
         }
       } else {
         for (int j = 0; j < field_dof; j++) {
@@ -403,7 +404,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
       epsilon_host(i) = old_spacing[i];
     }
 
-    point_search.generateNeighborListsFromRadiusSearch(
+    point_search.generate2DNeighborListsFromRadiusSearch(
         false, target_coords_host, neighbor_lists_host, epsilon_host, 0.0, 0.0);
 
     for (int i = 0; i < old_coord.size(); i++) {

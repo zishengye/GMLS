@@ -2269,7 +2269,7 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
   Kokkos::View<double *>::HostMirror epsilon_host =
       Kokkos::create_mirror_view(epsilon_device);
 
-  point_cloud_search.generateNeighborListsFromKNNSearch(
+  point_cloud_search.generate2DNeighborListsFromKNNSearch(
       false, target_coord_host, neighbor_list_host, epsilon_host, pow(2, dim),
       1.0);
 

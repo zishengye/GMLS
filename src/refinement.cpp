@@ -166,7 +166,7 @@ bool gmls_solver::refinement() {
     epsilon_host(i) = spacing[i] * epsilon_multiplier + 1e-15;
   }
 
-  point_cloud_search.generateNeighborListsFromRadiusSearch(
+  point_cloud_search.generate2DNeighborListsFromRadiusSearch(
       false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
 
   for (int i = 0; i < num_target_coord; i++) {
