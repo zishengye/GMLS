@@ -210,6 +210,9 @@ void stokes_equation::build_coefficient_matrix() {
   auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
 
   int min_num_neighbor =
+      1.5 * Compadre::GMLS::getNP(poly_order, dim,
+                                  DivergenceFreeVectorTaylorPolynomial);
+  int satisfied_num_neighbor =
       2.0 * Compadre::GMLS::getNP(poly_order, dim,
                                   DivergenceFreeVectorTaylorPolynomial);
 
@@ -238,16 +241,10 @@ void stokes_equation::build_coefficient_matrix() {
   Kokkos::View<double *>::HostMirror neumann_epsilon_host =
       Kokkos::create_mirror_view(neumann_epsilon_device);
 
-  double max_epsilon = 0.0;
+  double max_epsilon = geo_mgr->get_cutoff_distance();
   for (int i = 0; i < num_target_coord; i++) {
     epsilon_host(i) = spacing[i] + 1e-15;
-    if (epsilon_host(i) > max_epsilon) {
-      max_epsilon = epsilon_host(i);
-    }
   }
-
-  MPI_Allreduce(MPI_IN_PLACE, &max_epsilon, 1, MPI_DOUBLE, MPI_MAX,
-                MPI_COMM_WORLD);
 
   // ensure every particle has enough neighbors
   bool pass_neighbor_search = false;
@@ -260,11 +257,10 @@ void stokes_equation::build_coefficient_matrix() {
     int min_neighbor = 1000;
     int max_neighbor = 0;
     for (int i = 0; i < local_particle_num; i++) {
-      if (neighbor_list_host(i, 0) <= min_num_neighbor) {
-        epsilon_host(i) += 0.25 * spacing[i];
-        pass_neighbor_num_check = false;
-        if (epsilon_host(i) > max_epsilon) {
-          max_epsilon = epsilon_host(i);
+      if (neighbor_list_host(i, 0) <= satisfied_num_neighbor) {
+        if (epsilon_host(i) + 0.25 * spacing[i] < max_epsilon) {
+          epsilon_host(i) += 0.25 * spacing[i];
+          pass_neighbor_num_check = false;
         }
       }
       if (neighbor_list_host(i, 0) < min_neighbor)
@@ -349,6 +345,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_basis->setDimensionOfQuadraturePoints(1);
   pressure_basis->setQuadratureType("LINE");
 
+  number_of_batches = local_particle_num / 200 + 1;
   pressure_basis->generateAlphas(number_of_batches, !compress_memory);
 
   auto pressure_alpha = pressure_basis->getAlphas();
