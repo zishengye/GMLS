@@ -113,7 +113,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
 
     for (int i = 0; i < coord.size(); i++) {
       if (new_added[i] < 0) {
-        old_epsilon_host[new_actual_index[i]] = spacing[i];
+        old_epsilon_host[new_actual_index[i]] = spacing[new_actual_index[i]];
       }
     }
 
@@ -122,11 +122,12 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
                                     DivergenceFreeVectorTaylorPolynomial);
     size_t actual_neighbor_max;
 
+    double max_epsilon = geo_mgr->get_cutoff_distance();
     while (true) {
       actual_neighbor_max =
           old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
               true, new_target_coords_host, old_to_new_neighbor_lists_host,
-              old_epsilon_host, 0.0, 0.0);
+              old_epsilon_host, 0.0, max_epsilon);
       while (actual_neighbor_max > estimated_num_neighbor_max) {
         estimated_num_neighbor_max *= 2;
         old_to_new_neighbor_lists_device =
@@ -138,15 +139,20 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
       }
       old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
           false, new_target_coords_host, old_to_new_neighbor_lists_host,
-          old_epsilon_host, 0.0, 0.0);
+          old_epsilon_host, 0.0, max_epsilon);
 
       bool enough_neighbor = true;
       for (int i = 0; i < coord.size(); i++) {
         if (new_added[i] < 0) {
           if (old_to_new_neighbor_lists_host(new_actual_index[i], 0) <
               neighbor_needed) {
-            old_epsilon_host[new_actual_index[i]] += 0.25 * spacing[i];
-            enough_neighbor = false;
+            if (old_epsilon_host[new_actual_index[i]] +
+                    0.25 * spacing[new_actual_index[i]] <
+                max_epsilon) {
+              old_epsilon_host[new_actual_index[i]] +=
+                  0.25 * spacing[new_actual_index[i]];
+              enough_neighbor = false;
+            }
           }
         }
       }
@@ -816,7 +822,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     VecAXPY(residual, -1.0, _rhs.get_reference());
     VecNorm(residual, NORM_2, &residual_norm);
     PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
-                residual_norm / rhs_norm / (double)global_particle_num);
+                residual_norm / rhs_norm);
     rtol *= 1e-2;
     counter++;
 
@@ -825,13 +831,13 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
     if (counter >= 10)
       break;
-    if (residual_norm / rhs_norm / (double)global_particle_num > 1e3)
+    if (residual_norm / rhs_norm > 1e3)
       diverged = true;
     if (convergence_reason < 0)
       diverged = true;
     if (diverged)
       break;
-  } while (residual_norm / rhs_norm / (double)global_particle_num > 1e-5);
+  } while (residual_norm / rhs_norm > 1e-5);
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
