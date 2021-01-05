@@ -53,7 +53,7 @@ void stokes_equation::init(shared_ptr<particle_geometry> _geo_mgr,
   current_refinement_level = 0;
   multi_mgr->reset();
   multi_mgr->init(dim, geo_mgr);
-  multi_mgr->set_num_rigid_body(rb_mgr->get_rigid_body_num());
+  multi_mgr->set_num_rigid_body(0);
 }
 
 void stokes_equation::update() {
@@ -103,7 +103,7 @@ void stokes_equation::build_coefficient_matrix() {
       poly_order, dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
 
   vector<vec3> &rigid_body_position = rb_mgr->get_position();
-  const int num_rigid_body = rb_mgr->get_rigid_body_num();
+  const int num_rigid_body = 0;
 
   const int number_of_batches = 1;
 
@@ -549,17 +549,18 @@ void stokes_equation::build_coefficient_matrix() {
     if (particle_type[i] >= 4) {
       // velocity block
       index.clear();
-      index.resize(2 + rotation_dof);
-      for (int axes = 0; axes < rotation_dof; axes++) {
-        index[2 + axes] = global_rigid_body_offset +
-                          attached_rigid_body[i] * rigid_body_dof +
-                          translation_dof + axes;
-      }
+      // index.resize(2 + rotation_dof);
+      // for (int axes = 0; axes < rotation_dof; axes++) {
+      //   index[2 + axes] = global_rigid_body_offset +
+      //                     attached_rigid_body[i] * rigid_body_dof +
+      //                     translation_dof + axes;
+      // }
+      index.resize(1);
 
       for (int axes = 0; axes < velocity_dof; axes++) {
         index[0] = current_particle_global_index * field_dof + axes;
-        index[1] = global_rigid_body_offset +
-                   attached_rigid_body[i] * rigid_body_dof + axes;
+        // index[1] = global_rigid_body_offset +
+        //            attached_rigid_body[i] * rigid_body_dof + axes;
         A.set_col_index(current_particle_local_index * field_dof + axes, index);
       }
 
@@ -580,42 +581,44 @@ void stokes_equation::build_coefficient_matrix() {
   }
 
   // outprocess graph
-  for (int i = 0; i < local_particle_num; i++) {
-    const int current_particle_local_index = i;
-    const int current_particle_global_index = source_index[i];
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   const int current_particle_local_index = i;
+  //   const int current_particle_global_index = source_index[i];
 
-    if (particle_type[i] >= 4) {
-      vector<PetscInt> index;
-      // attached rigid body
-      index.clear();
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        const int neighbor_particle_index =
-            source_index[neighbor_list_host(i, j + 1)];
+  //   if (particle_type[i] >= 4) {
+  //     vector<PetscInt> index;
+  //     // attached rigid body
+  //     index.clear();
+  //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //       const int neighbor_particle_index =
+  //           source_index[neighbor_list_host(i, j + 1)];
 
-        for (int axes = 0; axes < velocity_dof; axes++) {
-          index.push_back(field_dof * neighbor_particle_index + axes);
-        }
-      }
-      // pressure term
-      index.push_back(field_dof * current_particle_global_index + velocity_dof);
+  //       for (int axes = 0; axes < velocity_dof; axes++) {
+  //         index.push_back(field_dof * neighbor_particle_index + axes);
+  //       }
+  //     }
+  //     // pressure term
+  //     index.push_back(field_dof * current_particle_global_index +
+  //     velocity_dof);
 
-      for (int axes = 0; axes < rigid_body_dof; axes++) {
-        vector<PetscInt> &it =
-            out_process_index[attached_rigid_body[i] * rigid_body_dof + axes];
-        it.insert(it.end(), index.begin(), index.end());
-      }
-    }
-  }
+  //     for (int axes = 0; axes < rigid_body_dof; axes++) {
+  //       vector<PetscInt> &it =
+  //           out_process_index[attached_rigid_body[i] * rigid_body_dof +
+  //           axes];
+  //       it.insert(it.end(), index.begin(), index.end());
+  //     }
+  //   }
+  // }
 
-  for (int i = 0; i < out_process_index.size(); i++) {
-    sort(out_process_index[i].begin(), out_process_index[i].end());
-    out_process_index[i].erase(
-        unique(out_process_index[i].begin(), out_process_index[i].end()),
-        out_process_index[i].end());
+  // for (int i = 0; i < out_process_index.size(); i++) {
+  //   sort(out_process_index[i].begin(), out_process_index[i].end());
+  //   out_process_index[i].erase(
+  //       unique(out_process_index[i].begin(), out_process_index[i].end()),
+  //       out_process_index[i].end());
 
-    A.set_out_process_col_index(local_out_process_offset + i,
-                                out_process_index[i]);
-  }
+  //   // A.set_out_process_col_index(local_out_process_offset + i,
+  //   //                             out_process_index[i]);
+  // }
 
   // insert matrix entity
   for (int i = 0; i < local_particle_num; i++) {
@@ -675,22 +678,22 @@ void stokes_equation::build_coefficient_matrix() {
         for (int axes1 = 0; axes1 < translation_dof; axes1++) {
           const int velocity_local_index =
               field_dof * current_particle_local_index + axes1;
-          A.increment(velocity_local_index,
-                      current_rigid_body_global_offset + axes1, -1.0);
+          // A.increment(velocity_local_index,
+          //             current_rigid_body_global_offset + axes1, -1.0);
         }
 
         // rotation
         for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
-          A.increment(field_dof * current_particle_local_index +
-                          (axes1 + 2) % translation_dof,
-                      current_rigid_body_global_offset + translation_dof +
-                          axes1,
-                      rci[(axes1 + 1) % translation_dof]);
-          A.increment(field_dof * current_particle_local_index +
-                          (axes1 + 1) % translation_dof,
-                      current_rigid_body_global_offset + translation_dof +
-                          axes1,
-                      -rci[(axes1 + 2) % translation_dof]);
+          // A.increment(field_dof * current_particle_local_index +
+          //                 (axes1 + 2) % translation_dof,
+          //             current_rigid_body_global_offset + translation_dof +
+          //                 axes1,
+          //             rci[(axes1 + 1) % translation_dof]);
+          // A.increment(field_dof * current_particle_local_index +
+          //                 (axes1 + 1) % translation_dof,
+          //             current_rigid_body_global_offset + translation_dof +
+          //                 axes1,
+          //             -rci[(axes1 + 2) % translation_dof]);
         }
 
         vec3 dA;
@@ -704,18 +707,18 @@ void stokes_equation::build_coefficient_matrix() {
 
         // apply pressure
         for (int axes1 = 0; axes1 < translation_dof; axes1++) {
-          A.out_process_increment(current_rigid_body_local_offset + axes1,
-                                  pressure_global_index, -dA[axes1]);
+          // A.out_process_increment(current_rigid_body_local_offset + axes1,
+          //                         pressure_global_index, -dA[axes1]);
         }
 
         for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
-          A.out_process_increment(current_rigid_body_local_offset +
-                                      translation_dof + axes1,
-                                  pressure_global_index,
-                                  -rci[(axes1 + 1) % translation_dof] *
-                                          dA[(axes1 + 2) % translation_dof] +
-                                      rci[(axes1 + 2) % translation_dof] *
-                                          dA[(axes1 + 1) % translation_dof]);
+          // A.out_process_increment(current_rigid_body_local_offset +
+          //                             translation_dof + axes1,
+          //                         pressure_global_index,
+          //                         -rci[(axes1 + 1) % translation_dof] *
+          //                                 dA[(axes1 + 2) % translation_dof] +
+          //                             rci[(axes1 + 2) % translation_dof] *
+          //                                 dA[(axes1 + 1) % translation_dof]);
         }
 
         for (int j = 0; j < neighbor_list_host(i, 0); j++) {
@@ -754,19 +757,23 @@ void stokes_equation::build_coefficient_matrix() {
 
             // force balance
             for (int axes1 = 0; axes1 < translation_dof; axes1++) {
-              A.out_process_increment(current_rigid_body_local_offset + axes1,
-                                      velocity_global_index, f[axes1]);
+              // A.out_process_increment(current_rigid_body_local_offset +
+              // axes1,
+              //                         velocity_global_index, f[axes1]);
             }
 
             // torque balance
             for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
-              A.out_process_increment(current_rigid_body_local_offset +
-                                          translation_dof + axes1,
-                                      velocity_global_index,
-                                      rci[(axes1 + 1) % translation_dof] *
-                                              f[(axes1 + 2) % translation_dof] -
-                                          rci[(axes1 + 2) % translation_dof] *
-                                              f[(axes1 + 1) % translation_dof]);
+              // A.out_process_increment(current_rigid_body_local_offset +
+              //                             translation_dof + axes1,
+              //                         velocity_global_index,
+              //                         rci[(axes1 + 1) % translation_dof] *
+              //                                 f[(axes1 + 2) %
+              //                                 translation_dof] -
+              //                             rci[(axes1 + 2) % translation_dof]
+              //                             *
+              //                                 f[(axes1 + 1) %
+              //                                 translation_dof]);
             }
             delete[] f;
           }
@@ -885,7 +892,7 @@ void stokes_equation::build_rhs() {
 
   auto &rigid_body_position = rb_mgr->get_position();
   auto &rigid_body_size = rb_mgr->get_rigid_body_size();
-  const auto num_rigid_body = rb_mgr->get_rigid_body_num();
+  const auto num_rigid_body = 0;
 
   int local_particle_num;
   int global_particle_num;
@@ -1115,10 +1122,6 @@ void stokes_equation::build_rhs() {
     }
   }
 
-  if (rank == size - 1) {
-    rhs[local_rigid_body_offset + 2] = 6 * M_PI * RR * u;
-  }
-
   // make sure pressure term is orthogonal to the constant
   double rhs_pressure_sum = 0.0;
   for (int i = 0; i < local_particle_num; i++) {
@@ -1133,11 +1136,11 @@ void stokes_equation::build_rhs() {
 }
 
 void stokes_equation::solve_step() {
-  const int num_rigid_body = rb_mgr->get_rigid_body_num();
+  const int num_rigid_body = 0;
 
   // build interpolation and resitriction operators
   double timer1, timer2;
-  if (num_rigid_body != 0 && current_refinement_level != 0) {
+  if (current_refinement_level != 0) {
     timer1 = MPI_Wtime();
 
     multi_mgr->build_interpolation_restriction(num_rigid_body, dim);
@@ -1269,7 +1272,7 @@ void stokes_equation::check_solution() {
 
   vector<vec3> &rigid_body_position = rb_mgr->get_position();
   vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
-  const int num_rigid_body = rb_mgr->get_rigid_body_num();
+  const int num_rigid_body = 0;
 
   int local_particle_num;
   int global_particle_num;
