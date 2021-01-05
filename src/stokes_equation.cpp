@@ -209,8 +209,9 @@ void stokes_equation::build_coefficient_matrix() {
   // neighbor search
   auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
 
-  auto min_num_neighbor = Compadre::GMLS::getNP(
-      poly_order, dim, DivergenceFreeVectorTaylorPolynomial);
+  int min_num_neighbor =
+      2.0 * Compadre::GMLS::getNP(poly_order, dim,
+                                  DivergenceFreeVectorTaylorPolynomial);
 
   int estimated_max_num_neighbor =
       pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);
@@ -238,11 +239,9 @@ void stokes_equation::build_coefficient_matrix() {
       Kokkos::create_mirror_view(neumann_epsilon_device);
 
   double max_epsilon = 0.0;
-  epsilon.resize(local_particle_num);
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host(i) = spacing[i] * epsilon_multiplier + 1e-15;
-    epsilon[i] = epsilon_host(i);
-    if (epsilon[i] > max_epsilon) {
+    epsilon_host(i) = spacing[i] + 1e-15;
+    if (epsilon_host(i) > max_epsilon) {
       max_epsilon = epsilon_host(i);
     }
   }
@@ -253,38 +252,21 @@ void stokes_equation::build_coefficient_matrix() {
   // ensure every particle has enough neighbors
   bool pass_neighbor_search = false;
   while (!pass_neighbor_search) {
-    geo_mgr->ghost_forward(epsilon, ghost_epsilon);
-
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> ghost_epsilon_device(
-        "background h supports", ghost_epsilon.size());
-    Kokkos::View<double *>::HostMirror ghost_epsilon_host =
-        Kokkos::create_mirror_view(ghost_epsilon_device);
-
-    for (int i = 0; i < ghost_epsilon.size(); i++) {
-      ghost_epsilon_host(i) = ghost_epsilon[i];
-    }
-
-    // pointCloudSearch.generateNeighborListsFromKNNSearch(
-    //     false, targetCoords, neighborLists, epsilon, 10, 1.05);
-
-    point_cloud_search.generate2DSymmetricNeighborListsFromRadiusSearch(
-        false, target_coord_host, neighbor_list_host, ghost_epsilon_host, 0.0,
+    point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+        false, target_coord_host, neighbor_list_host, epsilon_host, 0.0,
         max_epsilon);
 
     bool pass_neighbor_num_check = true;
     int min_neighbor = 1000;
     int max_neighbor = 0;
     for (int i = 0; i < local_particle_num; i++) {
-      // if (neighborLists(i, 0) <= minNeighbors) {
-      // __epsilon[i] +=
-      //     0.5 * (max(__particleSize0[0] * pow(0.5, __adaptive_step),
-      //                particleSize[i][0]));
-      // epsilon(i) = __epsilon[i];
-      // passNeighborNumCheck = false;
-      // if (particleType[i] != 0) {
-      //   neumannBoundaryEpsilon(fluid2NeumannBoundary[i]) = __epsilon[i];
-      // }
-      // }
+      if (neighbor_list_host(i, 0) <= min_num_neighbor) {
+        epsilon_host(i) += 0.25 * spacing[i];
+        pass_neighbor_num_check = false;
+        if (epsilon_host(i) > max_epsilon) {
+          max_epsilon = epsilon_host(i);
+        }
+      }
       if (neighbor_list_host(i, 0) < min_neighbor)
         min_neighbor = neighbor_list_host(i, 0);
       if (neighbor_list_host(i, 0) > max_neighbor)
@@ -295,8 +277,6 @@ void stokes_equation::build_coefficient_matrix() {
                   MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &max_neighbor, 1, MPI_INT, MPI_MAX,
                   MPI_COMM_WORLD);
-    PetscPrintf(MPI_COMM_WORLD, "min neighbor: %d\n", min_neighbor);
-    PetscPrintf(MPI_COMM_WORLD, "max neighbor: %d\n", max_neighbor);
 
     int process_counter = 0;
     if (!pass_neighbor_num_check) {
@@ -304,7 +284,9 @@ void stokes_equation::build_coefficient_matrix() {
     }
     MPI_Allreduce(MPI_IN_PLACE, &process_counter, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD, "process counter: %d\n", process_counter);
+    PetscPrintf(MPI_COMM_WORLD,
+                "process counter: %d min neighbor: %d, max neighbor: %d \n",
+                process_counter, min_neighbor, max_neighbor);
 
     if (process_counter == 0) {
       pass_neighbor_search = true;
@@ -312,7 +294,9 @@ void stokes_equation::build_coefficient_matrix() {
   }
 
   counter = 0;
+  epsilon.resize(local_particle_num);
   for (int i = 0; i < num_target_coord; i++) {
+    epsilon[i] = epsilon_host[i];
     if (particle_type[i] != 0) {
       neumann_epsilon_host(counter) = epsilon_host(i);
       neumann_neighbor_list_host(counter, 0) = neighbor_list_host(i, 0);
@@ -324,6 +308,8 @@ void stokes_equation::build_coefficient_matrix() {
       counter++;
     }
   }
+
+  geo_mgr->ghost_forward(epsilon, ghost_epsilon);
 
   num_neighbor.resize(num_target_coord);
   for (int i = 0; i < num_target_coord; i++) {
@@ -349,7 +335,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_basis->setProblemData(neighbor_list_device, source_coord_device,
                                  target_coord_device, epsilon_device);
 
-  vector<TargetOperation> pressure_operation(4);
+  vector<TargetOperation> pressure_operation(3);
   pressure_operation[0] = DivergenceOfVectorPointEvaluation;
   pressure_operation[1] = GradientOfScalarPointEvaluation;
   pressure_operation[2] = ScalarPointEvaluation;
@@ -1593,7 +1579,13 @@ void stokes_equation::calculate_error() {
         }
       }
     } else {
-      int batch_size = local_particle_num / number_of_batches + 1;
+      vector<int> batch_size;
+      int accumulated_batch_size = 0;
+      batch_size.resize(number_of_batches);
+      for (int i = 0; i < number_of_batches; i++) {
+        batch_size[i] = local_particle_num / number_of_batches +
+                        ((local_particle_num % number_of_batches > i) ? 1 : 0);
+      }
 
       Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
           source_coord_device("source coordinates", source_coord.size(), 3);
@@ -1609,8 +1601,10 @@ void stokes_equation::calculate_error() {
       Kokkos::deep_copy(source_coord_device, source_coord_host);
 
       for (int i = 0; i < number_of_batches; i++) {
-        int start = i * batch_size;
-        int end = min(local_particle_num, (i + 1) * batch_size);
+        int start = accumulated_batch_size;
+        int end =
+            min(local_particle_num, accumulated_batch_size + batch_size[i]);
+        accumulated_batch_size = end;
         int num_target = end - start;
 
         auto velocity_basis_sub =

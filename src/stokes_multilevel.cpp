@@ -113,12 +113,13 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
 
     for (int i = 0; i < coord.size(); i++) {
       if (new_added[i] < 0) {
-        old_epsilon_host[new_actual_index[i]] = 3.0 * spacing[i];
+        old_epsilon_host[new_actual_index[i]] = spacing[i];
       }
     }
 
-    auto neighbor_needed = Compadre::GMLS::getNP(
-        2, dimension, DivergenceFreeVectorTaylorPolynomial);
+    auto neighbor_needed =
+        1.5 * Compadre::GMLS::getNP(2, dimension,
+                                    DivergenceFreeVectorTaylorPolynomial);
     size_t actual_neighbor_max;
 
     while (true) {
@@ -144,7 +145,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         if (new_added[i] < 0) {
           if (old_to_new_neighbor_lists_host(new_actual_index[i], 0) <
               neighbor_needed) {
-            old_epsilon_host[new_actual_index[i]] += 0.5 * spacing[i];
+            old_epsilon_host[new_actual_index[i]] += 0.25 * spacing[i];
             enough_neighbor = false;
           }
         }
@@ -174,7 +175,9 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
     old_to_new_pressusre_basis.setWeightingType(WeightingFunctionType::Power);
     old_to_new_pressusre_basis.setWeightingPower(4);
 
-    old_to_new_pressusre_basis.generateAlphas(1);
+    // ensure each batch contains less than 200 particles
+    int num_of_batches = actual_new_target / 200 + 1;
+    old_to_new_pressusre_basis.generateAlphas(num_of_batches);
 
     auto old_to_new_pressure_alphas = old_to_new_pressusre_basis.getAlphas();
 
@@ -188,7 +191,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
     old_to_new_velocity_basis.setWeightingType(WeightingFunctionType::Power);
     old_to_new_velocity_basis.setWeightingPower(4);
 
-    old_to_new_velocity_basis.generateAlphas(1);
+    old_to_new_velocity_basis.generateAlphas(num_of_batches);
 
     auto old_to_new_velocity_alphas = old_to_new_velocity_basis.getAlphas();
 
