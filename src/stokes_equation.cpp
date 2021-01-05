@@ -1603,18 +1603,10 @@ void stokes_equation::calculate_error() {
         if (dX.mag() < ghost_epsilon[neighbor_index]) {
           for (int axes1 = 0; axes1 < dim; axes1++) {
             for (int axes2 = 0; axes2 < dim; axes2++) {
-              if (dim == 2)
-                recovered_gradient[i][axes1 * dim + axes2] +=
-                    calDivFreeBasisGrad(
-                        axes1, axes2, dX[0], dX[1], poly_order,
-                        ghost_epsilon[neighbor_index],
-                        ghost_coefficients_chunk[neighbor_index]);
-              if (dim == 3)
-                recovered_gradient[i][axes1 * dim + axes2] +=
-                    calDivFreeBasisGrad(
-                        axes1, axes2, dX[0], dX[1], dX[2], poly_order,
-                        ghost_epsilon[neighbor_index],
-                        ghost_coefficients_chunk[neighbor_index]);
+              recovered_gradient[i][axes1 * dim + axes2] +=
+                  cal_div_free_grad(axes1, axes2, dim, dX, poly_order,
+                                    ghost_epsilon[neighbor_index],
+                                    ghost_coefficients_chunk[neighbor_index]);
             }
           }
           counter++;
@@ -1644,16 +1636,9 @@ void stokes_equation::calculate_error() {
           total_neighbor_vol += source_volume[neighbor_index];
           for (int axes1 = 0; axes1 < dim; axes1++) {
             for (int axes2 = 0; axes2 < dim; axes2++) {
-              if (dim == 2)
-                reconstructed_gradient[axes1 * dim + axes2] =
-                    calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1], poly_order,
-                                        ghost_epsilon[i],
-                                        ghost_coefficients_chunk[i]);
-              if (dim == 3)
-                reconstructed_gradient[axes1 * dim + axes2] =
-                    calDivFreeBasisGrad(axes1, axes2, dX[0], dX[1], dX[2],
-                                        poly_order, ghost_epsilon[i],
-                                        ghost_coefficients_chunk[i]);
+              reconstructed_gradient[axes1 * dim + axes2] = cal_div_free_grad(
+                  axes1, axes2, dim, dX, poly_order, ghost_epsilon[i],
+                  ghost_coefficients_chunk[i]);
             }
           }
 
