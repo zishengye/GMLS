@@ -146,9 +146,8 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         if (new_added[i] < 0) {
           if (old_to_new_neighbor_lists_host(new_actual_index[i], 0) <
               neighbor_needed) {
-            if (old_epsilon_host[new_actual_index[i]] +
-                    0.25 * spacing[new_actual_index[i]] <
-                max_epsilon) {
+            if ((old_epsilon_host[new_actual_index[i]] +
+                 0.25 * spacing[new_actual_index[i]]) < max_epsilon) {
               old_epsilon_host[new_actual_index[i]] +=
                   0.25 * spacing[new_actual_index[i]];
               enough_neighbor = false;
@@ -410,7 +409,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         Kokkos::create_mirror_view(epsilon_device);
 
     for (int i = 0; i < old_coord.size(); i++) {
-      epsilon_host(i) = old_spacing[i];
+      epsilon_host(i) = sqrt(0.5) * old_spacing[i] + 1e-15;
     }
 
     point_search.generate2DNeighborListsFromRadiusSearch(
@@ -447,8 +446,13 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
 
     // compute restriction matrix graph
     vector<PetscInt> index;
+    int min_neighbor = 1000, max_neighbor = 0;
     for (int i = 0; i < old_local_particle_num; i++) {
       index.resize(neighbor_lists_host(i, 0));
+      if (min_neighbor > neighbor_lists_host(i, 0))
+        min_neighbor = neighbor_lists_host(i, 0);
+      if (max_neighbor < neighbor_lists_host(i, 0))
+        max_neighbor = neighbor_lists_host(i, 0);
       for (int j = 0; j < field_dof; j++) {
         for (int k = 0; k < neighbor_lists_host(i, 0); k++) {
           int neighbor_index = neighbor_lists_host(i, k + 1);
@@ -458,6 +462,13 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         R.set_col_index(field_dof * i + j, index);
       }
     }
+
+    MPI_Allreduce(MPI_IN_PLACE, &min_neighbor, 1, MPI_INT, MPI_MIN,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &max_neighbor, 1, MPI_INT, MPI_MAX,
+                  MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "min neighbor: %d, max neighbor: %d\n",
+                min_neighbor, max_neighbor);
 
     // rigid body
     if (mpi_rank == mpi_size - 1) {
@@ -491,10 +502,10 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         int local_rigid_body_index_offset =
             field_dof * old_local_particle_num + i * rigid_body_dof;
         for (int j = 0; j < rigid_body_dof; j++) {
-          R.increment(local_rigid_body_index_offset + j,
-                      field_dof * new_global_particle_num + i * rigid_body_dof +
-                          j,
-                      1.0);
+          R.increment(
+              local_rigid_body_index_offset + j,
+              (field_dof * new_global_particle_num + i * rigid_body_dof + j),
+              1.0);
         }
       }
     }
@@ -810,10 +821,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   residual_norm = global_particle_num;
   Vec residual;
   VecDuplicate(_rhs.get_reference(), &residual);
-  PetscReal rtol = 1e-6;
+  PetscReal rtol = 1e-8;
   int counter;
   counter = 0;
-  rtol = 1e-6;
   bool diverged = false;
   do {
     KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 1000);
@@ -837,7 +847,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       diverged = true;
     if (diverged)
       break;
-  } while (residual_norm / rhs_norm > 1e-5);
+  } while (residual_norm / rhs_norm > 1e-3);
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
