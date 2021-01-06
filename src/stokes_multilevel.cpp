@@ -113,7 +113,8 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
 
     for (int i = 0; i < coord.size(); i++) {
       if (new_added[i] < 0) {
-        old_epsilon_host[new_actual_index[i]] = spacing[new_actual_index[i]];
+        old_epsilon_host[new_actual_index[i]] =
+            0.25 * spacing[new_actual_index[i]];
       }
     }
 
@@ -123,42 +124,52 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
     size_t actual_neighbor_max;
 
     double max_epsilon = geo_mgr->get_cutoff_distance();
+    int ite_counter = 0;
+    int min_neighbor = 1000, max_neighbor = 0;
     while (true) {
-      actual_neighbor_max =
-          old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
-              true, new_target_coords_host, old_to_new_neighbor_lists_host,
-              old_epsilon_host, 0.0, max_epsilon);
-      while (actual_neighbor_max > estimated_num_neighbor_max) {
-        estimated_num_neighbor_max *= 2;
-        old_to_new_neighbor_lists_device =
-            Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
-                "old to new neighbor lists", actual_new_target,
-                estimated_num_neighbor_max);
-        old_to_new_neighbor_lists_host =
-            Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
-      }
       old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
           false, new_target_coords_host, old_to_new_neighbor_lists_host,
           old_epsilon_host, 0.0, max_epsilon);
 
-      bool enough_neighbor = true;
+      min_neighbor = 1000;
+      max_neighbor = 0;
+      int enough_neighbor = 0;
       for (int i = 0; i < coord.size(); i++) {
         if (new_added[i] < 0) {
-          if (old_to_new_neighbor_lists_host(new_actual_index[i], 0) <
-              neighbor_needed) {
+          int num_neighbor =
+              old_to_new_neighbor_lists_host(new_actual_index[i], 0);
+          if (num_neighbor < neighbor_needed) {
             if ((old_epsilon_host[new_actual_index[i]] +
-                 0.25 * spacing[new_actual_index[i]]) < max_epsilon) {
+                 0.1 * spacing[new_actual_index[i]]) < max_epsilon) {
               old_epsilon_host[new_actual_index[i]] +=
-                  0.25 * spacing[new_actual_index[i]];
-              enough_neighbor = false;
+                  0.1 * spacing[new_actual_index[i]];
+              enough_neighbor = 1;
             }
           }
+          if (min_neighbor > num_neighbor)
+            min_neighbor = num_neighbor;
+          if (max_neighbor < num_neighbor)
+            max_neighbor = num_neighbor;
         }
       }
 
-      if (enough_neighbor)
+      MPI_Allreduce(MPI_IN_PLACE, &min_neighbor, 1, MPI_INT, MPI_MIN,
+                    MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &max_neighbor, 1, MPI_INT, MPI_MAX,
+                    MPI_COMM_WORLD);
+
+      MPI_Allreduce(MPI_IN_PLACE, &enough_neighbor, 1, MPI_INT, MPI_SUM,
+                    MPI_COMM_WORLD);
+
+      if (enough_neighbor == 0)
         break;
+
+      ite_counter++;
     }
+
+    PetscPrintf(PETSC_COMM_WORLD,
+                "iteration count: %d, min neighbor: %d, max neighbor: %d\n",
+                ite_counter, min_neighbor, max_neighbor);
 
     Kokkos::deep_copy(old_to_new_neighbor_lists_device,
                       old_to_new_neighbor_lists_host);
@@ -409,7 +420,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         Kokkos::create_mirror_view(epsilon_device);
 
     for (int i = 0; i < old_coord.size(); i++) {
-      epsilon_host(i) = sqrt(0.5) * old_spacing[i] + 1e-15;
+      epsilon_host(i) = 0.25 * sqrt(dimension) * old_spacing[i] + 1e-15;
     }
 
     point_search.generate2DNeighborListsFromRadiusSearch(
@@ -461,6 +472,10 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
 
         R.set_col_index(field_dof * i + j, index);
       }
+
+      if (neighbor_lists_host(i, 0) > 8)
+        cout << mpi_rank << ": " << old_coord[i][0] << ", " << old_coord[i][1]
+             << ", " << old_coord[i][2] << endl;
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &min_neighbor, 1, MPI_INT, MPI_MIN,
