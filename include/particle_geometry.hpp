@@ -292,6 +292,8 @@ public:
 
   int_type get_llcl_particle_type() { return llcl_particle_type; }
 
+  double get_cutoff_distance() { return cutoff_distance; }
+
 protected:
   void init_domain_boundary();
 

@@ -66,6 +66,12 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         actual_new_target++;
     }
 
+    int global_actual_new_target;
+    MPI_Allreduce(&actual_new_target, &global_actual_new_target, 1, MPI_INT,
+                  MPI_SUM, MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "Total new particle: %d\n",
+                global_actual_new_target);
+
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
         new_target_coords_device("new target coordinates", actual_new_target,
                                  3);
@@ -113,70 +119,89 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
 
     for (int i = 0; i < coord.size(); i++) {
       if (new_added[i] < 0) {
-        old_epsilon_host[new_actual_index[i]] = 3.0 * spacing[i];
+        old_epsilon_host[new_actual_index[i]] =
+            0.25 * spacing[new_actual_index[i]];
       }
     }
 
-    auto neighbor_needed = Compadre::GMLS::getNP(
-        2, dimension, DivergenceFreeVectorTaylorPolynomial);
+    auto neighbor_needed =
+        1.5 * Compadre::GMLS::getNP(2, dimension,
+                                    DivergenceFreeVectorTaylorPolynomial);
     size_t actual_neighbor_max;
 
+    double max_epsilon = geo_mgr->get_cutoff_distance();
+    int ite_counter = 0;
+    int min_neighbor = 1000, max_neighbor = 0;
     while (true) {
-      actual_neighbor_max =
-          old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
-              true, new_target_coords_host, old_to_new_neighbor_lists_host,
-              old_epsilon_host, 0.0, 0.0);
-      while (actual_neighbor_max > estimated_num_neighbor_max) {
-        estimated_num_neighbor_max *= 2;
-        old_to_new_neighbor_lists_device =
-            Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
-                "old to new neighbor lists", actual_new_target,
-                estimated_num_neighbor_max);
-        old_to_new_neighbor_lists_host =
-            Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
-      }
       old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
           false, new_target_coords_host, old_to_new_neighbor_lists_host,
-          old_epsilon_host, 0.0, 0.0);
+          old_epsilon_host, 0.0, max_epsilon);
 
-      bool enough_neighbor = true;
+      min_neighbor = 1000;
+      max_neighbor = 0;
+      int enough_neighbor = 0;
       for (int i = 0; i < coord.size(); i++) {
         if (new_added[i] < 0) {
-          if (old_to_new_neighbor_lists_host(new_actual_index[i], 0) <
-              neighbor_needed) {
-            old_epsilon_host[new_actual_index[i]] += 0.5 * spacing[i];
-            enough_neighbor = false;
+          int num_neighbor =
+              old_to_new_neighbor_lists_host(new_actual_index[i], 0);
+          if (num_neighbor < neighbor_needed) {
+            if ((old_epsilon_host[new_actual_index[i]] +
+                 0.1 * spacing[new_actual_index[i]]) < max_epsilon) {
+              old_epsilon_host[new_actual_index[i]] +=
+                  0.1 * spacing[new_actual_index[i]];
+              enough_neighbor = 1;
+            }
           }
+          if (min_neighbor > num_neighbor)
+            min_neighbor = num_neighbor;
+          if (max_neighbor < num_neighbor)
+            max_neighbor = num_neighbor;
         }
       }
 
-      if (enough_neighbor)
+      MPI_Allreduce(MPI_IN_PLACE, &min_neighbor, 1, MPI_INT, MPI_MIN,
+                    MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &max_neighbor, 1, MPI_INT, MPI_MAX,
+                    MPI_COMM_WORLD);
+
+      MPI_Allreduce(MPI_IN_PLACE, &enough_neighbor, 1, MPI_INT, MPI_SUM,
+                    MPI_COMM_WORLD);
+
+      if (enough_neighbor == 0)
         break;
+
+      ite_counter++;
     }
+
+    PetscPrintf(PETSC_COMM_WORLD,
+                "iteration count: %d, min neighbor: %d, max neighbor: %d\n",
+                ite_counter, min_neighbor, max_neighbor);
 
     Kokkos::deep_copy(old_to_new_neighbor_lists_device,
                       old_to_new_neighbor_lists_host);
     Kokkos::deep_copy(old_epsilon_device, old_epsilon_host);
 
-    GMLS old_to_new_pressusre_basis(ScalarTaylorPolynomial, PointSample, 2,
-                                    dimension, "SVD", "STANDARD");
+    GMLS old_to_new_pressure_basis(ScalarTaylorPolynomial, PointSample, 2,
+                                   dimension, "SVD", "STANDARD");
     GMLS old_to_new_velocity_basis(DivergenceFreeVectorTaylorPolynomial,
                                    VectorPointSample, 2, dimension, "SVD",
                                    "STANDARD");
 
     // old to new pressure field transition
-    old_to_new_pressusre_basis.setProblemData(
+    old_to_new_pressure_basis.setProblemData(
         old_to_new_neighbor_lists_device, old_source_coords_device,
         new_target_coords_device, old_epsilon_device);
 
-    old_to_new_pressusre_basis.addTargets(ScalarPointEvaluation);
+    old_to_new_pressure_basis.addTargets(ScalarPointEvaluation);
 
-    old_to_new_pressusre_basis.setWeightingType(WeightingFunctionType::Power);
-    old_to_new_pressusre_basis.setWeightingPower(4);
+    old_to_new_pressure_basis.setWeightingType(WeightingFunctionType::Power);
+    old_to_new_pressure_basis.setWeightingPower(4);
 
-    old_to_new_pressusre_basis.generateAlphas(1);
+    // ensure each batch contains less than 200 particles
+    int num_of_batches = actual_new_target / 200 + 1;
+    old_to_new_pressure_basis.generateAlphas(num_of_batches);
 
-    auto old_to_new_pressure_alphas = old_to_new_pressusre_basis.getAlphas();
+    auto old_to_new_pressure_alphas = old_to_new_pressure_basis.getAlphas();
 
     // old to new velocity field transition
     old_to_new_velocity_basis.setProblemData(
@@ -188,7 +213,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
     old_to_new_velocity_basis.setWeightingType(WeightingFunctionType::Power);
     old_to_new_velocity_basis.setWeightingPower(4);
 
-    old_to_new_velocity_basis.generateAlphas(1);
+    old_to_new_velocity_basis.generateAlphas(num_of_batches);
 
     auto old_to_new_velocity_alphas = old_to_new_velocity_basis.getAlphas();
 
@@ -256,8 +281,8 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
 
     // compute interpolation matrix entity
     const auto pressure_old_to_new_alphas_index =
-        old_to_new_pressusre_basis.getAlphaColumnOffset(ScalarPointEvaluation,
-                                                        0, 0, 0, 0);
+        old_to_new_pressure_basis.getAlphaColumnOffset(ScalarPointEvaluation, 0,
+                                                       0, 0, 0);
     vector<int> velocity_old_to_new_alphas_index(pow(dimension, 2));
     for (int axes1 = 0; axes1 < dimension; axes1++)
       for (int axes2 = 0; axes2 < dimension; axes2++)
@@ -274,24 +299,23 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
               auto alpha_index = old_to_new_velocity_basis.getAlphaIndexHost(
                   new_actual_index[i],
                   velocity_old_to_new_alphas_index[axes1 * dimension + axes2]);
-              I.increment(
-                  field_dof * i + axes1,
-                  field_dof * old_source_index[old_to_new_neighbor_lists_host(
-                                  new_actual_index[i], j + 1)] +
-                      axes2,
-                  old_to_new_velocity_alphas(alpha_index + j));
+              int neighbor_index =
+                  old_source_index[old_to_new_neighbor_lists_host(
+                      new_actual_index[i], j + 1)];
+              I.increment(field_dof * i + axes1,
+                          field_dof * neighbor_index + axes2,
+                          old_to_new_velocity_alphas(alpha_index + j));
             }
         }
 
         for (int j = 0;
              j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
-          auto alpha_index = old_to_new_pressusre_basis.getAlphaIndexHost(
+          auto alpha_index = old_to_new_pressure_basis.getAlphaIndexHost(
               new_actual_index[i], pressure_old_to_new_alphas_index);
+          int neighbor_index = old_source_index[old_to_new_neighbor_lists_host(
+              new_actual_index[i], j + 1)];
           I.increment(field_dof * i + velocity_dof,
-                      field_dof *
-                              old_source_index[old_to_new_neighbor_lists_host(
-                                  new_actual_index[i], j + 1)] +
-                          velocity_dof,
+                      field_dof * neighbor_index + velocity_dof,
                       old_to_new_pressure_alphas(alpha_index + j));
         }
       } else {
@@ -401,7 +425,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         Kokkos::create_mirror_view(epsilon_device);
 
     for (int i = 0; i < old_coord.size(); i++) {
-      epsilon_host(i) = old_spacing[i];
+      epsilon_host(i) = old_spacing[i] + 1e-15;
     }
 
     point_search.generate2DNeighborListsFromRadiusSearch(
@@ -438,8 +462,13 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
 
     // compute restriction matrix graph
     vector<PetscInt> index;
+    int min_neighbor = 1000, max_neighbor = 0;
     for (int i = 0; i < old_local_particle_num; i++) {
       index.resize(neighbor_lists_host(i, 0));
+      if (min_neighbor > neighbor_lists_host(i, 0))
+        min_neighbor = neighbor_lists_host(i, 0);
+      if (max_neighbor < neighbor_lists_host(i, 0))
+        max_neighbor = neighbor_lists_host(i, 0);
       for (int j = 0; j < field_dof; j++) {
         for (int k = 0; k < neighbor_lists_host(i, 0); k++) {
           int neighbor_index = neighbor_lists_host(i, k + 1);
@@ -449,6 +478,13 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         R.set_col_index(field_dof * i + j, index);
       }
     }
+
+    MPI_Allreduce(MPI_IN_PLACE, &min_neighbor, 1, MPI_INT, MPI_MIN,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &max_neighbor, 1, MPI_INT, MPI_MAX,
+                  MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "min neighbor: %d, max neighbor: %d\n",
+                min_neighbor, max_neighbor);
 
     // rigid body
     if (mpi_rank == mpi_size - 1) {
@@ -482,10 +518,10 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         int local_rigid_body_index_offset =
             field_dof * old_local_particle_num + i * rigid_body_dof;
         for (int j = 0; j < rigid_body_dof; j++) {
-          R.increment(local_rigid_body_index_offset + j,
-                      field_dof * new_global_particle_num + i * rigid_body_dof +
-                          j,
-                      1.0);
+          R.increment(
+              local_rigid_body_index_offset + j,
+              (field_dof * new_global_particle_num + i * rigid_body_dof + j),
+              1.0);
         }
       }
     }
@@ -495,7 +531,77 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
 }
 
 void stokes_multilevel::initial_guess_from_previous_adaptive_step(
-    std::vector<double> &initial_guess) {}
+    std::vector<double> &initial_guess, std::vector<vec3> &velocity,
+    std::vector<double> &pressure, std::vector<vec3> &rb_velocity,
+    std::vector<vec3> &rb_angular_velocity) {
+  petsc_sparse_matrix &I = *(getI(current_refinement_level - 1));
+  petsc_sparse_matrix &R = *(getR(current_refinement_level - 1));
+  Vec x1, x2;
+  MatCreateVecs(I.get_reference(), &x2, &x1);
+
+  const int old_local_particle_num = pressure.size();
+
+  const int field_dof = dimension + 1;
+  const int velocity_dof = dimension;
+  const int pressure_dof = 1;
+  const int rigid_body_dof = (dimension == 3) ? 6 : 3;
+
+  PetscReal *a;
+  VecGetArray(x2, &a);
+
+  for (int i = 0; i < old_local_particle_num; i++) {
+    for (int j = 0; j < velocity_dof; j++) {
+      a[i * field_dof + j] = velocity[i][j];
+    }
+    a[i * field_dof + velocity_dof] = pressure[i];
+  }
+
+  if (mpi_rank == mpi_size - 1) {
+    const int old_local_rigid_body_offset = old_local_particle_num * field_dof;
+
+    const int rb_velocity_dof = dimension;
+    const int rb_angular_velocity_dof = (dimension == 3) ? 3 : 1;
+
+    for (int i = 0; i < num_rigid_body; i++) {
+      for (int j = 0; j < rb_velocity_dof; j++) {
+        a[old_local_rigid_body_offset + i * rigid_body_dof + j] =
+            rb_velocity[i][j];
+      }
+      for (int j = 0; j < rb_angular_velocity_dof; j++) {
+        a[old_local_rigid_body_offset + i * rigid_body_dof + rb_velocity_dof +
+          j] = rb_angular_velocity[i][j];
+      }
+    }
+  }
+
+  VecRestoreArray(x2, &a);
+
+  MatMult(I.get_reference(), x2, x1);
+
+  VecGetArray(x1, &a);
+  for (int i = 0; i < initial_guess.size(); i++) {
+    initial_guess[i] = a[i];
+  }
+  VecRestoreArray(x1, &a);
+
+  auto &coord = *(geo_mgr->get_current_work_particle_coord());
+  int local_particle_num = coord.size();
+  int global_particle_num;
+  MPI_Allreduce(&local_particle_num, &global_particle_num, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  double pressure_sum = 0.0;
+  for (int i = 0; i < local_particle_num; i++) {
+    pressure_sum += initial_guess[i * field_dof + velocity_dof];
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  double average_pressure = pressure_sum / global_particle_num;
+  for (int i = 0; i < local_particle_num; i++) {
+    initial_guess[i * field_dof + velocity_dof] -= average_pressure;
+  }
+}
 
 int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
                              std::vector<int> &idx_colloid) {
@@ -801,34 +907,33 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   residual_norm = global_particle_num;
   Vec residual;
   VecDuplicate(_rhs.get_reference(), &residual);
-  PetscReal rtol = 1e-6;
+  PetscReal rtol = 1e-8;
   int counter;
   counter = 0;
-  rtol = 1e-6;
   bool diverged = false;
-  do {
-    KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 1000);
-    KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
-    MatMult(shell_mat, _x.get_reference(), residual);
-    VecAXPY(residual, -1.0, _rhs.get_reference());
-    VecNorm(residual, NORM_2, &residual_norm);
-    PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
-                residual_norm / rhs_norm / (double)global_particle_num);
-    rtol *= 1e-2;
-    counter++;
+  // do {
+  KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 1000);
+  KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
+  MatMult(shell_mat, _x.get_reference(), residual);
+  VecAXPY(residual, -1.0, _rhs.get_reference());
+  VecNorm(residual, NORM_2, &residual_norm);
+  PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+              residual_norm / rhs_norm);
+  rtol *= 1e-2;
+  counter++;
 
-    KSPConvergedReason convergence_reason;
-    KSPGetConvergedReason(_ksp, &convergence_reason);
+  KSPConvergedReason convergence_reason;
+  KSPGetConvergedReason(_ksp, &convergence_reason);
 
-    if (counter >= 10)
-      break;
-    if (residual_norm / rhs_norm / (double)global_particle_num > 1e3)
-      diverged = true;
-    if (convergence_reason < 0)
-      diverged = true;
-    if (diverged)
-      break;
-  } while (residual_norm / rhs_norm / (double)global_particle_num > 1);
+  //   if (counter >= 10)
+  //     break;
+  //   if (residual_norm / rhs_norm > 1e3)
+  //     diverged = true;
+  //   if (convergence_reason < 0)
+  //     diverged = true;
+  //   if (diverged)
+  //     break;
+  // } while (residual_norm / rhs_norm > 1e-3);
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
