@@ -256,6 +256,8 @@ void stokes_equation::build_coefficient_matrix() {
         max_epsilon);
 
     bool pass_neighbor_num_check = true;
+    min_neighbor = 1000;
+    max_neighbor = 0;
     for (int i = 0; i < local_particle_num; i++) {
       if (neighbor_list_host(i, 0) <= satisfied_num_neighbor) {
         if (epsilon_host(i) + 0.25 * spacing[i] < max_epsilon) {
