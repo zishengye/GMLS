@@ -425,7 +425,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         Kokkos::create_mirror_view(epsilon_device);
 
     for (int i = 0; i < old_coord.size(); i++) {
-      epsilon_host(i) = old_spacing[i] + 1e-15;
+      epsilon_host(i) = 0.25 * sqrt(dimension) * old_spacing[i] + 1e-15;
     }
 
     point_search.generate2DNeighborListsFromRadiusSearch(
