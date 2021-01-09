@@ -140,6 +140,8 @@ private:
   // mpi
   int rank, size;
 
+  int min_count, max_count, current_count, stride;
+
 public:
   particle_geometry()
       : dim(3), refinement_type(ADAPTIVE_REFINE),
@@ -152,7 +154,8 @@ public:
 
   void init(const int _dim, const int _problem_type = STANDARD_PROBLEM,
             const int _refinement_type = ADAPTIVE_REFINE, double _spacing = 0.1,
-            double _cutoff_multiplier = 3.0,
+            double _cutoff_multiplier = 3.0, const int _min_count = 0,
+            const int _max_count = 0, const int _stride = 0,
             std::string geometry_input_file_name = "");
   void init_rigid_body(std::shared_ptr<rigid_body_manager> mgr);
 

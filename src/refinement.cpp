@@ -27,6 +27,9 @@ bool gmls_solver::refinement() {
     return false;
   }
 
+  if (current_refinement_step >= max_refinement_level)
+    return false;
+
   vector<double> &error = equation_mgr->get_error();
 
   // mark stage

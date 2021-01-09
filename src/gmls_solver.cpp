@@ -115,6 +115,21 @@ gmls_solver::gmls_solver(int argc, char **argv) {
     }
   }
 
+  int min_count, max_count, stride;
+  if (refinement_method == UNIFORM_REFINE) {
+    if ((SearchCommand<int>(argc, argv, "-MinCount", min_count)) == 1) {
+      min_count = 0;
+    }
+    if ((SearchCommand<int>(argc, argv, "-MaxCount", max_count)) == 1) {
+      max_count = 0;
+    }
+    if ((SearchCommand<int>(argc, argv, "-Stride", stride)) == 1) {
+      stride = 0;
+    }
+  } else {
+    stride = 0;
+  }
+
   // [optional command]
   if (SearchCommand<string>(argc, argv, "-rigid_body_input",
                             rigid_body_input_file_name) == 0) {
@@ -205,7 +220,7 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   rb_mgr = make_shared<rigid_body_manager>();
 
   geo_mgr->init(dim, STANDARD_PROBLEM, refinement_method, spacing,
-                epsilon_multiplier);
+                epsilon_multiplier, min_count, max_count, stride);
   rb_mgr->init(rigid_body_input_file_name, dim);
   geo_mgr->init_rigid_body(rb_mgr);
 

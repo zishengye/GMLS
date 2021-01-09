@@ -125,7 +125,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
     }
 
     auto neighbor_needed =
-        1.5 * Compadre::GMLS::getNP(2, dimension,
+        2.0 * Compadre::GMLS::getNP(2, dimension,
                                     DivergenceFreeVectorTaylorPolynomial);
     size_t actual_neighbor_max;
 
@@ -144,7 +144,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         if (new_added[i] < 0) {
           int num_neighbor =
               old_to_new_neighbor_lists_host(new_actual_index[i], 0);
-          if (num_neighbor < neighbor_needed) {
+          if (num_neighbor <= neighbor_needed) {
             if ((old_epsilon_host[new_actual_index[i]] +
                  0.1 * spacing[new_actual_index[i]]) < max_epsilon) {
               old_epsilon_host[new_actual_index[i]] +=
@@ -425,7 +425,10 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         Kokkos::create_mirror_view(epsilon_device);
 
     for (int i = 0; i < old_coord.size(); i++) {
-      epsilon_host(i) = 0.25 * sqrt(dimension) * old_spacing[i] + 1e-15;
+      if (old_particle_type[i] < 4)
+        epsilon_host(i) = old_spacing[i] + 1e-15;
+      else
+        epsilon_host(i) = old_spacing[i] + 1e-15;
     }
 
     point_search.generate2DNeighborListsFromRadiusSearch(
@@ -907,7 +910,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   residual_norm = global_particle_num;
   Vec residual;
   VecDuplicate(_rhs.get_reference(), &residual);
-  PetscReal rtol = 1e-8;
+  PetscReal rtol = 1e-6;
   int counter;
   counter = 0;
   bool diverged = false;

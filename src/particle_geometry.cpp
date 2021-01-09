@@ -215,7 +215,8 @@ static int bounding_box_split(vec3 &bounding_box_size,
 
 void particle_geometry::init(const int _dim, const int _problem_type,
                              const int _refinement_type, double _spacing,
-                             double _cutoff_multiplier,
+                             double _cutoff_multiplier, const int _min_count,
+                             const int _max_count, const int _stride,
                              string geometry_input_file_name) {
   dim = _dim;
   problem_type = _problem_type;
@@ -246,15 +247,28 @@ void particle_geometry::init(const int _dim, const int _problem_type,
     }
   }
 
+  if (refinement_type == UNIFORM_REFINE) {
+    min_count = _min_count;
+    max_count = _max_count;
+    stride = _stride;
+
+    if (stride != 0) {
+      current_count = min_count;
+      spacing = bounding_box_size[0] / current_count;
+      cutoff_multiplier = cutoff_multiplier;
+      cutoff_distance = spacing * (cutoff_multiplier + 0.5);
+    }
+  }
+
   if (dim == 2) {
     bounding_box_split(bounding_box_size, bounding_box_count, bounding_box[0],
-                       _spacing, domain_bounding_box[0], domain_bounding_box[1],
+                       spacing, domain_bounding_box[0], domain_bounding_box[1],
                        domain[0], domain[1], domain_count, process_x, process_y,
                        process_i, process_j);
   }
   if (dim == 3) {
     bounding_box_split(bounding_box_size, bounding_box_count, bounding_box[0],
-                       _spacing, domain_bounding_box[0], domain_bounding_box[1],
+                       spacing, domain_bounding_box[0], domain_bounding_box[1],
                        domain[0], domain[1], domain_count, process_x, process_y,
                        process_z, process_i, process_j, process_k);
   }
@@ -2223,7 +2237,45 @@ void particle_geometry::generate_rigid_body_surface_particle() {
   }
 }
 
-void particle_geometry::uniform_refine() {}
+void particle_geometry::uniform_refine() {
+  if (stride == 0)
+    spacing *= 0.5;
+  else if (current_count < max_count) {
+    current_count += stride;
+    spacing = bounding_box_size[0] / current_count;
+    cutoff_multiplier = cutoff_multiplier;
+    cutoff_distance = spacing * (cutoff_multiplier + 0.5);
+  }
+
+  if (dim == 2) {
+    bounding_box_split(bounding_box_size, bounding_box_count, bounding_box[0],
+                       spacing, domain_bounding_box[0], domain_bounding_box[1],
+                       domain[0], domain[1], domain_count, process_x, process_y,
+                       process_i, process_j);
+  }
+  if (dim == 3) {
+    bounding_box_split(bounding_box_size, bounding_box_count, bounding_box[0],
+                       spacing, domain_bounding_box[0], domain_bounding_box[1],
+                       domain[0], domain[1], domain_count, process_x, process_y,
+                       process_z, process_i, process_j, process_k);
+  }
+
+  current_local_managing_particle_coord = make_shared<vector<vec3>>();
+  current_local_managing_particle_normal = make_shared<vector<vec3>>();
+  current_local_managing_particle_p_spacing = make_shared<vector<vec3>>();
+  current_local_managing_particle_p_coord = make_shared<vector<vec3>>();
+  current_local_managing_particle_spacing = make_shared<vector<double>>();
+  current_local_managing_particle_volume = make_shared<vector<double>>();
+  current_local_managing_particle_index = make_shared<vector<long long>>();
+  current_local_managing_particle_type = make_shared<vector<int>>();
+  current_local_managing_particle_adaptive_level = make_shared<vector<int>>();
+  current_local_managing_particle_new_added = make_shared<vector<int>>();
+  current_local_managing_particle_attached_rigid_body =
+      make_shared<vector<int>>();
+
+  generate_rigid_body_surface_particle();
+  generate_field_particle();
+}
 
 void particle_geometry::adaptive_refine(vector<int> &split_tag) {
   vector<int> managing_split_tag;
