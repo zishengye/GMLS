@@ -240,4 +240,7 @@ gmls_solver::gmls_solver(int argc, char **argv) {
 
   equation_mgr->init(geo_mgr, rb_mgr, polynomial_order, dim, refinement_field,
                      epsilon_multiplier, eta);
+
+  if (use_viewer == 1)
+    equation_mgr->set_viewer();
 }

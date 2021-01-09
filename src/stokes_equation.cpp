@@ -1165,9 +1165,11 @@ void stokes_equation::solve_step() {
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
               timer2 - timer1);
 
-  // PetscViewer viewer;
-  // PetscViewerASCIIGetStdout(PETSC_COMM_WORLD, &viewer);
-  // PetscLogView(viewer);
+  if (use_viewer) {
+    PetscViewer viewer;
+    PetscViewerASCIIGetStdout(PETSC_COMM_WORLD, &viewer);
+    PetscLogView(viewer);
+  }
 
   // copy data
   vector<vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
