@@ -858,7 +858,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSP *neighbor_relaxation_sub_ksp;
     PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
                        &neighbor_relaxation_sub_ksp);
-    KSPSetType(neighbor_relaxation_sub_ksp[0], KSPGMRES);
+    KSPSetType(neighbor_relaxation_sub_ksp[0], KSPPREONLY);
     PC neighbor_relaxation_sub_pc;
     KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
     PCSetType(neighbor_relaxation_sub_pc, PCLU);
