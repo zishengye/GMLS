@@ -103,7 +103,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         CreatePointCloudSearch(old_source_coords_host, dimension));
 
     int estimated_num_neighbor_max =
-        pow(2, dimension) * pow(2 * 3.0, dimension);
+        pow(2, dimension) * pow(2 * 3.5, dimension);
 
     Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
         old_to_new_neighbor_lists_device("old to new neighbor lists",
@@ -129,7 +129,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
                                     DivergenceFreeVectorTaylorPolynomial);
     size_t actual_neighbor_max;
 
-    double max_epsilon = geo_mgr->get_cutoff_distance();
+    double max_epsilon = geo_mgr->get_old_cutoff_distance();
     int ite_counter = 0;
     int min_neighbor = 1000, max_neighbor = 0;
     while (true) {
@@ -425,10 +425,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         Kokkos::create_mirror_view(epsilon_device);
 
     for (int i = 0; i < old_coord.size(); i++) {
-      if (old_particle_type[i] < 4)
-        epsilon_host(i) = old_spacing[i] + 1e-15;
-      else
-        epsilon_host(i) = old_spacing[i] + 1e-15;
+      epsilon_host(i) = 0.25 * sqrt(dimension) * old_spacing[i] + 1e-15;
     }
 
     point_search.generate2DNeighborListsFromRadiusSearch(

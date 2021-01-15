@@ -28,7 +28,7 @@ private:
 
   double spacing;
   double cutoff_multiplier;
-  double cutoff_distance;
+  double cutoff_distance, old_cutoff_distance;
 
   std::shared_ptr<rigid_body_manager> rb_mgr;
 
@@ -296,6 +296,8 @@ public:
   int_type get_llcl_particle_type() { return llcl_particle_type; }
 
   double get_cutoff_distance() { return cutoff_distance; }
+
+  double get_old_cutoff_distance() { return old_cutoff_distance; }
 
 protected:
   void init_domain_boundary();

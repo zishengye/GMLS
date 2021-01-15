@@ -252,7 +252,7 @@ void particle_geometry::init(const int _dim, const int _problem_type,
     max_count = _max_count;
     stride = _stride;
 
-    if (stride != 0) {
+    if (min_count != 0) {
       current_count = min_count;
       spacing = bounding_box_size[0] / current_count;
       cutoff_multiplier = cutoff_multiplier;
@@ -2238,12 +2238,16 @@ void particle_geometry::generate_rigid_body_surface_particle() {
 }
 
 void particle_geometry::uniform_refine() {
-  if (stride == 0)
-    spacing *= 0.5;
-  else if (current_count < max_count) {
+  if (stride == 0) {
+    if (min_count != 0 && current_count < max_count) {
+      spacing *= 0.5;
+      current_count *= 2;
+      old_cutoff_distance = cutoff_distance;
+      cutoff_distance = spacing * (cutoff_multiplier + 0.5);
+    }
+  } else if (current_count < max_count) {
     current_count += stride;
     spacing = bounding_box_size[0] / current_count;
-    cutoff_multiplier = cutoff_multiplier;
     cutoff_distance = spacing * (cutoff_multiplier + 0.5);
   }
 
