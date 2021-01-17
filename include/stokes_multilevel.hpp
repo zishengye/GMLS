@@ -150,7 +150,7 @@ public:
       std::vector<double> &pressure, std::vector<vec3> &rb_velocity,
       std::vector<vec3> &rb_angular_velocity);
   void build_interpolation_restriction(const int _num_rigid_body,
-                                       const int _dim);
+                                       const int _dim, const int _poly_order);
 
   std::vector<matrix_type> &get_interpolation_list() { return I_list; }
   std::vector<matrix_type> &get_restriction_list() { return R_list; }

@@ -8,8 +8,8 @@
 using namespace std;
 using namespace Compadre;
 
-void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
-                                                        int _dimension) {
+void stokes_multilevel::build_interpolation_restriction(
+    const int _num_rigid_body, const int _dimension, const int _poly_order) {
   petsc_sparse_matrix &I = *(getI(current_refinement_level - 1));
   petsc_sparse_matrix &R = *(getR(current_refinement_level - 1));
 
@@ -103,7 +103,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
         CreatePointCloudSearch(old_source_coords_host, dimension));
 
     int estimated_num_neighbor_max =
-        pow(2, dimension) * pow(2 * 3.5, dimension);
+        pow(2, dimension) * pow(2 * (_poly_order + 1.5), dimension);
 
     Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
         old_to_new_neighbor_lists_device("old to new neighbor lists",
@@ -125,7 +125,7 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
     }
 
     auto neighbor_needed =
-        2.0 * Compadre::GMLS::getNP(2, dimension,
+        2.0 * Compadre::GMLS::getNP(_poly_order, dimension,
                                     DivergenceFreeVectorTaylorPolynomial);
     size_t actual_neighbor_max;
 
@@ -181,11 +181,11 @@ void stokes_multilevel::build_interpolation_restriction(int _num_rigid_body,
                       old_to_new_neighbor_lists_host);
     Kokkos::deep_copy(old_epsilon_device, old_epsilon_host);
 
-    GMLS old_to_new_pressure_basis(ScalarTaylorPolynomial, PointSample, 2,
-                                   dimension, "SVD", "STANDARD");
+    GMLS old_to_new_pressure_basis(ScalarTaylorPolynomial, PointSample,
+                                   _poly_order, dimension, "SVD", "STANDARD");
     GMLS old_to_new_velocity_basis(DivergenceFreeVectorTaylorPolynomial,
-                                   VectorPointSample, 2, dimension, "SVD",
-                                   "STANDARD");
+                                   VectorPointSample, _poly_order, dimension,
+                                   "SVD", "STANDARD");
 
     // old to new pressure field transition
     old_to_new_pressure_basis.setProblemData(

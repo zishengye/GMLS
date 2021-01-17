@@ -1144,7 +1144,7 @@ void stokes_equation::solve_step() {
   if (current_refinement_level != 0) {
     timer1 = MPI_Wtime();
 
-    multi_mgr->build_interpolation_restriction(num_rigid_body, dim);
+    multi_mgr->build_interpolation_restriction(num_rigid_body, dim, poly_order);
     multi_mgr->initial_guess_from_previous_adaptive_step(
         res, velocity, pressure, rb_mgr->get_velocity(),
         rb_mgr->get_angular_velocity());
