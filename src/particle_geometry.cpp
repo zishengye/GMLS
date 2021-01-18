@@ -2282,6 +2282,8 @@ void particle_geometry::uniform_refine() {
 }
 
 void particle_geometry::adaptive_refine(vector<int> &split_tag) {
+  old_cutoff_distance = cutoff_distance;
+
   vector<int> managing_split_tag;
   vector<int> managing_work_index;
   mitigate_backward(split_tag, managing_split_tag);
