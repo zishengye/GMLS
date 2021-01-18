@@ -666,6 +666,25 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   isg_colloid->create(idx_colloid);
   isg_pressure->create_local(idx_pressure);
 
+  vector<int> idx_colloid_sub_field;
+  vector<int> idx_colloid_sub_colloid;
+
+  for (int i = 0; i < idx_colloid.size(); i++) {
+    if (idx_colloid[i] < global_particle_num * filed_dof) {
+      idx_colloid_sub_field.push_back(i);
+    } else {
+      idx_colloid_sub_colloid.push_back(i);
+    }
+  }
+
+  IS isg_colloid_sub_field, isg_colloid_sub_colloid;
+  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
+                  idx_colloid_sub_field.data(), PETSC_COPY_VALUES,
+                  &isg_colloid_sub_field);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_colloid.size(),
+                  idx_colloid_sub_colloid.data(), PETSC_COPY_VALUES,
+                  &isg_colloid_sub_colloid);
+
   petsc_vector _rhs, _x;
   _rhs.create(rhs);
   _x.create(x);
@@ -858,9 +877,33 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetType(neighbor_relaxation_sub_ksp[0], KSPPREONLY);
     PC neighbor_relaxation_sub_pc;
     KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
-    PCSetType(neighbor_relaxation_sub_pc, PCLU);
-    PCFactorSetMatSolverType(neighbor_relaxation_sub_pc, MATSOLVERMUMPS);
+    PCSetType(neighbor_relaxation_sub_pc, PCFIELDSPLIT);
+
+    Vec diag;
+
+    Mat sub_ff, sub_fc, sub_cf, fc_s;
+
+    MatCreateSubMatrix(nn, isg_colloid_sub_field, isg_colloid_sub_field,
+                       MAT_INITIAL_MATRIX, &sub_ff);
+    MatCreateSubMatrix(nn, isg_colloid_sub_field, isg_colloid_sub_colloid,
+                       MAT_INITIAL_MATRIX, &sub_fc);
+    MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_field,
+                       MAT_INITIAL_MATRIX, &sub_cf);
+
+    MatCreateVecs(sub_ff, &diag, NULL);
+    MatGetDiagonal(sub_ff, diag);
+    VecReciprocal(diag);
+    MatDiagonalScale(sub_fc, diag, NULL);
+    MatMatMult(sub_cf, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
+    MatScale(fc_s, -1.0);
+
+    PCFieldSplitSetIS(neighbor_relaxation_sub_pc, "0", isg_colloid_sub_field);
+    PCFieldSplitSetIS(neighbor_relaxation_sub_pc, "1", isg_colloid_sub_colloid);
+
+    PCFieldSplitSetSchurPre(neighbor_relaxation_sub_pc,
+                            PC_FIELDSPLIT_SCHUR_PRE_USER, fc_s);
     PCSetUp(neighbor_relaxation_sub_pc);
+
     KSPSetUp(neighbor_relaxation_sub_ksp[0]);
   }
 
