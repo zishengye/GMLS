@@ -610,7 +610,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   int refinement_step = A_list.size() - 1;
 
-  int filed_dof = dimension + 1;
+  int field_dof = dimension + 1;
   int velocity_dof = dimension;
   int pressure_dof = 1;
   int rigid_body_dof = (dimension == 3) ? 6 : 3;
@@ -624,33 +624,33 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   int local_particle_num;
   if (mpi_rank != mpi_size - 1) {
-    local_particle_num = (local_n2 - local_n1) / filed_dof;
-    idx_field.resize(filed_dof * local_particle_num);
+    local_particle_num = (local_n2 - local_n1) / field_dof;
+    idx_field.resize(field_dof * local_particle_num);
     idx_pressure.resize(local_particle_num);
 
     for (int i = 0; i < local_particle_num; i++) {
       for (int j = 0; j < dimension; j++) {
-        idx_field[filed_dof * i + j] = local_n1 + filed_dof * i + j;
+        idx_field[field_dof * i + j] = local_n1 + field_dof * i + j;
       }
-      idx_field[filed_dof * i + velocity_dof] =
-          local_n1 + filed_dof * i + velocity_dof;
+      idx_field[field_dof * i + velocity_dof] =
+          local_n1 + field_dof * i + velocity_dof;
 
-      idx_pressure[i] = local_n1 + filed_dof * i + velocity_dof;
+      idx_pressure[i] = local_n1 + field_dof * i + velocity_dof;
     }
   } else {
     local_particle_num =
-        (local_n2 - local_n1 - num_rigid_body * rigid_body_dof) / filed_dof;
-    idx_field.resize(filed_dof * local_particle_num);
+        (local_n2 - local_n1 - num_rigid_body * rigid_body_dof) / field_dof;
+    idx_field.resize(field_dof * local_particle_num);
     idx_pressure.resize(local_particle_num);
 
     for (int i = 0; i < local_particle_num; i++) {
       for (int j = 0; j < dimension; j++) {
-        idx_field[filed_dof * i + j] = local_n1 + filed_dof * i + j;
+        idx_field[field_dof * i + j] = local_n1 + field_dof * i + j;
       }
-      idx_field[filed_dof * i + velocity_dof] =
-          local_n1 + filed_dof * i + velocity_dof;
+      idx_field[field_dof * i + velocity_dof] =
+          local_n1 + field_dof * i + velocity_dof;
 
-      idx_pressure[i] = local_n1 + filed_dof * i + velocity_dof;
+      idx_pressure[i] = local_n1 + field_dof * i + velocity_dof;
     }
   }
 
@@ -669,13 +669,29 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   vector<int> idx_colloid_sub_field;
   vector<int> idx_colloid_sub_colloid;
 
+  vector<int> idx_colloid_offset, idx_colloid_global_size;
+  idx_colloid_offset.resize(mpi_size + 1);
+  idx_colloid_global_size.resize(mpi_size);
+
+  int idx_colloid_local_size = idx_colloid.size();
+  MPI_Allgather(&idx_colloid_local_size, 1, MPI_INT,
+                idx_colloid_global_size.data(), 1, MPI_INT, MPI_COMM_WORLD);
+
+  idx_colloid_offset[0] = 0;
+  for (int i = 0; i < mpi_size; i++) {
+    idx_colloid_offset[i + 1] =
+        idx_colloid_offset[i] + idx_colloid_global_size[i];
+  }
+
   for (int i = 0; i < idx_colloid.size(); i++) {
-    if (idx_colloid[i] < global_particle_num * filed_dof) {
-      idx_colloid_sub_field.push_back(i);
+    if (idx_colloid[i] < global_particle_num * field_dof) {
+      idx_colloid_sub_field.push_back(i + idx_colloid_offset[mpi_rank]);
     } else {
-      idx_colloid_sub_colloid.push_back(i);
+      idx_colloid_sub_colloid.push_back(i + idx_colloid_offset[mpi_rank]);
     }
   }
+
+  cout << mpi_rank << ' ' << idx_colloid_sub_colloid.size() << endl;
 
   IS isg_colloid_sub_field, isg_colloid_sub_colloid;
   ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
@@ -814,23 +830,23 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PCSetUp(pc_field_base);
 
     KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
-    PCSetType(pc_neighbor_base, PCBJACOBI);
+    PCSetType(pc_neighbor_base, PCLU);
     PCSetUp(pc_neighbor_base);
-    PetscInt local_row, local_col;
-    MatGetLocalSize(nn, &local_row, &local_col);
-    if (local_row > 0) {
-      KSP *bjacobi_ksp;
-      PCBJacobiGetSubKSP(pc_neighbor_base, NULL, NULL, &bjacobi_ksp);
-      KSPSetType(bjacobi_ksp[0], KSPPREONLY);
-      PC bjacobi_pc;
-      KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
-      PCSetType(bjacobi_pc, PCLU);
-      PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
-      // PetscOptionsSetValue(NULL, "-pc_hypre_type", "euclid");
-      PCSetFromOptions(bjacobi_pc);
-      PCSetUp(bjacobi_pc);
-      KSPSetUp(bjacobi_ksp[0]);
-    }
+    // PetscInt local_row, local_col;
+    // MatGetLocalSize(nn, &local_row, &local_col);
+    // if (local_row > 0) {
+    //   KSP *bjacobi_ksp;
+    //   PCBJacobiGetSubKSP(pc_neighbor_base, NULL, NULL, &bjacobi_ksp);
+    //   KSPSetType(bjacobi_ksp[0], KSPPREONLY);
+    //   PC bjacobi_pc;
+    //   KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
+    //   PCSetType(bjacobi_pc, PCLU);
+    //   PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
+    //   // PetscOptionsSetValue(NULL, "-pc_hypre_type", "euclid");
+    //   PCSetFromOptions(bjacobi_pc);
+    //   PCSetUp(bjacobi_pc);
+    //   KSPSetUp(bjacobi_ksp[0]);
+    // }
 
     KSPSetUp(ksp_field_base->get_reference());
     KSPSetUp(ksp_colloid_base->get_reference());
@@ -866,46 +882,39 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   PC neighbor_relaxation_pc;
   KSPGetPC(colloid_relaxation_list[refinement_step]->get_reference(),
            &neighbor_relaxation_pc);
-  PCSetType(neighbor_relaxation_pc, PCBJACOBI);
+  PCSetType(neighbor_relaxation_pc, PCFIELDSPLIT);
+
+  Vec diag;
+
+  Mat sub_ff, sub_fc, sub_cf, fc_s;
+
+  MatCreateSubMatrix(nn, isg_colloid_sub_field, isg_colloid_sub_field,
+                     MAT_INITIAL_MATRIX, &sub_ff);
+  MatCreateSubMatrix(nn, isg_colloid_sub_field, isg_colloid_sub_colloid,
+                     MAT_INITIAL_MATRIX, &sub_fc);
+  MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_field,
+                     MAT_INITIAL_MATRIX, &sub_cf);
+
+  MatCreateVecs(sub_ff, &diag, NULL);
+  MatGetDiagonal(sub_ff, diag);
+  VecReciprocal(diag);
+  MatDiagonalScale(sub_fc, diag, NULL);
+  MatMatMult(sub_cf, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
+  MatScale(fc_s, -1.0);
+
+  PCFieldSplitSetIS(neighbor_relaxation_pc, "0", isg_colloid_sub_field);
+  PCFieldSplitSetIS(neighbor_relaxation_pc, "1", isg_colloid_sub_colloid);
+
+  PCFieldSplitSetSchurPre(neighbor_relaxation_pc, PC_FIELDSPLIT_SCHUR_PRE_USER,
+                          fc_s);
   PCSetUp(neighbor_relaxation_pc);
-  PetscInt local_row, local_col;
-  MatGetLocalSize(nn, &local_row, &local_col);
-  if (local_row > 0) {
-    KSP *neighbor_relaxation_sub_ksp;
-    PCBJacobiGetSubKSP(neighbor_relaxation_pc, NULL, NULL,
-                       &neighbor_relaxation_sub_ksp);
-    KSPSetType(neighbor_relaxation_sub_ksp[0], KSPPREONLY);
-    PC neighbor_relaxation_sub_pc;
-    KSPGetPC(neighbor_relaxation_sub_ksp[0], &neighbor_relaxation_sub_pc);
-    PCSetType(neighbor_relaxation_sub_pc, PCFIELDSPLIT);
 
-    Vec diag;
-
-    Mat sub_ff, sub_fc, sub_cf, fc_s;
-
-    MatCreateSubMatrix(nn, isg_colloid_sub_field, isg_colloid_sub_field,
-                       MAT_INITIAL_MATRIX, &sub_ff);
-    MatCreateSubMatrix(nn, isg_colloid_sub_field, isg_colloid_sub_colloid,
-                       MAT_INITIAL_MATRIX, &sub_fc);
-    MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_field,
-                       MAT_INITIAL_MATRIX, &sub_cf);
-
-    MatCreateVecs(sub_ff, &diag, NULL);
-    MatGetDiagonal(sub_ff, diag);
-    VecReciprocal(diag);
-    MatDiagonalScale(sub_fc, diag, NULL);
-    MatMatMult(sub_cf, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
-    MatScale(fc_s, -1.0);
-
-    PCFieldSplitSetIS(neighbor_relaxation_sub_pc, "0", isg_colloid_sub_field);
-    PCFieldSplitSetIS(neighbor_relaxation_sub_pc, "1", isg_colloid_sub_colloid);
-
-    PCFieldSplitSetSchurPre(neighbor_relaxation_sub_pc,
-                            PC_FIELDSPLIT_SCHUR_PRE_USER, fc_s);
-    PCSetUp(neighbor_relaxation_sub_pc);
-
-    KSPSetUp(neighbor_relaxation_sub_ksp[0]);
-  }
+  KSP *fieldsplit_sub_ksp;
+  PetscInt n;
+  PCFieldSplitGetSubKSP(neighbor_relaxation_pc, &n, &fieldsplit_sub_ksp);
+  KSPSetOperators(fieldsplit_sub_ksp[1], fc_s, fc_s);
+  KSPSetFromOptions(fieldsplit_sub_ksp[0]);
+  PetscFree(fieldsplit_sub_ksp);
 
   KSPSetUp(colloid_relaxation_list[refinement_step]->get_reference());
 
@@ -929,7 +938,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
     HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
-                        filed_dof);
+                        field_dof);
   } else {
     MPI_Barrier(MPI_COMM_WORLD);
     PetscPrintf(PETSC_COMM_WORLD,
@@ -940,7 +949,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
     HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
-                        filed_dof);
+                        field_dof);
   }
 
   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
