@@ -907,33 +907,16 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   residual_norm = global_particle_num;
   Vec residual;
   VecDuplicate(_rhs.get_reference(), &residual);
-  PetscReal rtol = 1e-6;
-  int counter;
-  counter = 0;
-  bool diverged = false;
-  // do {
-  KSPSetTolerances(_ksp, rtol, 1e-50, 1e20, 1000);
-  KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
   MatMult(shell_mat, _x.get_reference(), residual);
   VecAXPY(residual, -1.0, _rhs.get_reference());
   VecNorm(residual, NORM_2, &residual_norm);
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
-  rtol *= 1e-2;
-  counter++;
+  KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
   KSPConvergedReason convergence_reason;
   KSPGetConvergedReason(_ksp, &convergence_reason);
 
-  //   if (counter >= 10)
-  //     break;
-  //   if (residual_norm / rhs_norm > 1e3)
-  //     diverged = true;
-  //   if (convergence_reason < 0)
-  //     diverged = true;
-  //   if (diverged)
-  //     break;
-  // } while (residual_norm / rhs_norm > 1e-3);
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
