@@ -691,8 +691,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     }
   }
 
-  cout << mpi_rank << ' ' << idx_colloid_sub_colloid.size() << endl;
-
   IS isg_colloid_sub_field, isg_colloid_sub_colloid;
   ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
                   idx_colloid_sub_field.data(), PETSC_COPY_VALUES,
