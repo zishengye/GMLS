@@ -790,7 +790,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PC pc_neighbor_base;
 
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
-    PCSetType(pc_field_base, PCHYPRE);
+    PCSetType(pc_field_base, PCSOR);
     PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
 
