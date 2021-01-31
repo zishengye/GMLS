@@ -149,25 +149,32 @@ bool gmls_solver::refinement() {
 
   auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
 
-  auto min_num_neighbor = Compadre::GMLS::getNP(
-      polynomial_order, dim, DivergenceFreeVectorTaylorPolynomial);
-
-  int estimated_max_num_neighbor =
-      2 * pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);
-
-  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
-      "neighbor lists", num_target_coord, estimated_max_num_neighbor);
-  Kokkos::View<int **>::HostMirror neighbor_list_host =
-      Kokkos::create_mirror_view(neighbor_list_device);
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> temp_neighbor_list_device(
+      "temp neighbor lists", num_target_coord, 1);
+  Kokkos::View<int **>::HostMirror temp_neighbor_list_host =
+      Kokkos::create_mirror_view(temp_neighbor_list_device);
 
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
       "h supports", num_target_coord);
   Kokkos::View<double *>::HostMirror epsilon_host =
       Kokkos::create_mirror_view(epsilon_device);
 
+  auto &epsilon = equation_mgr->get_epsilon();
+
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host(i) = spacing[i] * epsilon_multiplier + 1e-15;
+    epsilon_host(i) = epsilon[i];
   }
+
+  size_t max_num_neighbor =
+      point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+          true, target_coord_host, temp_neighbor_list_host, epsilon_host, 0.0,
+          0.0) +
+      2;
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
+      "neighbor lists", num_target_coord, max_num_neighbor);
+  Kokkos::View<int **>::HostMirror neighbor_list_host =
+      Kokkos::create_mirror_view(neighbor_list_device);
 
   point_cloud_search.generate2DNeighborListsFromRadiusSearch(
       false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);

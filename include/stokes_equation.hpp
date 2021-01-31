@@ -88,6 +88,8 @@ public:
 
   std::vector<double> &get_pressure() { return pressure; }
 
+  std::vector<double> &get_epsilon() { return epsilon; }
+
   std::vector<std::vector<double>> &get_gradient() { return gradient; }
 
   std::vector<double> &get_error() { return error; }

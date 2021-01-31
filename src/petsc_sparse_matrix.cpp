@@ -615,10 +615,307 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
   int rigid_body_dof = (dimension == 2) ? 3 : 6;
   int field_dof = dimension + 1;
 
-  // first transpose the matrix
-  vector<int> neighborInclusion;
+  // // first transpose the matrix
+  // vector<int> neighborInclusion;
 
-  vector<vector<int>> rigid_body_block_distribution(MPIsize);
+  // vector<vector<int>> rigid_body_block_distribution(MPIsize);
+
+  // if (myId == MPIsize - 1) {
+  //   neighborInclusion.clear();
+  //   neighborInclusion.insert(
+  //       neighborInclusion.end(), __j.begin() + __i[local_rigid_body_offset],
+  //       __j.begin() +
+  //           __i[local_rigid_body_offset + num_rigid_body * rigid_body_dof]);
+
+  //   for (int i = 0; i < neighborInclusion.size(); i++) {
+  //     if (neighborInclusion[i] > global_rigid_body_offset)
+  //       neighborInclusion[i] = neighborInclusion[0];
+  //     else
+  //       neighborInclusion[i] /= field_dof;
+  //   }
+
+  //   sort(neighborInclusion.begin(), neighborInclusion.end());
+
+  //   neighborInclusion.erase(
+  //       unique(neighborInclusion.begin(), neighborInclusion.end()),
+  //       neighborInclusion.end());
+
+  //   vector<vector<int>> transpose_mat;
+  //   transpose_mat.resize(neighborInclusion.size());
+
+  //   for (int i = 0; i < num_rigid_body; i++) {
+  //     for (int j = 0; j < rigid_body_dof; j++) {
+  //       for (int k = __i[local_rigid_body_offset + i * rigid_body_dof + j];
+  //            k < __i[local_rigid_body_offset + i * rigid_body_dof + j + 1];
+  //            k++) {
+  //         size_t neighbor_index =
+  //             lower_bound(neighborInclusion.begin(), neighborInclusion.end(),
+  //                         __j[k] / field_dof) -
+  //             neighborInclusion.begin();
+
+  //         if (neighbor_index >= 0 &&
+  //             neighbor_index < neighborInclusion.size()) {
+  //           if (transpose_mat[neighbor_index].size() == 0) {
+  //             transpose_mat[neighbor_index].push_back(i);
+  //           } else {
+  //             auto it = lower_bound(transpose_mat[neighbor_index].begin(),
+  //                                   transpose_mat[neighbor_index].end(), i);
+  //             if (it == transpose_mat[neighbor_index].end() || *it != i) {
+  //               transpose_mat[neighbor_index].insert(it, i);
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+
+  //   // get the connectivity of rigid body here
+  //   vector<vector<int>> connectivity;
+  //   connectivity.resize(num_rigid_body);
+  //   for (int i = 0; i < transpose_mat.size(); i++) {
+  //     if (transpose_mat[i].size() > 1) {
+  //       for (int j = 0; j < transpose_mat[i].size() - 1; j++) {
+  //         int rigid_body_index1 = transpose_mat[i][j];
+  //         for (int k = j + 1; k < transpose_mat[i].size(); k++) {
+  //           int rigid_body_index2 = transpose_mat[i][k];
+
+  //           // make connection between two rigid body
+  //           if (connectivity[rigid_body_index1].size() == 0) {
+  //             connectivity[rigid_body_index1].push_back(rigid_body_index2);
+  //           } else {
+  //             auto it = lower_bound(connectivity[rigid_body_index1].begin(),
+  //                                   connectivity[rigid_body_index1].end(),
+  //                                   rigid_body_index2);
+  //             if (it == connectivity[rigid_body_index1].end() ||
+  //                 *it != rigid_body_index2) {
+  //               connectivity[rigid_body_index1].insert(it,
+  //               rigid_body_index2);
+  //             }
+  //           }
+
+  //           if (connectivity[rigid_body_index2].size() == 0) {
+  //             connectivity[rigid_body_index2].push_back(rigid_body_index1);
+  //           } else {
+  //             auto it = lower_bound(connectivity[rigid_body_index2].begin(),
+  //                                   connectivity[rigid_body_index2].end(),
+  //                                   rigid_body_index1);
+  //             if (it == connectivity[rigid_body_index2].end() ||
+  //                 *it != rigid_body_index1) {
+  //               connectivity[rigid_body_index2].insert(it,
+  //               rigid_body_index1);
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+
+  //   // make rigid body group split
+  //   vector<vector<int>> connected_group;
+  //   vector<int> ungroup_rigid_body;
+
+  //   ungroup_rigid_body.reserve(num_rigid_body);
+  //   for (int i = 0; i < num_rigid_body; i++)
+  //     ungroup_rigid_body.push_back(i);
+
+  //   while (ungroup_rigid_body.size() > 0) {
+  //     vector<int> maximum_group;
+  //     vector<int> search_stack;
+  //     maximum_group.push_back(ungroup_rigid_body[0]);
+  //     search_stack.push_back(ungroup_rigid_body[0]);
+  //     ungroup_rigid_body.erase(ungroup_rigid_body.begin());
+
+  //     int search_stack_index = 0;
+  //     while (search_stack_index < search_stack.size()) {
+  //       for (auto item : connectivity[search_stack[search_stack_index]]) {
+  //         auto it =
+  //             lower_bound(maximum_group.begin(), maximum_group.end(), item);
+  //         if (it == maximum_group.end() || *it != item) {
+  //           maximum_group.insert(it, item);
+
+  //           if (ungroup_rigid_body.size() != 0) {
+  //             auto rm_it = lower_bound(ungroup_rigid_body.begin(),
+  //                                      ungroup_rigid_body.end(), item);
+  //             if (*rm_it == item) {
+  //               ungroup_rigid_body.erase(rm_it);
+  //               search_stack.push_back(item);
+  //             }
+  //           }
+  //         }
+  //       }
+
+  //       search_stack_index++;
+  //     }
+
+  //     connected_group.push_back(maximum_group);
+  //   }
+
+  //   sort(connected_group.begin(), connected_group.end(), compare_group);
+
+  //   PetscInt *ptr;
+  //   MatGetOwnershipRanges(__mat, (const PetscInt **)(&ptr));
+  //   vector<int> row_range;
+  //   row_range.resize(MPIsize);
+  //   for (int i = 0; i < MPIsize; i++)
+  //     row_range[i] = ptr[i];
+
+  //   // distribute rigid body among processes
+  //   for (int i = 0; i < connected_group.size(); i++) {
+  //     neighborInclusion.clear();
+
+  //     // select neighbor column
+  //     for (int j = 0; j < connected_group[i].size(); j++) {
+  //       neighborInclusion.insert(
+  //           neighborInclusion.end(),
+  //           __j.begin() + __i[local_rigid_body_offset +
+  //                             connected_group[i][j] * rigid_body_dof],
+  //           __j.begin() + __i[local_rigid_body_offset +
+  //                             (connected_group[i][j] + 1) * rigid_body_dof]);
+  //     }
+
+  //     for (int j = 0; j < neighborInclusion.size(); j++) {
+  //       if (neighborInclusion[j] > global_rigid_body_offset)
+  //         neighborInclusion[j] = neighborInclusion[0];
+  //       else
+  //         neighborInclusion[j] /= field_dof;
+  //     }
+
+  //     sort(neighborInclusion.begin(), neighborInclusion.end());
+
+  //     neighborInclusion.erase(
+  //         unique(neighborInclusion.begin(), neighborInclusion.end()),
+  //         neighborInclusion.end());
+
+  //     vector<int> tempNeighborInclusion = move(neighborInclusion);
+
+  //     neighborInclusion.reserve(tempNeighborInclusion.size() * field_dof);
+
+  //     for (auto neighbor : tempNeighborInclusion) {
+  //       for (int j = 0; j < field_dof; j++) {
+  //         neighborInclusion.push_back(neighbor * field_dof + j);
+  //       }
+  //     }
+
+  //     sort(neighborInclusion.begin(), neighborInclusion.end());
+
+  //     vector<int> count_per_process(MPIsize);
+  //     for (int j = 0; j < MPIsize; j++) {
+  //       count_per_process[j] = 0;
+  //     }
+  //     for (int j = 0; j < neighborInclusion.size(); j++) {
+  //       auto pos = upper_bound(row_range.begin(), row_range.end(),
+  //                              neighborInclusion[j]);
+  //       if (pos == row_range.end())
+  //         count_per_process[MPIsize - 1]++;
+  //       else if (*pos == neighborInclusion[j])
+  //         count_per_process[pos - row_range.begin()]++;
+  //       else
+  //         count_per_process[pos - row_range.begin() - 1]++;
+  //     }
+
+  //     int process_index = 0;
+  //     int max_count = 0;
+  //     for (int j = 0; j < MPIsize; j++) {
+  //       if (count_per_process[j] > max_count) {
+  //         process_index = j;
+  //         max_count = count_per_process[j];
+  //       }
+  //     }
+
+  //     for (int j = 0; j < connected_group[i].size(); j++) {
+  //       rigid_body_block_distribution[process_index].push_back(
+  //           connected_group[i][j]);
+  //     }
+  //   }
+  // }
+
+  // MPI_Barrier(MPI_COMM_WORLD);
+
+  // int neighborInclusionSize;
+
+  // for (int i = 0; i < MPIsize; i++) {
+  //   if (myId == MPIsize - 1) {
+  //     neighborInclusion.clear();
+
+  //     // select neighbor column
+  //     for (int j = 0; j < rigid_body_block_distribution[i].size(); j++) {
+  //       neighborInclusion.insert(
+  //           neighborInclusion.end(),
+  //           __j.begin() +
+  //               __i[local_rigid_body_offset +
+  //                   rigid_body_block_distribution[i][j] * rigid_body_dof],
+  //           __j.begin() + __i[local_rigid_body_offset +
+  //                             (rigid_body_block_distribution[i][j] + 1) *
+  //                                 rigid_body_dof]);
+  //     }
+
+  //     sort(neighborInclusion.begin(), neighborInclusion.end());
+
+  //     for (int j = 0; j < neighborInclusion.size(); j++) {
+  //       if (neighborInclusion[j] > global_rigid_body_offset) {
+  //         neighborInclusion[j] = neighborInclusion[0];
+  //       } else
+  //         neighborInclusion[j] /= field_dof;
+  //     }
+
+  //     sort(neighborInclusion.begin(), neighborInclusion.end());
+
+  //     neighborInclusion.erase(
+  //         unique(neighborInclusion.begin(), neighborInclusion.end()),
+  //         neighborInclusion.end());
+
+  //     vector<int> tempNeighborInclusion = move(neighborInclusion);
+
+  //     neighborInclusion.reserve(tempNeighborInclusion.size() * field_dof +
+  //                               rigid_body_block_distribution[i].size() *
+  //                                   rigid_body_dof);
+
+  //     for (auto neighbor : tempNeighborInclusion) {
+  //       for (int j = 0; j < field_dof; j++) {
+  //         neighborInclusion.push_back(neighbor * field_dof + j);
+  //       }
+  //     }
+
+  //     for (int j = 0; j < rigid_body_block_distribution[i].size(); j++) {
+  //       for (int k = 0; k < rigid_body_dof; k++) {
+  //         neighborInclusion.push_back(
+  //             global_rigid_body_offset +
+  //             rigid_body_block_distribution[i][j] * rigid_body_dof + k);
+  //       }
+  //     }
+
+  //     sort(neighborInclusion.begin(), neighborInclusion.end());
+
+  //     neighborInclusionSize = neighborInclusion.size();
+  //   }
+
+  //   MPI_Barrier(MPI_COMM_WORLD);
+
+  //   if (i != MPIsize - 1) {
+  //     if (myId == MPIsize - 1) {
+  //       MPI_Send(&neighborInclusionSize, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+  //       MPI_Send(neighborInclusion.data(), neighborInclusionSize, MPI_INT, i,
+  //       1,
+  //                MPI_COMM_WORLD);
+  //     }
+  //     if (myId == i) {
+  //       MPI_Status stat;
+  //       MPI_Recv(&neighborInclusionSize, 1, MPI_INT, MPIsize - 1, 0,
+  //                MPI_COMM_WORLD, &stat);
+  //       idx_colloid.resize(neighborInclusionSize);
+  //       MPI_Recv(idx_colloid.data(), neighborInclusionSize, MPI_INT,
+  //                MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
+  //     }
+  //   } else {
+  //     if (myId == MPIsize - 1)
+  //       idx_colloid = move(neighborInclusion);
+  //   }
+
+  //   MPI_Barrier(MPI_COMM_WORLD);
+  // }
+
+  // equally distribute the workload between cores
+  vector<int> neighborInclusion;
 
   if (myId == MPIsize - 1) {
     neighborInclusion.clear();
@@ -640,260 +937,31 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
         unique(neighborInclusion.begin(), neighborInclusion.end()),
         neighborInclusion.end());
 
-    vector<vector<int>> transpose_mat;
-    transpose_mat.resize(neighborInclusion.size());
+    vector<int> tempNeighborInclusion = move(neighborInclusion);
 
-    for (int i = 0; i < num_rigid_body; i++) {
-      for (int j = 0; j < rigid_body_dof; j++) {
-        for (int k = __i[local_rigid_body_offset + i * rigid_body_dof + j];
-             k < __i[local_rigid_body_offset + i * rigid_body_dof + j + 1];
-             k++) {
-          size_t neighbor_index =
-              lower_bound(neighborInclusion.begin(), neighborInclusion.end(),
-                          __j[k] / field_dof) -
-              neighborInclusion.begin();
+    neighborInclusion.reserve(tempNeighborInclusion.size() * field_dof);
 
-          if (neighbor_index >= 0 &&
-              neighbor_index < neighborInclusion.size()) {
-            if (transpose_mat[neighbor_index].size() == 0) {
-              transpose_mat[neighbor_index].push_back(i);
-            } else {
-              auto it = lower_bound(transpose_mat[neighbor_index].begin(),
-                                    transpose_mat[neighbor_index].end(), i);
-              if (it == transpose_mat[neighbor_index].end() || *it != i) {
-                transpose_mat[neighbor_index].insert(it, i);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // get the connectivity of rigid body here
-    vector<vector<int>> connectivity;
-    connectivity.resize(num_rigid_body);
-    for (int i = 0; i < transpose_mat.size(); i++) {
-      if (transpose_mat[i].size() > 1) {
-        for (int j = 0; j < transpose_mat[i].size() - 1; j++) {
-          int rigid_body_index1 = transpose_mat[i][j];
-          for (int k = j + 1; k < transpose_mat[i].size(); k++) {
-            int rigid_body_index2 = transpose_mat[i][k];
-
-            // make connection between two rigid body
-            if (connectivity[rigid_body_index1].size() == 0) {
-              connectivity[rigid_body_index1].push_back(rigid_body_index2);
-            } else {
-              auto it = lower_bound(connectivity[rigid_body_index1].begin(),
-                                    connectivity[rigid_body_index1].end(),
-                                    rigid_body_index2);
-              if (it == connectivity[rigid_body_index1].end() ||
-                  *it != rigid_body_index2) {
-                connectivity[rigid_body_index1].insert(it, rigid_body_index2);
-              }
-            }
-
-            if (connectivity[rigid_body_index2].size() == 0) {
-              connectivity[rigid_body_index2].push_back(rigid_body_index1);
-            } else {
-              auto it = lower_bound(connectivity[rigid_body_index2].begin(),
-                                    connectivity[rigid_body_index2].end(),
-                                    rigid_body_index1);
-              if (it == connectivity[rigid_body_index2].end() ||
-                  *it != rigid_body_index1) {
-                connectivity[rigid_body_index2].insert(it, rigid_body_index1);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // make rigid body group split
-    vector<vector<int>> connected_group;
-    vector<int> ungroup_rigid_body;
-
-    ungroup_rigid_body.reserve(num_rigid_body);
-    for (int i = 0; i < num_rigid_body; i++)
-      ungroup_rigid_body.push_back(i);
-
-    while (ungroup_rigid_body.size() > 0) {
-      vector<int> maximum_group;
-      vector<int> search_stack;
-      maximum_group.push_back(ungroup_rigid_body[0]);
-      search_stack.push_back(ungroup_rigid_body[0]);
-      ungroup_rigid_body.erase(ungroup_rigid_body.begin());
-
-      int search_stack_index = 0;
-      while (search_stack_index < search_stack.size()) {
-        for (auto item : connectivity[search_stack[search_stack_index]]) {
-          auto it =
-              lower_bound(maximum_group.begin(), maximum_group.end(), item);
-          if (it == maximum_group.end() || *it != item) {
-            maximum_group.insert(it, item);
-
-            if (ungroup_rigid_body.size() != 0) {
-              auto rm_it = lower_bound(ungroup_rigid_body.begin(),
-                                       ungroup_rigid_body.end(), item);
-              if (*rm_it == item) {
-                ungroup_rigid_body.erase(rm_it);
-                search_stack.push_back(item);
-              }
-            }
-          }
-        }
-
-        search_stack_index++;
-      }
-
-      connected_group.push_back(maximum_group);
-    }
-
-    sort(connected_group.begin(), connected_group.end(), compare_group);
-
-    PetscInt *ptr;
-    MatGetOwnershipRanges(__mat, (const PetscInt **)(&ptr));
-    vector<int> row_range;
-    row_range.resize(MPIsize);
-    for (int i = 0; i < MPIsize; i++)
-      row_range[i] = ptr[i];
-
-    // distribute rigid body among processes
-    for (int i = 0; i < connected_group.size(); i++) {
-      neighborInclusion.clear();
-
-      // select neighbor column
-      for (int j = 0; j < connected_group[i].size(); j++) {
-        neighborInclusion.insert(
-            neighborInclusion.end(),
-            __j.begin() + __i[local_rigid_body_offset +
-                              connected_group[i][j] * rigid_body_dof],
-            __j.begin() + __i[local_rigid_body_offset +
-                              (connected_group[i][j] + 1) * rigid_body_dof]);
-      }
-
-      for (int j = 0; j < neighborInclusion.size(); j++) {
-        if (neighborInclusion[j] > global_rigid_body_offset)
-          neighborInclusion[j] = neighborInclusion[0];
-        else
-          neighborInclusion[j] /= field_dof;
-      }
-
-      sort(neighborInclusion.begin(), neighborInclusion.end());
-
-      neighborInclusion.erase(
-          unique(neighborInclusion.begin(), neighborInclusion.end()),
-          neighborInclusion.end());
-
-      vector<int> tempNeighborInclusion = move(neighborInclusion);
-
-      neighborInclusion.reserve(tempNeighborInclusion.size() * field_dof);
-
-      for (auto neighbor : tempNeighborInclusion) {
-        for (int j = 0; j < field_dof; j++) {
-          neighborInclusion.push_back(neighbor * field_dof + j);
-        }
-      }
-
-      sort(neighborInclusion.begin(), neighborInclusion.end());
-
-      vector<int> count_per_process(MPIsize);
-      for (int j = 0; j < MPIsize; j++) {
-        count_per_process[j] = 0;
-      }
-      for (int j = 0; j < neighborInclusion.size(); j++) {
-        auto pos = upper_bound(row_range.begin(), row_range.end(),
-                               neighborInclusion[j]);
-        if (pos == row_range.end())
-          count_per_process[MPIsize - 1]++;
-        else if (*pos == neighborInclusion[j])
-          count_per_process[pos - row_range.begin()]++;
-        else
-          count_per_process[pos - row_range.begin() - 1]++;
-      }
-
-      int process_index = 0;
-      int max_count = 0;
-      for (int j = 0; j < MPIsize; j++) {
-        if (count_per_process[j] > max_count) {
-          process_index = j;
-          max_count = count_per_process[j];
-        }
-      }
-
-      for (int j = 0; j < connected_group[i].size(); j++) {
-        rigid_body_block_distribution[process_index].push_back(
-            connected_group[i][j]);
+    for (auto neighbor : tempNeighborInclusion) {
+      for (int j = 0; j < field_dof; j++) {
+        neighborInclusion.push_back(neighbor * field_dof + j);
       }
     }
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  int neighborInclusionSize;
+  int neighborInclusionSize, offset = 0;
 
   for (int i = 0; i < MPIsize; i++) {
-    if (myId == MPIsize - 1) {
-      neighborInclusion.clear();
-
-      // select neighbor column
-      for (int j = 0; j < rigid_body_block_distribution[i].size(); j++) {
-        neighborInclusion.insert(
-            neighborInclusion.end(),
-            __j.begin() +
-                __i[local_rigid_body_offset +
-                    rigid_body_block_distribution[i][j] * rigid_body_dof],
-            __j.begin() + __i[local_rigid_body_offset +
-                              (rigid_body_block_distribution[i][j] + 1) *
-                                  rigid_body_dof]);
-      }
-
-      sort(neighborInclusion.begin(), neighborInclusion.end());
-
-      for (int j = 0; j < neighborInclusion.size(); j++) {
-        if (neighborInclusion[j] > global_rigid_body_offset) {
-          neighborInclusion[j] = neighborInclusion[0];
-        } else
-          neighborInclusion[j] /= field_dof;
-      }
-
-      sort(neighborInclusion.begin(), neighborInclusion.end());
-
-      neighborInclusion.erase(
-          unique(neighborInclusion.begin(), neighborInclusion.end()),
-          neighborInclusion.end());
-
-      vector<int> tempNeighborInclusion = move(neighborInclusion);
-
-      neighborInclusion.reserve(tempNeighborInclusion.size() * field_dof +
-                                rigid_body_block_distribution[i].size() *
-                                    rigid_body_dof);
-
-      for (auto neighbor : tempNeighborInclusion) {
-        for (int j = 0; j < field_dof; j++) {
-          neighborInclusion.push_back(neighbor * field_dof + j);
-        }
-      }
-
-      for (int j = 0; j < rigid_body_block_distribution[i].size(); j++) {
-        for (int k = 0; k < rigid_body_dof; k++) {
-          neighborInclusion.push_back(
-              global_rigid_body_offset +
-              rigid_body_block_distribution[i][j] * rigid_body_dof + k);
-        }
-      }
-
-      sort(neighborInclusion.begin(), neighborInclusion.end());
-
-      neighborInclusionSize = neighborInclusion.size();
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-
     if (i != MPIsize - 1) {
       if (myId == MPIsize - 1) {
+        neighborInclusionSize = neighborInclusion.size() / MPIsize;
+        neighborInclusionSize +=
+            (neighborInclusion.size() % MPIsize < i) ? 1 : 0;
+
         MPI_Send(&neighborInclusionSize, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-        MPI_Send(neighborInclusion.data(), neighborInclusionSize, MPI_INT, i, 1,
-                 MPI_COMM_WORLD);
+        MPI_Send(neighborInclusion.data() + offset, neighborInclusionSize,
+                 MPI_INT, i, 1, MPI_COMM_WORLD);
       }
       if (myId == i) {
         MPI_Status stat;
@@ -904,14 +972,31 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
                  MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
       }
     } else {
-      if (myId == MPIsize - 1)
-        idx_colloid = move(neighborInclusion);
+      if (myId == MPIsize - 1) {
+        idx_colloid.clear();
+        idx_colloid.insert(idx_colloid.end(),
+                           neighborInclusion.begin() + offset,
+                           neighborInclusion.end());
+      }
+    }
+
+    if (myId == MPIsize - 1) {
+      offset += neighborInclusionSize;
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
+
+  if (myId == MPIsize - 1) {
+    for (int i = 0; i < num_rigid_body; i++) {
+      for (int j = 0; j < rigid_body_dof; j++) {
+        idx_colloid.push_back(global_rigid_body_offset + i * rigid_body_dof +
+                              j);
+      }
+    }
+  }
 
   return 0;
 }
