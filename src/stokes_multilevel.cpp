@@ -900,7 +900,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
                         filed_dof);
   }
 
-  KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   PetscReal residual_norm, rhs_norm;
   VecNorm(_rhs.get_reference(), NORM_2, &rhs_norm);
