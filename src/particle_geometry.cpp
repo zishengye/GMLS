@@ -27,7 +27,7 @@ static void process_split(int &x, int &y, int &i, int &j, const int size,
   }
 
   i = rank % x;
-  j = rank / y;
+  j = rank / x;
 }
 
 static void process_split(int &x, int &y, int &z, int &i, int &j, int &k,
