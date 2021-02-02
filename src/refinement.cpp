@@ -109,7 +109,7 @@ bool gmls_solver::refinement() {
   }
 
   // prevent over splitting
-  vector<int> candidate_split_tag(split_tag), ghost_split_tag;
+  vector<int> candidate_split_tag, ghost_split_tag;
   geo_mgr->ghost_forward(split_tag, ghost_split_tag);
 
   auto &source_coord = *(geo_mgr->get_current_work_ghost_particle_coord());
@@ -179,14 +179,59 @@ bool gmls_solver::refinement() {
   point_cloud_search.generate2DNeighborListsFromRadiusSearch(
       false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
 
+  int min_num_neighbor = Compadre::GMLS::getNP(
+      polynomial_order, dim, DivergenceFreeVectorTaylorPolynomial);
+
+  candidate_split_tag = split_tag;
   for (int i = 0; i < num_target_coord; i++) {
     if (candidate_split_tag[i] == 0) {
+      //
       for (int j = 0; j < neighbor_list_host(i, 0); j++) {
         int neighbor_index = neighbor_list_host(i, j + 1);
         if (ghost_split_tag[neighbor_index] == 1 &&
             source_adaptive_level[neighbor_index] - adaptive_level[i] > 0) {
           split_tag[i] = 1;
         }
+      }
+
+      //
+      int num_split = 0;
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        int neighbor_index = neighbor_list_host(i, j + 1);
+        if ((source_adaptive_level[neighbor_index] > adaptive_level[i]) ||
+            (ghost_split_tag[neighbor_index] == 1 &&
+             source_adaptive_level[neighbor_index] == adaptive_level[i])) {
+          num_split++;
+        }
+      }
+      if (num_split > 0.6 * (neighbor_list_host(i, 0) - 1))
+        split_tag[i] = 1;
+    }
+
+    if (candidate_split_tag[i] == 1) {
+      int num_split = 0;
+      int num_new_neighbor = pow(2, dim);
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        int neighbor_index = neighbor_list_host(i, j + 1);
+        vec3 dX = coord[i] - source_coord[neighbor_index];
+        if (dX.mag() < epsilon[i]) {
+          if (ghost_split_tag[neighbor_index] == 1)
+            num_new_neighbor += pow(2, dim);
+          else
+            num_new_neighbor++;
+          if (source_adaptive_level[neighbor_index] > adaptive_level[i] ||
+              (ghost_split_tag[neighbor_index] == 1 &&
+               source_adaptive_level[neighbor_index] == adaptive_level[i])) {
+            num_split++;
+          }
+        }
+      }
+      if (num_split == 1) {
+        // this is a single split point, there is no need to split it
+        split_tag[i] = 0;
+      } else if (num_new_neighbor < min_num_neighbor) {
+        // enlarge the split region to ensure necessary number of neighbors
+        // split_tag[i] = 0;
       }
     }
   }

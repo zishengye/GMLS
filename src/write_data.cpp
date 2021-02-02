@@ -420,6 +420,8 @@ void gmls_solver::write_refinement_data() {
   vector<int> &num_neighbor =
       *(geo_mgr->get_current_work_particle_num_neighbor());
 
+  auto &epsilon = equation_mgr->get_epsilon();
+
   int local_particle_num;
   int global_particle_num;
 
@@ -611,6 +613,27 @@ void gmls_solver::write_refinement_data() {
               ios::app);
     for (size_t i = 0; i < particle_type.size(); i++) {
       file << rank << endl;
+    }
+    file.close();
+  });
+
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS epsilon float 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  serial_operation([epsilon, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < epsilon.size(); i++) {
+      file << epsilon[i] << endl;
     }
     file.close();
   });
