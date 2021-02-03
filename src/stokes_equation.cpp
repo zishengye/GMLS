@@ -928,8 +928,8 @@ void stokes_equation::build_rhs() {
         double x = coord[i][0];
         double y = coord[i][1];
 
-        rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y);
-        rhs[field_dof * i + 1] = -sin(M_PI * x) * cos(M_PI * y);
+        rhs[field_dof * i] = sin(M_PI * x) * cos(M_PI * y);
+        rhs[field_dof * i + 1] = -cos(M_PI * x) * sin(M_PI * y);
 
         const int neumann_index = neumann_map[i];
         const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
@@ -939,10 +939,10 @@ void stokes_equation::build_rhs() {
         rhs[field_dof * i + velocity_dof] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y) -
-                  normal[i][1] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y)) +
+            bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                      cos(M_PI * y) -
+                  normal[i][1] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                      sin(M_PI * y)) +
             bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
                   normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
       }
@@ -983,10 +983,10 @@ void stokes_equation::build_rhs() {
         double y = coord[i][1];
 
         rhs[field_dof * i] =
-            2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
+            2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
             2.0 * M_PI * sin(2.0 * M_PI * x);
         rhs[field_dof * i + 1] =
-            -2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
+            -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
 
         rhs[field_dof * i + velocity_dof] =
