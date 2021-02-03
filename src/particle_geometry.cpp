@@ -1,4 +1,6 @@
 #include "particle_geometry.hpp"
+#include "get_input_file.hpp"
+#include "search_command.hpp"
 
 #include <Compadre_PointCloudSearch.hpp>
 
@@ -226,6 +228,30 @@ void particle_geometry::init(const int _dim, const int _problem_type,
   cutoff_distance = _spacing * (cutoff_multiplier + 0.5);
 
   if (geometry_input_file_name != "") {
+    vector<char *> cstrings;
+    vector<string> strings;
+    GetInputFile(geometry_input_file_name, strings, cstrings);
+
+    int inputCommandCount = cstrings.size();
+    char **inputCommand = cstrings.data();
+
+    if ((SearchCommand<double>(inputCommandCount, inputCommand, "-X",
+                               bounding_box_size[0])) == 1) {
+      bounding_box_size[0] = 2.0;
+    }
+    if ((SearchCommand<double>(inputCommandCount, inputCommand, "-Y",
+                               bounding_box_size[1])) == 1) {
+      bounding_box_size[1] = 2.0;
+    }
+    if ((SearchCommand<double>(inputCommandCount, inputCommand, "-Z",
+                               bounding_box_size[2])) == 1) {
+      bounding_box_size[2] = 2.0;
+    }
+
+    for (int i = 0; i < 3; i++) {
+      bounding_box[0][i] = -bounding_box_size[i] / 2.0;
+      bounding_box[1][i] = bounding_box_size[i] / 2.0;
+    }
   } else {
     // default setup
     bounding_box_size[0] = 2.0;
@@ -238,13 +264,13 @@ void particle_geometry::init(const int _dim, const int _problem_type,
     bounding_box[1][1] = 1.0;
     bounding_box[0][2] = -1.0;
     bounding_box[1][2] = 1.0;
+  }
 
-    if (dim == 2) {
-      process_split(process_x, process_y, process_i, process_j, size, rank);
-    } else if (dim == 3) {
-      process_split(process_x, process_y, process_z, process_i, process_j,
-                    process_k, size, rank);
-    }
+  if (dim == 2) {
+    process_split(process_x, process_y, process_i, process_j, size, rank);
+  } else if (dim == 3) {
+    process_split(process_x, process_y, process_z, process_i, process_j,
+                  process_k, size, rank);
   }
 
   if (refinement_type == UNIFORM_REFINE) {
