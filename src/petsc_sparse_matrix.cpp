@@ -46,8 +46,8 @@ int petsc_sparse_matrix::write(string fileName) {
                  << it->second << endl;
         }
       }
+      output.close();
     }
-    output.close();
 
     MPI_Barrier(MPI_COMM_WORLD);
   }
@@ -1704,6 +1704,24 @@ PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y) {
 
   PetscReal *a, *b;
 
+  PetscReal pressure_sum = 0.0;
+  PetscReal average_pressure;
+
+  VecGetArray(x, &a);
+
+  pressure_sum = 0.0;
+  for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
+    pressure_sum += a[i * ctx->field_dof + ctx->pressure_offset];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  average_pressure = pressure_sum / ctx->global_fluid_particle_num;
+  for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
+    a[i * ctx->field_dof + ctx->pressure_offset] -= average_pressure;
+  }
+
+  VecRestoreArray(x, &a);
+
   VecGetArray(y, &a);
 
   MatMult(ctx->colloid_part, x, ctx->colloid_vec);
@@ -1721,13 +1739,13 @@ PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y) {
   for (int i = 0; i < ctx->fluid_local_size; i++)
     a[i] = b[i];
 
-  PetscReal pressure_sum = 0.0;
+  pressure_sum = 0.0;
   for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
     pressure_sum += a[i * ctx->field_dof + ctx->pressure_offset];
   }
   MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
-  PetscReal average_pressure = pressure_sum / ctx->global_fluid_particle_num;
+  average_pressure = pressure_sum / ctx->global_fluid_particle_num;
   for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
     a[i * ctx->field_dof + ctx->pressure_offset] -= average_pressure;
   }
