@@ -929,12 +929,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   PCSetType(_pc, PCMG);
 
   PCMGSetLevels(_pc, A_list.size(), NULL);
-  PCMGSetCycleType(_pc, PC_MG_CYCLE_W);
-
-  for (int i = 1; i < A_list.size(); i++) {
-    PCMGSetRestriction(_pc, i, getR(i - 1)->get_reference());
-    PCMGSetInterpolation(_pc, i, getI(i - 1)->get_reference());
-  }
+  PCMGSetCycleType(_pc, PC_MG_CYCLE_V);
 
   for (int i = 0; i < A_list.size(); i++) {
     PCMGSetOperators(_pc, i, A_list[i]->get_shell_reference(),
@@ -942,14 +937,72 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   }
 
   for (int i = 1; i < A_list.size(); i++) {
+    PCMGSetRestriction(_pc, i, getR(i - 1)->get_reference());
+    PCMGSetInterpolation(_pc, i, getI(i - 1)->get_reference());
+  }
+
+  KSP coarselevel_ksp;
+  PCMGGetCoarseSolve(_pc, &coarselevel_ksp);
+  KSPSetType(coarselevel_ksp, KSPRICHARDSON);
+  KSPSetTolerances(coarselevel_ksp, 1e-6, 1e-50, 1e10, 1);
+
+  PC coarselevel_pc;
+  KSPGetPC(coarselevel_ksp, &coarselevel_pc);
+  PCSetType(coarselevel_pc, PCFIELDSPLIT);
+  PCFieldSplitSetType(coarselevel_pc, PC_COMPOSITE_MULTIPLICATIVE);
+  PCFieldSplitSetIS(coarselevel_pc, "field_base",
+                    isg_field_list[0]->get_reference());
+  PCFieldSplitSetIS(coarselevel_pc, "colloid_base",
+                    isg_colloid_list[0]->get_reference());
+  PCSetUp(coarselevel_pc);
+
+  KSP *sub_ksp;
+
+  PCFieldSplitGetSubKSP(coarselevel_pc, &n, &sub_ksp);
+
+  PC coarselevel_pc_field;
+  KSPGetPC(sub_ksp[0], &coarselevel_pc_field);
+  KSPSetOperators(sub_ksp[0], ff_list[0]->get_reference(),
+                  ff_list[0]->get_reference());
+  KSPSetUp(sub_ksp[0]);
+  KSPSetType(sub_ksp[0], KSPRICHARDSON);
+  KSPSetTolerances(sub_ksp[0], 1e-6, 1e-50, 1e10, 1);
+  PCSetType(coarselevel_pc_field, PCSOR);
+  PCSetUp(coarselevel_pc_field);
+
+  PC coarselevel_pc_colloid;
+  if (num_rigid_body > 0) {
+    KSPGetPC(sub_ksp[1], &coarselevel_pc_colloid);
+    PCSetType(coarselevel_pc_colloid, PCLU);
+    PCSetUp(coarselevel_pc_colloid);
+  }
+
+  for (int i = 1; i < A_list.size(); i++) {
     KSP smoother_ksp;
     PCMGGetSmoother(_pc, i, &smoother_ksp);
-
     KSPSetType(smoother_ksp, KSPRICHARDSON);
+    KSPSetTolerances(smoother_ksp, 1e-6, 1e-50, 1e10, 1);
+
     PC smoother_pc;
     KSPGetPC(smoother_ksp, &smoother_pc);
-    PCSetType(smoother_pc, PCASM);
-    PCASMSetLocalType(smoother_pc, PC_COMPOSITE_MULTIPLICATIVE);
+    PCSetType(smoother_pc, PCFIELDSPLIT);
+    PCFieldSplitSetType(smoother_pc, PC_COMPOSITE_MULTIPLICATIVE);
+    PCFieldSplitSetIS(smoother_pc, "field", isg_field_list[i]->get_reference());
+    PCFieldSplitSetIS(smoother_pc, "colloid",
+                      isg_colloid_list[i]->get_reference());
+    PCSetUp(smoother_pc);
+
+    PCFieldSplitGetSubKSP(smoother_pc, &n, &sub_ksp);
+
+    PC field_pc;
+    KSPGetPC(sub_ksp[0], &field_pc);
+    KSPSetOperators(sub_ksp[0], ff_list[i]->get_reference(),
+                    ff_list[i]->get_reference());
+    KSPSetUp(sub_ksp[0]);
+    KSPSetType(sub_ksp[0], KSPRICHARDSON);
+    KSPSetTolerances(sub_ksp[0], 1e-6, 1e-50, 1e-10, 1);
+    PCSetType(field_pc, PCSOR);
+    PCSetUp(field_pc);
   }
 
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
@@ -967,6 +1020,12 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   KSPConvergedReason convergence_reason;
   KSPGetConvergedReason(_ksp, &convergence_reason);
+
+  MatMult(shell_mat, _x.get_reference(), residual);
+  VecAXPY(residual, -1.0, _rhs.get_reference());
+  VecNorm(residual, NORM_2, &residual_norm);
+  PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+              residual_norm / rhs_norm);
 
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
