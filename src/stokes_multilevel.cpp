@@ -926,28 +926,30 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   PC _pc;
 
   KSPGetPC(_ksp, &_pc);
-  PCSetType(_pc, PCSHELL);
+  PCSetType(_pc, PCMG);
 
-  HypreLUShellPC *shell_ctx;
-  HypreLUShellPCCreate(&shell_ctx);
-  if (A_list.size() == 1) {
-    PCShellSetApply(_pc, HypreLUShellPCApply);
-    PCShellSetContext(_pc, shell_ctx);
-    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+  PCMGSetLevels(_pc, A_list.size(), NULL);
+  PCMGSetCycleType(_pc, PC_MG_CYCLE_W);
 
-    HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
-                        field_dof);
-  } else {
-    MPI_Barrier(MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD,
-                "start of stokes_multilevel preconditioner setup\n");
+  for (int i = 1; i < A_list.size(); i++) {
+    PCMGSetRestriction(_pc, i, getR(i - 1)->get_reference());
+    PCMGSetInterpolation(_pc, i, getI(i - 1)->get_reference());
+  }
 
-    PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
-    PCShellSetContext(_pc, shell_ctx);
-    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+  for (int i = 0; i < A_list.size(); i++) {
+    PCMGSetOperators(_pc, i, A_list[i]->get_shell_reference(),
+                     A_list[i]->get_reference());
+  }
 
-    HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
-                        field_dof);
+  for (int i = 1; i < A_list.size(); i++) {
+    KSP smoother_ksp;
+    PCMGGetSmoother(_pc, i, &smoother_ksp);
+
+    KSPSetType(smoother_ksp, KSPRICHARDSON);
+    PC smoother_pc;
+    KSPGetPC(smoother_ksp, &smoother_pc);
+    PCSetType(smoother_pc, PCASM);
+    PCASMSetLocalType(smoother_pc, PC_COMPOSITE_MULTIPLICATIVE);
   }
 
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
