@@ -917,10 +917,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   PC coarselevel_pc;
   KSPGetPC(coarselevel_ksp, &coarselevel_pc);
   PCSetType(coarselevel_pc, PCFIELDSPLIT);
-  PCFieldSplitSetType(coarselevel_pc, PC_COMPOSITE_ADDITIVE);
+  PCFieldSplitSetType(coarselevel_pc, PC_COMPOSITE_MULTIPLICATIVE);
   PCFieldSplitSetIS(coarselevel_pc, "0", isg_field_list[0]->get_reference());
   PCFieldSplitSetIS(coarselevel_pc, "1", isg_colloid_list[0]->get_reference());
-  PCSetUp(coarselevel_pc);
 
   KSP *sub_ksp;
   PetscInt n;
@@ -945,6 +944,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PCSetType(coarselevel_pc_colloid, PCLU);
     PCSetUp(coarselevel_pc_colloid);
   }
+  PCSetUp(coarselevel_pc);
 
   for (int i = 1; i < A_list.size(); i++) {
     KSP smoother_ksp;
@@ -955,7 +955,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PC smoother_pc;
     KSPGetPC(smoother_ksp, &smoother_pc);
     PCSetType(smoother_pc, PCFIELDSPLIT);
-    PCFieldSplitSetType(smoother_pc, PC_COMPOSITE_ADDITIVE);
+    PCFieldSplitSetType(smoother_pc, PC_COMPOSITE_MULTIPLICATIVE);
     PCFieldSplitSetIS(smoother_pc, "0", isg_field_list[i]->get_reference());
     PCFieldSplitSetIS(smoother_pc, "1", isg_colloid_list[i]->get_reference());
     PCSetUp(smoother_pc);
