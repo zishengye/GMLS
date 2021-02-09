@@ -974,40 +974,43 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
     PC colloid_pc;
     if (num_rigid_body > 0) {
-      KSPSetType(sub_ksp[1], KSPRICHARDSON);
+      KSPSetType(sub_ksp[1], KSPPREONLY);
       KSPSetTolerances(sub_ksp[1], 1e-6, 1e-50, 1e10, 1);
       KSPGetPC(sub_ksp[1], &colloid_pc);
-      PCSetType(colloid_pc, PCFIELDSPLIT);
-      PCSetFromOptions(colloid_pc);
-      Vec diag;
+      PCSetType(colloid_pc, PCLU);
+      // PCSetFromOptions(colloid_pc);
+      // Vec diag;
 
-      Mat sub_ff, sub_fc, sub_cf, fc_s;
+      // Mat sub_ff, sub_fc, sub_cf, fc_s;
 
-      MatCreateSubMatrix(nn_list[i]->get_reference(), isg_colloid_sub_field,
-                         isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_ff);
-      MatCreateSubMatrix(nn_list[i]->get_reference(), isg_colloid_sub_field,
-                         isg_colloid_sub_colloid, MAT_INITIAL_MATRIX, &sub_fc);
-      MatCreateSubMatrix(nn_list[i]->get_reference(), isg_colloid_sub_colloid,
-                         isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_cf);
+      // MatCreateSubMatrix(nn_list[i]->get_reference(), isg_colloid_sub_field,
+      //                    isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_ff);
+      // MatCreateSubMatrix(nn_list[i]->get_reference(), isg_colloid_sub_field,
+      //                    isg_colloid_sub_colloid, MAT_INITIAL_MATRIX,
+      //                    &sub_fc);
+      // MatCreateSubMatrix(nn_list[i]->get_reference(),
+      // isg_colloid_sub_colloid,
+      //                    isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_cf);
 
-      MatCreateVecs(sub_ff, &diag, NULL);
-      MatGetDiagonal(sub_ff, diag);
-      VecReciprocal(diag);
-      MatDiagonalScale(sub_fc, diag, NULL);
-      MatMatMult(sub_cf, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
-      MatScale(fc_s, -1.0);
+      // MatCreateVecs(sub_ff, &diag, NULL);
+      // MatGetDiagonal(sub_ff, diag);
+      // VecReciprocal(diag);
+      // MatDiagonalScale(sub_fc, diag, NULL);
+      // MatMatMult(sub_cf, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
+      // MatScale(fc_s, -1.0);
 
-      PCFieldSplitSetIS(colloid_pc, "0", isg_colloid_sub_field);
-      PCFieldSplitSetIS(colloid_pc, "1", isg_colloid_sub_colloid);
+      // PCFieldSplitSetIS(colloid_pc, "0", isg_colloid_sub_field);
+      // PCFieldSplitSetIS(colloid_pc, "1", isg_colloid_sub_colloid);
 
-      PCFieldSplitSetSchurPre(colloid_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, fc_s);
+      // PCFieldSplitSetSchurPre(colloid_pc, PC_FIELDSPLIT_SCHUR_PRE_USER,
+      // fc_s);
       PCSetUp(colloid_pc);
 
-      KSP *fieldsplit_sub_ksp;
-      PCFieldSplitGetSubKSP(neighbor_relaxation_pc, &n, &fieldsplit_sub_ksp);
-      KSPSetOperators(fieldsplit_sub_ksp[1], fc_s, fc_s);
-      KSPSetFromOptions(fieldsplit_sub_ksp[0]);
-      PetscFree(fieldsplit_sub_ksp);
+      // KSP *fieldsplit_sub_ksp;
+      // PCFieldSplitGetSubKSP(colloid_pc, &n, &fieldsplit_sub_ksp);
+      // KSPSetOperators(fieldsplit_sub_ksp[1], fc_s, fc_s);
+      // KSPSetFromOptions(fieldsplit_sub_ksp[0]);
+      // PetscFree(fieldsplit_sub_ksp);
     }
   }
 
