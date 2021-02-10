@@ -911,13 +911,13 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   KSP coarselevel_ksp;
   PCMGGetCoarseSolve(_pc, &coarselevel_ksp);
-  KSPSetType(coarselevel_ksp, KSPRICHARDSON);
-  KSPSetTolerances(coarselevel_ksp, 1e-6, 1e-50, 1e10, 1);
+  KSPSetType(coarselevel_ksp, KSPGMRES);
+  KSPSetTolerances(coarselevel_ksp, 1e-20, 1e-50, 1e10, 1);
 
   PC coarselevel_pc;
   KSPGetPC(coarselevel_ksp, &coarselevel_pc);
   PCSetType(coarselevel_pc, PCFIELDSPLIT);
-  PCFieldSplitSetType(coarselevel_pc, PC_COMPOSITE_MULTIPLICATIVE);
+  PCFieldSplitSetType(coarselevel_pc, PC_COMPOSITE_ADDITIVE);
   PCFieldSplitSetIS(coarselevel_pc, "0", isg_field_list[0]->get_reference());
   PCFieldSplitSetIS(coarselevel_pc, "1", isg_colloid_list[0]->get_reference());
 
@@ -930,8 +930,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetOperators(sub_ksp[0], ff_list[0]->get_reference(),
                   ff_list[0]->get_reference());
   KSPSetUp(sub_ksp[0]);
-  KSPSetType(sub_ksp[0], KSPRICHARDSON);
-  KSPSetTolerances(sub_ksp[0], 1e-6, 1e-50, 1e10, SOR_Iteration);
+  KSPSetType(sub_ksp[0], KSPGMRES);
+  KSPSetTolerances(sub_ksp[0], 1e-20, 1e-50, 1e10, SOR_Iteration);
   PCSetType(coarselevel_pc_field, PCSOR);
   PCSetUp(coarselevel_pc_field);
 
@@ -949,13 +949,13 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   for (int i = 1; i < A_list.size(); i++) {
     KSP smoother_ksp;
     PCMGGetSmoother(_pc, i, &smoother_ksp);
-    KSPSetType(smoother_ksp, KSPRICHARDSON);
-    KSPSetTolerances(smoother_ksp, 1e-6, 1e-50, 1e10, 1);
+    KSPSetType(smoother_ksp, KSPGMRES);
+    KSPSetTolerances(smoother_ksp, 1e-20, 1e-50, 1e10, 1);
 
     PC smoother_pc;
     KSPGetPC(smoother_ksp, &smoother_pc);
     PCSetType(smoother_pc, PCFIELDSPLIT);
-    PCFieldSplitSetType(smoother_pc, PC_COMPOSITE_MULTIPLICATIVE);
+    PCFieldSplitSetType(smoother_pc, PC_COMPOSITE_ADDITIVE);
     PCFieldSplitSetIS(smoother_pc, "0", isg_field_list[i]->get_reference());
     PCFieldSplitSetIS(smoother_pc, "1", isg_colloid_list[i]->get_reference());
     PCSetUp(smoother_pc);
@@ -967,50 +967,47 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetOperators(sub_ksp[0], ff_list[i]->get_reference(),
                     ff_list[i]->get_reference());
     KSPSetUp(sub_ksp[0]);
-    KSPSetType(sub_ksp[0], KSPRICHARDSON);
-    KSPSetTolerances(sub_ksp[0], 1e-6, 1e-50, 1e-10, SOR_Iteration);
+    KSPSetType(sub_ksp[0], KSPGMRES);
+    KSPSetTolerances(sub_ksp[0], 1e-20, 1e-50, 1e10, SOR_Iteration);
     PCSetType(field_pc, PCSOR);
     PCSetUp(field_pc);
 
     PC colloid_pc;
     if (num_rigid_body > 0) {
       KSPSetType(sub_ksp[1], KSPPREONLY);
-      KSPSetTolerances(sub_ksp[1], 1e-6, 1e-50, 1e10, 1);
+      KSPSetTolerances(sub_ksp[1], 1e-20, 1e-50, 1e10, 1);
       KSPGetPC(sub_ksp[1], &colloid_pc);
-      PCSetType(colloid_pc, PCLU);
-      // PCSetFromOptions(colloid_pc);
-      // Vec diag;
+      PCSetType(colloid_pc, PCFIELDSPLIT);
+      PCSetFromOptions(colloid_pc);
+      Vec diag;
 
-      // Mat sub_ff, sub_fc, sub_cf, fc_s;
+      Mat sub_ff, sub_fc, sub_cf, fc_s;
 
-      // MatCreateSubMatrix(nn_list[i]->get_reference(), isg_colloid_sub_field,
-      //                    isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_ff);
-      // MatCreateSubMatrix(nn_list[i]->get_reference(), isg_colloid_sub_field,
-      //                    isg_colloid_sub_colloid, MAT_INITIAL_MATRIX,
-      //                    &sub_fc);
-      // MatCreateSubMatrix(nn_list[i]->get_reference(),
-      // isg_colloid_sub_colloid,
-      //                    isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_cf);
+      MatCreateSubMatrix(nn_list[i]->get_reference(), isg_colloid_sub_field,
+                         isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_ff);
+      MatCreateSubMatrix(nn_list[i]->get_reference(), isg_colloid_sub_field,
+                         isg_colloid_sub_colloid, MAT_INITIAL_MATRIX, &sub_fc);
+      MatCreateSubMatrix(nn_list[i]->get_reference(), isg_colloid_sub_colloid,
+                         isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_cf);
 
-      // MatCreateVecs(sub_ff, &diag, NULL);
-      // MatGetDiagonal(sub_ff, diag);
-      // VecReciprocal(diag);
-      // MatDiagonalScale(sub_fc, diag, NULL);
-      // MatMatMult(sub_cf, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
-      // MatScale(fc_s, -1.0);
+      MatCreateVecs(sub_ff, &diag, NULL);
+      MatGetDiagonal(sub_ff, diag);
+      VecReciprocal(diag);
+      MatDiagonalScale(sub_fc, diag, NULL);
+      MatMatMult(sub_cf, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
+      MatScale(fc_s, -1.0);
 
-      // PCFieldSplitSetIS(colloid_pc, "0", isg_colloid_sub_field);
-      // PCFieldSplitSetIS(colloid_pc, "1", isg_colloid_sub_colloid);
+      PCFieldSplitSetIS(colloid_pc, "0", isg_colloid_sub_field);
+      PCFieldSplitSetIS(colloid_pc, "1", isg_colloid_sub_colloid);
 
-      // PCFieldSplitSetSchurPre(colloid_pc, PC_FIELDSPLIT_SCHUR_PRE_USER,
-      // fc_s);
+      PCFieldSplitSetSchurPre(colloid_pc, PC_FIELDSPLIT_SCHUR_PRE_USER, fc_s);
       PCSetUp(colloid_pc);
 
-      // KSP *fieldsplit_sub_ksp;
-      // PCFieldSplitGetSubKSP(colloid_pc, &n, &fieldsplit_sub_ksp);
-      // KSPSetOperators(fieldsplit_sub_ksp[1], fc_s, fc_s);
-      // KSPSetFromOptions(fieldsplit_sub_ksp[0]);
-      // PetscFree(fieldsplit_sub_ksp);
+      KSP *fieldsplit_sub_ksp;
+      PCFieldSplitGetSubKSP(colloid_pc, &n, &fieldsplit_sub_ksp);
+      KSPSetOperators(fieldsplit_sub_ksp[1], fc_s, fc_s);
+      KSPSetFromOptions(fieldsplit_sub_ksp[0]);
+      PetscFree(fieldsplit_sub_ksp);
     }
   }
 
