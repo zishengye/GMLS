@@ -911,15 +911,16 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   KSP coarselevel_ksp;
   PCMGGetCoarseSolve(_pc, &coarselevel_ksp);
-  KSPSetType(coarselevel_ksp, KSPGMRES);
-  KSPSetTolerances(coarselevel_ksp, 1e-20, 1e-50, 1e10, 1);
 
   PC coarselevel_pc;
   KSPGetPC(coarselevel_ksp, &coarselevel_pc);
   PCSetType(coarselevel_pc, PCFIELDSPLIT);
   PCFieldSplitSetType(coarselevel_pc, PC_COMPOSITE_ADDITIVE);
   PCFieldSplitSetIS(coarselevel_pc, "0", isg_field_list[0]->get_reference());
-  PCFieldSplitSetIS(coarselevel_pc, "1", isg_colloid_list[0]->get_reference());
+  PetscPrintf(PETSC_COMM_WORLD, "num rigid body: %d\n", num_rigid_body);
+  if (num_rigid_body > 0)
+    PCFieldSplitSetIS(coarselevel_pc, "1",
+                      isg_colloid_list[0]->get_reference());
 
   KSP *sub_ksp;
   PetscInt n;
@@ -930,9 +931,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetOperators(sub_ksp[0], ff_list[0]->get_reference(),
                   ff_list[0]->get_reference());
   KSPSetUp(sub_ksp[0]);
-  KSPSetType(sub_ksp[0], KSPGMRES);
-  KSPSetTolerances(sub_ksp[0], 1e-20, 1e-50, 1e10, SOR_Iteration);
   PCSetType(coarselevel_pc_field, PCSOR);
+  PCSORSetIterations(coarselevel_pc_field, SOR_Iteration, 1);
   PCSetUp(coarselevel_pc_field);
 
   PC coarselevel_pc_colloid;
@@ -949,7 +949,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   for (int i = 1; i < A_list.size(); i++) {
     KSP smoother_ksp;
     PCMGGetSmoother(_pc, i, &smoother_ksp);
-    KSPSetType(smoother_ksp, KSPGMRES);
+    KSPSetType(smoother_ksp, KSPRICHARDSON);
     KSPSetTolerances(smoother_ksp, 1e-20, 1e-50, 1e10, 1);
 
     PC smoother_pc;
@@ -957,7 +957,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PCSetType(smoother_pc, PCFIELDSPLIT);
     PCFieldSplitSetType(smoother_pc, PC_COMPOSITE_ADDITIVE);
     PCFieldSplitSetIS(smoother_pc, "0", isg_field_list[i]->get_reference());
-    PCFieldSplitSetIS(smoother_pc, "1", isg_colloid_list[i]->get_reference());
+    if (num_rigid_body > 0)
+      PCFieldSplitSetIS(smoother_pc, "1", isg_colloid_list[i]->get_reference());
     PCSetUp(smoother_pc);
 
     PCFieldSplitGetSubKSP(smoother_pc, &n, &sub_ksp);
@@ -967,9 +968,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetOperators(sub_ksp[0], ff_list[i]->get_reference(),
                     ff_list[i]->get_reference());
     KSPSetUp(sub_ksp[0]);
-    KSPSetType(sub_ksp[0], KSPGMRES);
-    KSPSetTolerances(sub_ksp[0], 1e-20, 1e-50, 1e10, SOR_Iteration);
     PCSetType(field_pc, PCSOR);
+    PCSORSetIterations(field_pc, SOR_Iteration, 1);
     PCSetUp(field_pc);
 
     PC colloid_pc;
