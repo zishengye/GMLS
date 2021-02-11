@@ -931,8 +931,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetOperators(sub_ksp[0], ff_list[0]->get_reference(),
                   ff_list[0]->get_reference());
   KSPSetUp(sub_ksp[0]);
+  KSPSetType(sub_ksp[0], KSPRICHARDSON);
+  KSPSetTolerances(sub_ksp[0], 1e-20, 1e-50, 1e10, SOR_Iteration);
   PCSetType(coarselevel_pc_field, PCSOR);
-  PCSORSetIterations(coarselevel_pc_field, SOR_Iteration, 1);
   PCSetUp(coarselevel_pc_field);
 
   PC coarselevel_pc_colloid;
@@ -965,11 +966,12 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
     PC field_pc;
     KSPGetPC(sub_ksp[0], &field_pc);
+    KSPSetType(sub_ksp[0], KSPRICHARDSON);
+    KSPSetTolerances(sub_ksp[0], 1e-20, 1e-50, 1e10, SOR_Iteration);
     KSPSetOperators(sub_ksp[0], ff_list[i]->get_reference(),
                     ff_list[i]->get_reference());
     KSPSetUp(sub_ksp[0]);
     PCSetType(field_pc, PCSOR);
-    PCSORSetIterations(field_pc, SOR_Iteration, 1);
     PCSetUp(field_pc);
 
     PC colloid_pc;
