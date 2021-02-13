@@ -931,8 +931,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetOperators(sub_ksp[0], ff_list[0]->get_reference(),
                   ff_list[0]->get_reference());
   KSPSetUp(sub_ksp[0]);
-  KSPSetType(sub_ksp[0], KSPRICHARDSON);
-  KSPSetTolerances(sub_ksp[0], 1e-20, 1e-50, 1e10, SOR_Iteration);
+  KSPSetType(sub_ksp[0], KSPGMRES);
+  KSPSetTolerances(sub_ksp[0], 1e-2, 1e-50, 1e10, 100);
   PCSetType(coarselevel_pc_field, PCSOR);
   PCSetUp(coarselevel_pc_field);
 
