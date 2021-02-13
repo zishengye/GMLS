@@ -601,6 +601,9 @@ void stokes_multilevel::initial_guess_from_previous_adaptive_step(
   for (int i = 0; i < local_particle_num; i++) {
     initial_guess[i * field_dof + velocity_dof] -= average_pressure;
   }
+
+  VecDestroy(&x1);
+  VecDestroy(&x2);
 }
 
 int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
@@ -983,28 +986,23 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   MatNullSpaceDestroy(&nullspace_whole);
   MatNullSpaceDestroy(&nullspace_field);
 
+  VecDestroy(&diag);
+
+  MatDestroy(&sub_ff);
+  MatDestroy(&sub_fc);
+  MatDestroy(&sub_cf);
+  MatDestroy(&fc_s);
+
+  ISDestroy(&isg_colloid_sub_field);
+  ISDestroy(&isg_colloid_sub_colloid);
+
   return 0;
 }
 
 void stokes_multilevel::clear() {
   MPI_Barrier(MPI_COMM_WORLD);
 
-  if (base_level_initialized) {
-    ksp_field_base.reset();
-    ksp_colloid_base.reset();
-  }
-
   base_level_initialized = false;
-
-  x_pressure_list.clear();
-
-  isg_field_list.clear();
-  isg_colloid_list.clear();
-  isg_pressure_list.clear();
-
-  field_scatter_list.clear();
-  colloid_scatter_list.clear();
-  pressure_scatter_list.clear();
 
   A_list.clear();
   I_list.clear();
@@ -1013,6 +1011,10 @@ void stokes_multilevel::clear() {
   ff_list.clear();
   nn_list.clear();
   nw_list.clear();
+
+  isg_field_list.clear();
+  isg_colloid_list.clear();
+  isg_pressure_list.clear();
 
   x_list.clear();
   y_list.clear();
@@ -1031,6 +1033,23 @@ void stokes_multilevel::clear() {
   b_colloid_list.clear();
   r_colloid_list.clear();
   t_colloid_list.clear();
+
+  x_pressure_list.clear();
+
+  field_scatter_list.clear();
+  colloid_scatter_list.clear();
+  pressure_scatter_list.clear();
+
+  field_relaxation_list.clear();
+  colloid_relaxation_list.clear();
+
+  if (base_level_initialized) {
+    x_colloid.reset();
+    y_colloid.reset();
+
+    ksp_field_base.reset();
+    ksp_colloid_base.reset();
+  }
 
   current_refinement_level = -1;
 }
