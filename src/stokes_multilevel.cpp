@@ -103,7 +103,7 @@ void stokes_multilevel::build_interpolation_restriction(
         CreatePointCloudSearch(old_source_coords_host, dimension));
 
     int estimated_num_neighbor_max =
-        pow(2, dimension) * pow(2 * (_poly_order + 1.5), dimension);
+        pow(2, dimension) * pow(2 * (2 + 1.5), dimension);
 
     Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
         old_to_new_neighbor_lists_device("old to new neighbor lists",
@@ -125,7 +125,7 @@ void stokes_multilevel::build_interpolation_restriction(
     }
 
     auto neighbor_needed =
-        2.0 * Compadre::GMLS::getNP(_poly_order, dimension,
+        2.0 * Compadre::GMLS::getNP(2, dimension,
                                     DivergenceFreeVectorTaylorPolynomial);
     size_t actual_neighbor_max;
 
@@ -181,11 +181,11 @@ void stokes_multilevel::build_interpolation_restriction(
                       old_to_new_neighbor_lists_host);
     Kokkos::deep_copy(old_epsilon_device, old_epsilon_host);
 
-    GMLS old_to_new_pressure_basis(ScalarTaylorPolynomial, PointSample,
-                                   _poly_order, dimension, "SVD", "STANDARD");
+    GMLS old_to_new_pressure_basis(ScalarTaylorPolynomial, PointSample, 2,
+                                   dimension, "SVD", "STANDARD");
     GMLS old_to_new_velocity_basis(DivergenceFreeVectorTaylorPolynomial,
-                                   VectorPointSample, _poly_order, dimension,
-                                   "SVD", "STANDARD");
+                                   VectorPointSample, 2, dimension, "SVD",
+                                   "STANDARD");
 
     // old to new pressure field transition
     old_to_new_pressure_basis.setProblemData(
@@ -932,7 +932,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
                   ff_list[0]->get_reference());
   KSPSetUp(sub_ksp[0]);
   KSPSetType(sub_ksp[0], KSPGMRES);
-  KSPSetTolerances(sub_ksp[0], 1e-2, 1e-50, 1e10, 100);
+  KSPSetTolerances(sub_ksp[0], 1e-3, 1e-50, 1e10, 10);
   PCSetType(coarselevel_pc_field, PCSOR);
   PCSetUp(coarselevel_pc_field);
 
