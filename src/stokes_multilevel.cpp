@@ -933,25 +933,17 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   HypreLUShellPC *shell_ctx;
   HypreLUShellPCCreate(&shell_ctx);
-  if (A_list.size() == 1) {
-    PCShellSetApply(_pc, HypreLUShellPCApply);
-    PCShellSetContext(_pc, shell_ctx);
-    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
-                        field_dof);
-  } else {
-    MPI_Barrier(MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD,
-                "start of stokes_multilevel preconditioner setup\n");
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "start of stokes_multilevel preconditioner setup\n");
 
-    PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
-    PCShellSetContext(_pc, shell_ctx);
-    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+  PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
+  PCShellSetContext(_pc, shell_ctx);
+  PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
-    HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
-                        field_dof);
-  }
+  HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
+                      field_dof);
 
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   PetscReal residual_norm, rhs_norm;
