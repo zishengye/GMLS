@@ -842,6 +842,8 @@ void stokes_equation::build_coefficient_matrix() {
         A.increment(pressure_local_index, pressure_global_index, -Aij);
       }
     }
+    if (current_refinement_level == 0)
+      A.increment(pressure_local_index, pressure_global_index, 1e-6);
     // end of pressure block
   } // end of fluid particle loop
 
