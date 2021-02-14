@@ -949,7 +949,10 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   for (int i = 1; i < A_list.size(); i++) {
     KSP smoother_ksp;
     PCMGGetSmoother(_pc, i, &smoother_ksp);
-    KSPSetType(smoother_ksp, KSPRICHARDSON);
+    if (num_rigid_body == 0)
+      KSPSetType(smoother_ksp, KSPRICHARDSON);
+    else
+      KSPSetType(smoother_ksp, KSPGMRES);
     KSPSetTolerances(smoother_ksp, 1e-20, 1e-50, 1e10, 1);
 
     PC smoother_pc;
