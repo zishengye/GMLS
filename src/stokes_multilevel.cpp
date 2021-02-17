@@ -789,47 +789,47 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   MatNullSpace nullspace_whole;
   MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_whole,
                      &nullspace_whole);
-  MatSetNearNullSpace(mat, nullspace_whole);
+  // MatSetNearNullSpace(mat, nullspace_whole);
 
   Vec field_pressure;
-  VecGetSubVector(null_field, isg_pressure->get_reference(), &field_pressure);
-  VecSet(field_pressure, 1.0);
-  VecRestoreSubVector(null_field, isg_pressure->get_reference(),
-                      &field_pressure);
+  // VecGetSubVector(null_field, isg_pressure->get_reference(),
+  // &field_pressure); VecSet(field_pressure, 1.0);
+  // VecRestoreSubVector(null_field, isg_pressure->get_reference(),
+  //                     &field_pressure);
 
   MatNullSpace nullspace_field;
-  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_field,
-                     &nullspace_field);
-  MatSetNearNullSpace(ff, nullspace_field);
+  // MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_field,
+  //                    &nullspace_field);
+  // MatSetNearNullSpace(ff, nullspace_field);
 
   // neighbor vector scatter, only needed on base level
   if (refinement_step == 0) {
-    MatCreateVecs(nn, NULL, x_colloid->get_pointer());
-    MatCreateVecs(nn, NULL, y_colloid->get_pointer());
+    // MatCreateVecs(nn, NULL, x_colloid->get_pointer());
+    // MatCreateVecs(nn, NULL, y_colloid->get_pointer());
   }
 
   // setup preconditioner for base level
   if (refinement_step == 0) {
-    KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
-    KSPCreate(PETSC_COMM_WORLD, &ksp_colloid_base->get_reference());
+    // KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
+    // KSPCreate(PETSC_COMM_WORLD, &ksp_colloid_base->get_reference());
 
-    KSPSetOperators(ksp_field_base->get_reference(), ff, ff);
-    KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
+    // KSPSetOperators(ksp_field_base->get_reference(), ff, ff);
+    // KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
 
-    KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
-    KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
+    // KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
+    // KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
 
-    PC pc_field_base;
-    PC pc_neighbor_base;
+    // PC pc_field_base;
+    // PC pc_neighbor_base;
 
-    KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
-    PCSetType(pc_field_base, PCSOR);
-    PCSetFromOptions(pc_field_base);
-    PCSetUp(pc_field_base);
+    // KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
+    // PCSetType(pc_field_base, PCSOR);
+    // PCSetFromOptions(pc_field_base);
+    // PCSetUp(pc_field_base);
 
-    KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
-    PCSetType(pc_neighbor_base, PCLU);
-    PCSetUp(pc_neighbor_base);
+    // KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
+    // PCSetType(pc_neighbor_base, PCLU);
+    // PCSetUp(pc_neighbor_base);
     // PetscInt local_row, local_col;
     // MatGetLocalSize(nn, &local_row, &local_col);
     // if (local_row > 0) {
@@ -846,41 +846,43 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     //   KSPSetUp(bjacobi_ksp[0]);
     // }
 
-    KSPSetUp(ksp_field_base->get_reference());
-    KSPSetUp(ksp_colloid_base->get_reference());
+    // KSPSetUp(ksp_field_base->get_reference());
+    // KSPSetUp(ksp_colloid_base->get_reference());
   }
 
   // setup relaxation on field for current level
-  KSPCreate(MPI_COMM_WORLD,
-            field_relaxation_list[refinement_step]->get_pointer());
+  // KSPCreate(MPI_COMM_WORLD,
+  //           field_relaxation_list[refinement_step]->get_pointer());
 
-  KSPSetType(field_relaxation_list[refinement_step]->get_reference(),
-             KSPPREONLY);
-  KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
-                  ff);
+  // KSPSetType(field_relaxation_list[refinement_step]->get_reference(),
+  //            KSPPREONLY);
+  // KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(),
+  // ff,
+  //                 ff);
 
-  PC field_relaxation_pc;
-  KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
-           &field_relaxation_pc);
-  PCSetType(field_relaxation_pc, PCSOR);
-  // PCSetFromOptions(field_relaxation_pc);
-  PCSetUp(field_relaxation_pc);
+  // PC field_relaxation_pc;
+  // KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
+  //          &field_relaxation_pc);
+  // PCSetType(field_relaxation_pc, PCSOR);
+  // // PCSetFromOptions(field_relaxation_pc);
+  // PCSetUp(field_relaxation_pc);
 
-  KSPSetUp(field_relaxation_list[refinement_step]->get_reference());
+  // KSPSetUp(field_relaxation_list[refinement_step]->get_reference());
 
-  // setup relaxation on neighbor for current level
-  KSPCreate(MPI_COMM_WORLD,
-            colloid_relaxation_list[refinement_step]->get_pointer());
+  // // setup relaxation on neighbor for current level
+  // KSPCreate(MPI_COMM_WORLD,
+  //           colloid_relaxation_list[refinement_step]->get_pointer());
 
-  KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
-             KSPPREONLY);
-  KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(), nn,
-                  nn);
+  // KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
+  //            KSPPREONLY);
+  // KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
+  // nn,
+  //                 nn);
 
-  PC neighbor_relaxation_pc;
-  KSPGetPC(colloid_relaxation_list[refinement_step]->get_reference(),
-           &neighbor_relaxation_pc);
-  PCSetType(neighbor_relaxation_pc, PCFIELDSPLIT);
+  // PC neighbor_relaxation_pc;
+  // KSPGetPC(colloid_relaxation_list[refinement_step]->get_reference(),
+  //          &neighbor_relaxation_pc);
+  // PCSetType(neighbor_relaxation_pc, PCFIELDSPLIT);
 
   PetscInt SOR_Iteration = 2;
 
@@ -1051,8 +1053,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecDestroy(&null_whole);
 
   MatDestroy(&pp);
-  MatNullSpaceDestroy(&nullspace_whole);
-  MatNullSpaceDestroy(&nullspace_field);
+  // MatNullSpaceDestroy(&nullspace_whole);
+  // MatNullSpaceDestroy(&nullspace_field);
 
   return 0;
 }
