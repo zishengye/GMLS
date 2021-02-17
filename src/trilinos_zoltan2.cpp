@@ -9,7 +9,7 @@ void trilinos_rcp_partitioner::partition(vector<long long> &index,
   int local_particle_num = index.size();
 
   int disable_repartition = 0;
-  if (local_particle_num < 100) {
+  if (local_particle_num < 10) {
     disable_repartition = 1;
   }
   MPI_Allreduce(MPI_IN_PLACE, &disable_repartition, 1, MPI_INT, MPI_SUM,

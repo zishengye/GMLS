@@ -884,7 +884,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   //          &neighbor_relaxation_pc);
   // PCSetType(neighbor_relaxation_pc, PCFIELDSPLIT);
 
-  PetscInt SOR_Iteration = 2;
+  PetscInt SOR_Iteration = 5;
 
   Mat &shell_mat = (*(A_list.end() - 1))->get_shell_reference();
 
@@ -899,7 +899,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   PCSetType(_pc, PCMG);
 
   PCMGSetLevels(_pc, A_list.size(), NULL);
-  PCMGSetCycleType(_pc, PC_MG_CYCLE_W);
+  PCMGSetCycleType(_pc, PC_MG_CYCLE_V);
 
   for (int i = 0; i < A_list.size(); i++) {
     PCMGSetOperators(_pc, i, A_list[i]->get_shell_reference(),
@@ -915,6 +915,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   PCMGGetCoarseSolve(_pc, &coarselevel_ksp);
 
   PC coarselevel_pc;
+  KSPSetType(coarselevel_ksp, KSPPREONLY);
   KSPGetPC(coarselevel_ksp, &coarselevel_pc);
   PCSetType(coarselevel_pc, PCFIELDSPLIT);
   PCFieldSplitSetType(coarselevel_pc, PC_COMPOSITE_ADDITIVE);
@@ -971,11 +972,12 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PC field_pc;
     KSPGetPC(sub_ksp[0], &field_pc);
     KSPSetType(sub_ksp[0], KSPRICHARDSON);
-    KSPSetTolerances(sub_ksp[0], 1e-20, 1e-50, 1e10, SOR_Iteration);
+    KSPSetTolerances(sub_ksp[0], 1e-20, 1e-50, 1e10, 1);
     KSPSetOperators(sub_ksp[0], ff_list[i]->get_reference(),
                     ff_list[i]->get_reference());
     KSPSetUp(sub_ksp[0]);
     PCSetType(field_pc, PCSOR);
+    PCSORSetIterations(field_pc, SOR_Iteration, 1);
     PCSetUp(field_pc);
 
     PC colloid_pc;
