@@ -842,6 +842,11 @@ void stokes_equation::build_coefficient_matrix() {
         A.increment(pressure_local_index, pressure_global_index, -Aij);
       }
     }
+
+    if (current_refinement_level == 0) {
+      A.increment(pressure_local_index, pressure_global_index, 1e-6);
+    }
+
     // end of pressure block
   } // end of fluid particle loop
 
@@ -922,13 +927,13 @@ void stokes_equation::build_rhs() {
 
   auto neumann_neighbor_list = pressure_neumann_basis->getNeighborLists();
 
-  for (int i = 0; i < local_particle_num; i++) {
-    if (particle_type[i] != 0 && particle_type[i] < 4) {
-      double y = coord[i][1];
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   if (particle_type[i] != 0 && particle_type[i] < 4) {
+  //     double y = coord[i][1];
 
-      rhs[field_dof * i] = 0.1 * y;
-    }
-  }
+  //     rhs[field_dof * i] = 0.1 * y;
+  //   }
+  // }
 
   // for (int i = 0; i < local_particle_num; i++) {
   //   if (particle_type[i] != 0 && particle_type[i] < 4) {
@@ -1026,12 +1031,12 @@ void stokes_equation::build_rhs() {
   //     }
   //   }
   // }
-  // if (rank == size - 1) {
-  //   for (int i = 0; i < num_rigid_body; i++) {
-  //     rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof] =
-  //         pow(-1, i + 1);
-  //   }
-  // }
+  if (rank == size - 1) {
+    for (int i = 0; i < num_rigid_body; i++) {
+      rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof] =
+          pow(-1, i + 1);
+    }
+  }
 
   // make sure pressure term is orthogonal to the constant
   double rhs_pressure_sum = 0.0;

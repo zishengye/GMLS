@@ -789,22 +789,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
                 x_pressure_list[refinement_step]->get_reference(), null_whole,
                 INSERT_VALUES, SCATTER_REVERSE);
 
-  MatNullSpace nullspace_whole;
-  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_whole,
-                     &nullspace_whole);
-  MatSetNearNullSpace(mat, nullspace_whole);
-
-  Vec field_pressure;
-  VecGetSubVector(null_field, isg_pressure->get_reference(), &field_pressure);
-  VecSet(field_pressure, 1.0);
-  VecRestoreSubVector(null_field, isg_pressure->get_reference(),
-                      &field_pressure);
-
-  MatNullSpace nullspace_field;
-  MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &null_field,
-                     &nullspace_field);
-  MatSetNearNullSpace(ff, nullspace_field);
-
   // neighbor vector scatter, only needed on base level
   if (refinement_step == 0) {
     MatCreateVecs(nn, NULL, x_colloid->get_pointer());
@@ -826,7 +810,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PC pc_neighbor_base;
 
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
-    PCSetType(pc_field_base, PCSOR);
+    PCSetType(pc_field_base, PCLU);
     PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
 
@@ -858,15 +842,17 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
             field_relaxation_list[refinement_step]->get_pointer());
 
   KSPSetType(field_relaxation_list[refinement_step]->get_reference(),
-             KSPPREONLY);
+             KSPRICHARDSON);
   KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
                   ff);
+  KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
+                   1e-20, 1e-50, 1e10, 1);
 
   PC field_relaxation_pc;
   KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
            &field_relaxation_pc);
   PCSetType(field_relaxation_pc, PCSOR);
-  // PCSetFromOptions(field_relaxation_pc);
+  PCSetFromOptions(field_relaxation_pc);
   PCSetUp(field_relaxation_pc);
 
   KSPSetUp(field_relaxation_list[refinement_step]->get_reference());
@@ -975,8 +961,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecDestroy(&null_whole);
 
   MatDestroy(&pp);
-  MatNullSpaceDestroy(&nullspace_whole);
-  MatNullSpaceDestroy(&nullspace_field);
 
   VecDestroy(&diag);
 
