@@ -811,11 +811,12 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
     PCSetType(pc_field_base, PCLU);
-    PCSetFromOptions(pc_field_base);
+    PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
     PCSetUp(pc_field_base);
 
     KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
     PCSetType(pc_neighbor_base, PCLU);
+    PCFactorSetMatSolverType(pc_neighbor_base, MATSOLVERMUMPS);
     PCSetUp(pc_neighbor_base);
     // PetscInt local_row, local_col;
     // MatGetLocalSize(nn, &local_row, &local_col);
