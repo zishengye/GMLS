@@ -239,7 +239,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   double max_epsilon = geo_mgr->get_cutoff_distance();
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host(i) = spacing[i] + 1e-15;
+    epsilon_host(i) = spacing[i] + 1e-5;
   }
 
   MPI_Allreduce(MPI_IN_PLACE, &max_epsilon, 1, MPI_DOUBLE, MPI_MAX,
@@ -287,6 +287,12 @@ void stokes_equation::build_coefficient_matrix() {
       pass_neighbor_search = true;
     }
     ite_counter++;
+  }
+
+  for (int i = 0; i < local_particle_num; i++) {
+    if (epsilon_host(i) + 0.1 * spacing[i] < max_epsilon) {
+      epsilon_host(i) += 0.1 * spacing[i];
+    }
   }
 
   PetscPrintf(MPI_COMM_WORLD,
@@ -852,15 +858,6 @@ void stokes_equation::build_coefficient_matrix() {
 
   auto ff = multi_mgr->get_field_mat(current_refinement_level);
   A.assemble(*ff, field_dof, num_rigid_body, rigid_body_dof);
-
-  for (int i = 0; i < local_particle_num; i++) {
-    vec3 X = vec3(-1.9265152, 3.3990883, 0.0);
-    vec3 dX = X - coord[i];
-    if (dX.mag() < 0.4) {
-      cout << source_index[i] << ": " << particle_type[i] << ", " << coord[i][0]
-           << ", " << coord[i][1] << endl;
-    }
-  }
 
   // A.write(string("A" + to_string(current_refinement_level) + ".txt"));
 

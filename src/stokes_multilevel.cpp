@@ -173,6 +173,14 @@ void stokes_multilevel::build_interpolation_restriction(
       ite_counter++;
     }
 
+    for (int i = 0; i < coord.size(); i++) {
+      if ((old_epsilon_host[new_actual_index[i]] +
+           0.1 * spacing[new_actual_index[i]]) < max_epsilon) {
+        old_epsilon_host[new_actual_index[i]] +=
+            0.1 * spacing[new_actual_index[i]];
+      }
+    }
+
     PetscPrintf(PETSC_COMM_WORLD,
                 "iteration count: %d, min neighbor: %d, max neighbor: %d\n",
                 ite_counter, min_neighbor, max_neighbor);
