@@ -63,8 +63,6 @@ private:
 
   int dimension, num_rigid_body;
 
-  int field_dof, velocity_dof, pressure_dof;
-
   bool base_level_initialized;
 
   int current_refinement_level;
@@ -147,10 +145,12 @@ public:
 
   void clear();
 
-  void
-  initial_guess_from_previous_adaptive_step(std::vector<double> &initial_guess);
+  void initial_guess_from_previous_adaptive_step(
+      std::vector<double> &initial_guess, std::vector<vec3> &velocity,
+      std::vector<double> &pressure, std::vector<vec3> &rb_velocity,
+      std::vector<vec3> &rb_angular_velocity);
   void build_interpolation_restriction(const int _num_rigid_body,
-                                       const int _dim);
+                                       const int _dim, const int _poly_order);
 
   std::vector<matrix_type> &get_interpolation_list() { return I_list; }
   std::vector<matrix_type> &get_restriction_list() { return R_list; }

@@ -61,8 +61,10 @@ private:
 
   int current_refinement_level;
 
+  bool use_viewer;
+
 public:
-  stokes_equation() {}
+  stokes_equation() { use_viewer = false; }
 
   void init(std::shared_ptr<particle_geometry> _geo_mgr,
             std::shared_ptr<rigid_body_manager> _rb_mgr, const int _poly_order,
@@ -71,6 +73,8 @@ public:
             const double _epsilon_multiplier = 0.0, const double _eta = 1.0);
   void reset();
   void update();
+
+  void set_viewer() { use_viewer = true; }
 
   std::shared_ptr<Compadre::GMLS> get_pressure_basis() {
     return pressure_basis;
@@ -83,6 +87,8 @@ public:
   std::vector<vec3> &get_velocity() { return velocity; }
 
   std::vector<double> &get_pressure() { return pressure; }
+
+  std::vector<double> &get_epsilon() { return epsilon; }
 
   std::vector<std::vector<double>> &get_gradient() { return gradient; }
 

@@ -115,6 +115,21 @@ gmls_solver::gmls_solver(int argc, char **argv) {
     }
   }
 
+  int min_count, max_count, stride;
+  if (refinement_method == UNIFORM_REFINE) {
+    if ((SearchCommand<int>(argc, argv, "-MinCount", min_count)) == 1) {
+      min_count = 0;
+    }
+    if ((SearchCommand<int>(argc, argv, "-MaxCount", max_count)) == 1) {
+      max_count = 0;
+    }
+    if ((SearchCommand<int>(argc, argv, "-Stride", stride)) == 1) {
+      stride = 0;
+    }
+  } else {
+    stride = 0;
+  }
+
   // [optional command]
   if (SearchCommand<string>(argc, argv, "-rigid_body_input",
                             rigid_body_input_file_name) == 0) {
@@ -169,6 +184,12 @@ gmls_solver::gmls_solver(int argc, char **argv) {
     epsilon_multiplier = 0.0;
   }
 
+  string geometry_input_file_name;
+  if ((SearchCommand<string>(argc, argv, "-GeometryInput",
+                             geometry_input_file_name)) == 1) {
+    geometry_input_file_name = "";
+  }
+
   // [summary of problem setup]
 
   PetscPrintf(PETSC_COMM_WORLD, "===============================\n");
@@ -204,7 +225,9 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   geo_mgr = make_shared<particle_geometry>();
   rb_mgr = make_shared<rigid_body_manager>();
 
-  geo_mgr->init(dim, STANDARD_PROBLEM, refinement_method, spacing);
+  geo_mgr->init(dim, STANDARD_PROBLEM, refinement_method, spacing,
+                epsilon_multiplier, min_count, max_count, stride,
+                geometry_input_file_name);
   rb_mgr->init(rigid_body_input_file_name, dim);
   geo_mgr->init_rigid_body(rb_mgr);
 
@@ -224,4 +247,7 @@ gmls_solver::gmls_solver(int argc, char **argv) {
 
   equation_mgr->init(geo_mgr, rb_mgr, polynomial_order, dim, refinement_field,
                      epsilon_multiplier, eta);
+
+  if (use_viewer == 1)
+    equation_mgr->set_viewer();
 }

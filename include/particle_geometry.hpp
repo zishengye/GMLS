@@ -28,13 +28,14 @@ private:
 
   double spacing;
   double cutoff_multiplier;
-  double cutoff_distance;
+  double cutoff_distance, old_cutoff_distance;
 
   std::shared_ptr<rigid_body_manager> rb_mgr;
 
   // work domain
   vec_type current_local_work_particle_coord;
   vec_type current_local_work_particle_normal;
+  vec_type current_local_work_particle_p_spacing;
   real_type current_local_work_particle_spacing;
   real_type current_local_work_particle_volume;
   int_type current_local_work_particle_index;
@@ -42,6 +43,7 @@ private:
   int_type current_local_work_particle_adaptive_level;
   int_type current_local_work_particle_new_added;
   int_type current_local_work_particle_attached_rigid_body;
+  int_type current_local_work_particle_num_neighbor;
 
   vec_type last_local_work_particle_coord;
   vec_type last_local_work_particle_normal;
@@ -138,6 +140,8 @@ private:
   // mpi
   int rank, size;
 
+  int min_count, max_count, current_count, stride;
+
 public:
   particle_geometry()
       : dim(3), refinement_type(ADAPTIVE_REFINE),
@@ -150,7 +154,8 @@ public:
 
   void init(const int _dim, const int _problem_type = STANDARD_PROBLEM,
             const int _refinement_type = ADAPTIVE_REFINE, double _spacing = 0.1,
-            double _cutoff_multiplier = 3.0,
+            double _cutoff_multiplier = 3.0, const int _min_count = 0,
+            const int _max_count = 0, const int _stride = 0,
             std::string geometry_input_file_name = "");
   void init_rigid_body(std::shared_ptr<rigid_body_manager> mgr);
 
@@ -194,6 +199,10 @@ public:
     return current_local_work_particle_normal;
   }
 
+  vec_type get_current_work_particle_p_spacing() {
+    return current_local_work_particle_p_spacing;
+  }
+
   real_type get_current_work_particle_spacing() {
     return current_local_work_particle_spacing;
   }
@@ -220,6 +229,10 @@ public:
 
   int_type get_current_work_particle_attached_rigid_body() {
     return current_local_work_particle_attached_rigid_body;
+  }
+
+  int_type get_current_work_particle_num_neighbor() {
+    return current_local_work_particle_num_neighbor;
   }
 
   vec_type get_current_work_ghost_particle_coord() {
@@ -281,6 +294,22 @@ public:
   int_type get_llcl_particle_index() { return llcl_particle_index; }
 
   int_type get_llcl_particle_type() { return llcl_particle_type; }
+
+  vec_type get_local_gap_particle_coord() {
+    return local_managing_gap_particle_coord;
+  }
+
+  real_type get_local_gap_particle_spacing() {
+    return local_managing_gap_particle_spacing;
+  }
+
+  int_type get_local_gap_particle_adaptive_level() {
+    return local_managing_gap_particle_adaptive_level;
+  }
+
+  double get_cutoff_distance() { return cutoff_distance; }
+
+  double get_old_cutoff_distance() { return old_cutoff_distance; }
 
 protected:
   void init_domain_boundary();

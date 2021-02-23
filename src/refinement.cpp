@@ -20,12 +20,15 @@ bool gmls_solver::refinement() {
   double global_error = equation_mgr->get_estimated_error();
 
   PetscPrintf(PETSC_COMM_WORLD,
-              "Total error for gradient of velocity: %f, with tolerance: %f\n",
+              "Total error for gradient: %f, with tolerance: %f\n",
               global_error, refinement_tolerance);
 
   if (isnan(global_error) || global_error < refinement_tolerance) {
     return false;
   }
+
+  if (current_refinement_step >= max_refinement_level)
+    return false;
 
   vector<double> &error = equation_mgr->get_error();
 
@@ -106,7 +109,7 @@ bool gmls_solver::refinement() {
   }
 
   // prevent over splitting
-  vector<int> candidate_split_tag(split_tag), ghost_split_tag;
+  vector<int> candidate_split_tag, ghost_split_tag;
   geo_mgr->ghost_forward(split_tag, ghost_split_tag);
 
   auto &source_coord = *(geo_mgr->get_current_work_ghost_particle_coord());
@@ -146,37 +149,89 @@ bool gmls_solver::refinement() {
 
   auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
 
-  auto min_num_neighbor = Compadre::GMLS::getNP(
-      polynomial_order, dim, DivergenceFreeVectorTaylorPolynomial);
-
-  int estimated_max_num_neighbor =
-      pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);
-
-  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
-      "neighbor lists", num_target_coord, estimated_max_num_neighbor);
-  Kokkos::View<int **>::HostMirror neighbor_list_host =
-      Kokkos::create_mirror_view(neighbor_list_device);
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> temp_neighbor_list_device(
+      "temp neighbor lists", num_target_coord, 1);
+  Kokkos::View<int **>::HostMirror temp_neighbor_list_host =
+      Kokkos::create_mirror_view(temp_neighbor_list_device);
 
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
       "h supports", num_target_coord);
   Kokkos::View<double *>::HostMirror epsilon_host =
       Kokkos::create_mirror_view(epsilon_device);
 
+  auto &epsilon = equation_mgr->get_epsilon();
+
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host(i) = spacing[i] * epsilon_multiplier + 1e-15;
+    epsilon_host(i) = epsilon[i];
   }
 
-  point_cloud_search.generateNeighborListsFromRadiusSearch(
+  size_t max_num_neighbor =
+      point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+          true, target_coord_host, temp_neighbor_list_host, epsilon_host, 0.0,
+          0.0) +
+      2;
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
+      "neighbor lists", num_target_coord, max_num_neighbor);
+  Kokkos::View<int **>::HostMirror neighbor_list_host =
+      Kokkos::create_mirror_view(neighbor_list_device);
+
+  point_cloud_search.generate2DNeighborListsFromRadiusSearch(
       false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
 
+  int min_num_neighbor = Compadre::GMLS::getNP(
+      polynomial_order, dim, DivergenceFreeVectorTaylorPolynomial);
+
+  candidate_split_tag = split_tag;
   for (int i = 0; i < num_target_coord; i++) {
     if (candidate_split_tag[i] == 0) {
+      //
       for (int j = 0; j < neighbor_list_host(i, 0); j++) {
         int neighbor_index = neighbor_list_host(i, j + 1);
         if (ghost_split_tag[neighbor_index] == 1 &&
             source_adaptive_level[neighbor_index] - adaptive_level[i] > 0) {
           split_tag[i] = 1;
         }
+      }
+
+      //
+      int num_split = 0;
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        int neighbor_index = neighbor_list_host(i, j + 1);
+        if ((source_adaptive_level[neighbor_index] > adaptive_level[i]) ||
+            (ghost_split_tag[neighbor_index] == 1 &&
+             source_adaptive_level[neighbor_index] == adaptive_level[i])) {
+          num_split++;
+        }
+      }
+      if (num_split > 0.6 * (neighbor_list_host(i, 0) - 1))
+        split_tag[i] = 1;
+    }
+
+    if (candidate_split_tag[i] == 1) {
+      int num_split = 0;
+      int num_new_neighbor = pow(2, dim);
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        int neighbor_index = neighbor_list_host(i, j + 1);
+        vec3 dX = coord[i] - source_coord[neighbor_index];
+        if (dX.mag() < epsilon[i]) {
+          if (ghost_split_tag[neighbor_index] == 1)
+            num_new_neighbor += pow(2, dim);
+          else
+            num_new_neighbor++;
+          if (source_adaptive_level[neighbor_index] > adaptive_level[i] ||
+              (ghost_split_tag[neighbor_index] == 1 &&
+               source_adaptive_level[neighbor_index] == adaptive_level[i])) {
+            num_split++;
+          }
+        }
+      }
+      if (num_split == 1) {
+        // this is a single split point, there is no need to split it
+        split_tag[i] = 0;
+      } else if (num_new_neighbor < min_num_neighbor) {
+        // enlarge the split region to ensure necessary number of neighbors
+        // split_tag[i] = 0;
       }
     }
   }

@@ -7,8 +7,9 @@
 #include <string>
 #include <vector>
 
-bool GetInputFile(std::string inputFileName, std::vector<std::string> &strings,
-                  std::vector<char *> &cstrings) {
+static bool GetInputFile(std::string inputFileName,
+                         std::vector<std::string> &strings,
+                         std::vector<char *> &cstrings) {
   std::ifstream inputFile(inputFileName);
 
   if (inputFile.fail()) {
