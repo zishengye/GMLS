@@ -210,7 +210,7 @@ void stokes_equation::build_coefficient_matrix() {
       1.5 * Compadre::GMLS::getNP(poly_order, dim,
                                   DivergenceFreeVectorTaylorPolynomial);
   int satisfied_num_neighbor =
-      2.0 * Compadre::GMLS::getNP(poly_order, dim,
+      2.2 * Compadre::GMLS::getNP(poly_order, dim,
                                   DivergenceFreeVectorTaylorPolynomial);
 
   int estimated_max_num_neighbor =
