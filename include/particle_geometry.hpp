@@ -295,6 +295,18 @@ public:
 
   int_type get_llcl_particle_type() { return llcl_particle_type; }
 
+  vec_type get_local_gap_particle_coord() {
+    return local_managing_gap_particle_coord;
+  }
+
+  real_type get_local_gap_particle_spacing() {
+    return local_managing_gap_particle_spacing;
+  }
+
+  int_type get_local_gap_particle_adaptive_level() {
+    return local_managing_gap_particle_adaptive_level;
+  }
+
   double get_cutoff_distance() { return cutoff_distance; }
 
   double get_old_cutoff_distance() { return old_cutoff_distance; }

@@ -2356,19 +2356,33 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
 
   int estimated_num_neighbor_max = 2 * pow(2, dim);
 
-  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
-      "neighbor lists", num_target_coord, estimated_num_neighbor_max);
-  Kokkos::View<int **>::HostMirror neighbor_list_host =
-      Kokkos::create_mirror_view(neighbor_list_device);
-
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
       "h supports", num_target_coord);
   Kokkos::View<double *>::HostMirror epsilon_host =
       Kokkos::create_mirror_view(epsilon_device);
 
-  point_cloud_search.generate2DNeighborListsFromKNNSearch(
-      false, target_coord_host, neighbor_list_host, epsilon_host, pow(2, dim),
-      1.0);
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> temp_neighbor_list_device(
+      "temp neighbor lists", num_target_coord, 1);
+  Kokkos::View<int **>::HostMirror temp_neighbor_list_host =
+      Kokkos::create_mirror_view(temp_neighbor_list_device);
+
+  for (int i = 0; i < num_target_coord; i++) {
+    epsilon_host[i] = 1.5 * gap_spacing[i];
+  }
+
+  size_t max_num_neighbor =
+      point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+          true, target_coord_host, temp_neighbor_list_host, epsilon_host, 0.0,
+          0.0) +
+      2;
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
+      "neighbor lists", num_target_coord, max_num_neighbor);
+  Kokkos::View<int **>::HostMirror neighbor_list_host =
+      Kokkos::create_mirror_view(neighbor_list_device);
+
+  point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+      false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
 
   vector<int> gap_split_tag;
   gap_split_tag.resize(num_target_coord);
