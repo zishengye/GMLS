@@ -25,12 +25,16 @@ int petsc_sparse_matrix::write(string fileName) {
   }
 
   int send_count = __row;
-  vector<int> recv_count(MPIsize);
+  vector<int> recv_count;
+  recv_count.resize(MPIsize);
+
+  MPI_Barrier(MPI_COMM_WORLD);
 
   MPI_Allgather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
                 MPI_COMM_WORLD);
 
-  vector<int> displs(MPIsize + 1);
+  vector<int> displs;
+  displs.resize(MPIsize + 1);
   displs[0] = 0;
   for (int i = 1; i <= MPIsize; i++) {
     displs[i] = displs[i - 1] + recv_count[i - 1];
@@ -51,6 +55,8 @@ int petsc_sparse_matrix::write(string fileName) {
 
     MPI_Barrier(MPI_COMM_WORLD);
   }
+
+  return 0;
 }
 
 int petsc_sparse_matrix::assemble() {

@@ -853,6 +853,17 @@ void stokes_equation::build_coefficient_matrix() {
   auto ff = multi_mgr->get_field_mat(current_refinement_level);
   A.assemble(*ff, field_dof, num_rigid_body, rigid_body_dof);
 
+  for (int i = 0; i < local_particle_num; i++) {
+    vec3 X = vec3(-1.9265152, 3.3990883, 0.0);
+    vec3 dX = X - coord[i];
+    if (dX.mag() < 0.4) {
+      cout << source_index[i] << ": " << particle_type[i] << ", " << coord[i][0]
+           << ", " << coord[i][1] << endl;
+    }
+  }
+
+  // A.write(string("A" + to_string(current_refinement_level) + ".txt"));
+
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "Matrix assembly duration: %fs\n",
