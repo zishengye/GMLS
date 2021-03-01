@@ -155,6 +155,10 @@ public:
   inline void out_process_increment(const PetscInt i, const PetscInt j,
                                     double daij);
 
+  inline double get_entity(const PetscInt i, const PetscInt j);
+
+  inline void invert_row(const PetscInt i);
+
   int write(std::string filename);
 
   int assemble();
@@ -264,6 +268,26 @@ void petsc_sparse_matrix::out_process_increment(const PetscInt i,
     else
       std::cout << in << ' ' << j << " out process increament misplacement"
                 << std::endl;
+  }
+}
+
+double petsc_sparse_matrix::get_entity(const PetscInt i, const PetscInt j) {
+  auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(), entry(j, 0.0),
+                        compare_index);
+  if (j > __Col) {
+    std::cout << i << ' ' << j << " wrong matrix index access" << std::endl;
+    return 0.0;
+  }
+
+  if (it->first == j)
+    return it->second;
+  else
+    return 0.0;
+}
+
+void petsc_sparse_matrix::invert_row(const PetscInt i) {
+  for (auto it = __matrix[i].begin(); it != __matrix[i].end(); it++) {
+    it->second = -it->second;
   }
 }
 

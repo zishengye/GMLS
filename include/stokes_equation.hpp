@@ -46,6 +46,8 @@ private:
   std::vector<vec3> velocity;
   std::vector<double> pressure;
 
+  std::vector<int> invert_row_index;
+
   std::vector<std::vector<double>> gradient;
   int gradient_component_num;
 

@@ -4,9 +4,15 @@
 #include "petsc_sparse_matrix.hpp"
 
 #include <iomanip>
+#include <utility>
 
 using namespace std;
 using namespace Compadre;
+
+bool compare(const std::pair<int, double> &firstElem,
+             const std::pair<int, double> &secondElem) {
+  return firstElem.second > secondElem.second;
+}
 
 double Wab(double r, double h) {
   int p = 4;
@@ -289,11 +295,11 @@ void stokes_equation::build_coefficient_matrix() {
     ite_counter++;
   }
 
-  for (int i = 0; i < local_particle_num; i++) {
-    if (epsilon_host(i) + 0.1 * spacing[i] < max_epsilon) {
-      epsilon_host(i) += 0.1 * spacing[i];
-    }
-  }
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   if (epsilon_host(i) + 0.1 * spacing[i] < max_epsilon) {
+  //     epsilon_host(i) += 0.2 * spacing[i];
+  //   }
+  // }
 
   PetscPrintf(MPI_COMM_WORLD,
               "iteration counter: %d min neighbor: %d, max neighbor: %d \n",
@@ -856,10 +862,129 @@ void stokes_equation::build_coefficient_matrix() {
     // end of pressure block
   } // end of fluid particle loop
 
+  // stabilize the coefficient matrix
+  // invert_row_index.clear();
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   const int current_particle_local_index = i;
+  //   const int current_particle_global_index = source_index[i];
+
+  //   const int pressure_local_index =
+  //       current_particle_local_index * field_dof + velocity_dof;
+  //   const int pressure_global_index =
+  //       current_particle_global_index * field_dof + velocity_dof;
+
+  //   if (A.get_entity(pressure_local_index, pressure_global_index) < 0.0) {
+  //     cout << pressure_global_index << endl;
+  //     A.invert_row(pressure_local_index);
+  //     invert_row_index.push_back(pressure_local_index);
+  //   }
+  // }
+
   auto ff = multi_mgr->get_field_mat(current_refinement_level);
   A.assemble(*ff, field_dof, num_rigid_body, rigid_body_dof);
 
-  // A.write(string("A" + to_string(current_refinement_level) + ".txt"));
+  A.write(string("A" + to_string(current_refinement_level) + ".txt"));
+
+  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> sampling_data(
+      "background pressure", source_index.size());
+
+  for (int i = 0; i < source_index.size(); i++) {
+    double x = source_coord[i][0];
+    double y = source_coord[i][1];
+
+    sampling_data[i] = x * x * x + x * x * y + x * y * y + y * y * y;
+  }
+
+  Evaluator pressure_evaluator(pressure_basis.get());
+
+  auto laplacian =
+      pressure_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
+          double *, Kokkos::HostSpace>(
+          sampling_data, DivergenceOfVectorPointEvaluation, PointSample);
+
+  for (int i = 0; i < local_particle_num; i++) {
+    double x = source_coord[i][0];
+    double y = source_coord[i][1];
+
+    double trueSolution = 8 * (x + y);
+    if (abs(laplacian(i) - trueSolution) > 1e-3) {
+      // cout << "wrong laplacian estimation at " << source_index[i] << endl;
+    }
+  }
+
+  for (int i = 0; i < local_particle_num; i++) {
+    vec3 dX1 = coord[i] - vec3(0.165, 0.115, 0.0);
+
+    if (dX1.mag() < 1e-3) {
+      cout << source_index[i] << endl;
+
+      vector<double> row_component;
+      row_component.resize(neighbor_list_host(i, 0));
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        row_component[j] = 0.0;
+      }
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        auto alpha_index =
+            pressure_basis->getAlphaIndexHost(i, pressure_laplacian_index);
+        const double Aij = pressure_alpha(alpha_index + j);
+
+        // laplacian p
+        row_component[j] += Aij;
+        row_component[0] -= Aij;
+      }
+      double numericalLaplacian = 0.0;
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        double x = source_coord[neighbor_list_host(i, j + 1)][0];
+        double y = source_coord[neighbor_list_host(i, j + 1)][1];
+
+        double trueSolution = x * x * x + x * x * y + x * y * y + y * y * y;
+
+        numericalLaplacian += trueSolution * row_component[j];
+      }
+
+      cout << numericalLaplacian << ' ' << row_component[0] << endl;
+    }
+  }
+
+  vector<pair<int, double>> ordered_neighbor;
+  for (int i = 0; i < local_particle_num; i++) {
+    vec3 dX1 = coord[i] - vec3(0.165, 0.115, 0.0);
+
+    if (dX1.mag() < 1e-3) {
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        int neighbor_index = neighbor_list_host(i, j + 1);
+        vec3 dX = coord[i] - source_coord[neighbor_index];
+        pair<int, double> to_add = pair<int, double>(neighbor_index, dX.mag());
+        ordered_neighbor.push_back(to_add);
+      }
+    }
+  }
+
+  sort(ordered_neighbor.begin(), ordered_neighbor.end(), compare);
+  for (auto j = ordered_neighbor.begin(); j != ordered_neighbor.end(); j++) {
+    int neighbor_index = j->first;
+    vec3 dX = vec3(0.165, 0.115, 0.0) - source_coord[neighbor_index];
+    cout << source_index[neighbor_index] << ", "
+         << source_coord[neighbor_index][0] << ", "
+         << source_coord[neighbor_index][1] << " "
+         << source_coord[neighbor_index].mag() << " " << dX.mag() << endl;
+  }
+
+  int count_num = 0;
+  for (int i = 0; i < local_particle_num; i++) {
+    int no_outliner = 0;
+    for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+      int neighbor_index = neighbor_list_host(i, j + 1);
+      vec3 mid_point = (coord[i] + source_coord[neighbor_index]) * 0.5;
+      if (mid_point.mag() < 0.2) {
+        no_outliner = 1;
+      }
+    }
+    if (no_outliner != 0 && particle_type[i] == 0)
+      count_num++;
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &count_num, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "counter: %d\n", count_num);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
@@ -1053,6 +1178,10 @@ void stokes_equation::build_rhs() {
   rhs_pressure_sum /= global_particle_num;
   for (int i = 0; i < local_particle_num; i++) {
     rhs[field_dof * i + velocity_dof] -= rhs_pressure_sum;
+  }
+
+  for (int i = 0; i < invert_row_index.size(); i++) {
+    rhs[invert_row_index[i]] = -rhs[invert_row_index[i]];
   }
 
   // for (int i = 0; i < local_particle_num; i++) {
@@ -1428,7 +1557,8 @@ void stokes_equation::check_solution() {
       //                   pow(true_velocity[2] - velocity[i][2], 2);
       // error_pressure += pow(true_pressure - pressure[i], 2);
 
-      // norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2) +
+      // norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2)
+      // +
       //                  pow(true_velocity[2], 2);
       // norm_pressure += pow(true_pressure, 2);
     }
@@ -1914,7 +2044,8 @@ void stokes_equation::calculate_error() {
   //   for (int i = 0; i < local_particle_num; i++) {
   //     error[i] = 0.0;
   //     double total_neighbor_vol = 0.0;
-  //     for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
+  //     for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++)
+  //     {
   //       const int neighbor_index = neighbor_list->getNeighborHost(i, j);
 
   //       vec3 dX = source_coord[neighbor_index] - coord[i];
