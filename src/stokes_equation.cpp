@@ -11,7 +11,7 @@ using namespace Compadre;
 
 bool compare(const std::pair<int, double> &firstElem,
              const std::pair<int, double> &secondElem) {
-  return firstElem.second > secondElem.second;
+  return firstElem.second < secondElem.second;
 }
 
 double Wab(double r, double h) {
@@ -96,16 +96,23 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_basis.reset();
   velocity_basis.reset();
   pressure_neumann_basis.reset();
+  normal_pressure_basis.reset();
+  normal_pressure_neumann_basis.reset();
 
   pressure_basis = make_shared<GMLS>(
       ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
-      poly_order, dim, "SVD", "STANDARD");
+      poly_order - 1, dim, "SVD", "STANDARD");
   velocity_basis =
       make_shared<GMLS>(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
                         poly_order, dim, "SVD", "STANDARD");
   pressure_neumann_basis = make_shared<GMLS>(
       ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
-      poly_order, dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
+      poly_order - 1, dim, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR");
+  normal_pressure_basis = make_shared<GMLS>(ScalarTaylorPolynomial, PointSample,
+                                            poly_order, dim, "LU", "STANDARD");
+  normal_pressure_neumann_basis =
+      make_shared<GMLS>(ScalarTaylorPolynomial, PointSample, poly_order, dim,
+                        "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
 
   vector<vec3> &rigid_body_position = rb_mgr->get_position();
   const int num_rigid_body = rb_mgr->get_rigid_body_num();
@@ -212,11 +219,10 @@ void stokes_equation::build_coefficient_matrix() {
   auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
 
   int min_num_neighbor =
-      1.5 * Compadre::GMLS::getNP(poly_order, dim,
-                                  DivergenceFreeVectorTaylorPolynomial);
-  int satisfied_num_neighbor =
-      2.0 * Compadre::GMLS::getNP(poly_order, dim,
-                                  DivergenceFreeVectorTaylorPolynomial);
+      max(Compadre::GMLS::getNP(poly_order, dim,
+                                DivergenceFreeVectorTaylorPolynomial),
+          Compadre::GMLS::getNP(poly_order + 1, dim));
+  int satisfied_num_neighbor = 2.0 * min_num_neighbor;
 
   int estimated_max_num_neighbor =
       pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);
@@ -340,7 +346,7 @@ void stokes_equation::build_coefficient_matrix() {
                                  target_coord_device, epsilon_device);
 
   vector<TargetOperation> pressure_operation(3);
-  pressure_operation[0] = DivergenceOfVectorPointEvaluation;
+  pressure_operation[0] = LaplacianOfScalarPointEvaluation;
   pressure_operation[1] = GradientOfScalarPointEvaluation;
   pressure_operation[2] = ScalarPointEvaluation;
 
@@ -348,7 +354,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_basis->addTargets(pressure_operation);
 
   pressure_basis->setWeightingType(WeightingFunctionType::Power);
-  pressure_basis->setWeightingPower(4);
+  pressure_basis->setWeightingPower(8);
   pressure_basis->setOrderOfQuadraturePoints(2);
   pressure_basis->setDimensionOfQuadraturePoints(1);
   pressure_basis->setQuadratureType("LINE");
@@ -410,7 +416,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_neumann_basis->setTangentBundle(tangent_bundle_device);
 
   vector<TargetOperation> pressure_neumann_operation(3);
-  pressure_neumann_operation[0] = DivergenceOfVectorPointEvaluation;
+  pressure_neumann_operation[0] = LaplacianOfScalarPointEvaluation;
   pressure_neumann_operation[1] = GradientOfScalarPointEvaluation;
   pressure_neumann_operation[2] = ScalarPointEvaluation;
 
@@ -418,7 +424,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_neumann_basis->addTargets(pressure_neumann_operation);
 
   pressure_neumann_basis->setWeightingType(WeightingFunctionType::Power);
-  pressure_neumann_basis->setWeightingPower(4);
+  pressure_neumann_basis->setWeightingPower(8);
   pressure_neumann_basis->setOrderOfQuadraturePoints(2);
   pressure_neumann_basis->setDimensionOfQuadraturePoints(1);
   pressure_neumann_basis->setQuadratureType("LINE");
@@ -430,6 +436,48 @@ void stokes_equation::build_coefficient_matrix() {
   const int pressure_neumann_laplacian_index =
       pressure_neumann_basis->getAlphaColumnOffset(
           pressure_neumann_operation[0], 0, 0, 0, 0);
+
+  // normal pressure basis
+  normal_pressure_basis->setProblemData(neighbor_list_device,
+                                        source_coord_device,
+                                        target_coord_device, epsilon_device);
+
+  vector<TargetOperation> normal_pressure_operation(2);
+  normal_pressure_operation[0] = GradientOfScalarPointEvaluation;
+  normal_pressure_operation[1] = ScalarPointEvaluation;
+
+  normal_pressure_basis->clearTargets();
+  normal_pressure_basis->addTargets(normal_pressure_operation);
+
+  normal_pressure_basis->setWeightingType(WeightingFunctionType::Power);
+  normal_pressure_basis->setWeightingPower(4);
+  normal_pressure_basis->setOrderOfQuadraturePoints(2);
+  normal_pressure_basis->setDimensionOfQuadraturePoints(1);
+  normal_pressure_basis->setQuadratureType("LINE");
+
+  normal_pressure_basis->generateAlphas(number_of_batches, true);
+
+  // normal pressure Neumann boundary basis
+  normal_pressure_neumann_basis->setProblemData(
+      neumann_neighbor_list_device, source_coord_device,
+      neumann_target_coord_device, neumann_epsilon_device);
+
+  normal_pressure_neumann_basis->setTangentBundle(tangent_bundle_device);
+
+  vector<TargetOperation> normal_pressure_neumann_operation(2);
+  normal_pressure_neumann_operation[0] = GradientOfScalarPointEvaluation;
+  normal_pressure_neumann_operation[1] = ScalarPointEvaluation;
+
+  normal_pressure_neumann_basis->clearTargets();
+  normal_pressure_neumann_basis->addTargets(pressure_neumann_operation);
+
+  normal_pressure_neumann_basis->setWeightingType(WeightingFunctionType::Power);
+  normal_pressure_neumann_basis->setWeightingPower(4);
+  normal_pressure_neumann_basis->setOrderOfQuadraturePoints(2);
+  normal_pressure_neumann_basis->setDimensionOfQuadraturePoints(1);
+  normal_pressure_neumann_basis->setQuadratureType("LINE");
+
+  normal_pressure_neumann_basis->generateAlphas(number_of_batches, true);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
@@ -779,7 +827,7 @@ void stokes_equation::build_coefficient_matrix() {
     if (particle_type[i] != 0) {
       const int neumann_index = neumann_map[i];
       const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-          DivergenceOfVectorPointEvaluation, neumann_index,
+          LaplacianOfScalarPointEvaluation, neumann_index,
           neumann_neighbor_list_host(neumann_index, 0));
 
       for (int j = 0; j < neumann_neighbor_list_host(neumann_index, 0); j++) {
@@ -864,127 +912,136 @@ void stokes_equation::build_coefficient_matrix() {
 
   // stabilize the coefficient matrix
   // invert_row_index.clear();
-  // for (int i = 0; i < local_particle_num; i++) {
-  //   const int current_particle_local_index = i;
-  //   const int current_particle_global_index = source_index[i];
+  for (int i = 0; i < local_particle_num; i++) {
+    const int current_particle_local_index = i;
+    const int current_particle_global_index = source_index[i];
 
-  //   const int pressure_local_index =
-  //       current_particle_local_index * field_dof + velocity_dof;
-  //   const int pressure_global_index =
-  //       current_particle_global_index * field_dof + velocity_dof;
+    for (int j = 0; j < field_dof; j++) {
+      const int local_index = current_particle_local_index * field_dof + j;
+      const int global_index = current_particle_global_index * field_dof + j;
 
-  //   if (A.get_entity(pressure_local_index, pressure_global_index) < 0.0) {
-  //     cout << pressure_global_index << endl;
-  //     A.invert_row(pressure_local_index);
-  //     invert_row_index.push_back(pressure_local_index);
-  //   }
-  // }
+      if (A.get_entity(local_index, global_index) < 0.0) {
+        cout << current_particle_global_index << ' ' << j << endl;
+      }
+    }
+  }
 
   auto ff = multi_mgr->get_field_mat(current_refinement_level);
   A.assemble(*ff, field_dof, num_rigid_body, rigid_body_dof);
 
-  A.write(string("A" + to_string(current_refinement_level) + ".txt"));
+  // A.write(string("A" + to_string(current_refinement_level) + ".txt"));
 
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> sampling_data(
       "background pressure", source_index.size());
 
-  for (int i = 0; i < source_index.size(); i++) {
-    double x = source_coord[i][0];
-    double y = source_coord[i][1];
-
-    sampling_data[i] = x * x * x + x * x * y + x * y * y + y * y * y;
-  }
-
-  Evaluator pressure_evaluator(pressure_basis.get());
-
-  auto laplacian =
-      pressure_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
-          double *, Kokkos::HostSpace>(
-          sampling_data, DivergenceOfVectorPointEvaluation, PointSample);
-
+  double error = 0.0;
+  double global_norm = 0.0;
   for (int i = 0; i < local_particle_num; i++) {
-    double x = source_coord[i][0];
-    double y = source_coord[i][1];
-
-    double trueSolution = 8 * (x + y);
-    if (abs(laplacian(i) - trueSolution) > 1e-3) {
-      // cout << "wrong laplacian estimation at " << source_index[i] << endl;
+    vector<double> row_component;
+    row_component.resize(neighbor_list_host(i, 0));
+    for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+      row_component[j] = 0.0;
     }
-  }
+    for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+      auto alpha_index =
+          pressure_basis->getAlphaIndexHost(i, pressure_laplacian_index);
+      const double Aij = pressure_alpha(alpha_index + j);
 
-  for (int i = 0; i < local_particle_num; i++) {
-    vec3 dX1 = coord[i] - vec3(0.165, 0.115, 0.0);
+      // laplacian p
+      row_component[j] += Aij;
+      row_component[0] -= Aij;
+    }
+    double numericalLaplacian = 0.0;
+    for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+      double x = source_coord[neighbor_list_host(i, j + 1)][0];
+      double y = source_coord[neighbor_list_host(i, j + 1)][1];
 
-    if (dX1.mag() < 1e-3) {
-      cout << source_index[i] << endl;
+      double trueSolution = cos(2 * M_PI * x) + cos(2 * M_PI * y);
 
-      vector<double> row_component;
-      row_component.resize(neighbor_list_host(i, 0));
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        row_component[j] = 0.0;
-      }
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        auto alpha_index =
-            pressure_basis->getAlphaIndexHost(i, pressure_laplacian_index);
-        const double Aij = pressure_alpha(alpha_index + j);
+      numericalLaplacian += trueSolution * row_component[j];
+    }
 
-        // laplacian p
-        row_component[j] += Aij;
-        row_component[0] -= Aij;
-      }
-      double numericalLaplacian = 0.0;
+    double x = coord[i][0];
+    double y = coord[i][1];
+
+    double trueLaplacianSolution =
+        4 * M_PI * M_PI * (cos(2 * M_PI * x) + cos(2 * M_PI * y));
+
+    global_norm += pow(trueLaplacianSolution, 2.0);
+    error += pow(numericalLaplacian - trueLaplacianSolution, 2.0);
+    // if (particle_type[i] == 0) {
+    // if (abs(numericalLaplacian - trueLaplacianSolution) >
+    //     max(0.01 * abs(trueLaplacianSolution), 1e-3)) {
+    //   cout << "wrong laplacian estimation at " << source_index[i] << " ("
+    //        << numericalLaplacian << ", " << trueLaplacianSolution << ")"
+    //        << endl;
+    // }
+
+    if (row_component[0] < 0.0 && particle_type[i] == 0) {
+      cout << source_index[i] << " " << particle_type[i] << " "
+           << row_component[0] << " (" << coord[i][0] << ", " << coord[i][1]
+           << ")" << endl;
+
+      cout << epsilon[i] << endl;
+
       for (int j = 0; j < neighbor_list_host(i, 0); j++) {
         double x = source_coord[neighbor_list_host(i, j + 1)][0];
         double y = source_coord[neighbor_list_host(i, j + 1)][1];
 
-        double trueSolution = x * x * x + x * x * y + x * y * y + y * y * y;
+        vec3 dX = source_coord[neighbor_list_host(i, j + 1)] - coord[i];
 
-        numericalLaplacian += trueSolution * row_component[j];
-      }
-
-      cout << numericalLaplacian << ' ' << row_component[0] << endl;
-    }
-  }
-
-  vector<pair<int, double>> ordered_neighbor;
-  for (int i = 0; i < local_particle_num; i++) {
-    vec3 dX1 = coord[i] - vec3(0.165, 0.115, 0.0);
-
-    if (dX1.mag() < 1e-3) {
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        int neighbor_index = neighbor_list_host(i, j + 1);
-        vec3 dX = coord[i] - source_coord[neighbor_index];
-        pair<int, double> to_add = pair<int, double>(neighbor_index, dX.mag());
-        ordered_neighbor.push_back(to_add);
+        cout << "\t" << x << ", " << y << " " << dX.mag() << endl;
       }
     }
+    // }
   }
 
-  sort(ordered_neighbor.begin(), ordered_neighbor.end(), compare);
-  for (auto j = ordered_neighbor.begin(); j != ordered_neighbor.end(); j++) {
-    int neighbor_index = j->first;
-    vec3 dX = vec3(0.165, 0.115, 0.0) - source_coord[neighbor_index];
-    cout << source_index[neighbor_index] << ", "
-         << source_coord[neighbor_index][0] << ", "
-         << source_coord[neighbor_index][1] << " "
-         << source_coord[neighbor_index].mag() << " " << dX.mag() << endl;
-  }
+  MPI_Allreduce(MPI_IN_PLACE, &error, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &global_norm, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
 
-  int count_num = 0;
-  for (int i = 0; i < local_particle_num; i++) {
-    int no_outliner = 0;
-    for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-      int neighbor_index = neighbor_list_host(i, j + 1);
-      vec3 mid_point = (coord[i] + source_coord[neighbor_index]) * 0.5;
-      if (mid_point.mag() < 0.2) {
-        no_outliner = 1;
-      }
-    }
-    if (no_outliner != 0 && particle_type[i] == 0)
-      count_num++;
-  }
-  MPI_Allreduce(MPI_IN_PLACE, &count_num, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "counter: %d\n", count_num);
+  PetscPrintf(PETSC_COMM_WORLD, "laplacian error: %f\n",
+              sqrt(error / global_norm));
+
+  // vector<pair<int, double>> ordered_neighbor;
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   vec3 dX1 = coord[i] - vec3(0.165, 0.115, 0.0);
+
+  //   if (dX1.mag() < 1e-3) {
+  //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //       int neighbor_index = neighbor_list_host(i, j + 1);
+  //       vec3 dX = coord[i] - source_coord[neighbor_index];
+  //       pair<int, double> to_add = pair<int, double>(neighbor_index,
+  //       dX.mag()); ordered_neighbor.push_back(to_add);
+  //     }
+  //   }
+  // }
+
+  // sort(ordered_neighbor.begin(), ordered_neighbor.end(), compare);
+  // for (auto j = ordered_neighbor.begin(); j != ordered_neighbor.end(); j++) {
+  //   int neighbor_index = j->first;
+  //   vec3 dX = vec3(0.165, 0.115, 0.0) - source_coord[neighbor_index];
+  //   cout << source_index[neighbor_index] << ", "
+  //        << source_coord[neighbor_index][0] << ", "
+  //        << source_coord[neighbor_index][1] << " "
+  //        << source_coord[neighbor_index].mag() << " " << dX.mag() << endl;
+  // }
+
+  // int count_num = 0;
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   int no_outliner = 0;
+  //   for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //     int neighbor_index = neighbor_list_host(i, j + 1);
+  //     vec3 mid_point = (coord[i] + source_coord[neighbor_index]) * 0.5;
+  //     if (mid_point.mag() < 0.2) {
+  //       no_outliner = 1;
+  //     }
+  //   }
+  //   if (no_outliner != 0 && particle_type[i] == 0)
+  //     count_num++;
+  // }
+  // MPI_Allreduce(MPI_IN_PLACE, &count_num, 1, MPI_INT, MPI_SUM,
+  // MPI_COMM_WORLD); PetscPrintf(PETSC_COMM_WORLD, "counter: %d\n", count_num);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
@@ -1080,7 +1137,7 @@ void stokes_equation::build_rhs() {
 
         const int neumann_index = neumann_map[i];
         const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-            DivergenceOfVectorPointEvaluation, neumann_index,
+            LaplacianOfScalarPointEvaluation, neumann_index,
             neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
 
         rhs[field_dof * i + velocity_dof] =
@@ -1107,7 +1164,7 @@ void stokes_equation::build_rhs() {
 
         const int neumann_index = neumann_map[i];
         const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-            DivergenceOfVectorPointEvaluation, neumann_index,
+            LaplacianOfScalarPointEvaluation, neumann_index,
             neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
 
         rhs[field_dof * i + velocity_dof] =
@@ -1226,7 +1283,7 @@ void stokes_equation::build_rhs() {
   //     const int neumann_index = fluid2NeumannBoundary[i];
   //     const double bi =
   //     pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-  //         DivergenceOfVectorPointEvaluation, neumann_index,
+  //         LaplacianOfScalarPointEvaluation, neumann_index,
   //         neumannBoundaryNeighborLists(neumann_index, 0));
 
   //     double r = sqrt(x * x + y * y + z * z);
@@ -1266,7 +1323,7 @@ void stokes_equation::build_rhs() {
   //     const int neumann_index = fluid2NeumannBoundary[i];
   //     const double bi =
   //     pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-  //         DivergenceOfVectorPointEvaluation, neumann_index,
+  //         LaplacianOfScalarPointEvaluation, neumann_index,
   //         neumannBoundaryNeighborLists(neumann_index, 0));
 
   //     double pr = 3 * RR / pow(r, 3) * u * cos(theta);
@@ -1906,7 +1963,7 @@ void stokes_equation::calculate_error() {
 
     Kokkos::deep_copy(ghost_pressure_device, ghost_pressure_host);
 
-    Evaluator pressure_evaluator(pressure_basis.get());
+    Evaluator pressure_evaluator(normal_pressure_basis.get());
 
     auto coefficients =
         pressure_evaluator
@@ -1915,15 +1972,16 @@ void stokes_equation::calculate_error() {
 
     auto direct_gradient =
         pressure_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
-            double **, Kokkos::HostSpace>(
-            ghost_pressure_device, GradientOfScalarPointEvaluation,
-            StaggeredEdgeAnalyticGradientIntegralSample);
+            double **, Kokkos::HostSpace>(ghost_pressure_device,
+                                          GradientOfScalarPointEvaluation,
+                                          PointSample);
 
-    auto coefficients_size = pressure_basis->getPolynomialCoefficientsSize();
+    auto coefficients_size =
+        normal_pressure_basis->getPolynomialCoefficientsSize();
 
     // boundary needs special treatment
     {
-      Evaluator pressure_neumann_evaluator(pressure_neumann_basis.get());
+      Evaluator pressure_neumann_evaluator(normal_pressure_neumann_basis.get());
 
       auto coefficients_neumann =
           pressure_neumann_evaluator
@@ -1935,7 +1993,7 @@ void stokes_equation::calculate_error() {
               .applyAlphasToDataAllComponentsAllTargetSites<double **,
                                                             Kokkos::HostSpace>(
                   ghost_pressure_device, GradientOfScalarPointEvaluation,
-                  StaggeredEdgeAnalyticGradientIntegralSample);
+                  PointSample);
 
       int counter = 0;
 

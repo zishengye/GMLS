@@ -956,6 +956,11 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPConvergedReason convergence_reason;
   KSPGetConvergedReason(_ksp, &convergence_reason);
 
+  MatMult(shell_mat, _x.get_reference(), residual);
+  VecAXPY(residual, -1.0, _rhs.get_reference());
+  VecNorm(residual, NORM_2, &residual_norm);
+  PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+              residual_norm / rhs_norm);
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 

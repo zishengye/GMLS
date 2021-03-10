@@ -241,21 +241,21 @@ bool gmls_solver::refinement() {
 
   auto &particle_type = *(geo_mgr->get_current_work_particle_type());
 
-  for (int i = 0; i < local_particle_num; i++) {
-    split_tag[i] = 0;
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   split_tag[i] = 0;
 
-    double theta = atan2(coord[i][1], coord[i][0]);
-    int n = theta / (M_PI / 34);
+  //   double theta = atan2(coord[i][1], coord[i][0]);
+  //   int n = theta / (M_PI / 34);
 
-    if (coord[i].mag() < 0.21 && n % 2 == 0)
-      split_tag[i] = 1;
-    if (coord[i].mag() < 0.22 && particle_type[i] == 0) {
-      if (n % 2 == 1 || n % 2 == -1)
-        split_tag[i] = 1;
-    }
-    // if (coord[i].mag() < 0.22)
-    //   split_tag[i] = 1;
-  }
+  //   if (coord[i].mag() < 0.21 && n % 2 == 0)
+  //     split_tag[i] = 1;
+  //   if (coord[i].mag() < 0.22 && particle_type[i] == 0) {
+  //     if (n % 2 == 1 || n % 2 == -1)
+  //       split_tag[i] = 1;
+  //   }
+  //   // if (coord[i].mag() < 0.22)
+  //   //   split_tag[i] = 1;
+  // }
 
   geo_mgr->refine(split_tag);
 
