@@ -2520,6 +2520,7 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
         volume[tag] /= 8.0;
         bool insert = false;
         new_added[tag] = -1;
+        adaptive_level[tag]++;
         for (int i = -1; i < 2; i += 2) {
           for (int j = -1; j < 2; j += 2) {
             for (int k = -1; k < 2; k += 2) {
@@ -2529,7 +2530,6 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
                 int idx = is_gap_particle(new_pos, x_delta, -1);
                 if (idx == -2) {
                   coord[tag] = new_pos;
-                  adaptive_level[tag]++;
 
                   insert = true;
                 } else if (idx > -1) {
