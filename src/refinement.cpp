@@ -242,23 +242,23 @@ bool gmls_solver::refinement() {
                   MPI_COMM_WORLD);
   }
 
-  geo_mgr->ghost_forward(split_tag, ghost_split_tag);
-  candidate_split_tag = split_tag;
-  int local_change = 0;
-  for (int i = 0; i < num_target_coord; i++) {
-    if (particle_type[i] == 0) {
-      if (candidate_split_tag[i] == 1) {
-        for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-          int neighbor_index = neighbor_list_host(i, j + 1);
-          if (ghost_split_tag[neighbor_index] == 0 &&
-              source_particle_type[neighbor_index] >= 4 &&
-              adaptive_level[i] == source_adaptive_level[neighbor_index]) {
-            split_tag[i] = 0;
-          }
-        }
-      }
-    }
-  }
+  // geo_mgr->ghost_forward(split_tag, ghost_split_tag);
+  // candidate_split_tag = split_tag;
+  // int local_change = 0;
+  // for (int i = 0; i < num_target_coord; i++) {
+  //   if (particle_type[i] == 0) {
+  //     if (candidate_split_tag[i] == 1) {
+  //       for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //         int neighbor_index = neighbor_list_host(i, j + 1);
+  //         if (ghost_split_tag[neighbor_index] == 0 &&
+  //             source_particle_type[neighbor_index] >= 4 &&
+  //             adaptive_level[i] == source_adaptive_level[neighbor_index]) {
+  //           split_tag[i] = 0;
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 
   if (write_data)
     write_refinement_data();
