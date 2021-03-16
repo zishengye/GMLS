@@ -1049,4 +1049,25 @@ void gmls_solver::write_refinement_data_geometry_only() {
     }
     file.close();
   });
+
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" +
+                  to_string(current_refinement_step) + ".vtk",
+              ios::app);
+    file << "SCALARS domain int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  serial_operation([adaptive_level, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_gap_geometry" +
+                  to_string(current_refinement_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < adaptive_level.size(); i++) {
+      file << rank << endl;
+    }
+    file.close();
+  });
 }

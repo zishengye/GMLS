@@ -22,6 +22,9 @@ void stokes_multilevel::build_interpolation_restriction(
   int translation_dof = dimension;
   int rotation_dof = (dimension == 3) ? 3 : 1;
 
+  double timer1, timer2;
+  timer1 = MPI_Wtime();
+
   {
     auto &coord = *(geo_mgr->get_current_work_particle_coord());
     auto &new_added = *(geo_mgr->get_current_work_particle_new_added());
@@ -67,10 +70,17 @@ void stokes_multilevel::build_interpolation_restriction(
     }
 
     int global_actual_new_target;
+    int min_new_target, max_new_target;
     MPI_Allreduce(&actual_new_target, &global_actual_new_target, 1, MPI_INT,
                   MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&actual_new_target, &min_new_target, 1, MPI_INT, MPI_MIN,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(&actual_new_target, &max_new_target, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
     PetscPrintf(PETSC_COMM_WORLD, "Total new particle: %d\n",
                 global_actual_new_target);
+    PetscPrintf(PETSC_COMM_WORLD, "new particle imbalance: %f\n",
+                (double)(max_new_target) / (double)(min_new_target));
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
         new_target_coords_device("new target coordinates", actual_new_target,
@@ -349,6 +359,10 @@ void stokes_multilevel::build_interpolation_restriction(
 
     I.assemble();
   }
+
+  timer2 = MPI_Wtime();
+  PetscPrintf(PETSC_COMM_WORLD, "Interpolation matrix building duration: %fs\n",
+              timer2 - timer1);
 
   {
     auto &coord = *(geo_mgr->get_current_work_particle_coord());

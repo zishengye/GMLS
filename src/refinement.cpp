@@ -110,14 +110,16 @@ bool gmls_solver::refinement() {
 
   // prevent over splitting
   vector<int> candidate_split_tag, ghost_split_tag;
-  geo_mgr->ghost_forward(split_tag, ghost_split_tag);
 
   auto &source_coord = *(geo_mgr->get_current_work_ghost_particle_coord());
   auto &coord = *(geo_mgr->get_current_work_particle_coord());
   auto &spacing = *(geo_mgr->get_current_work_particle_spacing());
   auto &adaptive_level = *(geo_mgr->get_current_work_particle_adaptive_level());
+  auto &particle_type = *(geo_mgr->get_current_work_particle_type());
   vector<int> source_adaptive_level;
+  vector<int> source_particle_type;
   geo_mgr->ghost_forward(adaptive_level, source_adaptive_level);
+  geo_mgr->ghost_forward(particle_type, source_particle_type);
 
   int num_source_coord = source_coord.size();
   int num_target_coord = coord.size();
@@ -182,64 +184,67 @@ bool gmls_solver::refinement() {
   int min_num_neighbor = Compadre::GMLS::getNP(
       polynomial_order, dim, DivergenceFreeVectorTaylorPolynomial);
 
-  candidate_split_tag = split_tag;
-  for (int i = 0; i < num_target_coord; i++) {
-    if (candidate_split_tag[i] == 0) {
-      //
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        int neighbor_index = neighbor_list_host(i, j + 1);
-        if (ghost_split_tag[neighbor_index] == 1 &&
-            source_adaptive_level[neighbor_index] - adaptive_level[i] > 0) {
-          split_tag[i] = 1;
-        }
-      }
+  int iteration_finished = 1;
+  while (iteration_finished != 0) {
+    geo_mgr->ghost_forward(split_tag, ghost_split_tag);
+    candidate_split_tag = split_tag;
+    int local_change = 0;
+    for (int i = 0; i < num_target_coord; i++) {
+      if (particle_type[i] < 4) {
+        if (candidate_split_tag[i] == 0) {
+          //
+          for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+            int neighbor_index = neighbor_list_host(i, j + 1);
+            if (ghost_split_tag[neighbor_index] == 1 &&
+                source_adaptive_level[neighbor_index] - adaptive_level[i] > 0) {
+              split_tag[i] = 1;
+              local_change++;
+            }
+          }
 
-      //
-      int num_split = 0;
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        int neighbor_index = neighbor_list_host(i, j + 1);
-        if ((source_adaptive_level[neighbor_index] > adaptive_level[i]) ||
-            (ghost_split_tag[neighbor_index] == 1 &&
-             source_adaptive_level[neighbor_index] == adaptive_level[i])) {
-          num_split++;
-        }
-      }
-      if (num_split > 0.6 * (neighbor_list_host(i, 0) - 1))
-        split_tag[i] = 1;
-    }
-
-    if (candidate_split_tag[i] == 1) {
-      int num_split = 0;
-      int num_new_neighbor = pow(2, dim);
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        int neighbor_index = neighbor_list_host(i, j + 1);
-        vec3 dX = coord[i] - source_coord[neighbor_index];
-        if (dX.mag() < epsilon[i]) {
-          if (ghost_split_tag[neighbor_index] == 1)
-            num_new_neighbor += pow(2, dim);
-          else
-            num_new_neighbor++;
-          if (source_adaptive_level[neighbor_index] > adaptive_level[i] ||
-              (ghost_split_tag[neighbor_index] == 1 &&
-               source_adaptive_level[neighbor_index] == adaptive_level[i])) {
-            num_split++;
+          int num_split = 0;
+          for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+            int neighbor_index = neighbor_list_host(i, j + 1);
+            if ((source_adaptive_level[neighbor_index] > adaptive_level[i]) ||
+                (ghost_split_tag[neighbor_index] == 1 &&
+                 source_adaptive_level[neighbor_index] == adaptive_level[i])) {
+              num_split++;
+            }
+          }
+          if (num_split > 0.6 * (neighbor_list_host(i, 0) - 1)) {
+            split_tag[i] = 1;
+            local_change++;
           }
         }
       }
-      if (num_split == 1) {
-        // this is a single split point, there is no need to split it
-        split_tag[i] = 0;
-      } else if (num_new_neighbor < min_num_neighbor) {
-        // enlarge the split region to ensure necessary number of neighbors
-        // split_tag[i] = 0;
+    }
+
+    MPI_Allreduce(&local_change, &iteration_finished, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+  }
+
+  geo_mgr->ghost_forward(split_tag, ghost_split_tag);
+  candidate_split_tag = split_tag;
+  for (int i = 0; i < num_target_coord; i++) {
+    if (particle_type[i] != 0) {
+      if (candidate_split_tag[i] == 0) {
+        //
+        for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+          int neighbor_index = neighbor_list_host(i, j + 1);
+          if (ghost_split_tag[neighbor_index] == 1 &&
+              source_adaptive_level[neighbor_index] - adaptive_level[i] > 0) {
+            vec3 dX = coord[i] - source_coord[neighbor_index];
+            if (dX.mag() < epsilon[i]) {
+              split_tag[i] = 1;
+            }
+          }
+        }
       }
     }
   }
 
   if (write_data)
     write_refinement_data();
-
-  auto &particle_type = *(geo_mgr->get_current_work_particle_type());
 
   // for (int i = 0; i < local_particle_num; i++) {
   //   split_tag[i] = 0;

@@ -916,12 +916,26 @@ void stokes_equation::build_coefficient_matrix() {
     const int current_particle_local_index = i;
     const int current_particle_global_index = source_index[i];
 
-    for (int j = 0; j < field_dof; j++) {
-      const int local_index = current_particle_local_index * field_dof + j;
-      const int global_index = current_particle_global_index * field_dof + j;
+    for (int k = 0; k < field_dof; k++) {
+      const int local_index = current_particle_local_index * field_dof + k;
+      const int global_index = current_particle_global_index * field_dof + k;
 
       if (A.get_entity(local_index, global_index) < 0.0) {
-        cout << current_particle_global_index << ' ' << j << endl;
+        cout << current_particle_global_index << ' ' << k << endl;
+
+        cout << source_index[i] << " " << particle_type[i] << " "
+             << " (" << coord[i][0] << ", " << coord[i][1] << ")" << endl;
+
+        cout << epsilon[i] << endl;
+
+        for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+          double x = source_coord[neighbor_list_host(i, j + 1)][0];
+          double y = source_coord[neighbor_list_host(i, j + 1)][1];
+
+          vec3 dX = source_coord[neighbor_list_host(i, j + 1)] - coord[i];
+
+          cout << "\t" << x << ", " << y << " " << dX.mag() << endl;
+        }
       }
     }
   }
@@ -931,77 +945,78 @@ void stokes_equation::build_coefficient_matrix() {
 
   // A.write(string("A" + to_string(current_refinement_level) + ".txt"));
 
-  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> sampling_data(
-      "background pressure", source_index.size());
+  // Kokkos::View<double *, Kokkos::DefaultExecutionSpace> sampling_data(
+  //     "background pressure", source_index.size());
 
-  double error = 0.0;
-  double global_norm = 0.0;
-  for (int i = 0; i < local_particle_num; i++) {
-    vector<double> row_component;
-    row_component.resize(neighbor_list_host(i, 0));
-    for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-      row_component[j] = 0.0;
-    }
-    for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-      auto alpha_index =
-          pressure_basis->getAlphaIndexHost(i, pressure_laplacian_index);
-      const double Aij = pressure_alpha(alpha_index + j);
+  // double error = 0.0;
+  // double global_norm = 0.0;
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   vector<double> row_component;
+  //   row_component.resize(neighbor_list_host(i, 0));
+  //   for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //     row_component[j] = 0.0;
+  //   }
+  //   for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //     auto alpha_index =
+  //         pressure_basis->getAlphaIndexHost(i, pressure_laplacian_index);
+  //     const double Aij = pressure_alpha(alpha_index + j);
 
-      // laplacian p
-      row_component[j] += Aij;
-      row_component[0] -= Aij;
-    }
-    double numericalLaplacian = 0.0;
-    for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-      double x = source_coord[neighbor_list_host(i, j + 1)][0];
-      double y = source_coord[neighbor_list_host(i, j + 1)][1];
+  //     // laplacian p
+  //     row_component[j] += Aij;
+  //     row_component[0] -= Aij;
+  //   }
+  //   double numericalLaplacian = 0.0;
+  //   for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //     double x = source_coord[neighbor_list_host(i, j + 1)][0];
+  //     double y = source_coord[neighbor_list_host(i, j + 1)][1];
 
-      double trueSolution = cos(2 * M_PI * x) + cos(2 * M_PI * y);
+  //     double trueSolution = cos(2 * M_PI * x) + cos(2 * M_PI * y);
 
-      numericalLaplacian += trueSolution * row_component[j];
-    }
+  //     numericalLaplacian += trueSolution * row_component[j];
+  //   }
 
-    double x = coord[i][0];
-    double y = coord[i][1];
+  //   double x = coord[i][0];
+  //   double y = coord[i][1];
 
-    double trueLaplacianSolution =
-        4 * M_PI * M_PI * (cos(2 * M_PI * x) + cos(2 * M_PI * y));
+  //   double trueLaplacianSolution =
+  //       4 * M_PI * M_PI * (cos(2 * M_PI * x) + cos(2 * M_PI * y));
 
-    global_norm += pow(trueLaplacianSolution, 2.0);
-    error += pow(numericalLaplacian - trueLaplacianSolution, 2.0);
-    // if (particle_type[i] == 0) {
-    // if (abs(numericalLaplacian - trueLaplacianSolution) >
-    //     max(0.01 * abs(trueLaplacianSolution), 1e-3)) {
-    //   cout << "wrong laplacian estimation at " << source_index[i] << " ("
-    //        << numericalLaplacian << ", " << trueLaplacianSolution << ")"
-    //        << endl;
-    // }
+  //   global_norm += pow(trueLaplacianSolution, 2.0);
+  //   error += pow(numericalLaplacian - trueLaplacianSolution, 2.0);
+  //   // if (particle_type[i] == 0) {
+  //   // if (abs(numericalLaplacian - trueLaplacianSolution) >
+  //   //     max(0.01 * abs(trueLaplacianSolution), 1e-3)) {
+  //   //   cout << "wrong laplacian estimation at " << source_index[i] << " ("
+  //   //        << numericalLaplacian << ", " << trueLaplacianSolution << ")"
+  //   //        << endl;
+  //   // }
 
-    if (row_component[0] < 0.0 && particle_type[i] == 0) {
-      cout << source_index[i] << " " << particle_type[i] << " "
-           << row_component[0] << " (" << coord[i][0] << ", " << coord[i][1]
-           << ")" << endl;
+  //   if (row_component[0] < 0.0 && particle_type[i] == 0) {
+  //     cout << source_index[i] << " " << particle_type[i] << " "
+  //          << row_component[0] << " (" << coord[i][0] << ", " << coord[i][1]
+  //          << ")" << endl;
 
-      cout << epsilon[i] << endl;
+  //     cout << epsilon[i] << endl;
 
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        double x = source_coord[neighbor_list_host(i, j + 1)][0];
-        double y = source_coord[neighbor_list_host(i, j + 1)][1];
+  //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //       double x = source_coord[neighbor_list_host(i, j + 1)][0];
+  //       double y = source_coord[neighbor_list_host(i, j + 1)][1];
 
-        vec3 dX = source_coord[neighbor_list_host(i, j + 1)] - coord[i];
+  //       vec3 dX = source_coord[neighbor_list_host(i, j + 1)] - coord[i];
 
-        cout << "\t" << x << ", " << y << " " << dX.mag() << endl;
-      }
-    }
-    // }
-  }
+  //       cout << "\t" << x << ", " << y << " " << dX.mag() << endl;
+  //     }
+  //   }
+  //   // }
+  // }
 
-  MPI_Allreduce(MPI_IN_PLACE, &error, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  MPI_Allreduce(MPI_IN_PLACE, &global_norm, 1, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, &error, 1, MPI_DOUBLE, MPI_SUM,
+  // MPI_COMM_WORLD); MPI_Allreduce(MPI_IN_PLACE, &global_norm, 1, MPI_DOUBLE,
+  // MPI_SUM,
+  //               MPI_COMM_WORLD);
 
-  PetscPrintf(PETSC_COMM_WORLD, "laplacian error: %f\n",
-              sqrt(error / global_norm));
+  // PetscPrintf(PETSC_COMM_WORLD, "laplacian error: %f\n",
+  //             sqrt(error / global_norm));
 
   // vector<pair<int, double>> ordered_neighbor;
   // for (int i = 0; i < local_particle_num; i++) {
@@ -1117,107 +1132,110 @@ void stokes_equation::build_rhs() {
 
   auto neumann_neighbor_list = pressure_neumann_basis->getNeighborLists();
 
-  // for (int i = 0; i < local_particle_num; i++) {
-  //   if (particle_type[i] != 0 && particle_type[i] < 4) {
-  //     double y = coord[i][1];
-
-  //     rhs[field_dof * i] = 0.1 * y;
-  //   }
-  // }
-
   for (int i = 0; i < local_particle_num; i++) {
     if (particle_type[i] != 0 && particle_type[i] < 4) {
-      // 2-d Taylor-Green vortex-like flow
-      if (dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+      double y = coord[i][1];
 
-        rhs[field_dof * i] = sin(M_PI * x) * cos(M_PI * y);
-        rhs[field_dof * i + 1] = -cos(M_PI * x) * sin(M_PI * y);
-
-        const int neumann_index = neumann_map[i];
-        const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumann_index,
-            neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
-
-        rhs[field_dof * i + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) *
-                (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y) -
-                  normal[i][1] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
-      }
-
-      // 3-d Taylor-Green vortex-like flow
-      if (dim == 3) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
-
-        rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-        rhs[field_dof * i + 1] =
-            -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-        rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
-
-        const int neumann_index = neumann_map[i];
-        const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumann_index,
-            neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
-
-        rhs[field_dof * i + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) *
-                (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
-                 cos(2.0 * M_PI * z)) +
-            bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y) * sin(M_PI * z) -
-                  normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y) * sin(M_PI * z) +
-                  normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      sin(M_PI * y) * cos(M_PI * z)) +
-            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
-                  normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
-      }
-    } else if (particle_type[i] == 0) {
-      if (dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-
-        rhs[field_dof * i] =
-            2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
-            2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[field_dof * i + 1] =
-            -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
-            2.0 * M_PI * sin(2.0 * M_PI * y);
-
-        rhs[field_dof * i + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
-      }
-
-      if (dim == 3) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
-
-        rhs[field_dof * i] =
-            3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z) +
-            2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
-                                     cos(M_PI * y) * sin(M_PI * z) +
-                                 2.0 * M_PI * sin(2.0 * M_PI * y);
-        rhs[field_dof * i + 2] =
-            3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
-            2.0 * M_PI * sin(2.0 * M_PI * z);
-
-        rhs[field_dof * i + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) *
-            (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
-      }
+      rhs[field_dof * i] = 0.1 * y;
     }
   }
+
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   if (particle_type[i] != 0 && particle_type[i] < 4) {
+  //     // 2-d Taylor-Green vortex-like flow
+  //     if (dim == 2) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
+
+  //       rhs[field_dof * i] = sin(M_PI * x) * cos(M_PI * y);
+  //       rhs[field_dof * i + 1] = -cos(M_PI * x) * sin(M_PI * y);
+
+  //       const int neumann_index = neumann_map[i];
+  //       const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
+  //           LaplacianOfScalarPointEvaluation, neumann_index,
+  //           neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
+
+  //       rhs[field_dof * i + velocity_dof] =
+  //           -4.0 * pow(M_PI, 2.0) *
+  //               (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
+  //           bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+  //                     cos(M_PI * y) -
+  //                 normal[i][1] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+  //                     sin(M_PI * y)) +
+  //           bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+  //                 normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
+  //     }
+
+  //     // 3-d Taylor-Green vortex-like flow
+  //     if (dim == 3) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
+  //       double z = coord[i][2];
+
+  //       rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+  //       rhs[field_dof * i + 1] =
+  //           -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+  //       rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
+  //       z);
+
+  //       const int neumann_index = neumann_map[i];
+  //       const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
+  //           LaplacianOfScalarPointEvaluation, neumann_index,
+  //           neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
+
+  //       rhs[field_dof * i + velocity_dof] =
+  //           -4.0 * pow(M_PI, 2.0) *
+  //               (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
+  //                cos(2.0 * M_PI * z)) +
+  //           bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+  //                     sin(M_PI * y) * sin(M_PI * z) -
+  //                 normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+  //                     cos(M_PI * y) * sin(M_PI * z) +
+  //                 normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+  //                     sin(M_PI * y) * cos(M_PI * z)) +
+  //           bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+  //                 normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
+  //                 normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
+  //     }
+  //   } else if (particle_type[i] == 0) {
+  //     if (dim == 2) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
+
+  //       rhs[field_dof * i] =
+  //           2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
+  //           2.0 * M_PI * sin(2.0 * M_PI * x);
+  //       rhs[field_dof * i + 1] =
+  //           -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
+  //           2.0 * M_PI * sin(2.0 * M_PI * y);
+
+  //       rhs[field_dof * i + velocity_dof] =
+  //           -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI *
+  //           y));
+  //     }
+
+  //     if (dim == 3) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
+  //       double z = coord[i][2];
+
+  //       rhs[field_dof * i] =
+  //           3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI *
+  //           z) + 2.0 * M_PI * sin(2.0 * M_PI * x);
+  //       rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
+  //                                    cos(M_PI * y) * sin(M_PI * z) +
+  //                                2.0 * M_PI * sin(2.0 * M_PI * y);
+  //       rhs[field_dof * i + 2] =
+  //           3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
+  //           z) + 2.0 * M_PI * sin(2.0 * M_PI * z);
+
+  //       rhs[field_dof * i + velocity_dof] =
+  //           -4.0 * pow(M_PI, 2.0) *
+  //           (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI *
+  //           z));
+  //     }
+  //   }
+  // }
   // if (rank == size - 1) {
   //   for (int i = 0; i < num_rigid_body; i++) {
   //     rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof] =
@@ -2102,8 +2120,7 @@ void stokes_equation::calculate_error() {
   //   for (int i = 0; i < local_particle_num; i++) {
   //     error[i] = 0.0;
   //     double total_neighbor_vol = 0.0;
-  //     for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++)
-  //     {
+  //     for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
   //       const int neighbor_index = neighbor_list->getNeighborHost(i, j);
 
   //       vec3 dX = source_coord[neighbor_index] - coord[i];
