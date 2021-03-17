@@ -61,6 +61,8 @@ private:
   int compress_memory;
   int number_of_batches;
 
+  int min_neighbor, max_neighbor;
+
   double global_error;
 
   int rank, size;

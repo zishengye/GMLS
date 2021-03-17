@@ -260,8 +260,8 @@ void stokes_equation::build_coefficient_matrix() {
   // ensure every particle has enough neighbors
   bool pass_neighbor_search = false;
   int ite_counter = 0;
-  int min_neighbor = 1000;
-  int max_neighbor = 0;
+  min_neighbor = 1000;
+  max_neighbor = 0;
   while (!pass_neighbor_search) {
     point_cloud_search.generate2DNeighborListsFromRadiusSearch(
         false, target_coord_host, neighbor_list_host, epsilon_host, 0.0,
@@ -1887,15 +1887,16 @@ void stokes_equation::calculate_error() {
 
       Kokkos::deep_copy(source_coord_device, source_coord_host);
 
-      int batch_size =
-          ceil((double)local_particle_num / (double)number_of_batches);
+      int start_particle = 0;
+      int end_particle;
       for (int i = 0; i < number_of_batches; i++) {
         GMLS temp_velocity_basis =
             GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
                  poly_order, dim, "SVD", "STANDARD");
 
-        int start_particle = batch_size * i;
-        int end_particle = min(local_particle_num, batch_size * (i + 1));
+        int batch_size = local_particle_num / number_of_batches +
+                         (i < (local_particle_num % number_of_batches));
+        int end_particle = min(local_particle_num, start_particle + batch_size);
         int particle_num = end_particle - start_particle;
 
         Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
@@ -1910,8 +1911,7 @@ void stokes_equation::calculate_error() {
         Kokkos::deep_copy(epsilon_device, epsilon_host);
 
         Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-            neighbor_list_device("neighbor lists", particle_num,
-                                 neighbor_list->getMaxNumNeighbors());
+            neighbor_list_device("neighbor lists", particle_num, max_neighbor);
         Kokkos::View<int **>::HostMirror neighbor_list_host =
             Kokkos::create_mirror_view(neighbor_list_device);
 
@@ -1963,6 +1963,8 @@ void stokes_equation::calculate_error() {
             coefficients_chunk[i + start_particle][j] = coefficients(i, j);
           }
         }
+
+        start_particle += batch_size;
       }
     }
 
