@@ -825,14 +825,15 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetOperators(ksp_field_base->get_reference(), ff, ff);
     KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
 
-    KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
+    KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
+    KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e10, 100);
     KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
 
     PC pc_field_base;
     PC pc_neighbor_base;
 
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
-    PCSetType(pc_field_base, PCLU);
+    PCSetType(pc_field_base, PCSOR);
     PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
     PCSetUp(pc_field_base);
 
