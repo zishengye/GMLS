@@ -216,7 +216,7 @@ void stokes_multilevel::build_interpolation_restriction(
     old_to_new_pressure_basis.setWeightingPower(4);
 
     // ensure each batch contains less than 200 particles
-    int num_of_batches = actual_new_target / 200 + 1;
+    int num_of_batches = actual_new_target / 100 + 1;
     old_to_new_pressure_basis.generateAlphas(num_of_batches);
 
     auto old_to_new_pressure_alphas = old_to_new_pressure_basis.getAlphas();

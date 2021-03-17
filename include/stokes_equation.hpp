@@ -58,6 +58,8 @@ private:
   int error_esimation_method;
   double epsilon_multiplier;
   double eta;
+  int compress_memory;
+  int number_of_batches;
 
   double global_error;
 
@@ -74,7 +76,8 @@ public:
             std::shared_ptr<rigid_body_manager> _rb_mgr, const int _poly_order,
             const int _dim,
             const int _error_estimation_method = VELOCITY_ERROR_EST,
-            const double _epsilon_multiplier = 0.0, const double _eta = 1.0);
+            const double _epsilon_multiplier = 0.0, const double _eta = 1.0,
+            const int _compress_memory = 0);
   void reset();
   void update();
 

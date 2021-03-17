@@ -36,14 +36,15 @@ void stokes_equation::init(shared_ptr<particle_geometry> _geo_mgr,
                            shared_ptr<rigid_body_manager> _rb_mgr,
                            const int _poly_order, const int _dim,
                            const int _error_estimation_method,
-                           const double _epsilon_multiplier,
-                           const double _eta) {
+                           const double _epsilon_multiplier, const double _eta,
+                           const int _compress_memory) {
   geo_mgr = _geo_mgr;
   rb_mgr = _rb_mgr;
   eta = _eta;
   dim = _dim;
   poly_order = _poly_order;
   error_esimation_method = _error_estimation_method;
+  compress_memory = _compress_memory;
 
   multi_mgr = make_shared<stokes_multilevel>();
 
@@ -117,8 +118,6 @@ void stokes_equation::build_coefficient_matrix() {
 
   vector<vec3> &rigid_body_position = rb_mgr->get_position();
   const int num_rigid_body = rb_mgr->get_rigid_body_num();
-
-  const int number_of_batches = 1;
 
   double timer1, timer2;
   MPI_Barrier(MPI_COMM_WORLD);
@@ -302,12 +301,6 @@ void stokes_equation::build_coefficient_matrix() {
     ite_counter++;
   }
 
-  // for (int i = 0; i < local_particle_num; i++) {
-  //   if (epsilon_host(i) + 0.1 * spacing[i] < max_epsilon) {
-  //     epsilon_host(i) += 0.2 * spacing[i];
-  //   }
-  // }
-
   PetscPrintf(MPI_COMM_WORLD,
               "iteration counter: %d min neighbor: %d, max neighbor: %d \n",
               ite_counter, min_neighbor, max_neighbor);
@@ -342,6 +335,11 @@ void stokes_equation::build_coefficient_matrix() {
   Kokkos::deep_copy(neumann_neighbor_list_device, neumann_neighbor_list_host);
   Kokkos::deep_copy(neumann_epsilon_device, neumann_epsilon_host);
 
+  if (dim == 2)
+    number_of_batches = max(local_particle_num / 10000, 1);
+  else
+    number_of_batches = max(local_particle_num / 100, 1);
+
   // pressure basis
   pressure_basis->setProblemData(neighbor_list_device, source_coord_device,
                                  target_coord_device, epsilon_device);
@@ -360,7 +358,10 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_basis->setDimensionOfQuadraturePoints(1);
   pressure_basis->setQuadratureType("LINE");
 
-  pressure_basis->generateAlphas(number_of_batches, true);
+  if (compress_memory == 0)
+    pressure_basis->generateAlphas(1, true);
+  else
+    pressure_basis->generateAlphas(number_of_batches, false);
 
   auto pressure_alpha = pressure_basis->getAlphas();
 
@@ -386,7 +387,10 @@ void stokes_equation::build_coefficient_matrix() {
   velocity_basis->setWeightingType(WeightingFunctionType::Power);
   velocity_basis->setWeightingPower(4);
 
-  velocity_basis->generateAlphas(number_of_batches, true);
+  if (compress_memory == 0)
+    velocity_basis->generateAlphas(1, true);
+  else
+    velocity_basis->generateAlphas(number_of_batches, false);
 
   auto velocity_alpha = velocity_basis->getAlphas();
 
@@ -430,7 +434,10 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_neumann_basis->setDimensionOfQuadraturePoints(1);
   pressure_neumann_basis->setQuadratureType("LINE");
 
-  pressure_neumann_basis->generateAlphas(number_of_batches, true);
+  if (compress_memory == 0)
+    pressure_neumann_basis->generateAlphas(1, true);
+  else
+    pressure_neumann_basis->generateAlphas(number_of_batches, false);
 
   auto pressure_neumann_alpha = pressure_neumann_basis->getAlphas();
 
@@ -456,7 +463,7 @@ void stokes_equation::build_coefficient_matrix() {
   normal_pressure_basis->setDimensionOfQuadraturePoints(1);
   normal_pressure_basis->setQuadratureType("LINE");
 
-  normal_pressure_basis->generateAlphas(number_of_batches, true);
+  normal_pressure_basis->generateAlphas(number_of_batches, false);
 
   // normal pressure Neumann boundary basis
   normal_pressure_neumann_basis->setProblemData(
@@ -478,7 +485,7 @@ void stokes_equation::build_coefficient_matrix() {
   normal_pressure_neumann_basis->setDimensionOfQuadraturePoints(1);
   normal_pressure_neumann_basis->setQuadratureType("LINE");
 
-  normal_pressure_neumann_basis->generateAlphas(number_of_batches, true);
+  normal_pressure_neumann_basis->generateAlphas(number_of_batches, false);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
@@ -1844,24 +1851,118 @@ void stokes_equation::calculate_error() {
 
     Evaluator velocity_evaluator(velocity_basis.get());
 
-    auto coefficients =
-        velocity_evaluator
-            .applyFullPolynomialCoefficientsBasisToDataAllComponents<
-                double **, Kokkos::HostSpace>(ghost_velocity_device);
-
     auto direct_gradient =
         velocity_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
             double **, Kokkos::HostSpace>(ghost_velocity_device,
                                           GradientOfVectorPointEvaluation);
 
-    auto coefficients_size = velocity_basis->getPolynomialCoefficientsSize();
-
     vector<vector<double>> coefficients_chunk, ghost_coefficients_chunk;
     coefficients_chunk.resize(local_particle_num);
-    for (int i = 0; i < local_particle_num; i++) {
-      coefficients_chunk[i].resize(coefficients_size);
-      for (int j = 0; j < coefficients_size; j++) {
-        coefficients_chunk[i][j] = coefficients(i, j);
+
+    auto coefficients_size = velocity_basis->getPolynomialCoefficientsSize();
+
+    if (compress_memory == 0) {
+      auto coefficients =
+          velocity_evaluator
+              .applyFullPolynomialCoefficientsBasisToDataAllComponents<
+                  double **, Kokkos::HostSpace>(ghost_velocity_device);
+
+      for (int i = 0; i < local_particle_num; i++) {
+        coefficients_chunk[i].resize(coefficients_size);
+        for (int j = 0; j < coefficients_size; j++) {
+          coefficients_chunk[i][j] = coefficients(i, j);
+        }
+      }
+    } else {
+      Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+          source_coord_device("source coordinates", source_coord.size(), 3);
+      Kokkos::View<double **>::HostMirror source_coord_host =
+          Kokkos::create_mirror_view(source_coord_device);
+
+      for (size_t i = 0; i < source_coord.size(); i++) {
+        for (int j = 0; j < 3; j++) {
+          source_coord_host(i, j) = source_coord[i][j];
+        }
+      }
+
+      Kokkos::deep_copy(source_coord_device, source_coord_host);
+
+      int batch_size =
+          ceil((double)local_particle_num / (double)number_of_batches);
+      for (int i = 0; i < number_of_batches; i++) {
+        GMLS temp_velocity_basis =
+            GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
+                 poly_order, dim, "SVD", "STANDARD");
+
+        int start_particle = batch_size * i;
+        int end_particle = min(local_particle_num, batch_size * (i + 1));
+        int particle_num = end_particle - start_particle;
+
+        Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
+            "h supports", particle_num);
+        Kokkos::View<double *>::HostMirror epsilon_host =
+            Kokkos::create_mirror_view(epsilon_device);
+
+        for (int i = 0; i < particle_num; i++) {
+          epsilon_host(i) = epsilon[start_particle + i];
+        }
+
+        Kokkos::deep_copy(epsilon_device, epsilon_host);
+
+        Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+            neighbor_list_device("neighbor lists", particle_num,
+                                 neighbor_list->getMaxNumNeighbors());
+        Kokkos::View<int **>::HostMirror neighbor_list_host =
+            Kokkos::create_mirror_view(neighbor_list_device);
+
+        for (int i = 0; i < particle_num; i++) {
+          neighbor_list_host(i, 0) =
+              neighbor_list->getNumberOfNeighborsHost(i + start_particle);
+          for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+            neighbor_list_host(i, j + 1) =
+                neighbor_list->getNeighborHost(i + start_particle, j);
+          }
+        }
+
+        Kokkos::deep_copy(neighbor_list_device, neighbor_list_host);
+
+        Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+            target_coord_device("target coordinates", particle_num, 3);
+        Kokkos::View<double **>::HostMirror target_coord_host =
+            Kokkos::create_mirror_view(target_coord_device);
+
+        for (int i = 0; i < particle_num; i++) {
+          for (int j = 0; j < 3; j++) {
+            target_coord_host(i, j) = coord[i + start_particle][j];
+          }
+        }
+
+        Kokkos::deep_copy(target_coord_device, target_coord_host);
+
+        temp_velocity_basis.setProblemData(neighbor_list_device,
+                                           source_coord_device,
+                                           target_coord_device, epsilon_device);
+
+        temp_velocity_basis.addTargets(ScalarPointEvaluation);
+
+        temp_velocity_basis.setWeightingType(WeightingFunctionType::Power);
+        temp_velocity_basis.setWeightingPower(4);
+
+        temp_velocity_basis.generateAlphas(1, true);
+
+        Evaluator temp_velocity_evaluator(&temp_velocity_basis);
+
+        auto coefficients =
+            temp_velocity_evaluator
+                .applyFullPolynomialCoefficientsBasisToDataAllComponents<
+                    double **, Kokkos::HostSpace>(ghost_velocity_device);
+
+        for (int i = 0; i < particle_num; i++) {
+          coefficients_chunk[i + start_particle].resize(coefficients_size);
+          for (int j = 0; j < coefficients_size; j++) {
+            coefficients_chunk[i + start_particle][j] = coefficients(i, j);
+          }
+        }
       }
     }
 
