@@ -977,8 +977,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecNorm(residual, NORM_2, &residual_norm);
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
-  if (refinement_step == 2)
-    VecCopy(residual, _x.get_reference());
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
