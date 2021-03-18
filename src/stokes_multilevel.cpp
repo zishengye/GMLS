@@ -834,7 +834,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
     PCSetType(pc_field_base, PCSOR);
-    PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
     PCSetUp(pc_field_base);
 
     KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
@@ -886,7 +885,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
             colloid_relaxation_list[refinement_step]->get_pointer());
 
   KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
-             KSPPREONLY);
+             KSPGMRES);
+  KSPSetTolerances(colloid_relaxation_list[refinement_step]->get_reference(),
+                   1e-2, 1e-50, 1e10, 100);
   KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(), nn,
                   nn);
 
@@ -976,6 +977,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecNorm(residual, NORM_2, &residual_norm);
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
+  if (refinement_step == 2)
+    VecCopy(residual, _x.get_reference());
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 

@@ -2305,6 +2305,7 @@ void particle_geometry::uniform_refine() {
       make_shared<vector<int>>();
 
   generate_rigid_body_surface_particle();
+  collect_rigid_body_surface_particle();
   generate_field_particle();
 }
 
