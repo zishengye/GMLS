@@ -2390,7 +2390,7 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
       Kokkos::create_mirror_view(temp_neighbor_list_device);
 
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host[i] = 1.0 * gap_spacing[i];
+    epsilon_host[i] = 1.5 * gap_spacing[i];
   }
 
   size_t max_num_neighbor =
