@@ -32,8 +32,35 @@ bool gmls_solver::refinement() {
 
   vector<double> &error = equation_mgr->get_error();
 
+  auto &local_spacing = *(geo_mgr->get_current_work_particle_spacing());
+
   // mark stage
   double alpha = 0.6;
+
+  double min_h = 1.0;
+  for (int i = 0; i < local_spacing.size(); i++) {
+    if (min_h > local_spacing[i])
+      min_h = local_spacing[i];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &min_h, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+
+  auto &rigid_body_position = rb_mgr->get_position();
+  const auto num_rigid_body = rb_mgr->get_rigid_body_num();
+
+  double min_dis = 1.0;
+  for (int i = 0; i < rigid_body_position.size(); i++) {
+    for (int j = i + 1; j < rigid_body_position.size(); j++) {
+      vec3 dist = rigid_body_position[i] - rigid_body_position[j];
+      if (min_dis > dist.mag()) {
+        min_dis = dist.mag();
+      }
+    }
+  }
+
+  if (min_dis < 0.25 * min_h)
+    alpha = 0.9;
+  if (min_dis < 0.5 * min_h)
+    alpha = 0.75;
 
   vector<pair<int, double>> chopper;
   pair<int, double> to_add;

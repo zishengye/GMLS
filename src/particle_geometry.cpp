@@ -2390,7 +2390,7 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
       Kokkos::create_mirror_view(temp_neighbor_list_device);
 
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host[i] = 1.5 * gap_spacing[i];
+    epsilon_host[i] = 1.0 * gap_spacing[i];
   }
 
   size_t max_num_neighbor =
@@ -2756,40 +2756,52 @@ void particle_geometry::split_rigid_body_surface_particle(
       case 1:
         // cicle
         {
+          double old_h = spacing[tag];
+          double h = 0.5 * old_h;
+          double vol = pow(h, 2);
+
           double r = rigid_body_size[attached_rigid_body_index[tag]];
-          const double delta_theta = 0.25 * p_spacing[tag][0] / r;
 
-          double theta = p_coord[tag][0];
+          int M_theta = round(2 * M_PI * r / h);
+          double d_theta = 2 * M_PI * r / M_theta;
 
-          vec3 new_normal = vec3(
-              cos(theta) * cos(delta_theta) - sin(theta) * sin(delta_theta),
-              cos(theta) * sin(delta_theta) + sin(theta) * cos(delta_theta),
-              0.0);
-          vec3 new_pos =
-              new_normal * rigid_body_size[attached_rigid_body_index[tag]] +
-              rigid_body_coord[attached_rigid_body_index[tag]];
+          int old_M_theta = round(2 * M_PI * r / old_h);
+          double old_delta_theta = 2 * M_PI / old_M_theta;
 
-          coord[tag] = new_pos;
-          spacing[tag] /= 2.0;
-          volume[tag] /= 4.0;
-          normal[tag] = new_normal;
-          p_coord[tag] = vec3(theta + delta_theta, 0.0, 0.0);
-          p_spacing[tag] = vec3(p_spacing[tag][0] / 2.0, 0.0, 0.0);
-          adaptive_level[tag]++;
-          new_added[tag] = -1;
+          vec3 new_p_spacing = vec3(d_theta, 0, 0);
 
-          new_normal = vec3(
-              cos(theta) * cos(-delta_theta) - sin(theta) * sin(-delta_theta),
-              cos(theta) * sin(-delta_theta) + sin(theta) * cos(-delta_theta),
-              0.0);
-          new_pos =
-              new_normal * rigid_body_size[attached_rigid_body_index[tag]] +
-              rigid_body_coord[attached_rigid_body_index[tag]];
+          double old_theta = p_coord[tag][0];
+          double old_theta0, old_theta1;
+          old_theta0 = old_theta - 0.5 * old_delta_theta;
+          old_theta1 = old_theta + 0.5 * old_delta_theta;
 
-          insert_particle(new_pos, particle_type[tag], spacing[tag], new_normal,
-                          adaptive_level[tag], volume[tag], true,
-                          attached_rigid_body_index[tag],
-                          vec3(theta - delta_theta, 0.0, 0.0), p_spacing[tag]);
+          bool insert = false;
+          for (int i = 0; i < M_theta; i++) {
+            double theta = 2 * M_PI * (i + 0.5) / M_theta;
+            if (theta >= old_theta0 && theta < old_theta1) {
+              vec3 new_normal = vec3(cos(theta), sin(theta), 0.0);
+              vec3 new_pos = new_normal * r +
+                             rigid_body_coord[attached_rigid_body_index[tag]];
+              vec3 new_p_coord = vec3(theta, 0.0, 0.0);
+              if (!insert) {
+                coord[tag] = new_pos;
+                spacing[tag] = h;
+                volume[tag] = vol;
+                normal[tag] = new_normal;
+                p_coord[tag] = new_p_coord;
+                p_spacing[tag] = new_p_spacing;
+                adaptive_level[tag]++;
+                new_added[tag] = -1;
+
+                insert = true;
+              } else {
+                insert_particle(new_pos, particle_type[tag], spacing[tag],
+                                new_normal, adaptive_level[tag], volume[tag],
+                                true, attached_rigid_body_index[tag],
+                                vec3(theta, 0.0, 0.0), p_spacing[tag]);
+              }
+            }
+          }
         }
 
         break;
@@ -2971,7 +2983,6 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           }
 
           if (dis.mag() < rigid_body_size + 1.5 * _spacing) {
-            double min_dis = bounding_box_size[0];
             for (int i = 0; i < rigid_body_surface_particle_coord.size(); i++) {
               vec3 rci = _pos - rigid_body_surface_particle_coord[i];
               if (rci.mag() <
@@ -3010,18 +3021,14 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
             }
             if (abs(dis[0]) < half_side_length + 1.0 * _spacing &&
                 abs(dis[1]) < half_side_length + 1.0 * _spacing) {
-              double min_dis = bounding_box_size[0];
               for (int i = 0; i < rigid_body_surface_particle_coord.size();
                    i++) {
                 vec3 rci = _pos - rigid_body_surface_particle_coord[i];
-                if (min_dis > rci.mag()) {
-                  min_dis = rci.mag();
+                if (rci.mag() <
+                    0.5 * max(_spacing,
+                              rigid_body_surface_particle_spacing[i][0])) {
+                  return idx;
                 }
-              }
-
-              if (min_dis < 0.25 * _spacing) {
-                // this is a gap particle near the surface of the colloids
-                return idx;
               }
             }
           }
