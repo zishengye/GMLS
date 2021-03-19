@@ -2241,29 +2241,29 @@ void stokes_equation::calculate_error() {
   }
 
   // smooth stage
-  for (int ite = 0; ite < 10; ite++) {
-    vector<double> ghost_error;
-    geo_mgr->ghost_forward(error, ghost_error);
+  // for (int ite = 0; ite < 10; ite++) {
+  //   vector<double> ghost_error;
+  //   geo_mgr->ghost_forward(error, ghost_error);
 
-    for (int i = 0; i < local_particle_num; i++) {
-      error[i] = 0.0;
-      double total_neighbor_vol = 0.0;
-      for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
-        const int neighbor_index = neighbor_list->getNeighborHost(i, j);
+  //   for (int i = 0; i < local_particle_num; i++) {
+  //     error[i] = 0.0;
+  //     double total_neighbor_vol = 0.0;
+  //     for (int j = 0; j < neighbor_list->getNumberOfNeighborsHost(i); j++) {
+  //       const int neighbor_index = neighbor_list->getNeighborHost(i, j);
 
-        vec3 dX = source_coord[neighbor_index] - coord[i];
+  //       vec3 dX = source_coord[neighbor_index] - coord[i];
 
-        if (dX.mag() < epsilon[i]) {
-          double Wabij = Wab(dX.mag(), epsilon[i]);
+  //       if (dX.mag() < epsilon[i]) {
+  //         double Wabij = Wab(dX.mag(), epsilon[i]);
 
-          error[i] += ghost_error[neighbor_index] *
-                      source_volume[neighbor_index] * Wabij;
-          total_neighbor_vol += source_volume[neighbor_index] * Wabij;
-        }
-      }
-      error[i] /= total_neighbor_vol;
-    }
-  }
+  //         error[i] += ghost_error[neighbor_index] *
+  //                     source_volume[neighbor_index] * Wabij;
+  //         total_neighbor_vol += source_volume[neighbor_index] * Wabij;
+  //       }
+  //     }
+  //     error[i] /= total_neighbor_vol;
+  //   }
+  // }
 
   for (int i = 0; i < local_particle_num; i++) {
     error[i] *= volume[i];
