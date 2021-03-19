@@ -46,21 +46,25 @@ bool gmls_solver::refinement() {
 
   auto &rigid_body_position = rb_mgr->get_position();
   const auto num_rigid_body = rb_mgr->get_rigid_body_num();
+  vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
 
   double min_dis = 1.0;
   for (int i = 0; i < rigid_body_position.size(); i++) {
     for (int j = i + 1; j < rigid_body_position.size(); j++) {
       vec3 dist = rigid_body_position[i] - rigid_body_position[j];
-      if (min_dis > dist.mag()) {
-        min_dis = dist.mag();
+      if (min_dis > dist.mag() - rigid_body_size[i] - rigid_body_size[j]) {
+        min_dis = dist.mag() - rigid_body_size[i] - rigid_body_size[j];
       }
     }
   }
 
-  if (min_dis < 0.25 * min_h)
-    alpha = 0.9;
-  if (min_dis < 0.5 * min_h)
+  if (min_h > 0.5 * min_dis)
     alpha = 0.75;
+  if (min_h > 0.25 * min_dis)
+    alpha = 0.9;
+
+  PetscPrintf(PETSC_COMM_WORLD, "alpha: %f, min distance: %f, min h: %f\n",
+              alpha, min_dis, min_h);
 
   vector<pair<int, double>> chopper;
   pair<int, double> to_add;
