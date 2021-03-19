@@ -58,11 +58,6 @@ bool gmls_solver::refinement() {
     }
   }
 
-  if (min_h > 0.5 * min_dis)
-    alpha = 0.75;
-  if (min_h > 0.25 * min_dis)
-    alpha = 0.9;
-
   PetscPrintf(PETSC_COMM_WORLD, "alpha: %f, min distance: %f, min h: %f\n",
               alpha, min_dis, min_h);
 
