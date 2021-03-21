@@ -32,6 +32,8 @@ private:
   std::shared_ptr<Compadre::GMLS> pressure_basis;
   std::shared_ptr<Compadre::GMLS> velocity_basis;
   std::shared_ptr<Compadre::GMLS> pressure_neumann_basis;
+  std::shared_ptr<Compadre::GMLS> normal_pressure_basis;
+  std::shared_ptr<Compadre::GMLS> normal_pressure_neumann_basis;
 
   std::vector<double> epsilon;
   std::vector<double> ghost_epsilon;
@@ -46,6 +48,8 @@ private:
   std::vector<vec3> velocity;
   std::vector<double> pressure;
 
+  std::vector<int> invert_row_index;
+
   std::vector<std::vector<double>> gradient;
   int gradient_component_num;
 
@@ -54,6 +58,10 @@ private:
   int error_esimation_method;
   double epsilon_multiplier;
   double eta;
+  int compress_memory;
+  int number_of_batches;
+
+  int min_neighbor, max_neighbor;
 
   double global_error;
 
@@ -70,7 +78,8 @@ public:
             std::shared_ptr<rigid_body_manager> _rb_mgr, const int _poly_order,
             const int _dim,
             const int _error_estimation_method = VELOCITY_ERROR_EST,
-            const double _epsilon_multiplier = 0.0, const double _eta = 1.0);
+            const double _epsilon_multiplier = 0.0, const double _eta = 1.0,
+            const int _compress_memory = 0);
   void reset();
   void update();
 

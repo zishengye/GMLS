@@ -46,4 +46,19 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
   }
 }
 
-bool rigid_body_manager::rigid_body_collision_detection() { return false; }
+bool rigid_body_manager::rigid_body_collision_detection() {
+  double min_dis = 1.0;
+  for (int i = 0; i < rigid_body_position.size(); i++) {
+    for (int j = i + 1; j < rigid_body_position.size(); j++) {
+      vec3 dist = rigid_body_position[i] - rigid_body_position[j];
+      if (min_dis > dist.mag() - rigid_body_size[i] - rigid_body_size[j]) {
+        min_dis = dist.mag() - rigid_body_size[i] - rigid_body_size[j];
+      }
+    }
+  }
+
+  if (min_dis < 0)
+    return true;
+
+  return false;
+}

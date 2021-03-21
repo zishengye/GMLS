@@ -37,25 +37,6 @@ void trilinos_rcp_partitioner::partition(vector<long long> &index,
 
     auto &solution = problem->getSolution();
 
-    quality_t *metricObject1 =
-        new quality_t(ia, &params, // problem1->getComm(),
-                      &problem->getSolution());
-    // Check the solution.
-
-    if (rank == 0) {
-      metricObject1->printMetrics(std::cout);
-    }
-
-    if (rank == 0) {
-      scalar_t imb = metricObject1->getObjectCountImbalance();
-      if (imb <= tolerance)
-        std::cout << "pass: " << imb << std::endl;
-      else
-        std::cout << "fail: " << imb << std::endl;
-      std::cout << std::endl;
-    }
-    delete metricObject1;
-
     const int *ptr = solution.getPartListView();
 
     if (ptr != NULL) {

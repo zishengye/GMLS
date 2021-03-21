@@ -175,6 +175,14 @@ gmls_solver::gmls_solver(int argc, char **argv) {
     return;
   }
 
+  int compress_memory = 0;
+  if ((SearchCommand<int>(argc, argv, "-CompressMemory", compress_memory)) ==
+      1) {
+    compress_memory = 0;
+  } else if (compress_memory < 0) {
+    return;
+  }
+
   if ((SearchCommand<int>(argc, argv, "-Viewer", use_viewer)) == 1) {
     use_viewer = 0;
   }
@@ -246,7 +254,7 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   }
 
   equation_mgr->init(geo_mgr, rb_mgr, polynomial_order, dim, refinement_field,
-                     epsilon_multiplier, eta);
+                     epsilon_multiplier, eta, compress_memory);
 
   if (use_viewer == 1)
     equation_mgr->set_viewer();

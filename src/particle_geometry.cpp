@@ -346,30 +346,31 @@ void particle_geometry::generate_uniform_particle() {
   local_managing_gap_particle_adaptive_level = make_shared<vector<int>>();
 
   generate_rigid_body_surface_particle();
+  collect_rigid_body_surface_particle();
   generate_field_particle();
 
   index_particle();
 
   balance_workload();
 
-  mitigate_forward(current_local_managing_particle_coord,
-                   current_local_work_particle_coord);
-  mitigate_forward(current_local_managing_particle_normal,
-                   current_local_work_particle_normal);
-  mitigate_forward(current_local_managing_particle_p_spacing,
-                   current_local_work_particle_p_spacing);
-  mitigate_forward(current_local_managing_particle_spacing,
-                   current_local_work_particle_spacing);
-  mitigate_forward(current_local_managing_particle_volume,
-                   current_local_work_particle_volume);
-  mitigate_forward(current_local_managing_particle_type,
-                   current_local_work_particle_type);
-  mitigate_forward(current_local_managing_particle_adaptive_level,
-                   current_local_work_particle_adaptive_level);
-  mitigate_forward(current_local_managing_particle_new_added,
-                   current_local_work_particle_new_added);
-  mitigate_forward(current_local_managing_particle_attached_rigid_body,
-                   current_local_work_particle_attached_rigid_body);
+  migrate_forward(current_local_managing_particle_coord,
+                  current_local_work_particle_coord);
+  migrate_forward(current_local_managing_particle_normal,
+                  current_local_work_particle_normal);
+  migrate_forward(current_local_managing_particle_p_spacing,
+                  current_local_work_particle_p_spacing);
+  migrate_forward(current_local_managing_particle_spacing,
+                  current_local_work_particle_spacing);
+  migrate_forward(current_local_managing_particle_volume,
+                  current_local_work_particle_volume);
+  migrate_forward(current_local_managing_particle_type,
+                  current_local_work_particle_type);
+  migrate_forward(current_local_managing_particle_adaptive_level,
+                  current_local_work_particle_adaptive_level);
+  migrate_forward(current_local_managing_particle_new_added,
+                  current_local_work_particle_new_added);
+  migrate_forward(current_local_managing_particle_attached_rigid_body,
+                  current_local_work_particle_attached_rigid_body);
 
   index_work_particle();
 
@@ -385,13 +386,13 @@ void particle_geometry::generate_uniform_particle() {
 
 void particle_geometry::clear_particle() {}
 
-void particle_geometry::mitigate_forward(int_type source, int_type target) {
+void particle_geometry::migrate_forward(int_type source, int_type target) {
   int num_target_num = source->size();
-  for (int i = 0; i < mitigation_in_num.size(); i++) {
-    num_target_num += mitigation_in_num[i];
+  for (int i = 0; i < migration_in_num.size(); i++) {
+    num_target_num += migration_in_num[i];
   }
-  for (int i = 0; i < mitigation_out_num.size(); i++) {
-    num_target_num -= mitigation_out_num[i];
+  for (int i = 0; i < migration_out_num.size(); i++) {
+    num_target_num -= migration_out_num[i];
   }
 
   target->resize(num_target_num);
@@ -405,158 +406,30 @@ void particle_geometry::mitigate_forward(int_type source, int_type target) {
   vector<MPI_Status> send_status;
   vector<MPI_Status> recv_status;
 
-  send_request.resize(mitigation_out_graph.size());
-  recv_request.resize(mitigation_in_graph.size());
-  send_status.resize(mitigation_out_graph.size());
-  recv_status.resize(mitigation_in_graph.size());
+  send_request.resize(migration_out_graph.size());
+  recv_request.resize(migration_in_graph.size());
+  send_status.resize(migration_out_graph.size());
+  recv_status.resize(migration_in_graph.size());
 
   vector<int> send_buffer, recv_buffer;
-  send_buffer.resize(mitigation_out_offset[mitigation_out_graph.size()]);
-  recv_buffer.resize(mitigation_in_offset[mitigation_in_graph.size()]);
+  send_buffer.resize(migration_out_offset[migration_out_graph.size()]);
+  recv_buffer.resize(migration_in_offset[migration_in_graph.size()]);
 
   // prepare send buffer
-  for (int i = 0; i < local_mitigation_map.size(); i++) {
-    send_buffer[i] = source_vec[local_mitigation_map[i]];
+  for (int i = 0; i < local_migration_map.size(); i++) {
+    send_buffer[i] = source_vec[local_migration_map[i]];
   }
 
   // send and recv data buffer
-  for (int i = 0; i < mitigation_out_graph.size(); i++) {
-    MPI_Isend(send_buffer.data() + mitigation_out_offset[i],
-              mitigation_out_num[i], MPI_INT, mitigation_out_graph[i], 0,
+  for (int i = 0; i < migration_out_graph.size(); i++) {
+    MPI_Isend(send_buffer.data() + migration_out_offset[i],
+              migration_out_num[i], MPI_INT, migration_out_graph[i], 0,
               MPI_COMM_WORLD, send_request.data() + i);
   }
 
-  for (int i = 0; i < mitigation_in_graph.size(); i++) {
-    MPI_Irecv(recv_buffer.data() + mitigation_in_offset[i],
-              mitigation_in_num[i], MPI_INT, mitigation_in_graph[i], 0,
-              MPI_COMM_WORLD, recv_request.data() + i);
-  }
-
-  MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
-  MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // store data
-  for (int i = 0; i < local_reserve_map.size(); i++) {
-    target_vec[i] = source_vec[local_reserve_map[i]];
-  }
-  const int local_reserve_size = local_reserve_map.size();
-  for (int i = 0; i < recv_buffer.size(); i++) {
-    target_vec[i + local_reserve_size] = recv_buffer[i];
-  }
-}
-
-void particle_geometry::mitigate_forward(real_type source, real_type target) {
-  int num_target_num = source->size();
-  for (int i = 0; i < mitigation_in_num.size(); i++) {
-    num_target_num += mitigation_in_num[i];
-  }
-  for (int i = 0; i < mitigation_out_num.size(); i++) {
-    num_target_num -= mitigation_out_num[i];
-  }
-
-  target->resize(num_target_num);
-
-  auto &source_vec = *source;
-  auto &target_vec = *target;
-
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
-
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
-
-  send_request.resize(mitigation_out_graph.size());
-  recv_request.resize(mitigation_in_graph.size());
-  send_status.resize(mitigation_out_graph.size());
-  recv_status.resize(mitigation_in_graph.size());
-
-  vector<double> send_buffer, recv_buffer;
-  send_buffer.resize(mitigation_out_offset[mitigation_out_graph.size()]);
-  recv_buffer.resize(mitigation_in_offset[mitigation_in_graph.size()]);
-
-  // prepare send buffer
-  for (int i = 0; i < local_mitigation_map.size(); i++) {
-    send_buffer[i] = source_vec[local_mitigation_map[i]];
-  }
-
-  // send and recv data buffer
-  for (int i = 0; i < mitigation_out_graph.size(); i++) {
-    MPI_Isend(send_buffer.data() + mitigation_out_offset[i],
-              mitigation_out_num[i], MPI_DOUBLE, mitigation_out_graph[i], 0,
-              MPI_COMM_WORLD, send_request.data() + i);
-  }
-
-  for (int i = 0; i < mitigation_in_graph.size(); i++) {
-    MPI_Irecv(recv_buffer.data() + mitigation_in_offset[i],
-              mitigation_in_num[i], MPI_DOUBLE, mitigation_in_graph[i], 0,
-              MPI_COMM_WORLD, recv_request.data() + i);
-  }
-
-  MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
-  MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // store data
-  for (int i = 0; i < local_reserve_map.size(); i++) {
-    target_vec[i] = source_vec[local_reserve_map[i]];
-  }
-  const int local_reserve_size = local_reserve_map.size();
-  for (int i = 0; i < recv_buffer.size(); i++) {
-    target_vec[i + local_reserve_size] = recv_buffer[i];
-  }
-}
-
-void particle_geometry::mitigate_forward(vec_type source, vec_type target) {
-  const int unit_length = 3;
-  int num_target_num = source->size();
-  for (int i = 0; i < mitigation_in_num.size(); i++) {
-    num_target_num += mitigation_in_num[i];
-  }
-  for (int i = 0; i < mitigation_out_num.size(); i++) {
-    num_target_num -= mitigation_out_num[i];
-  }
-
-  target->resize(num_target_num);
-
-  auto &source_vec = *source;
-  auto &target_vec = *target;
-
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
-
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
-
-  send_request.resize(mitigation_out_graph.size());
-  recv_request.resize(mitigation_in_graph.size());
-  send_status.resize(mitigation_out_graph.size());
-  recv_status.resize(mitigation_in_graph.size());
-
-  vector<double> send_buffer, recv_buffer;
-  send_buffer.resize(mitigation_out_offset[mitigation_out_graph.size()] *
-                     unit_length);
-  recv_buffer.resize(mitigation_in_offset[mitigation_in_graph.size()] *
-                     unit_length);
-
-  // prepare send buffer
-  for (int i = 0; i < local_mitigation_map.size(); i++) {
-    for (int j = 0; j < unit_length; j++)
-      send_buffer[i * unit_length + j] = source_vec[local_mitigation_map[i]][j];
-  }
-
-  // send and recv data buffer
-  for (int i = 0; i < mitigation_out_graph.size(); i++) {
-    MPI_Isend(send_buffer.data() + mitigation_out_offset[i] * unit_length,
-              mitigation_out_num[i] * unit_length, MPI_DOUBLE,
-              mitigation_out_graph[i], 0, MPI_COMM_WORLD,
-              send_request.data() + i);
-  }
-
-  for (int i = 0; i < mitigation_in_graph.size(); i++) {
-    MPI_Irecv(recv_buffer.data() + mitigation_in_offset[i] * unit_length,
-              mitigation_in_num[i] * unit_length, MPI_DOUBLE,
-              mitigation_in_graph[i], 0, MPI_COMM_WORLD,
+  for (int i = 0; i < migration_in_graph.size(); i++) {
+    MPI_Irecv(recv_buffer.data() + migration_in_offset[i], migration_in_num[i],
+              MPI_INT, migration_in_graph[i], 0, MPI_COMM_WORLD,
               recv_request.data() + i);
   }
 
@@ -569,20 +442,148 @@ void particle_geometry::mitigate_forward(vec_type source, vec_type target) {
     target_vec[i] = source_vec[local_reserve_map[i]];
   }
   const int local_reserve_size = local_reserve_map.size();
-  for (int i = 0; i < mitigation_in_offset[mitigation_in_graph.size()]; i++) {
+  for (int i = 0; i < recv_buffer.size(); i++) {
+    target_vec[i + local_reserve_size] = recv_buffer[i];
+  }
+}
+
+void particle_geometry::migrate_forward(real_type source, real_type target) {
+  int num_target_num = source->size();
+  for (int i = 0; i < migration_in_num.size(); i++) {
+    num_target_num += migration_in_num[i];
+  }
+  for (int i = 0; i < migration_out_num.size(); i++) {
+    num_target_num -= migration_out_num[i];
+  }
+
+  target->resize(num_target_num);
+
+  auto &source_vec = *source;
+  auto &target_vec = *target;
+
+  vector<MPI_Request> send_request;
+  vector<MPI_Request> recv_request;
+
+  vector<MPI_Status> send_status;
+  vector<MPI_Status> recv_status;
+
+  send_request.resize(migration_out_graph.size());
+  recv_request.resize(migration_in_graph.size());
+  send_status.resize(migration_out_graph.size());
+  recv_status.resize(migration_in_graph.size());
+
+  vector<double> send_buffer, recv_buffer;
+  send_buffer.resize(migration_out_offset[migration_out_graph.size()]);
+  recv_buffer.resize(migration_in_offset[migration_in_graph.size()]);
+
+  // prepare send buffer
+  for (int i = 0; i < local_migration_map.size(); i++) {
+    send_buffer[i] = source_vec[local_migration_map[i]];
+  }
+
+  // send and recv data buffer
+  for (int i = 0; i < migration_out_graph.size(); i++) {
+    MPI_Isend(send_buffer.data() + migration_out_offset[i],
+              migration_out_num[i], MPI_DOUBLE, migration_out_graph[i], 0,
+              MPI_COMM_WORLD, send_request.data() + i);
+  }
+
+  for (int i = 0; i < migration_in_graph.size(); i++) {
+    MPI_Irecv(recv_buffer.data() + migration_in_offset[i], migration_in_num[i],
+              MPI_DOUBLE, migration_in_graph[i], 0, MPI_COMM_WORLD,
+              recv_request.data() + i);
+  }
+
+  MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
+  MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // store data
+  for (int i = 0; i < local_reserve_map.size(); i++) {
+    target_vec[i] = source_vec[local_reserve_map[i]];
+  }
+  const int local_reserve_size = local_reserve_map.size();
+  for (int i = 0; i < recv_buffer.size(); i++) {
+    target_vec[i + local_reserve_size] = recv_buffer[i];
+  }
+}
+
+void particle_geometry::migrate_forward(vec_type source, vec_type target) {
+  const int unit_length = 3;
+  int num_target_num = source->size();
+  for (int i = 0; i < migration_in_num.size(); i++) {
+    num_target_num += migration_in_num[i];
+  }
+  for (int i = 0; i < migration_out_num.size(); i++) {
+    num_target_num -= migration_out_num[i];
+  }
+
+  target->resize(num_target_num);
+
+  auto &source_vec = *source;
+  auto &target_vec = *target;
+
+  vector<MPI_Request> send_request;
+  vector<MPI_Request> recv_request;
+
+  vector<MPI_Status> send_status;
+  vector<MPI_Status> recv_status;
+
+  send_request.resize(migration_out_graph.size());
+  recv_request.resize(migration_in_graph.size());
+  send_status.resize(migration_out_graph.size());
+  recv_status.resize(migration_in_graph.size());
+
+  vector<double> send_buffer, recv_buffer;
+  send_buffer.resize(migration_out_offset[migration_out_graph.size()] *
+                     unit_length);
+  recv_buffer.resize(migration_in_offset[migration_in_graph.size()] *
+                     unit_length);
+
+  // prepare send buffer
+  for (int i = 0; i < local_migration_map.size(); i++) {
+    for (int j = 0; j < unit_length; j++)
+      send_buffer[i * unit_length + j] = source_vec[local_migration_map[i]][j];
+  }
+
+  // send and recv data buffer
+  for (int i = 0; i < migration_out_graph.size(); i++) {
+    MPI_Isend(send_buffer.data() + migration_out_offset[i] * unit_length,
+              migration_out_num[i] * unit_length, MPI_DOUBLE,
+              migration_out_graph[i], 0, MPI_COMM_WORLD,
+              send_request.data() + i);
+  }
+
+  for (int i = 0; i < migration_in_graph.size(); i++) {
+    MPI_Irecv(recv_buffer.data() + migration_in_offset[i] * unit_length,
+              migration_in_num[i] * unit_length, MPI_DOUBLE,
+              migration_in_graph[i], 0, MPI_COMM_WORLD,
+              recv_request.data() + i);
+  }
+
+  MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
+  MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // store data
+  for (int i = 0; i < local_reserve_map.size(); i++) {
+    target_vec[i] = source_vec[local_reserve_map[i]];
+  }
+  const int local_reserve_size = local_reserve_map.size();
+  for (int i = 0; i < migration_in_offset[migration_in_graph.size()]; i++) {
     for (int j = 0; j < unit_length; j++)
       target_vec[i + local_reserve_size][j] = recv_buffer[i * unit_length + j];
   }
 }
 
-void particle_geometry::mitigate_backward(vector<int> &source,
-                                          vector<int> &target) {
+void particle_geometry::migrate_backward(vector<int> &source,
+                                         vector<int> &target) {
   int num_target_num = source.size();
-  for (int i = 0; i < mitigation_in_num.size(); i++) {
-    num_target_num -= mitigation_in_num[i];
+  for (int i = 0; i < migration_in_num.size(); i++) {
+    num_target_num -= migration_in_num[i];
   }
-  for (int i = 0; i < mitigation_out_num.size(); i++) {
-    num_target_num += mitigation_out_num[i];
+  for (int i = 0; i < migration_out_num.size(); i++) {
+    num_target_num += migration_out_num[i];
   }
 
   target.resize(num_target_num);
@@ -593,31 +594,31 @@ void particle_geometry::mitigate_backward(vector<int> &source,
   vector<MPI_Status> send_status;
   vector<MPI_Status> recv_status;
 
-  send_request.resize(mitigation_in_graph.size());
-  recv_request.resize(mitigation_out_graph.size());
-  send_status.resize(mitigation_in_graph.size());
-  recv_status.resize(mitigation_out_graph.size());
+  send_request.resize(migration_in_graph.size());
+  recv_request.resize(migration_out_graph.size());
+  send_status.resize(migration_in_graph.size());
+  recv_status.resize(migration_out_graph.size());
 
   vector<int> send_buffer, recv_buffer;
-  send_buffer.resize(mitigation_in_offset[mitigation_in_graph.size()]);
-  recv_buffer.resize(mitigation_out_offset[mitigation_out_graph.size()]);
+  send_buffer.resize(migration_in_offset[migration_in_graph.size()]);
+  recv_buffer.resize(migration_out_offset[migration_out_graph.size()]);
 
   // prepare send buffer
   const int local_reserve_size = local_reserve_map.size();
-  for (int i = 0; i < mitigation_in_offset[mitigation_in_graph.size()]; i++) {
+  for (int i = 0; i < migration_in_offset[migration_in_graph.size()]; i++) {
     send_buffer[i] = source[i + local_reserve_size];
   }
 
   // send and recv data buffer
-  for (int i = 0; i < mitigation_in_graph.size(); i++) {
-    MPI_Isend(send_buffer.data() + mitigation_in_offset[i],
-              mitigation_in_num[i], MPI_INT, mitigation_in_graph[i], 0,
-              MPI_COMM_WORLD, send_request.data() + i);
+  for (int i = 0; i < migration_in_graph.size(); i++) {
+    MPI_Isend(send_buffer.data() + migration_in_offset[i], migration_in_num[i],
+              MPI_INT, migration_in_graph[i], 0, MPI_COMM_WORLD,
+              send_request.data() + i);
   }
 
-  for (int i = 0; i < mitigation_out_graph.size(); i++) {
-    MPI_Irecv(recv_buffer.data() + mitigation_out_offset[i],
-              mitigation_out_num[i], MPI_INT, mitigation_out_graph[i], 0,
+  for (int i = 0; i < migration_out_graph.size(); i++) {
+    MPI_Irecv(recv_buffer.data() + migration_out_offset[i],
+              migration_out_num[i], MPI_INT, migration_out_graph[i], 0,
               MPI_COMM_WORLD, recv_request.data() + i);
   }
 
@@ -626,8 +627,8 @@ void particle_geometry::mitigate_backward(vector<int> &source,
   MPI_Barrier(MPI_COMM_WORLD);
 
   // store data
-  for (int i = 0; i < local_mitigation_map.size(); i++) {
-    target[local_mitigation_map[i]] = recv_buffer[i];
+  for (int i = 0; i < local_migration_map.size(); i++) {
+    target[local_migration_map[i]] = recv_buffer[i];
   }
   for (int i = 0; i < local_reserve_map.size(); i++) {
     target[local_reserve_map[i]] = source[i];
@@ -1454,24 +1455,24 @@ void particle_geometry::refine(vector<int> &split_tag) {
   current_local_work_ghost_particle_volume = make_shared<vector<double>>();
   current_local_work_ghost_particle_index = make_shared<vector<int>>();
 
-  mitigate_forward(current_local_managing_particle_coord,
-                   current_local_work_particle_coord);
-  mitigate_forward(current_local_managing_particle_normal,
-                   current_local_work_particle_normal);
-  mitigate_forward(current_local_managing_particle_p_spacing,
-                   current_local_work_particle_p_spacing);
-  mitigate_forward(current_local_managing_particle_spacing,
-                   current_local_work_particle_spacing);
-  mitigate_forward(current_local_managing_particle_volume,
-                   current_local_work_particle_volume);
-  mitigate_forward(current_local_managing_particle_type,
-                   current_local_work_particle_type);
-  mitigate_forward(current_local_managing_particle_adaptive_level,
-                   current_local_work_particle_adaptive_level);
-  mitigate_forward(current_local_managing_particle_new_added,
-                   current_local_work_particle_new_added);
-  mitigate_forward(current_local_managing_particle_attached_rigid_body,
-                   current_local_work_particle_attached_rigid_body);
+  migrate_forward(current_local_managing_particle_coord,
+                  current_local_work_particle_coord);
+  migrate_forward(current_local_managing_particle_normal,
+                  current_local_work_particle_normal);
+  migrate_forward(current_local_managing_particle_p_spacing,
+                  current_local_work_particle_p_spacing);
+  migrate_forward(current_local_managing_particle_spacing,
+                  current_local_work_particle_spacing);
+  migrate_forward(current_local_managing_particle_volume,
+                  current_local_work_particle_volume);
+  migrate_forward(current_local_managing_particle_type,
+                  current_local_work_particle_type);
+  migrate_forward(current_local_managing_particle_adaptive_level,
+                  current_local_work_particle_adaptive_level);
+  migrate_forward(current_local_managing_particle_new_added,
+                  current_local_work_particle_new_added);
+  migrate_forward(current_local_managing_particle_attached_rigid_body,
+                  current_local_work_particle_attached_rigid_body);
 
   index_work_particle();
 
@@ -2304,6 +2305,7 @@ void particle_geometry::uniform_refine() {
       make_shared<vector<int>>();
 
   generate_rigid_body_surface_particle();
+  collect_rigid_body_surface_particle();
   generate_field_particle();
 }
 
@@ -2312,14 +2314,35 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
 
   vector<int> managing_split_tag;
   vector<int> managing_work_index;
-  mitigate_backward(split_tag, managing_split_tag);
-  mitigate_backward(*current_local_work_particle_index, managing_work_index);
+  migrate_backward(split_tag, managing_split_tag);
+  migrate_backward(*current_local_work_particle_index, managing_work_index);
 
-  auto &coord = *current_local_managing_particle_coord;
-  auto &spacing = *current_local_managing_particle_spacing;
-  auto &particle_type = *current_local_managing_particle_type;
-  auto &adaptive_level = *current_local_managing_particle_adaptive_level;
   auto &new_added = *current_local_managing_particle_new_added;
+  auto &particle_type = *current_local_managing_particle_type;
+
+  for (int i = 0; i < new_added.size(); i++) {
+    new_added[i] = managing_work_index[i];
+  }
+
+  vector<int> rigid_body_surface_particle_split_tag;
+  vector<int> field_particle_split_tag;
+
+  for (int i = 0; i < managing_split_tag.size(); i++) {
+    if (managing_split_tag[i] != 0) {
+      if (particle_type[i] < 4) {
+        field_particle_split_tag.push_back(i);
+      } else {
+        rigid_body_surface_particle_split_tag.push_back(i);
+      }
+    }
+  }
+
+  split_rigid_body_surface_particle(rigid_body_surface_particle_split_tag);
+  collect_rigid_body_surface_particle();
+
+  auto &coord = rigid_body_surface_particle_coord;
+  auto &spacing = rigid_body_surface_particle_spacing;
+  auto &adaptive_level = rigid_body_surface_particle_adaptive_level;
 
   auto &gap_coord = *local_managing_gap_particle_coord;
   auto &gap_spacing = *local_managing_gap_particle_spacing;
@@ -2356,62 +2379,47 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
 
   int estimated_num_neighbor_max = 2 * pow(2, dim);
 
-  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
-      "neighbor lists", num_target_coord, estimated_num_neighbor_max);
-  Kokkos::View<int **>::HostMirror neighbor_list_host =
-      Kokkos::create_mirror_view(neighbor_list_device);
-
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
       "h supports", num_target_coord);
   Kokkos::View<double *>::HostMirror epsilon_host =
       Kokkos::create_mirror_view(epsilon_device);
 
-  point_cloud_search.generate2DNeighborListsFromKNNSearch(
-      false, target_coord_host, neighbor_list_host, epsilon_host, pow(2, dim),
-      1.0);
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> temp_neighbor_list_device(
+      "temp neighbor lists", num_target_coord, 1);
+  Kokkos::View<int **>::HostMirror temp_neighbor_list_host =
+      Kokkos::create_mirror_view(temp_neighbor_list_device);
+
+  for (int i = 0; i < num_target_coord; i++) {
+    epsilon_host[i] = 1.5 * gap_spacing[i];
+  }
+
+  size_t max_num_neighbor =
+      point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+          true, target_coord_host, temp_neighbor_list_host, epsilon_host, 0.0,
+          0.0) +
+      2;
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
+      "neighbor lists", num_target_coord, max_num_neighbor);
+  Kokkos::View<int **>::HostMirror neighbor_list_host =
+      Kokkos::create_mirror_view(neighbor_list_device);
+
+  point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+      false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
 
   vector<int> gap_split_tag;
   gap_split_tag.resize(num_target_coord);
   for (int i = 0; i < num_target_coord; i++) {
-    int counter = 0;
-    double min_dis = 1.0;
+    gap_split_tag[i] = 1;
     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
       // find the nearest particle
-      vec3 dis = coord[neighbor_list_host(i, j + 1)] - gap_coord[i];
-      if (particle_type[neighbor_list_host(i, j + 1)] >= 4)
-        if (dis.mag() < min_dis) {
-          min_dis = dis.mag();
-          counter = neighbor_list_host(i, j + 1);
-        }
-    }
-
-    if ((gap_adaptive_level[i] < adaptive_level[counter]) ||
-        (gap_adaptive_level[i] == adaptive_level[counter] &&
-         managing_split_tag[counter] == 1)) {
-      gap_split_tag[i] = 1;
-    } else {
-      gap_split_tag[i] = 0;
-    }
-  }
-
-  for (int i = 0; i < new_added.size(); i++) {
-    new_added[i] = managing_work_index[i];
-  }
-
-  vector<int> rigid_body_surface_particle_split_tag;
-  vector<int> field_particle_split_tag;
-
-  for (int i = 0; i < managing_split_tag.size(); i++) {
-    if (managing_split_tag[i] != 0) {
-      if (particle_type[i] < 4) {
-        field_particle_split_tag.push_back(i);
-      } else {
-        rigid_body_surface_particle_split_tag.push_back(i);
+      int neighbor_index = neighbor_list_host(i, j + 1);
+      if (gap_adaptive_level[i] == adaptive_level[neighbor_index]) {
+        gap_split_tag[i] = 0;
       }
     }
   }
 
-  split_rigid_body_surface_particle(rigid_body_surface_particle_split_tag);
   split_field_particle(field_particle_split_tag);
   split_gap_particle(gap_split_tag);
 }
@@ -2424,6 +2432,8 @@ void particle_geometry::insert_particle(const vec3 &_pos, int _particle_type,
                                         int _rigid_body_index, vec3 _p_coord,
                                         vec3 _p_spacing) {
   int idx = is_gap_particle(_pos, _spacing, _rigid_body_index);
+  if (_particle_type > 0)
+    idx = -2;
 
   if (idx == -2) {
     current_local_managing_particle_coord->push_back(_pos);
@@ -2511,6 +2521,7 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
         volume[tag] /= 8.0;
         bool insert = false;
         new_added[tag] = -1;
+        adaptive_level[tag]++;
         for (int i = -1; i < 2; i += 2) {
           for (int j = -1; j < 2; j += 2) {
             for (int k = -1; k < 2; k += 2) {
@@ -2520,7 +2531,6 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
                 int idx = is_gap_particle(new_pos, x_delta, -1);
                 if (idx == -2) {
                   coord[tag] = new_pos;
-                  adaptive_level[tag]++;
 
                   insert = true;
                 } else if (idx > -1) {
@@ -2746,40 +2756,52 @@ void particle_geometry::split_rigid_body_surface_particle(
       case 1:
         // cicle
         {
+          double old_h = spacing[tag];
+          double h = 0.5 * old_h;
+          double vol = pow(h, 2);
+
           double r = rigid_body_size[attached_rigid_body_index[tag]];
-          const double delta_theta = 0.25 * p_spacing[tag][0] / r;
 
-          double theta = p_coord[tag][0];
+          int M_theta = round(2 * M_PI * r / h);
+          double d_theta = 2 * M_PI * r / M_theta;
 
-          vec3 new_normal = vec3(
-              cos(theta) * cos(delta_theta) - sin(theta) * sin(delta_theta),
-              cos(theta) * sin(delta_theta) + sin(theta) * cos(delta_theta),
-              0.0);
-          vec3 new_pos =
-              new_normal * rigid_body_size[attached_rigid_body_index[tag]] +
-              rigid_body_coord[attached_rigid_body_index[tag]];
+          int old_M_theta = round(2 * M_PI * r / old_h);
+          double old_delta_theta = 2 * M_PI / old_M_theta;
 
-          coord[tag] = new_pos;
-          spacing[tag] /= 2.0;
-          volume[tag] /= 4.0;
-          normal[tag] = new_normal;
-          p_coord[tag] = vec3(theta + delta_theta, 0.0, 0.0);
-          p_spacing[tag] = vec3(p_spacing[tag][0] / 2.0, 0.0, 0.0);
-          adaptive_level[tag]++;
-          new_added[tag] = -1;
+          vec3 new_p_spacing = vec3(d_theta, 0, 0);
 
-          new_normal = vec3(
-              cos(theta) * cos(-delta_theta) - sin(theta) * sin(-delta_theta),
-              cos(theta) * sin(-delta_theta) + sin(theta) * cos(-delta_theta),
-              0.0);
-          new_pos =
-              new_normal * rigid_body_size[attached_rigid_body_index[tag]] +
-              rigid_body_coord[attached_rigid_body_index[tag]];
+          double old_theta = p_coord[tag][0];
+          double old_theta0, old_theta1;
+          old_theta0 = old_theta - 0.5 * old_delta_theta;
+          old_theta1 = old_theta + 0.5 * old_delta_theta;
 
-          insert_particle(new_pos, particle_type[tag], spacing[tag], new_normal,
-                          adaptive_level[tag], volume[tag], true,
-                          attached_rigid_body_index[tag],
-                          vec3(theta - delta_theta, 0.0, 0.0), p_spacing[tag]);
+          bool insert = false;
+          for (int i = 0; i < M_theta; i++) {
+            double theta = 2 * M_PI * (i + 0.5) / M_theta;
+            if (theta >= old_theta0 && theta < old_theta1) {
+              vec3 new_normal = vec3(cos(theta), sin(theta), 0.0);
+              vec3 new_pos = new_normal * r +
+                             rigid_body_coord[attached_rigid_body_index[tag]];
+              vec3 new_p_coord = vec3(theta, 0.0, 0.0);
+              if (!insert) {
+                coord[tag] = new_pos;
+                spacing[tag] = h;
+                volume[tag] = vol;
+                normal[tag] = new_normal;
+                p_coord[tag] = new_p_coord;
+                p_spacing[tag] = new_p_spacing;
+                adaptive_level[tag]++;
+                new_added[tag] = -1;
+
+                insert = true;
+              } else {
+                insert_particle(new_pos, particle_type[tag], spacing[tag],
+                                new_normal, adaptive_level[tag], volume[tag],
+                                true, attached_rigid_body_index[tag],
+                                vec3(theta, 0.0, 0.0), p_spacing[tag]);
+              }
+            }
+          }
         }
 
         break;
@@ -2956,22 +2978,18 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           if (dis.mag() < rigid_body_size - 1.5 * _spacing) {
             return -1;
           }
-          if (dis.mag() <= rigid_body_size + 0.1 * _spacing) {
+          if (dis.mag() <= rigid_body_size + 0.25 * _spacing) {
             return idx;
           }
 
           if (dis.mag() < rigid_body_size + 1.5 * _spacing) {
-            double min_dis = bounding_box_size[0];
-            for (int i = 0; i < rigid_body_surface_particle.size(); i++) {
-              vec3 rci = _pos - rigid_body_surface_particle[i];
-              if (min_dis > rci.mag()) {
-                min_dis = rci.mag();
+            for (int i = 0; i < rigid_body_surface_particle_coord.size(); i++) {
+              vec3 rci = _pos - rigid_body_surface_particle_coord[i];
+              if (rci.mag() <
+                  0.5 * max(_spacing,
+                            rigid_body_surface_particle_spacing[i][0])) {
+                return idx;
               }
-            }
-
-            if (min_dis < 0.25 * _spacing) {
-              // this is a gap particle near the surface of the colloids
-              return idx;
             }
           }
         }
@@ -3003,17 +3021,14 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
             }
             if (abs(dis[0]) < half_side_length + 1.0 * _spacing &&
                 abs(dis[1]) < half_side_length + 1.0 * _spacing) {
-              double min_dis = bounding_box_size[0];
-              for (int i = 0; i < rigid_body_surface_particle.size(); i++) {
-                vec3 rci = _pos - rigid_body_surface_particle[i];
-                if (min_dis > rci.mag()) {
-                  min_dis = rci.mag();
+              for (int i = 0; i < rigid_body_surface_particle_coord.size();
+                   i++) {
+                vec3 rci = _pos - rigid_body_surface_particle_coord[i];
+                if (rci.mag() <
+                    0.5 * max(_spacing,
+                              rigid_body_surface_particle_spacing[i][0])) {
+                  return idx;
                 }
-              }
-
-              if (min_dis < 0.25 * _spacing) {
-                // this is a gap particle near the surface of the colloids
-                return idx;
               }
             }
           }
@@ -3075,8 +3090,8 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
             return idx;
           } else if (possible_gap_particle) {
             double min_dis = bounding_box_size[0];
-            for (int i = 0; i < rigid_body_surface_particle.size(); i++) {
-              vec3 rci = _pos - rigid_body_surface_particle[i];
+            for (int i = 0; i < rigid_body_surface_particle_coord.size(); i++) {
+              vec3 rci = _pos - rigid_body_surface_particle_coord[i];
               if (min_dis > rci.mag()) {
                 min_dis = rci.mag();
               }
@@ -3160,75 +3175,74 @@ void particle_geometry::balance_workload() {
   partitioner.partition(*current_local_managing_particle_index,
                         *current_local_managing_particle_coord, result);
 
-  // use the solution to build the mitigation graph
-  vector<int> whole_mitigation_out_num, whole_mitigation_in_num;
-  whole_mitigation_in_num.resize(size);
-  whole_mitigation_out_num.resize(size);
+  // use the solution to build the migration graph
+  vector<int> whole_migration_out_num, whole_migration_in_num;
+  whole_migration_in_num.resize(size);
+  whole_migration_out_num.resize(size);
   for (int i = 0; i < size; i++) {
-    whole_mitigation_out_num[i] = 0;
+    whole_migration_out_num[i] = 0;
   }
 
   int local_particle_num = result.size();
   for (int i = 0; i < local_particle_num; i++) {
     if (result[i] != rank) {
-      whole_mitigation_out_num[result[i]]++;
+      whole_migration_out_num[result[i]]++;
     }
   }
 
   for (int i = 0; i < size; i++) {
-    int out_num = whole_mitigation_out_num[i];
-    MPI_Gather(&out_num, 1, MPI_INT, whole_mitigation_in_num.data(), 1, MPI_INT,
+    int out_num = whole_migration_out_num[i];
+    MPI_Gather(&out_num, 1, MPI_INT, whole_migration_in_num.data(), 1, MPI_INT,
                i, MPI_COMM_WORLD);
   }
 
-  mitigation_in_graph.clear();
-  mitigation_out_graph.clear();
-  mitigation_out_num.clear();
-  mitigation_in_num.clear();
+  migration_in_graph.clear();
+  migration_out_graph.clear();
+  migration_out_num.clear();
+  migration_in_num.clear();
 
   for (int i = 0; i < size; i++) {
-    if (whole_mitigation_out_num[i] != 0) {
-      mitigation_out_graph.push_back(i);
-      mitigation_out_num.push_back(whole_mitigation_out_num[i]);
+    if (whole_migration_out_num[i] != 0) {
+      migration_out_graph.push_back(i);
+      migration_out_num.push_back(whole_migration_out_num[i]);
     }
   }
 
   for (int i = 0; i < size; i++) {
-    if (whole_mitigation_in_num[i] != 0) {
-      mitigation_in_graph.push_back(i);
-      mitigation_in_num.push_back(whole_mitigation_in_num[i]);
+    if (whole_migration_in_num[i] != 0) {
+      migration_in_graph.push_back(i);
+      migration_in_num.push_back(whole_migration_in_num[i]);
     }
   }
 
-  mitigation_in_offset.resize(mitigation_in_graph.size() + 1);
-  mitigation_out_offset.resize(mitigation_out_graph.size() + 1);
+  migration_in_offset.resize(migration_in_graph.size() + 1);
+  migration_out_offset.resize(migration_out_graph.size() + 1);
 
-  mitigation_in_offset[0] = 0;
-  for (int i = 0; i < mitigation_in_num.size(); i++) {
-    mitigation_in_offset[i + 1] =
-        mitigation_in_offset[i] + mitigation_in_num[i];
+  migration_in_offset[0] = 0;
+  for (int i = 0; i < migration_in_num.size(); i++) {
+    migration_in_offset[i + 1] = migration_in_offset[i] + migration_in_num[i];
   }
 
-  mitigation_out_offset[0] = 0;
-  for (int i = 0; i < mitigation_out_num.size(); i++) {
-    mitigation_out_offset[i + 1] =
-        mitigation_out_offset[i] + mitigation_out_num[i];
+  migration_out_offset[0] = 0;
+  for (int i = 0; i < migration_out_num.size(); i++) {
+    migration_out_offset[i + 1] =
+        migration_out_offset[i] + migration_out_num[i];
   }
 
   local_reserve_map.clear();
-  local_mitigation_map.resize(mitigation_out_offset[mitigation_out_num.size()]);
-  vector<int> mitigation_map_idx;
-  mitigation_map_idx.resize(mitigation_out_num.size());
-  for (int i = 0; i < mitigation_out_num.size(); i++) {
-    mitigation_map_idx[i] = mitigation_out_offset[i];
+  local_migration_map.resize(migration_out_offset[migration_out_num.size()]);
+  vector<int> migration_map_idx;
+  migration_map_idx.resize(migration_out_num.size());
+  for (int i = 0; i < migration_out_num.size(); i++) {
+    migration_map_idx[i] = migration_out_offset[i];
   }
   for (int i = 0; i < local_particle_num; i++) {
     if (result[i] != rank) {
-      auto ite = (size_t)(lower_bound(mitigation_out_graph.begin(),
-                                      mitigation_out_graph.end(), result[i]) -
-                          mitigation_out_graph.begin());
-      local_mitigation_map[mitigation_map_idx[ite]] = i;
-      mitigation_map_idx[ite]++;
+      auto ite = (size_t)(lower_bound(migration_out_graph.begin(),
+                                      migration_out_graph.end(), result[i]) -
+                          migration_out_graph.begin());
+      local_migration_map[migration_map_idx[ite]] = i;
+      migration_map_idx[ite]++;
     } else {
       local_reserve_map.push_back(i);
     }
@@ -3673,5 +3687,253 @@ void particle_geometry::build_ghost_for_last_level() {
   reserve_llcl_map.resize(whole_ghost_llcl_out_map[rank].size());
   for (int i = 0; i < whole_ghost_llcl_out_map[rank].size(); i++) {
     reserve_llcl_map[i] = whole_ghost_llcl_out_map[rank][i];
+  }
+}
+
+void particle_geometry::collect_rigid_body_surface_particle() {
+  // collect local surface particle
+  rigid_body_surface_particle_coord.clear();
+  rigid_body_surface_particle_spacing.clear();
+  rigid_body_surface_particle_adaptive_level.clear();
+
+  std::vector<vec3> &coord = *current_local_managing_particle_coord;
+  std::vector<vec3> &spacing = *current_local_managing_particle_p_spacing;
+  std::vector<int> &particle_type = *current_local_managing_particle_type;
+  std::vector<int> &adaptive_level =
+      *current_local_managing_particle_adaptive_level;
+
+  for (int i = 0; i < coord.size(); i++) {
+    if (particle_type[i] >= 4) {
+      rigid_body_surface_particle_coord.push_back(coord[i]);
+      rigid_body_surface_particle_spacing.push_back(spacing[i]);
+      rigid_body_surface_particle_adaptive_level.push_back(adaptive_level[i]);
+    }
+  }
+
+  // collect surface particle from other core
+  vec3 work_domain_low, work_domain_high;
+  for (int i = 0; i < 3; i++) {
+    work_domain_low[i] =
+        max(bounding_box[0][i], domain_bounding_box[0][i] - cutoff_distance);
+    work_domain_high[i] =
+        min(bounding_box[1][i], domain_bounding_box[1][i] + cutoff_distance);
+  }
+
+  vector<double> whole_work_domain;
+  whole_work_domain.resize(size * 6);
+  MPI_Allgather(&work_domain_low[0], 1, MPI_DOUBLE, whole_work_domain.data(), 1,
+                MPI_DOUBLE, MPI_COMM_WORLD);
+  MPI_Allgather(&work_domain_low[1], 1, MPI_DOUBLE,
+                whole_work_domain.data() + size, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+  MPI_Allgather(&work_domain_low[2], 1, MPI_DOUBLE,
+                whole_work_domain.data() + size * 2, 1, MPI_DOUBLE,
+                MPI_COMM_WORLD);
+  MPI_Allgather(&work_domain_high[0], 1, MPI_DOUBLE,
+                whole_work_domain.data() + size * 3, 1, MPI_DOUBLE,
+                MPI_COMM_WORLD);
+  MPI_Allgather(&work_domain_high[1], 1, MPI_DOUBLE,
+                whole_work_domain.data() + size * 4, 1, MPI_DOUBLE,
+                MPI_COMM_WORLD);
+  MPI_Allgather(&work_domain_high[2], 1, MPI_DOUBLE,
+                whole_work_domain.data() + size * 5, 1, MPI_DOUBLE,
+                MPI_COMM_WORLD);
+
+  vector<vec3> whole_domain_low;
+  vector<vec3> whole_domain_high;
+  whole_domain_low.resize(size);
+  whole_domain_high.resize(size);
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < 3; j++) {
+      whole_domain_low[i][j] = whole_work_domain[i + j * size];
+      whole_domain_high[i][j] = whole_work_domain[i + (j + 3) * size];
+    }
+  }
+
+  vector<vector<int>> whole_out_map;
+  whole_out_map.resize(size);
+  for (int i = 0; i < coord.size(); i++) {
+    if (particle_type[i] >= 4) {
+      for (int j = 0; j < size; j++) {
+        if (j != rank) {
+          if (dim == 2) {
+            if (coord[i][0] > whole_domain_low[j][0] &&
+                coord[i][1] > whole_domain_low[j][1] &&
+                coord[i][0] < whole_domain_high[j][0] &&
+                coord[i][1] < whole_domain_high[j][1]) {
+              whole_out_map[j].push_back(i);
+            }
+          } else if (dim == 3) {
+            if (coord[i][0] > whole_domain_low[j][0] &&
+                coord[i][1] > whole_domain_low[j][1] &&
+                coord[i][2] > whole_domain_low[j][2] &&
+                coord[i][0] < whole_domain_high[j][0] &&
+                coord[i][1] < whole_domain_high[j][1] &&
+                coord[i][2] < whole_domain_high[j][2]) {
+              whole_out_map[j].push_back(i);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  vector<int> temp_out_num, temp_in_num;
+  temp_out_num.resize(size);
+  temp_in_num.resize(size);
+
+  for (int i = 0; i < size; i++) {
+    temp_out_num[i] = whole_out_map[i].size();
+    MPI_Gather(&temp_out_num[i], 1, MPI_INT, temp_in_num.data(), 1, MPI_INT, i,
+               MPI_COMM_WORLD);
+  }
+
+  vector<int> flatted_out_map;
+  vector<int> out_offset;
+  vector<int> in_offset;
+
+  for (int i = 0; i < whole_out_map.size(); i++) {
+    if (whole_out_map[i].size() != 0) {
+      for (int j = 0; j < whole_out_map[i].size(); j++) {
+        flatted_out_map.push_back(whole_out_map[i][j]);
+      }
+    }
+  }
+
+  vector<int> out_graph, in_graph;
+
+  int total_out_num = 0;
+  int total_in_num = 0;
+
+  vector<int> in_num, out_num;
+
+  out_offset.push_back(0);
+  in_offset.push_back(0);
+  for (int i = 0; i < size; i++) {
+    if (temp_out_num[i] != 0) {
+      out_graph.push_back(i);
+      out_num.push_back(temp_out_num[i]);
+      total_out_num += temp_out_num[i];
+      out_offset.push_back(total_out_num);
+    }
+    if (temp_in_num[i] != 0) {
+      in_graph.push_back(i);
+      in_num.push_back(temp_in_num[i]);
+      total_in_num += temp_in_num[i];
+      in_offset.push_back(total_in_num);
+    }
+  }
+
+  vector<MPI_Request> send_request;
+  vector<MPI_Request> recv_request;
+
+  vector<MPI_Status> send_status;
+  vector<MPI_Status> recv_status;
+
+  send_request.resize(out_graph.size());
+  recv_request.resize(in_graph.size());
+
+  send_status.resize(out_graph.size());
+  recv_status.resize(in_graph.size());
+
+  // move particle coord
+  {
+    vector<double> send_buffer, recv_buffer;
+    send_buffer.resize(3 * total_out_num);
+    recv_buffer.resize(3 * total_in_num);
+
+    for (int i = 0; i < flatted_out_map.size(); i++) {
+      for (int j = 0; j < 3; j++) {
+        send_buffer[i * 3 + j] = coord[flatted_out_map[i]][j];
+      }
+    }
+
+    // send and recv data buffer
+    int unit_length = 3;
+    for (int i = 0; i < out_graph.size(); i++) {
+      MPI_Isend(send_buffer.data() + out_offset[i] * unit_length,
+                out_num[i] * unit_length, MPI_DOUBLE, out_graph[i], 0,
+                MPI_COMM_WORLD, send_request.data() + i);
+    }
+
+    for (int i = 0; i < in_graph.size(); i++) {
+      MPI_Irecv(recv_buffer.data() + in_offset[i] * unit_length,
+                in_num[i] * unit_length, MPI_DOUBLE, in_graph[i], 0,
+                MPI_COMM_WORLD, recv_request.data() + i);
+    }
+
+    MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
+    MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    for (int i = 0; i < total_in_num; i++) {
+      rigid_body_surface_particle_coord.push_back(vec3(
+          recv_buffer[i * 3], recv_buffer[i * 3 + 1], recv_buffer[i * 3 + 2]));
+    }
+  }
+
+  // move particle spacing
+  {
+    vector<double> send_buffer, recv_buffer;
+    send_buffer.resize(3 * total_out_num);
+    recv_buffer.resize(3 * total_in_num);
+
+    for (int i = 0; i < flatted_out_map.size(); i++) {
+      for (int j = 0; j < 3; j++) {
+        send_buffer[i * 3 + j] = spacing[flatted_out_map[i]][j];
+      }
+    }
+
+    // send and recv data buffer
+    int unit_length = 3;
+    for (int i = 0; i < out_graph.size(); i++) {
+      MPI_Isend(send_buffer.data() + out_offset[i] * unit_length,
+                out_num[i] * unit_length, MPI_DOUBLE, out_graph[i], 0,
+                MPI_COMM_WORLD, send_request.data() + i);
+    }
+
+    for (int i = 0; i < in_graph.size(); i++) {
+      MPI_Irecv(recv_buffer.data() + in_offset[i] * unit_length,
+                in_num[i] * unit_length, MPI_DOUBLE, in_graph[i], 0,
+                MPI_COMM_WORLD, recv_request.data() + i);
+    }
+
+    MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
+    MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    for (int i = 0; i < total_in_num; i++) {
+      rigid_body_surface_particle_spacing.push_back(vec3(
+          recv_buffer[i * 3], recv_buffer[i * 3 + 1], recv_buffer[i * 3 + 2]));
+    }
+  }
+
+  // move particle adaptive level
+  {
+    vector<int> send_buffer, recv_buffer;
+    send_buffer.resize(total_out_num);
+    recv_buffer.resize(total_in_num);
+
+    for (int i = 0; i < flatted_out_map.size(); i++) {
+      send_buffer[i] = adaptive_level[flatted_out_map[i]];
+    }
+
+    // send and recv data buffer
+    for (int i = 0; i < out_graph.size(); i++) {
+      MPI_Isend(send_buffer.data() + out_offset[i], out_num[i], MPI_INT,
+                out_graph[i], 0, MPI_COMM_WORLD, send_request.data() + i);
+    }
+
+    for (int i = 0; i < in_graph.size(); i++) {
+      MPI_Irecv(recv_buffer.data() + in_offset[i], in_num[i], MPI_INT,
+                in_graph[i], 0, MPI_COMM_WORLD, recv_request.data() + i);
+    }
+
+    MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
+    MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    for (int i = 0; i < total_in_num; i++) {
+      rigid_body_surface_particle_adaptive_level.push_back(recv_buffer[i]);
+    }
   }
 }

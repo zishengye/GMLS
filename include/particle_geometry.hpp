@@ -94,7 +94,9 @@ private:
   int_type local_managing_gap_particle_particle_type;
   int_type local_managing_gap_particle_adaptive_level;
 
-  std::vector<vec3> rigid_body_surface_particle;
+  std::vector<vec3> rigid_body_surface_particle_coord;
+  std::vector<vec3> rigid_body_surface_particle_spacing;
+  std::vector<int> rigid_body_surface_particle_adaptive_level;
 
   vec3 bounding_box[2];
   vec3 bounding_box_size;
@@ -110,11 +112,11 @@ private:
 
   trilinos_rcp_partitioner partitioner;
 
-  // mitigation
-  std::vector<int> mitigation_in_graph, mitigation_out_graph;
-  std::vector<int> mitigation_in_num, mitigation_out_num;
-  std::vector<int> mitigation_in_offset, mitigation_out_offset;
-  std::vector<int> local_mitigation_map;
+  // migration
+  std::vector<int> migration_in_graph, migration_out_graph;
+  std::vector<int> migration_in_num, migration_out_num;
+  std::vector<int> migration_in_offset, migration_out_offset;
+  std::vector<int> local_migration_map;
   std::vector<int> local_reserve_map;
 
   // ghost
@@ -163,10 +165,10 @@ public:
 
   void clear_particle();
 
-  void mitigate_forward(int_type source, int_type target);
-  void mitigate_forward(real_type source, real_type target);
-  void mitigate_forward(vec_type source, vec_type target);
-  void mitigate_backward(std::vector<int> &source, std::vector<int> &target);
+  void migrate_forward(int_type source, int_type target);
+  void migrate_forward(real_type source, real_type target);
+  void migrate_forward(vec_type source, vec_type target);
+  void migrate_backward(std::vector<int> &source, std::vector<int> &target);
 
   void ghost_forward(int_type source, int_type target);
   void ghost_forward(real_type source, real_type target);
@@ -295,6 +297,18 @@ public:
 
   int_type get_llcl_particle_type() { return llcl_particle_type; }
 
+  vec_type get_local_gap_particle_coord() {
+    return local_managing_gap_particle_coord;
+  }
+
+  real_type get_local_gap_particle_spacing() {
+    return local_managing_gap_particle_spacing;
+  }
+
+  int_type get_local_gap_particle_adaptive_level() {
+    return local_managing_gap_particle_adaptive_level;
+  }
+
   double get_cutoff_distance() { return cutoff_distance; }
 
   double get_old_cutoff_distance() { return old_cutoff_distance; }
@@ -333,6 +347,8 @@ protected:
   void build_ghost_from_last_level();
 
   void build_ghost_for_last_level();
+
+  void collect_rigid_body_surface_particle();
 };
 
 #endif

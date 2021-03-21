@@ -25,12 +25,16 @@ int petsc_sparse_matrix::write(string fileName) {
   }
 
   int send_count = __row;
-  vector<int> recv_count(MPIsize);
+  vector<int> recv_count;
+  recv_count.resize(MPIsize);
+
+  MPI_Barrier(MPI_COMM_WORLD);
 
   MPI_Allgather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
                 MPI_COMM_WORLD);
 
-  vector<int> displs(MPIsize + 1);
+  vector<int> displs;
+  displs.resize(MPIsize + 1);
   displs[0] = 0;
   for (int i = 1; i <= MPIsize; i++) {
     displs[i] = displs[i - 1] + recv_count[i - 1];
@@ -51,6 +55,8 @@ int petsc_sparse_matrix::write(string fileName) {
 
     MPI_Barrier(MPI_COMM_WORLD);
   }
+
+  return 0;
 }
 
 int petsc_sparse_matrix::assemble() {
@@ -936,28 +942,20 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
     neighborInclusion.erase(
         unique(neighborInclusion.begin(), neighborInclusion.end()),
         neighborInclusion.end());
-
-    vector<int> tempNeighborInclusion = move(neighborInclusion);
-
-    neighborInclusion.reserve(tempNeighborInclusion.size() * field_dof);
-
-    for (auto neighbor : tempNeighborInclusion) {
-      for (int j = 0; j < field_dof; j++) {
-        neighborInclusion.push_back(neighbor * field_dof + j);
-      }
-    }
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
 
   int neighborInclusionSize, offset = 0;
 
+  vector<int> recvNeighborInclusion;
+
   for (int i = 0; i < MPIsize; i++) {
     if (i != MPIsize - 1) {
       if (myId == MPIsize - 1) {
         neighborInclusionSize = neighborInclusion.size() / MPIsize;
         neighborInclusionSize +=
-            (neighborInclusion.size() % MPIsize < i) ? 1 : 0;
+            (neighborInclusion.size() % MPIsize > i) ? 1 : 0;
 
         MPI_Send(&neighborInclusionSize, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
         MPI_Send(neighborInclusion.data() + offset, neighborInclusionSize,
@@ -967,16 +965,16 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
         MPI_Status stat;
         MPI_Recv(&neighborInclusionSize, 1, MPI_INT, MPIsize - 1, 0,
                  MPI_COMM_WORLD, &stat);
-        idx_colloid.resize(neighborInclusionSize);
-        MPI_Recv(idx_colloid.data(), neighborInclusionSize, MPI_INT,
+        recvNeighborInclusion.resize(neighborInclusionSize);
+        MPI_Recv(recvNeighborInclusion.data(), neighborInclusionSize, MPI_INT,
                  MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
       }
     } else {
       if (myId == MPIsize - 1) {
-        idx_colloid.clear();
-        idx_colloid.insert(idx_colloid.end(),
-                           neighborInclusion.begin() + offset,
-                           neighborInclusion.end());
+        recvNeighborInclusion.clear();
+        recvNeighborInclusion.insert(recvNeighborInclusion.end(),
+                                     neighborInclusion.begin() + offset,
+                                     neighborInclusion.end());
       }
     }
 
@@ -989,6 +987,13 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
 
   MPI_Barrier(MPI_COMM_WORLD);
 
+  idx_colloid.clear();
+  for (int i = 0; i < recvNeighborInclusion.size(); i++) {
+    for (int j = 0; j < field_dof; j++) {
+      idx_colloid.push_back(recvNeighborInclusion[i] * field_dof + j);
+    }
+  }
+
   if (myId == MPIsize - 1) {
     for (int i = 0; i < num_rigid_body; i++) {
       for (int j = 0; j < rigid_body_dof; j++) {
@@ -997,6 +1002,8 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
       }
     }
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
 
   return 0;
 }
