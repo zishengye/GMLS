@@ -113,7 +113,7 @@ void stokes_multilevel::build_interpolation_restriction(
         CreatePointCloudSearch(old_source_coords_host, dimension));
 
     int estimated_num_neighbor_max =
-        pow(2, dimension) * pow(2 * (2 + 1.5), dimension);
+        pow(2, dimension) * pow(2 * (_poly_order + 1.5), dimension);
 
     Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
         old_to_new_neighbor_lists_device("old to new neighbor lists",
@@ -135,7 +135,7 @@ void stokes_multilevel::build_interpolation_restriction(
     }
 
     auto neighbor_needed =
-        2.0 * Compadre::GMLS::getNP(2, dimension,
+        2.0 * Compadre::GMLS::getNP(_poly_order, dimension,
                                     DivergenceFreeVectorTaylorPolynomial);
     size_t actual_neighbor_max;
 
@@ -199,11 +199,11 @@ void stokes_multilevel::build_interpolation_restriction(
                       old_to_new_neighbor_lists_host);
     Kokkos::deep_copy(old_epsilon_device, old_epsilon_host);
 
-    GMLS old_to_new_pressure_basis(ScalarTaylorPolynomial, PointSample, 2,
-                                   dimension, "SVD", "STANDARD");
+    GMLS old_to_new_pressure_basis(ScalarTaylorPolynomial, PointSample,
+                                   _poly_order, dimension, "SVD", "STANDARD");
     GMLS old_to_new_velocity_basis(DivergenceFreeVectorTaylorPolynomial,
-                                   VectorPointSample, 2, dimension, "SVD",
-                                   "STANDARD");
+                                   VectorPointSample, _poly_order, dimension,
+                                   "SVD", "STANDARD");
 
     // old to new pressure field transition
     old_to_new_pressure_basis.setProblemData(
@@ -813,24 +813,24 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   // neighbor vector scatter, only needed on base level
   if (refinement_step == 0) {
-    // MatCreateVecs(nn, NULL, x_colloid->get_pointer());
-    // MatCreateVecs(nn, NULL, y_colloid->get_pointer());
+    MatCreateVecs(nn, NULL, x_colloid->get_pointer());
+    MatCreateVecs(nn, NULL, y_colloid->get_pointer());
   }
 
   // setup preconditioner for base level
   if (refinement_step == 0) {
-    // KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
-    // KSPCreate(PETSC_COMM_WORLD, &ksp_colloid_base->get_reference());
+    KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
+    KSPCreate(PETSC_COMM_WORLD, &ksp_colloid_base->get_reference());
 
-    // KSPSetOperators(ksp_field_base->get_reference(), ff, ff);
-    // KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
+    KSPSetOperators(ksp_field_base->get_reference(), ff, ff);
+    KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
 
     KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
     KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e10, 100);
     KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
 
-    // PC pc_field_base;
-    // PC pc_neighbor_base;
+    PC pc_field_base;
+    PC pc_neighbor_base;
 
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
     PCSetType(pc_field_base, PCSOR);
@@ -856,8 +856,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     //   KSPSetUp(bjacobi_ksp[0]);
     // }
 
-    // KSPSetUp(ksp_field_base->get_reference());
-    // KSPSetUp(ksp_colloid_base->get_reference());
+    KSPSetUp(ksp_field_base->get_reference());
+    KSPSetUp(ksp_colloid_base->get_reference());
   }
 
   // setup relaxation on field for current level
@@ -928,24 +928,19 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetFromOptions(fieldsplit_sub_ksp[0]);
   PetscFree(fieldsplit_sub_ksp);
 
-  // PC neighbor_relaxation_pc;
-  // KSPGetPC(colloid_relaxation_list[refinement_step]->get_reference(),
-  //          &neighbor_relaxation_pc);
-  // PCSetType(neighbor_relaxation_pc, PCFIELDSPLIT);
-
-  PetscInt SOR_Iteration = 5;
+  KSPSetUp(colloid_relaxation_list[refinement_step]->get_reference());
 
   Mat &shell_mat = (*(A_list.end() - 1))->get_shell_reference();
 
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
-  KSPSetOperators(_ksp, shell_mat, mat);
+  KSPSetOperators(_ksp, shell_mat, shell_mat);
   KSPSetFromOptions(_ksp);
 
   PC _pc;
 
   KSPGetPC(_ksp, &_pc);
-  PCSetType(_pc, PCMG);
+  PCSetType(_pc, PCSHELL);
 
   HypreLUShellPC *shell_ctx;
   HypreLUShellPCCreate(&shell_ctx);
