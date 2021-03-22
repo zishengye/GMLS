@@ -307,5 +307,24 @@ bool gmls_solver::refinement() {
 
   current_refinement_step++;
 
+  // get new number of particles
+  MPI_Barrier(MPI_COMM_WORLD);
+  {
+    auto &new_coord = *(geo_mgr->get_current_work_particle_coord());
+    int new_local_particle_num = new_coord.size();
+    int new_global_particle_num;
+
+    MPI_Allreduce(&new_local_particle_num, &new_global_particle_num, 1, MPI_INT,
+                  MPI_SUM, MPI_COMM_WORLD);
+
+    if (new_global_particle_num > max_particle_num) {
+      PetscPrintf(PETSC_COMM_WORLD,
+                  "next refinement level has %d particles exceeds the maximum "
+                  "particle num %d\n",
+                  new_global_particle_num, (int)max_particle_num);
+      return false;
+    }
+  }
+
   return true;
 }

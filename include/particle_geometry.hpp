@@ -26,7 +26,7 @@ private:
   int problem_type;
   int dim;
 
-  double spacing;
+  double uniform_spacing;
   double cutoff_multiplier;
   double cutoff_distance, old_cutoff_distance;
 

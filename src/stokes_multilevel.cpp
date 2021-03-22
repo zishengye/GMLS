@@ -130,7 +130,7 @@ void stokes_multilevel::build_interpolation_restriction(
     for (int i = 0; i < coord.size(); i++) {
       if (new_added[i] < 0) {
         old_epsilon_host[new_actual_index[i]] =
-            0.25 * spacing[new_actual_index[i]];
+            0.05 * spacing[new_actual_index[i]];
       }
     }
 
@@ -156,9 +156,9 @@ void stokes_multilevel::build_interpolation_restriction(
               old_to_new_neighbor_lists_host(new_actual_index[i], 0);
           if (num_neighbor <= neighbor_needed) {
             if ((old_epsilon_host[new_actual_index[i]] +
-                 0.1 * spacing[new_actual_index[i]]) < max_epsilon) {
+                 0.05 * spacing[new_actual_index[i]]) < max_epsilon) {
               old_epsilon_host[new_actual_index[i]] +=
-                  0.1 * spacing[new_actual_index[i]];
+                  0.05 * spacing[new_actual_index[i]];
               enough_neighbor = 1;
             }
           }
@@ -181,14 +181,6 @@ void stokes_multilevel::build_interpolation_restriction(
         break;
 
       ite_counter++;
-    }
-
-    for (int i = 0; i < coord.size(); i++) {
-      if ((old_epsilon_host[new_actual_index[i]] +
-           0.1 * spacing[new_actual_index[i]]) < max_epsilon) {
-        old_epsilon_host[new_actual_index[i]] +=
-            0.1 * spacing[new_actual_index[i]];
-      }
     }
 
     PetscPrintf(PETSC_COMM_WORLD,

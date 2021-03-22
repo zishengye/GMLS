@@ -47,7 +47,7 @@ public:
 
     params.set("debug_level", "no_status");
     params.set("debug_procs", "0");
-    params.set("error_check_level", "basic_assertions");
+    params.set("error_check_level", "no_assertions");
     params.set("debug_output_stream", "null");
 
     params.set("algorithm", "rcb");

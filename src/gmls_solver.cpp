@@ -130,6 +130,11 @@ gmls_solver::gmls_solver(int argc, char **argv) {
     stride = 0;
   }
 
+  if ((SearchCommand<double>(argc, argv, "-MaxParticleNum",
+                             max_particle_num)) == 1) {
+    max_particle_num = 1e6;
+  }
+
   // [optional command]
   if (SearchCommand<string>(argc, argv, "-rigid_body_input",
                             rigid_body_input_file_name) == 0) {

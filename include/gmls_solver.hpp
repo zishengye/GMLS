@@ -54,6 +54,7 @@ private:
   double refinement_tolerance;
   int current_refinement_step;
   std::string adaptive_base_field;
+  double max_particle_num;
 
   bool initialization_status;
 
