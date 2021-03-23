@@ -2827,8 +2827,8 @@ void particle_geometry::split_rigid_body_surface_particle(
 
             vec3 old_pos = coord[tag];
 
-            vec3 delta =
-                vec3(-normal[tag][1], normal[tag][0], 0.0) * 0.5 * spacing[tag];
+            vec3 delta = vec3(-normal[tag][1], normal[tag][0], 0.0) * 0.5 *
+                         p_spacing[tag][0];
             coord[tag] = old_pos + delta;
 
             vec3 new_pos = old_pos - delta;
@@ -3028,8 +3028,8 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
                    i++) {
                 vec3 rci = _pos - rigid_body_surface_particle_coord[i];
                 if (rci.mag() <
-                    0.5 * max(_spacing,
-                              rigid_body_surface_particle_spacing[i][0])) {
+                    0.51 * max(_spacing,
+                               rigid_body_surface_particle_spacing[i][0])) {
                   return idx;
                 }
               }

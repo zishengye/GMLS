@@ -23,12 +23,59 @@ bool gmls_solver::refinement() {
               "Total error for gradient: %f, with tolerance: %f\n",
               global_error, refinement_tolerance);
 
+  static vector<vec3> old_rigid_body_velocity;
+  static vector<vec3> old_rigid_body_angular_velocity;
+
+  auto &rigid_body_position = rb_mgr->get_position();
+  const auto num_rigid_body = rb_mgr->get_rigid_body_num();
+  vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
+  vector<vec3> &rigid_body_velocity = rb_mgr->get_velocity();
+  vector<vec3> &rigid_body_angular_velocity = rb_mgr->get_angular_velocity();
+
+  double rb_error = 0.0;
+  if (current_refinement_step == 0) {
+    old_rigid_body_velocity.resize(num_rigid_body);
+    old_rigid_body_angular_velocity.resize(num_rigid_body);
+
+    for (int i = 0; i < num_rigid_body; i++) {
+      old_rigid_body_velocity[i] = rigid_body_velocity[i];
+      old_rigid_body_angular_velocity[i] = rigid_body_angular_velocity[i];
+    }
+  } else {
+    double rb_error_norm = 0.0;
+    for (int i = 0; i < num_rigid_body; i++) {
+      for (int j = 0; j < 3; j++) {
+        rb_error +=
+            pow(old_rigid_body_velocity[i][j] - rigid_body_velocity[i][j], 2.0);
+        rb_error += pow(old_rigid_body_angular_velocity[i][j] -
+                            rigid_body_angular_velocity[i][j],
+                        2.0);
+
+        rb_error_norm += pow(old_rigid_body_velocity[i][j], 2.0);
+        rb_error_norm += pow(old_rigid_body_angular_velocity[i][j], 2.0);
+      }
+    }
+
+    rb_error = sqrt(rb_error / rb_error_norm);
+    PetscPrintf(PETSC_COMM_WORLD, "Total error in rigid body velocity: %f\n",
+                rb_error);
+
+    for (int i = 0; i < num_rigid_body; i++) {
+      old_rigid_body_velocity[i] = rigid_body_velocity[i];
+      old_rigid_body_angular_velocity[i] = rigid_body_angular_velocity[i];
+    }
+  }
+
   if (isnan(global_error) || global_error < refinement_tolerance) {
     return false;
   }
 
   if (current_refinement_step >= max_refinement_level)
     return false;
+
+  if (rb_error < 1e-3 && current_refinement_step != 0) {
+    return false;
+  }
 
   vector<double> &error = equation_mgr->get_error();
 
@@ -43,10 +90,6 @@ bool gmls_solver::refinement() {
       min_h = local_spacing[i];
   }
   MPI_Allreduce(MPI_IN_PLACE, &min_h, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-
-  auto &rigid_body_position = rb_mgr->get_position();
-  const auto num_rigid_body = rb_mgr->get_rigid_body_num();
-  vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
 
   double min_dis = 1.0;
   for (int i = 0; i < rigid_body_position.size(); i++) {
