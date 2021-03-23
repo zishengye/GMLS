@@ -3018,12 +3018,12 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
                 abs(dis[1]) < half_side_length - 1.5 * _spacing) {
               return -1;
             }
-            if (abs(dis[0]) < half_side_length + 0.1 * _spacing &&
-                abs(dis[1]) < half_side_length + 0.1 * _spacing) {
+            if (abs(dis[0]) < half_side_length + 0.25 * _spacing &&
+                abs(dis[1]) < half_side_length + 0.25 * _spacing) {
               return idx;
             }
-            if (abs(dis[0]) < half_side_length + 1.0 * _spacing &&
-                abs(dis[1]) < half_side_length + 1.0 * _spacing) {
+            if (abs(dis[0]) < half_side_length + 1.5 * _spacing &&
+                abs(dis[1]) < half_side_length + 1.5 * _spacing) {
               for (int i = 0; i < rigid_body_surface_particle_coord.size();
                    i++) {
                 vec3 rci = _pos - rigid_body_surface_particle_coord[i];
@@ -3937,6 +3937,89 @@ void particle_geometry::collect_rigid_body_surface_particle() {
 
     for (int i = 0; i < total_in_num; i++) {
       rigid_body_surface_particle_adaptive_level.push_back(recv_buffer[i]);
+    }
+  }
+}
+
+void particle_geometry::find_closest_rigid_body(vec3 coord,
+                                                int &rigid_body_index,
+                                                double &dist) {
+  int rigid_body_num = rb_mgr->get_rigid_body_num();
+  dist = bounding_box_size[0];
+  rigid_body_index = 0;
+  for (int idx = 0; idx < rigid_body_num; idx++) {
+    int rigid_body_type = rb_mgr->get_rigid_body_type(idx);
+    vec3 rigid_body_pos = rb_mgr->get_position(idx);
+    vec3 rigid_body_ori = rb_mgr->get_orientation(idx);
+    double rigid_body_size = rb_mgr->get_rigid_body_size(idx);
+    switch (rigid_body_type) {
+    case 1:
+      // circle in 2d, sphere in 3d
+      {
+        vec3 dis = coord - rigid_body_pos;
+        if (dist < dis.mag() - rigid_body_size) {
+          dist = dis.mag() - rigid_body_size;
+          rigid_body_index = idx;
+        }
+      }
+      break;
+
+    case 2:
+      // square in 2d, cubic in 3d
+      {
+        double half_side_length = rigid_body_size;
+        double theta = rigid_body_ori[0];
+
+        double temp_dist;
+
+        vec3 abs_dis = coord - rigid_body_pos;
+        vec3 dis =
+            vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
+                 -sin(theta) * abs_dis[0] + cos(theta) * abs_dis[1], 0.0);
+        if (dim == 2) {
+          if (dis[0] <= -half_side_length) {
+            if (dis[1] >= half_side_length) {
+              vec3 new_dis =
+                  dis - vec3(-half_side_length, half_side_length, 0.0);
+              temp_dist = new_dis.mag();
+            } else if (dis[1] <= -half_side_length) {
+              vec3 new_dis =
+                  dis - vec3(-half_side_length, -half_side_length, 0.0);
+              temp_dist = new_dis.mag();
+            } else {
+              temp_dist = abs(dis[0] + half_side_length);
+            }
+          } else if (dis[0] >= half_side_length) {
+            if (dis[1] >= half_side_length) {
+              vec3 new_dis =
+                  dis - vec3(half_side_length, half_side_length, 0.0);
+              temp_dist = new_dis.mag();
+            } else if (dis[1] <= -half_side_length) {
+              vec3 new_dis =
+                  dis - vec3(half_side_length, -half_side_length, 0.0);
+              temp_dist = new_dis.mag();
+            } else {
+              temp_dist = abs(dis[0] - half_side_length);
+            }
+          } else {
+            if (dis[1] >= half_side_length) {
+              temp_dist = abs(dis[1] - half_side_length);
+            } else if (dis[1] <= -half_side_length) {
+              temp_dist = abs(dis[1] + half_side_length);
+            }
+          }
+        }
+        if (dim == 3) {
+        }
+
+        if (temp_dist < dist) {
+          dist = temp_dist;
+          rigid_body_index = idx;
+        }
+      }
+      break;
+    case 3:
+      break;
     }
   }
 }

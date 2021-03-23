@@ -911,9 +911,9 @@ void stokes_equation::build_coefficient_matrix() {
       }
     }
 
-    if (current_refinement_level == 0) {
-      A.increment(pressure_local_index, pressure_global_index, 1e-6);
-    }
+    // if (current_refinement_level == 0) {
+    A.increment(pressure_local_index, pressure_global_index, 1e-6);
+    // }
 
     // end of pressure block
   } // end of fluid particle loop
@@ -928,7 +928,8 @@ void stokes_equation::build_coefficient_matrix() {
       const int local_index = current_particle_local_index * field_dof + k;
       const int global_index = current_particle_global_index * field_dof + k;
 
-      if (A.get_entity(local_index, global_index) < 0.0) {
+      if (A.get_entity(local_index, global_index) < 100.0 &&
+          particle_type[i] == 0) {
         cout << current_particle_global_index << ' ' << k << endl;
 
         cout << source_index[i] << " " << particle_type[i];
@@ -1076,6 +1077,34 @@ void stokes_equation::build_coefficient_matrix() {
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "Matrix assembly duration: %fs\n",
               timer2 - timer1);
+
+  vector<double> max_spacing;
+  max_spacing.resize(num_rigid_body);
+
+  for (int i = 0; i < num_rigid_body; i++) {
+    max_spacing[i] = 0.0;
+  }
+  for (int i = 0; i < local_particle_num; i++) {
+    if (particle_type[i] >= 4) {
+      if (epsilon_host(i) > max_spacing[attached_rigid_body[i]]) {
+        max_spacing[attached_rigid_body[i]] = 1.1 * epsilon_host(i);
+      }
+    }
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, max_spacing.data(), num_rigid_body, MPI_DOUBLE,
+                MPI_MAX, MPI_COMM_WORLD);
+
+  idx_colloid.clear();
+
+  for (int i = 0; i < local_particle_num; i++) {
+    int rb_idx;
+    double dist;
+    geo_mgr->find_closest_rigid_body(coord[i], rb_idx, dist);
+    if (dist < max_spacing[rb_idx]) {
+      idx_colloid.push_back(source_index[i]);
+    }
+  }
 
   if (num_rigid_body != 0)
     A.extract_neighbor_index(idx_colloid, dim, num_rigid_body,

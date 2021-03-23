@@ -129,8 +129,7 @@ void stokes_multilevel::build_interpolation_restriction(
 
     for (int i = 0; i < coord.size(); i++) {
       if (new_added[i] < 0) {
-        old_epsilon_host[new_actual_index[i]] =
-            0.05 * spacing[new_actual_index[i]];
+        old_epsilon_host[new_actual_index[i]] = spacing[i];
       }
     }
 
@@ -139,13 +138,16 @@ void stokes_multilevel::build_interpolation_restriction(
                                     DivergenceFreeVectorTaylorPolynomial);
     size_t actual_neighbor_max;
 
+    double sub_timer1, sub_timer2;
+    sub_timer1 = MPI_Wtime();
+
     double max_epsilon = geo_mgr->get_old_cutoff_distance();
     int ite_counter = 0;
     int min_neighbor = 1000, max_neighbor = 0;
     while (true) {
       old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
           false, new_target_coords_host, old_to_new_neighbor_lists_host,
-          old_epsilon_host, 0.0, max_epsilon);
+          old_epsilon_host, 0.0, 0.0);
 
       min_neighbor = 1000;
       max_neighbor = 0;
@@ -155,10 +157,9 @@ void stokes_multilevel::build_interpolation_restriction(
           int num_neighbor =
               old_to_new_neighbor_lists_host(new_actual_index[i], 0);
           if (num_neighbor <= neighbor_needed) {
-            if ((old_epsilon_host[new_actual_index[i]] +
-                 0.05 * spacing[new_actual_index[i]]) < max_epsilon) {
-              old_epsilon_host[new_actual_index[i]] +=
-                  0.05 * spacing[new_actual_index[i]];
+            if ((old_epsilon_host[new_actual_index[i]] + 0.25 * spacing[i]) <
+                max_epsilon) {
+              old_epsilon_host[new_actual_index[i]] += 0.25 * spacing[i];
               enough_neighbor = 1;
             }
           }
@@ -183,9 +184,13 @@ void stokes_multilevel::build_interpolation_restriction(
       ite_counter++;
     }
 
+    sub_timer2 = MPI_Wtime();
+
     PetscPrintf(PETSC_COMM_WORLD,
-                "iteration count: %d, min neighbor: %d, max neighbor: %d\n",
-                ite_counter, min_neighbor, max_neighbor);
+                "iteration count: %d, min neighbor: %d, max neighbor: %d, time "
+                "duration: %fs\n",
+                ite_counter, min_neighbor, max_neighbor,
+                sub_timer2 - sub_timer1);
 
     Kokkos::deep_copy(old_to_new_neighbor_lists_device,
                       old_to_new_neighbor_lists_host);
@@ -856,12 +861,11 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPCreate(MPI_COMM_WORLD,
             field_relaxation_list[refinement_step]->get_pointer());
 
-  KSPSetType(field_relaxation_list[refinement_step]->get_reference(),
-             KSPRICHARDSON);
+  KSPSetType(field_relaxation_list[refinement_step]->get_reference(), KSPGMRES);
   KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
                   ff);
   KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
-                   1e-20, 1e-50, 1e10, 1);
+                   1e-2, 1e-50, 1e10, 1);
 
   PC field_relaxation_pc;
   KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
@@ -959,6 +963,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecNorm(residual, NORM_2, &residual_norm);
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
+  // if (refinement_step != 6)
   KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
   KSPConvergedReason convergence_reason;
@@ -969,6 +974,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecNorm(residual, NORM_2, &residual_norm);
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
+  // if (refinement_step == 6) {
+  //   VecCopy(residual, _x.get_reference());
+  // }
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 

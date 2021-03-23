@@ -313,6 +313,8 @@ public:
 
   double get_old_cutoff_distance() { return old_cutoff_distance; }
 
+  void find_closest_rigid_body(vec3 coord, int &rigid_body_index, double &dist);
+
 protected:
   void init_domain_boundary();
 
