@@ -47,18 +47,32 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
 }
 
 bool rigid_body_manager::rigid_body_collision_detection() {
+  bool detection_result = false;
   double min_dis = 1.0;
   for (int i = 0; i < rigid_body_position.size(); i++) {
     for (int j = i + 1; j < rigid_body_position.size(); j++) {
-      vec3 dist = rigid_body_position[i] - rigid_body_position[j];
-      if (min_dis > dist.mag() - rigid_body_size[i] - rigid_body_size[j]) {
-        min_dis = dist.mag() - rigid_body_size[i] - rigid_body_size[j];
+      if (rigid_body_type[i] == 1 && rigid_body_type[j] == 1) {
+        vec3 dist = rigid_body_position[i] - rigid_body_position[j];
+        if (dist.mag() - rigid_body_size[i] - rigid_body_size[j] < 0.0) {
+          detection_result = true;
+        }
+      }
+      if (rigid_body_type[i] == 2 && rigid_body_type[j] == 2) {
+        vec3 dist = rigid_body_position[i] - rigid_body_position[j];
+
+        double theta1 = rigid_body_orientation[i][0];
+        double theta2 = rigid_body_orientation[j][0];
+
+        if (dist.mag() - rigid_body_size[i] - rigid_body_size[j] < 0.0) {
+          double half_length = rigid_body_size[i];
+          vec3 x11 = vec3(-half_length, -half_length, 0.0);
+          vec3 x12 = vec3(-half_length, half_length, 0.0);
+          vec3 x21 = vec3(half_length, -half_length, 0.0);
+          vec3 x22 = vec3(half_length, half_length, 0.0);
+        }
       }
     }
   }
 
-  if (min_dis < 0)
-    return true;
-
-  return false;
+  return detection_result;
 }

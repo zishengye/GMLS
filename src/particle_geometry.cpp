@@ -2150,21 +2150,24 @@ void particle_geometry::generate_rigid_body_surface_particle() {
         vec3 p_spacing = vec3(h, 0.0, 0.0);
         vec3 translation = vec3(0.0, -sqrt(3) / 6.0 * side_length, 0.0);
         // first side
-        {
-          vec3 pos = vec3(0.0, 0.5 * sqrt(3) * side_length, 0.0) + translation;
-          // rotate
-          vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
-                              sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
-                         rigid_body_coord[n];
+        // {
+        //   vec3 pos = vec3(0.0, 0.5 * sqrt(3) * side_length, 0.0) +
+        //   translation;
+        //   // rotate
+        //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+        //                       sin(theta) * pos[0] + cos(theta) * pos[1], 0.0)
+        //                       +
+        //                  rigid_body_coord[n];
 
-          norm = vec3(0.0, 1.0, 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-          if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
-              new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
-            insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol, true,
-                            n, p_coord, p_spacing);
-        }
+        //   norm = vec3(0.0, 1.0, 0.0);
+        //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+        //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+        //   if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
+        //       new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
+        //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
+        //     true,
+        //                     n, p_coord, p_spacing);
+        // }
 
         increase_normal = vec3(cos(M_PI / 3), -sin(M_PI / 3), 0.0);
         start_point = vec3(0.0, sqrt(3) / 2.0 * side_length, 0.0);
@@ -2186,22 +2189,24 @@ void particle_geometry::generate_rigid_body_surface_particle() {
         }
 
         // second side
-        {
-          vec3 pos = vec3(0.5 * side_length, 0.0, 0.0) + translation;
-          // rotate
-          vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
-                              sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
-                         rigid_body_coord[n];
+        // {
+        //   vec3 pos = vec3(0.5 * side_length, 0.0, 0.0) + translation;
+        //   // rotate
+        //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+        //                       sin(theta) * pos[0] + cos(theta) * pos[1], 0.0)
+        //                       +
+        //                  rigid_body_coord[n];
 
-          norm = vec3(cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+        //   norm = vec3(cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
+        //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+        //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
 
-          if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
-              new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
-            insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol, true,
-                            n, p_coord, p_spacing);
-        }
+        //   if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
+        //       new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
+        //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
+        //     true,
+        //                     n, p_coord, p_spacing);
+        // }
 
         increase_normal = vec3(-1.0, 0.0, 0.0);
         start_point = vec3(0.5 * side_length, 0.0, 0.0);
@@ -2223,22 +2228,24 @@ void particle_geometry::generate_rigid_body_surface_particle() {
         }
 
         // third side
-        {
-          vec3 pos = vec3(-0.5 * side_length, 0.0, 0.0) + translation;
-          // rotate
-          vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
-                              sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
-                         rigid_body_coord[n];
+        // {
+        //   vec3 pos = vec3(-0.5 * side_length, 0.0, 0.0) + translation;
+        //   // rotate
+        //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+        //                       sin(theta) * pos[0] + cos(theta) * pos[1], 0.0)
+        //                       +
+        //                  rigid_body_coord[n];
 
-          norm = vec3(-cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+        //   norm = vec3(-cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
+        //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+        //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
 
-          if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
-              new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
-            insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol, true,
-                            n, p_coord, p_spacing);
-        }
+        //   if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
+        //       new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
+        //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
+        //     true,
+        //                     n, p_coord, p_spacing);
+        // }
 
         increase_normal = vec3(cos(M_PI / 3), sin(M_PI / 3), 0.0);
         start_point = vec3(-0.5 * side_length, 0.0, 0.0);
@@ -3100,7 +3107,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
               }
             }
 
-            if (min_dis < 0.25 * _spacing) {
+            if (min_dis < 0.5 * _spacing) {
               // this is a gap particle near the surface of the colloids
               return idx;
             }

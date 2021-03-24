@@ -251,7 +251,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   double max_epsilon = geo_mgr->get_cutoff_distance();
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host(i) = spacing[i] + 1e-5;
+    epsilon_host(i) = 2.5 * spacing[i] + 1e-5;
   }
 
   MPI_Allreduce(MPI_IN_PLACE, &max_epsilon, 1, MPI_DOUBLE, MPI_MAX,
@@ -2302,8 +2302,13 @@ void stokes_equation::calculate_error() {
                 MPI_COMM_WORLD);
   MPI_Allreduce(&local_direct_gradient_norm, &global_direct_gradient_norm, 1,
                 MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  PetscPrintf(PETSC_COMM_WORLD,
+              "global error: %f, global direct gradient norm: %f\n",
+              global_error, global_direct_gradient_norm);
+
   global_error /= global_direct_gradient_norm;
-  global_error = sqrt(this->global_error);
+  global_error = sqrt(global_error);
 
   for (int i = 0; i < local_particle_num; i++) {
     error[i] = sqrt(error[i]);

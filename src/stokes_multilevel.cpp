@@ -822,36 +822,21 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetOperators(ksp_field_base->get_reference(), ff, ff);
     KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
 
-    KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
-    KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e10, 100);
+    KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
     KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
 
     PC pc_field_base;
     PC pc_neighbor_base;
 
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
-    PCSetType(pc_field_base, PCSOR);
+    PCSetType(pc_field_base, PCLU);
+    PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
     PCSetUp(pc_field_base);
 
     KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
     PCSetType(pc_neighbor_base, PCLU);
     PCFactorSetMatSolverType(pc_neighbor_base, MATSOLVERMUMPS);
     PCSetUp(pc_neighbor_base);
-    // PetscInt local_row, local_col;
-    // MatGetLocalSize(nn, &local_row, &local_col);
-    // if (local_row > 0) {
-    //   KSP *bjacobi_ksp;
-    //   PCBJacobiGetSubKSP(pc_neighbor_base, NULL, NULL, &bjacobi_ksp);
-    //   KSPSetType(bjacobi_ksp[0], KSPPREONLY);
-    //   PC bjacobi_pc;
-    //   KSPGetPC(bjacobi_ksp[0], &bjacobi_pc);
-    //   PCSetType(bjacobi_pc, PCLU);
-    //   PCFactorSetMatSolverType(bjacobi_pc, MATSOLVERMUMPS);
-    //   // PetscOptionsSetValue(NULL, "-pc_hypre_type", "euclid");
-    //   PCSetFromOptions(bjacobi_pc);
-    //   PCSetUp(bjacobi_pc);
-    //   KSPSetUp(bjacobi_ksp[0]);
-    // }
 
     KSPSetUp(ksp_field_base->get_reference());
     KSPSetUp(ksp_colloid_base->get_reference());
