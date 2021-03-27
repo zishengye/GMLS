@@ -3137,6 +3137,8 @@ void particle_geometry::index_particle() {
     particle_offset[i + 1] = particle_offset[i] + particle_num[i];
   }
 
+  // resort particle to improve the spatial locality
+
   vector<long long> &index = *current_local_managing_particle_index;
   for (int i = 0; i < local_particle_num; i++) {
     index[i] = i + particle_offset[rank];
