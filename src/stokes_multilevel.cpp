@@ -197,10 +197,10 @@ void stokes_multilevel::build_interpolation_restriction(
     Kokkos::deep_copy(old_epsilon_device, old_epsilon_host);
 
     GMLS old_to_new_pressure_basis(ScalarTaylorPolynomial, PointSample,
-                                   _poly_order, dimension, "SVD", "STANDARD");
+                                   _poly_order, dimension, "LU", "STANDARD");
     GMLS old_to_new_velocity_basis(DivergenceFreeVectorTaylorPolynomial,
                                    VectorPointSample, _poly_order, dimension,
-                                   "SVD", "STANDARD");
+                                   "LU", "STANDARD");
 
     // old to new pressure field transition
     old_to_new_pressure_basis.setProblemData(
@@ -626,7 +626,8 @@ void stokes_multilevel::initial_guess_from_previous_adaptive_step(
 }
 
 int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
-                             std::vector<int> &idx_colloid) {
+                             std::vector<int> &idx_colloid,
+                             int abandon_this_level) {
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nstart of linear system solving setup\n");
 
@@ -822,6 +823,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetOperators(ksp_field_base->get_reference(), ff, ff);
     KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
 
+    // KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
+    // KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e10,
+    // 100);
     KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
     KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
 
@@ -831,6 +835,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
     PCSetType(pc_field_base, PCLU);
     PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
+    // PCSetType(pc_field_base, PCHYPRE);
+    // PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
 
     KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
@@ -850,7 +856,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
                   ff);
   KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
-                   1e-2, 1e-50, 1e10, 1);
+                   1e-2, 1e-50, 1e10, 5);
 
   PC field_relaxation_pc;
   KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),

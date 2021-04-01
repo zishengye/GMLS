@@ -69,6 +69,8 @@ private:
 
   int current_refinement_level;
 
+  int abandon_this_level;
+
   bool use_viewer;
 
 public:

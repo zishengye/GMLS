@@ -188,7 +188,7 @@ public:
   }
 
   int solve(std::vector<double> &rhs, std::vector<double> &x,
-            std::vector<int> &idx_colloid);
+            std::vector<int> &idx_colloid, int abandon_this_level = 0);
 };
 
 #endif

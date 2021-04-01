@@ -151,7 +151,9 @@ public:
   inline void set_col_index(const PetscInt row, std::vector<PetscInt> &index);
   inline void set_out_process_col_index(const PetscInt row,
                                         std::vector<PetscInt> &index);
+  inline void zero_row(const PetscInt i);
   inline void increment(const PetscInt i, const PetscInt j, double daij);
+  inline void set(const PetscInt i, const PetscInt j, double daij);
   inline void out_process_increment(const PetscInt i, const PetscInt j,
                                     double daij);
 
@@ -231,6 +233,12 @@ void petsc_sparse_matrix::set_out_process_col_index(
   }
 }
 
+void petsc_sparse_matrix::zero_row(const PetscInt i) {
+  for (auto it = __matrix[i].begin(); it != __matrix[i].end(); it++) {
+    it->second = 0.0;
+  }
+}
+
 void petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
                                     const double daij) {
   if (std::abs(daij) > 1e-15) {
@@ -244,6 +252,24 @@ void petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
 
     if (it->first == j)
       it->second += daij;
+    else
+      std::cout << i << ' ' << j << " increment misplacement" << std::endl;
+  }
+}
+
+void petsc_sparse_matrix::set(const PetscInt i, const PetscInt j,
+                              const double daij) {
+  if (std::abs(daij) > 1e-15) {
+    auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
+                          entry(j, daij), compare_index);
+    if (j > __Col) {
+      std::cout << i << ' ' << j << " increment wrong column index"
+                << std::endl;
+      return;
+    }
+
+    if (it->first == j)
+      it->second = daij;
     else
       std::cout << i << ' ' << j << " increment misplacement" << std::endl;
   }
