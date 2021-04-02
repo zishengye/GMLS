@@ -738,6 +738,20 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
 
   MPI_Barrier(MPI_COMM_WORLD);
 
+  __i.clear();
+  __j.clear();
+  __val.clear();
+
+  __matrix.clear();
+  __out_process_matrix.clear();
+
+  __i.shrink_to_fit();
+  __j.shrink_to_fit();
+  __val.shrink_to_fit();
+
+  __matrix.shrink_to_fit();
+  __out_process_matrix.shrink_to_fit();
+
   return 0;
 }
 
