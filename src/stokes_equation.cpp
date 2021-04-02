@@ -2193,111 +2193,115 @@ void stokes_equation::check_solution() {
   MPI_Barrier(MPI_COMM_WORLD);
 
   // gradient
-  Evaluator velocity_evaluator(velocity_basis.get());
-  Evaluator pressure_evaluator(pressure_basis.get());
-  Evaluator pressure_neumann_evaluator(pressure_neumann_basis.get());
+  // Evaluator velocity_evaluator(velocity_basis.get());
+  // Evaluator pressure_evaluator(pressure_basis.get());
+  // Evaluator pressure_neumann_evaluator(pressure_neumann_basis.get());
 
-  vector<vec3> ghost_velocity;
-  geo_mgr->ghost_forward(velocity, ghost_velocity);
+  // vector<vec3> ghost_velocity;
+  // geo_mgr->ghost_forward(velocity, ghost_velocity);
 
-  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> ghost_velocity_device(
-      "source velocity", ghost_velocity.size(), 3);
-  Kokkos::View<double **>::HostMirror ghost_velocity_host =
-      Kokkos::create_mirror_view(ghost_velocity_device);
+  // Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+  // ghost_velocity_device(
+  //     "source velocity", ghost_velocity.size(), 3);
+  // Kokkos::View<double **>::HostMirror ghost_velocity_host =
+  //     Kokkos::create_mirror_view(ghost_velocity_device);
 
-  for (size_t i = 0; i < ghost_velocity.size(); i++) {
-    ghost_velocity_host(i, 0) = ghost_velocity[i][0];
-    ghost_velocity_host(i, 1) = ghost_velocity[i][1];
-    ghost_velocity_host(i, 2) = ghost_velocity[i][2];
-  }
+  // for (size_t i = 0; i < ghost_velocity.size(); i++) {
+  //   ghost_velocity_host(i, 0) = ghost_velocity[i][0];
+  //   ghost_velocity_host(i, 1) = ghost_velocity[i][1];
+  //   ghost_velocity_host(i, 2) = ghost_velocity[i][2];
+  // }
 
-  Kokkos::deep_copy(ghost_velocity_device, ghost_velocity_host);
+  // Kokkos::deep_copy(ghost_velocity_device, ghost_velocity_host);
 
-  auto velocity_gradient =
-      velocity_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
-          double **, Kokkos::HostSpace>(ghost_velocity_device,
-                                        GradientOfVectorPointEvaluation);
+  // auto velocity_gradient =
+  //     velocity_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
+  //         double **, Kokkos::HostSpace>(ghost_velocity_device,
+  //                                       GradientOfVectorPointEvaluation);
 
-  vector<double> ghost_pressure;
-  geo_mgr->ghost_forward(pressure, ghost_pressure);
+  // vector<double> ghost_pressure;
+  // geo_mgr->ghost_forward(pressure, ghost_pressure);
 
-  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> ghost_pressure_device(
-      "background pressure", ghost_pressure.size());
-  Kokkos::View<double *>::HostMirror ghost_pressure_host =
-      Kokkos::create_mirror_view(ghost_pressure_device);
+  // Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+  // ghost_pressure_device(
+  //     "background pressure", ghost_pressure.size());
+  // Kokkos::View<double *>::HostMirror ghost_pressure_host =
+  //     Kokkos::create_mirror_view(ghost_pressure_device);
 
-  for (size_t i = 0; i < ghost_pressure.size(); i++) {
-    ghost_pressure_host(i) = ghost_pressure[i];
-  }
+  // for (size_t i = 0; i < ghost_pressure.size(); i++) {
+  //   ghost_pressure_host(i) = ghost_pressure[i];
+  // }
 
-  Kokkos::deep_copy(ghost_pressure_device, ghost_pressure_host);
+  // Kokkos::deep_copy(ghost_pressure_device, ghost_pressure_host);
 
-  auto pressure_gradient =
-      pressure_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
-          double **, Kokkos::HostSpace>(
-          ghost_pressure_device, GradientOfScalarPointEvaluation,
-          StaggeredEdgeAnalyticGradientIntegralSample);
+  // auto pressure_gradient =
+  //     pressure_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
+  //         double **, Kokkos::HostSpace>(
+  //         ghost_pressure_device, GradientOfScalarPointEvaluation,
+  //         StaggeredEdgeAnalyticGradientIntegralSample);
 
-  auto pressure_gradient_neumann =
-      pressure_neumann_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
-          double **, Kokkos::HostSpace>(
-          ghost_pressure_device, GradientOfScalarPointEvaluation,
-          StaggeredEdgeAnalyticGradientIntegralSample);
+  // auto pressure_gradient_neumann =
+  //     pressure_neumann_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
+  //         double **, Kokkos::HostSpace>(
+  //         ghost_pressure_device, GradientOfScalarPointEvaluation,
+  //         StaggeredEdgeAnalyticGradientIntegralSample);
 
-  auto neumann_neighbor_list = pressure_neumann_basis->getNeighborLists();
+  // auto neumann_neighbor_list = pressure_neumann_basis->getNeighborLists();
 
-  double error_velocity_gradient, error_pressure_gradient;
-  double norm_velocity_gradient, norm_pressure_gradient;
+  // double error_velocity_gradient, error_pressure_gradient;
+  // double norm_velocity_gradient, norm_pressure_gradient;
 
-  error_velocity_gradient = 0.0;
-  norm_velocity_gradient = 0.0;
-  for (int i = 0; i < local_particle_num; i++) {
-    double x = coord[i][0];
-    double y = coord[i][1];
-    double z = coord[i][2];
+  // error_velocity_gradient = 0.0;
+  // norm_velocity_gradient = 0.0;
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   double x = coord[i][0];
+  //   double y = coord[i][1];
+  //   double z = coord[i][2];
 
-    double r = sqrt(x * x + y * y + z * z);
-    double theta = acos(z / r);
-    double phi = atan2(y, x);
+  //   double r = sqrt(x * x + y * y + z * z);
+  //   double theta = acos(z / r);
+  //   double phi = atan2(y, x);
 
-    double dvr[2];
-    double dvt[2];
+  //   double dvr[2];
+  //   double dvt[2];
 
-    dvr[0] = u * cos(theta) *
-             (3 * RR / 2 / pow(r, 2) - 3 * pow(RR, 3) / 2 / pow(r, 4));
-    dvr[1] = -u * sin(theta) *
-             (1 / r - 3 * RR / 2 / pow(r, 2) + pow(RR, 3) / 2 / pow(r, 4));
-    dvt[0] = -u * sin(theta) *
-             (3 * RR / 4 / pow(r, 2) + 3 * pow(RR, 3) / 4 / pow(r, 4));
-    dvt[1] = -u * cos(theta) *
-             (1 / r - 3 * RR / 4 / pow(r, 2) - pow(RR, 3) / 4 / pow(r, 4));
+  //   dvr[0] = u * cos(theta) *
+  //            (3 * RR / 2 / pow(r, 2) - 3 * pow(RR, 3) / 2 / pow(r, 4));
+  //   dvr[1] = -u * sin(theta) *
+  //            (1 / r - 3 * RR / 2 / pow(r, 2) + pow(RR, 3) / 2 / pow(r, 4));
+  //   dvt[0] = -u * sin(theta) *
+  //            (3 * RR / 4 / pow(r, 2) + 3 * pow(RR, 3) / 4 / pow(r, 4));
+  //   dvt[1] = -u * cos(theta) *
+  //            (1 / r - 3 * RR / 4 / pow(r, 2) - pow(RR, 3) / 4 / pow(r, 4));
 
-    double dudx = -M_PI * sin(M_PI * x) * sin(M_PI * y);
-    double dudy = M_PI * cos(M_PI * x) * cos(M_PI * y);
-    double dvdx = -M_PI * cos(M_PI * x) * cos(M_PI * y);
-    double dvdy = M_PI * sin(M_PI * x) * sin(M_PI * y);
+  //   double dudx = -M_PI * sin(M_PI * x) * sin(M_PI * y);
+  //   double dudy = M_PI * cos(M_PI * x) * cos(M_PI * y);
+  //   double dvdx = -M_PI * cos(M_PI * x) * cos(M_PI * y);
+  //   double dvdy = M_PI * sin(M_PI * x) * sin(M_PI * y);
 
-    double dudx_gmls = velocity_gradient(i, 0);
-    double dudy_gmls = velocity_gradient(i, 1);
-    double dvdx_gmls = velocity_gradient(i, 2);
-    double dvdy_gmls = velocity_gradient(i, 3);
+  //   double dudx_gmls = velocity_gradient(i, 0);
+  //   double dudy_gmls = velocity_gradient(i, 1);
+  //   double dvdx_gmls = velocity_gradient(i, 2);
+  //   double dvdy_gmls = velocity_gradient(i, 3);
 
-    error_velocity_gradient +=
-        pow(dudx - dudx_gmls, 2.0) + pow(dvdy - dvdy_gmls, 2.0) +
-        pow(0.5 * (dudy + dvdx - dudy_gmls - dvdx_gmls), 2.0);
-    norm_velocity_gradient +=
-        pow(dudx, 2.0) + pow(dvdy, 2.0) + pow(0.5 * (dudy + dvdx), 2.0);
-  }
+  //   error_velocity_gradient +=
+  //       pow(dudx - dudx_gmls, 2.0) + pow(dvdy - dvdy_gmls, 2.0) +
+  //       pow(0.5 * (dudy + dvdx - dudy_gmls - dvdx_gmls), 2.0);
+  //   norm_velocity_gradient +=
+  //       pow(dudx, 2.0) + pow(dvdy, 2.0) + pow(0.5 * (dudy + dvdx), 2.0);
+  // }
 
-  MPI_Allreduce(MPI_IN_PLACE, &error_velocity_gradient, 1, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
-  MPI_Allreduce(MPI_IN_PLACE, &norm_velocity_gradient, 1, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, &error_velocity_gradient, 1, MPI_DOUBLE,
+  // MPI_SUM,
+  //               MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, &norm_velocity_gradient, 1, MPI_DOUBLE,
+  // MPI_SUM,
+  //               MPI_COMM_WORLD);
 
-  PetscPrintf(MPI_COMM_WORLD, "relative velocity gradient error: %.10f\n",
-              sqrt(error_velocity_gradient / norm_velocity_gradient));
-  PetscPrintf(MPI_COMM_WORLD, "RMS velocity gradient error: %.10f\n",
-              sqrt(error_velocity_gradient / global_particle_num));
+  // PetscPrintf(MPI_COMM_WORLD, "relative velocity gradient error: %.10f\n",
+  //             sqrt(error_velocity_gradient / norm_velocity_gradient));
+  // PetscPrintf(MPI_COMM_WORLD, "RMS velocity gradient error: %.10f\n",
+  //             sqrt(error_velocity_gradient / global_particle_num));
 
   // error_pressure_gradient = 0.0;
   // norm_pressure_gradient = 0.0;
