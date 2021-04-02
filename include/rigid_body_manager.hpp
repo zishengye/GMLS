@@ -98,6 +98,7 @@ public:
   }
 
   bool rigid_body_collision_detection();
+  bool rigid_body_collision_detection(double &min_dis);
 };
 
 #endif

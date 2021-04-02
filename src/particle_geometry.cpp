@@ -223,7 +223,8 @@ void particle_geometry::init(const int _dim, const int _problem_type,
   dim = _dim;
   problem_type = _problem_type;
   refinement_type = _refinement_type;
-  uniform_spacing = _spacing;
+  uniform_spacing0 = _spacing;
+  uniform_spacing = uniform_spacing0;
   cutoff_multiplier = _cutoff_multiplier;
   cutoff_distance = _spacing * (cutoff_multiplier + 0.5);
 
@@ -345,6 +346,20 @@ void particle_geometry::generate_uniform_particle() {
   local_managing_gap_particle_spacing = make_shared<vector<double>>();
   local_managing_gap_particle_particle_type = make_shared<vector<int>>();
   local_managing_gap_particle_adaptive_level = make_shared<vector<int>>();
+
+  double min_dis;
+  rb_mgr->rigid_body_collision_detection(min_dis);
+
+  uniform_spacing = uniform_spacing0;
+
+  if (rank == 0)
+    cout << uniform_spacing << endl;
+
+  int counter = 0;
+  while (uniform_spacing > min_dis && counter <= 3) {
+    uniform_spacing *= 0.5;
+    counter++;
+  }
 
   generate_rigid_body_surface_particle();
   collect_rigid_body_surface_particle();
