@@ -10,9 +10,12 @@
 #include <memory>
 #include <vector>
 
-#include "rigid_body_manager.hpp"
 #include "trilinos_wrapper.hpp"
 #include "vec3.hpp"
+
+class particle_geometry;
+
+#include "rigid_body_manager.hpp"
 
 class particle_geometry {
 public:
@@ -57,6 +60,8 @@ private:
   vec_type current_local_work_ghost_particle_coord;
   real_type current_local_work_ghost_particle_volume;
   int_type current_local_work_ghost_particle_index;
+  int_type current_local_work_ghost_particle_type;
+  int_type current_local_work_ghost_attached_rigid_body;
 
   vec_type last_local_work_ghost_particle_coord;
   real_type last_local_work_ghost_particle_volume;
@@ -314,6 +319,29 @@ public:
   double get_old_cutoff_distance() { return old_cutoff_distance; }
 
   void find_closest_rigid_body(vec3 coord, int &rigid_body_index, double &dist);
+
+  double is_in_domain(vec3 point) {
+    double min_dis;
+    if (dim == 2) {
+      min_dis = std::min(bounding_box_size[0], bounding_box_size[1]);
+      vec3 dX1 = point - bounding_box[0];
+      vec3 dX2 = bounding_box[1] - point;
+
+      if (dX1[0] < min_dis)
+        min_dis = dX1[0];
+      if (dX1[1] < min_dis)
+        min_dis = dX1[1];
+      if (dX2[0] < min_dis)
+        min_dis = dX2[0];
+      if (dX2[1] < min_dis)
+        min_dis = dX2[1];
+    }
+    if (dim == 3) {
+      min_dis = std::min(bounding_box_size[0], bounding_box_size[1]);
+    }
+
+    return min_dis;
+  }
 
 protected:
   void init_domain_boundary();

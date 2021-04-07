@@ -82,23 +82,9 @@ bool rigid_body_manager::rigid_body_collision_detection(double &min_dis) {
 
   // distance to the boundary
   for (int i = 0; i < rigid_body_position.size(); i++) {
-    double dist1 = 1.0 - rigid_body_position[i][1] - rigid_body_size[i];
-    double dist2 = rigid_body_position[i][1] + 1.0 - rigid_body_size[i];
-
-    double dist3 = 1.0 - rigid_body_position[i][0] - rigid_body_size[i];
-    double dist4 = rigid_body_position[i][0] + 1.0 - rigid_body_size[i];
-
-    if (dist1 < min_dis) {
-      min_dis = dist1;
+    if (rigid_body_type[i] == 1) {
     }
-    if (dist2 < min_dis) {
-      min_dis = dist2;
-    }
-    if (dist3 < min_dis) {
-      min_dis = dist3;
-    }
-    if (dist4 < min_dis) {
-      min_dis = dist4;
+    if (rigid_body_type[i] == 2) {
     }
   }
 

@@ -306,26 +306,11 @@ void particle_geometry::init(const int _dim, const int _problem_type,
 
 void particle_geometry::init_rigid_body(shared_ptr<rigid_body_manager> mgr) {
   rb_mgr = mgr;
+  rb_mgr->init_geometry_manager(make_shared<particle_geometry>(*this));
 }
 
 void particle_geometry::generate_uniform_particle() {
   // prepare data storage
-  current_local_work_particle_coord = make_shared<vector<vec3>>();
-  current_local_work_particle_normal = make_shared<vector<vec3>>();
-  current_local_work_particle_p_spacing = make_shared<vector<vec3>>();
-  current_local_work_particle_spacing = make_shared<vector<double>>();
-  current_local_work_particle_volume = make_shared<vector<double>>();
-  current_local_work_particle_index = make_shared<vector<int>>();
-  current_local_work_particle_type = make_shared<vector<int>>();
-  current_local_work_particle_adaptive_level = make_shared<vector<int>>();
-  current_local_work_particle_new_added = make_shared<vector<int>>();
-  current_local_work_particle_attached_rigid_body = make_shared<vector<int>>();
-  current_local_work_particle_num_neighbor = make_shared<vector<int>>();
-
-  current_local_work_ghost_particle_coord = make_shared<vector<vec3>>();
-  current_local_work_ghost_particle_volume = make_shared<vector<double>>();
-  current_local_work_ghost_particle_index = make_shared<vector<int>>();
-
   current_local_managing_particle_coord = make_shared<vector<vec3>>();
   current_local_managing_particle_normal = make_shared<vector<vec3>>();
   current_local_managing_particle_p_spacing = make_shared<vector<vec3>>();
@@ -352,52 +337,240 @@ void particle_geometry::generate_uniform_particle() {
 
   uniform_spacing = uniform_spacing0;
 
-  int counter = 0;
-  while (uniform_spacing > min_dis && counter < 3) {
-    uniform_spacing *= 0.5;
-    counter++;
-  }
-
-  if (rank == 0)
-    cout << uniform_spacing << ", " << min_dis << endl;
-
   generate_rigid_body_surface_particle();
   collect_rigid_body_surface_particle();
   generate_field_particle();
 
-  index_particle();
+  // check if enough fluid particles has been inserted in any gap
+  bool pass_check = false;
 
-  balance_workload();
+  while (!pass_check) {
+    index_particle();
 
-  migrate_forward(current_local_managing_particle_coord,
-                  current_local_work_particle_coord);
-  migrate_forward(current_local_managing_particle_normal,
-                  current_local_work_particle_normal);
-  migrate_forward(current_local_managing_particle_p_spacing,
-                  current_local_work_particle_p_spacing);
-  migrate_forward(current_local_managing_particle_spacing,
-                  current_local_work_particle_spacing);
-  migrate_forward(current_local_managing_particle_volume,
-                  current_local_work_particle_volume);
-  migrate_forward(current_local_managing_particle_type,
-                  current_local_work_particle_type);
-  migrate_forward(current_local_managing_particle_adaptive_level,
-                  current_local_work_particle_adaptive_level);
-  migrate_forward(current_local_managing_particle_new_added,
-                  current_local_work_particle_new_added);
-  migrate_forward(current_local_managing_particle_attached_rigid_body,
-                  current_local_work_particle_attached_rigid_body);
+    balance_workload();
 
-  index_work_particle();
+    current_local_work_particle_coord.reset();
+    current_local_work_particle_normal.reset();
+    current_local_work_particle_p_spacing.reset();
+    current_local_work_particle_spacing.reset();
+    current_local_work_particle_volume.reset();
+    current_local_work_particle_index.reset();
+    current_local_work_particle_type.reset();
+    current_local_work_particle_adaptive_level.reset();
+    current_local_work_particle_new_added.reset();
+    current_local_work_particle_attached_rigid_body.reset();
+    current_local_work_particle_num_neighbor.reset();
 
-  build_ghost();
+    current_local_work_ghost_particle_coord.reset();
+    current_local_work_ghost_particle_volume.reset();
+    current_local_work_ghost_particle_index.reset();
+    current_local_work_ghost_particle_type.reset();
+    current_local_work_ghost_attached_rigid_body.reset();
 
-  ghost_forward(current_local_work_particle_coord,
-                current_local_work_ghost_particle_coord);
-  ghost_forward(current_local_work_particle_volume,
-                current_local_work_ghost_particle_volume);
-  ghost_forward(current_local_work_particle_index,
-                current_local_work_ghost_particle_index);
+    current_local_work_particle_coord = make_shared<vector<vec3>>();
+    current_local_work_particle_normal = make_shared<vector<vec3>>();
+    current_local_work_particle_p_spacing = make_shared<vector<vec3>>();
+    current_local_work_particle_spacing = make_shared<vector<double>>();
+    current_local_work_particle_volume = make_shared<vector<double>>();
+    current_local_work_particle_index = make_shared<vector<int>>();
+    current_local_work_particle_type = make_shared<vector<int>>();
+    current_local_work_particle_adaptive_level = make_shared<vector<int>>();
+    current_local_work_particle_new_added = make_shared<vector<int>>();
+    current_local_work_particle_attached_rigid_body =
+        make_shared<vector<int>>();
+    current_local_work_particle_num_neighbor = make_shared<vector<int>>();
+
+    current_local_work_ghost_particle_coord = make_shared<vector<vec3>>();
+    current_local_work_ghost_particle_volume = make_shared<vector<double>>();
+    current_local_work_ghost_particle_index = make_shared<vector<int>>();
+    current_local_work_ghost_particle_type = make_shared<vector<int>>();
+    current_local_work_ghost_attached_rigid_body = make_shared<vector<int>>();
+
+    migrate_forward(current_local_managing_particle_coord,
+                    current_local_work_particle_coord);
+    migrate_forward(current_local_managing_particle_normal,
+                    current_local_work_particle_normal);
+    migrate_forward(current_local_managing_particle_p_spacing,
+                    current_local_work_particle_p_spacing);
+    migrate_forward(current_local_managing_particle_spacing,
+                    current_local_work_particle_spacing);
+    migrate_forward(current_local_managing_particle_volume,
+                    current_local_work_particle_volume);
+    migrate_forward(current_local_managing_particle_type,
+                    current_local_work_particle_type);
+    migrate_forward(current_local_managing_particle_adaptive_level,
+                    current_local_work_particle_adaptive_level);
+    migrate_forward(current_local_managing_particle_new_added,
+                    current_local_work_particle_new_added);
+    migrate_forward(current_local_managing_particle_attached_rigid_body,
+                    current_local_work_particle_attached_rigid_body);
+
+    index_work_particle();
+
+    build_ghost();
+
+    ghost_forward(current_local_work_particle_coord,
+                  current_local_work_ghost_particle_coord);
+    ghost_forward(current_local_work_particle_volume,
+                  current_local_work_ghost_particle_volume);
+    ghost_forward(current_local_work_particle_index,
+                  current_local_work_ghost_particle_index);
+    ghost_forward(current_local_work_particle_type,
+                  current_local_work_ghost_particle_type);
+    ghost_forward(current_local_work_particle_attached_rigid_body,
+                  current_local_work_ghost_attached_rigid_body);
+
+    auto &particle_type = *current_local_work_particle_type;
+    auto &spacing = *current_local_work_particle_spacing;
+    auto &coord = *current_local_work_particle_coord;
+
+    auto &source_coord = *current_local_work_ghost_particle_coord;
+    auto &source_particle_type = *current_local_work_ghost_particle_type;
+    auto &source_attached_rigid_body =
+        *current_local_work_ghost_attached_rigid_body;
+
+    // check over all boundary particles
+    int local_particle_num = coord.size();
+    int num_source_coord = source_coord.size();
+
+    int num_target_coord = 0;
+    for (int i = 0; i < local_particle_num; i++) {
+      if (particle_type[i] != 0)
+        num_target_coord++;
+    }
+
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coord_device(
+        "source coordinates", num_source_coord, 3);
+    Kokkos::View<double **>::HostMirror source_coord_host =
+        Kokkos::create_mirror_view(source_coord_device);
+
+    for (size_t i = 0; i < num_source_coord; i++) {
+      for (int j = 0; j < 3; j++) {
+        source_coord_host(i, j) = source_coord[i][j];
+      }
+    }
+
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> target_coord_device(
+        "target coordinates", num_target_coord, 3);
+    Kokkos::View<double **>::HostMirror target_coord_host =
+        Kokkos::create_mirror_view(target_coord_device);
+
+    int counter = 0;
+    for (int i = 0; i < local_particle_num; i++) {
+      if (particle_type[i] != 0) {
+        for (int j = 0; j < 3; j++) {
+          target_coord_host(counter, j) = coord[i][j];
+        }
+        counter++;
+      }
+    }
+
+    Kokkos::deep_copy(source_coord_device, source_coord_host);
+    Kokkos::deep_copy(target_coord_device, target_coord_host);
+
+    auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
+
+    int estimated_max_num_neighbor = pow(4, dim);
+
+    Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
+        "neighbor lists", num_target_coord, estimated_max_num_neighbor);
+    Kokkos::View<int **>::HostMirror neighbor_list_host =
+        Kokkos::create_mirror_view(neighbor_list_device);
+
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
+        "h supports", num_target_coord);
+    Kokkos::View<double *>::HostMirror epsilon_host =
+        Kokkos::create_mirror_view(epsilon_device);
+
+    counter = 0;
+    for (int i = 0; i < local_particle_num; i++) {
+      if (particle_type[i] != 0) {
+        epsilon_host(counter) = spacing[i] + 1e-5;
+        counter++;
+      }
+    }
+
+    point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+        false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
+
+    int num_critical_particle = 0;
+    counter = 0;
+    vector<int> split_tag;
+    split_tag.resize(local_particle_num);
+    for (int i = 0; i < local_particle_num; i++) {
+      split_tag[i] = 0;
+      if (particle_type[i] != 0) {
+        int target_index = neighbor_list_host(counter, 1);
+        for (int j = 1; j < neighbor_list_host(counter, 0); j++) {
+          int neighbor_index = neighbor_list_host(counter, j + 1);
+          if (source_particle_type[neighbor_index] != 0 &&
+              source_attached_rigid_body[target_index] !=
+                  source_attached_rigid_body[neighbor_index]) {
+            num_critical_particle++;
+            split_tag[i] = 1;
+            break;
+          }
+        }
+
+        counter++;
+      }
+    }
+
+    MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+
+    if (num_critical_particle != 0) {
+      // need local refinement
+      vector<int> ghost_split_tag;
+      ghost_forward(split_tag, ghost_split_tag);
+
+      Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+          whole_target_coord_device("target coordinates", local_particle_num,
+                                    3);
+      Kokkos::View<double **>::HostMirror whole_target_coord_host =
+          Kokkos::create_mirror_view(whole_target_coord_device);
+
+      for (int i = 0; i < local_particle_num; i++) {
+        for (int j = 0; j < 3; j++) {
+          whole_target_coord_host(i, j) = coord[i][j];
+        }
+      }
+
+      estimated_max_num_neighbor = 2.0 * pow(5, dim);
+
+      Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+          whole_neighbor_list_device("neighbor lists", local_particle_num,
+                                     estimated_max_num_neighbor);
+      Kokkos::View<int **>::HostMirror whole_neighbor_list_host =
+          Kokkos::create_mirror_view(whole_neighbor_list_device);
+
+      Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+          whole_epsilon_device("h supports", local_particle_num);
+      Kokkos::View<double *>::HostMirror whole_epsilon_host =
+          Kokkos::create_mirror_view(whole_epsilon_device);
+
+      for (int i = 0; i < local_particle_num; i++) {
+        whole_epsilon_host(i) = 2.5 * spacing[i] + 1e-5;
+      }
+
+      point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+          false, whole_target_coord_host, whole_neighbor_list_host,
+          whole_epsilon_host, 0.0, 0.0);
+
+      for (int i = 0; i < local_particle_num; i++) {
+        for (int j = 0; j < whole_neighbor_list_host(i, 0); j++) {
+          int neighbor_index = whole_neighbor_list_host(i, j + 1);
+          if (ghost_split_tag[neighbor_index] == 1) {
+            split_tag[i] = 1;
+          }
+        }
+      }
+
+      adaptive_refine(split_tag);
+    } else {
+      pass_check = true;
+    }
+  }
 }
 
 void particle_geometry::clear_particle() {}

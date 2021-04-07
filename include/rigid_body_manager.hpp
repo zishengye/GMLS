@@ -1,10 +1,15 @@
 #ifndef _RIGID_BODY_MANAGER_HPP_
 #define _RIGID_BODY_MANAGER_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "vec3.hpp"
+
+class rigid_body_manager;
+
+#include "particle_geometry.hpp"
 
 class rigid_body_manager {
 private:
@@ -18,12 +23,18 @@ private:
   std::vector<int> rigid_body_type;
   std::vector<double> rigid_body_size;
 
+  std::shared_ptr<particle_geometry> geometry_mgr;
+
 public:
   rigid_body_manager() {}
 
   ~rigid_body_manager() {}
 
   void init(std::string rigid_body_input_file_name, int dim);
+
+  void init_geometry_manager(std::shared_ptr<particle_geometry> mgr) {
+    geometry_mgr = mgr;
+  }
 
   const int get_rigid_body_num() { return rigid_body_position.size(); }
 
