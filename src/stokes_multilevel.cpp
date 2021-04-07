@@ -874,7 +874,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
              KSPGMRES);
   KSPSetTolerances(colloid_relaxation_list[refinement_step]->get_reference(),
-                   1e-2, 1e-50, 1e10, 100);
+                   1e-3, 1e-50, 1e10, 100);
   KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(), nn,
                   nn);
 

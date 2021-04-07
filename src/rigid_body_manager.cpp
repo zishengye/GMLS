@@ -52,7 +52,6 @@ bool rigid_body_manager::rigid_body_collision_detection() {
 }
 
 bool rigid_body_manager::rigid_body_collision_detection(double &min_dis) {
-  bool detection_result = false;
   min_dis = 1.0;
 
   // distance between colloids
@@ -62,9 +61,6 @@ bool rigid_body_manager::rigid_body_collision_detection(double &min_dis) {
         vec3 dist = rigid_body_position[i] - rigid_body_position[j];
         if (min_dis > dist.mag() - rigid_body_size[i] - rigid_body_size[j]) {
           min_dis = dist.mag() - rigid_body_size[i] - rigid_body_size[j];
-        }
-        if (dist.mag() - rigid_body_size[i] - rigid_body_size[j] < 0.0) {
-          detection_result = true;
         }
       }
       if (rigid_body_type[i] == 2 && rigid_body_type[j] == 2) {
@@ -86,25 +82,25 @@ bool rigid_body_manager::rigid_body_collision_detection(double &min_dis) {
 
   // distance to the boundary
   for (int i = 0; i < rigid_body_position.size(); i++) {
-    double dist1 = 1.0 - rigid_body_position[i][1];
-    double dist2 = rigid_body_position[i][1] + 1.0;
+    double dist1 = 1.0 - rigid_body_position[i][1] - rigid_body_size[i];
+    double dist2 = rigid_body_position[i][1] + 1.0 - rigid_body_size[i];
 
-    double dist3 = 1.0 - rigid_body_position[i][0];
-    double dist4 = rigid_body_position[i][0] + 1.0;
+    double dist3 = 1.0 - rigid_body_position[i][0] - rigid_body_size[i];
+    double dist4 = rigid_body_position[i][0] + 1.0 - rigid_body_size[i];
 
     if (dist1 < min_dis) {
       min_dis = dist1;
     }
     if (dist2 < min_dis) {
-      min_dis = dist1;
+      min_dis = dist2;
     }
     if (dist3 < min_dis) {
-      min_dis = dist1;
+      min_dis = dist3;
     }
     if (dist4 < min_dis) {
-      min_dis = dist1;
+      min_dis = dist4;
     }
   }
 
-  return detection_result;
+  return (min_dis < 0.0);
 }

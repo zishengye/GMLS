@@ -352,14 +352,14 @@ void particle_geometry::generate_uniform_particle() {
 
   uniform_spacing = uniform_spacing0;
 
-  if (rank == 0)
-    cout << uniform_spacing << endl;
-
   int counter = 0;
-  while (uniform_spacing > min_dis && counter <= 3) {
+  while (uniform_spacing > min_dis && counter < 3) {
     uniform_spacing *= 0.5;
     counter++;
   }
+
+  if (rank == 0)
+    cout << uniform_spacing << ", " << min_dis << endl;
 
   generate_rigid_body_surface_particle();
   collect_rigid_body_surface_particle();
