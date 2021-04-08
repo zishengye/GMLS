@@ -617,6 +617,19 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
+  idx_colloid.clear();
+
+  for (int i = 0; i < __out_process_matrix.size(); i++) {
+    for (int j = 0; j < __out_process_matrix[i].size(); j++) {
+      idx_colloid.push_back(__out_process_matrix[i][j].first);
+    }
+  }
+
+  sort(idx_colloid.begin(), idx_colloid.end());
+
+  idx_colloid.erase(unique(idx_colloid.begin(), idx_colloid.end()),
+                    idx_colloid.end());
+
   vector<int> neighbor_inclusion;
   {
     int num_send_count = idx_colloid.size();

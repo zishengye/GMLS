@@ -836,12 +836,12 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PCSetType(pc_field_base, PCLU);
     PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
     // PCSetType(pc_field_base, PCHYPRE);
-    // PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
 
     KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
     PCSetType(pc_neighbor_base, PCLU);
     PCFactorSetMatSolverType(pc_neighbor_base, MATSOLVERMUMPS);
+    PCSetFromOptions(pc_neighbor_base);
     PCSetUp(pc_neighbor_base);
 
     KSPSetUp(ksp_field_base->get_reference());
@@ -874,7 +874,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
              KSPGMRES);
   KSPSetTolerances(colloid_relaxation_list[refinement_step]->get_reference(),
-                   1e-3, 1e-50, 1e10, 100);
+                   1e-3, 1e-50, 1e10, 5000);
   KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(), nn,
                   nn);
 

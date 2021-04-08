@@ -323,6 +323,7 @@ void particle_geometry::generate_uniform_particle() {
   current_local_managing_particle_new_added = make_shared<vector<int>>();
   current_local_managing_particle_attached_rigid_body =
       make_shared<vector<int>>();
+  current_local_managing_particle_split_tag = make_shared<vector<int>>();
 
   local_managing_gap_particle_coord = make_shared<vector<vec3>>();
   local_managing_gap_particle_normal = make_shared<vector<vec3>>();
@@ -485,9 +486,22 @@ void particle_geometry::generate_uniform_particle() {
     counter = 0;
     for (int i = 0; i < local_particle_num; i++) {
       if (particle_type[i] != 0) {
-        epsilon_host(counter) = spacing[i] + 1e-5;
+        epsilon_host(counter) = 2.0 * spacing[i] + 1e-5;
         counter++;
       }
+    }
+
+    int actual_max_neighbor =
+        point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+            true, target_coord_host, neighbor_list_host, epsilon_host, 0.0,
+            0.0) +
+        2;
+
+    if (actual_max_neighbor > estimated_max_num_neighbor) {
+      neighbor_list_device =
+          Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
+              "neighbor lists", num_target_coord, actual_max_neighbor + 1);
+      neighbor_list_host = Kokkos::create_mirror_view(neighbor_list_device);
     }
 
     point_cloud_search.generate2DNeighborListsFromRadiusSearch(
@@ -515,6 +529,8 @@ void particle_geometry::generate_uniform_particle() {
         counter++;
       }
     }
+
+    vector<int> origin_split_tag = split_tag;
 
     MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
@@ -553,6 +569,20 @@ void particle_geometry::generate_uniform_particle() {
         whole_epsilon_host(i) = 2.5 * spacing[i] + 1e-5;
       }
 
+      int actual_whole_max_neighbor_num =
+          point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+              true, whole_target_coord_host, whole_neighbor_list_host,
+              whole_epsilon_host, 0.0, 0.0);
+
+      if (actual_whole_max_neighbor_num > estimated_max_num_neighbor) {
+        whole_neighbor_list_device =
+            Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
+                "neighbor lists", local_particle_num,
+                actual_whole_max_neighbor_num + 1);
+        whole_neighbor_list_host =
+            Kokkos::create_mirror_view(whole_neighbor_list_device);
+      }
+
       point_cloud_search.generate2DNeighborListsFromRadiusSearch(
           false, whole_target_coord_host, whole_neighbor_list_host,
           whole_epsilon_host, 0.0, 0.0);
@@ -566,7 +596,8 @@ void particle_geometry::generate_uniform_particle() {
         }
       }
 
-      adaptive_refine(split_tag);
+      coarse_level_refine(split_tag, origin_split_tag);
+      // adaptive_refine(split_tag);
     } else {
       pass_check = true;
     }
@@ -2501,6 +2532,7 @@ void particle_geometry::uniform_refine() {
   current_local_managing_particle_new_added = make_shared<vector<int>>();
   current_local_managing_particle_attached_rigid_body =
       make_shared<vector<int>>();
+  current_local_managing_particle_split_tag = make_shared<vector<int>>();
 
   generate_rigid_body_surface_particle();
   collect_rigid_body_surface_particle();
@@ -2510,7 +2542,7 @@ void particle_geometry::uniform_refine() {
 void particle_geometry::adaptive_refine(vector<int> &split_tag) {
   old_cutoff_distance = cutoff_distance;
 
-  vector<int> managing_split_tag;
+  vector<int> &managing_split_tag = *current_local_managing_particle_split_tag;
   vector<int> managing_work_index;
   migrate_backward(split_tag, managing_split_tag);
   migrate_backward(*current_local_work_particle_index, managing_work_index);
@@ -2522,7 +2554,7 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
     new_added[i] = managing_work_index[i];
   }
 
-  vector<int> rigid_body_surface_particle_split_tag;
+  vector<int> surface_particle_split_tag;
   vector<int> field_particle_split_tag;
 
   for (int i = 0; i < managing_split_tag.size(); i++) {
@@ -2530,12 +2562,12 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
       if (particle_type[i] < 4) {
         field_particle_split_tag.push_back(i);
       } else {
-        rigid_body_surface_particle_split_tag.push_back(i);
+        surface_particle_split_tag.push_back(i);
       }
     }
   }
 
-  split_rigid_body_surface_particle(rigid_body_surface_particle_split_tag);
+  split_rigid_body_surface_particle(surface_particle_split_tag);
   collect_rigid_body_surface_particle();
 
   auto &coord = rigid_body_surface_particle_coord;
@@ -2617,6 +2649,129 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
       }
     }
   }
+
+  split_field_particle(field_particle_split_tag);
+  split_gap_particle(gap_split_tag);
+}
+
+void particle_geometry::coarse_level_refine(vector<int> &split_tag,
+                                            vector<int> &origin_split_tag) {
+  old_cutoff_distance = cutoff_distance;
+
+  vector<int> &managing_split_tag = *current_local_managing_particle_split_tag;
+  vector<int> managing_work_index;
+
+  managing_split_tag.clear();
+  migrate_backward(origin_split_tag, managing_split_tag);
+  migrate_backward(*current_local_work_particle_index, managing_work_index);
+
+  collect_rigid_body_surface_particle();
+
+  auto &new_added = *current_local_managing_particle_new_added;
+  auto &particle_type = *current_local_managing_particle_type;
+
+  for (int i = 0; i < new_added.size(); i++) {
+    new_added[i] = managing_work_index[i];
+  }
+
+  vector<int> surface_particle_split_tag;
+  vector<int> field_particle_split_tag;
+
+  migrate_backward(split_tag, managing_split_tag);
+
+  for (int i = 0; i < managing_split_tag.size(); i++) {
+    if (managing_split_tag[i] != 0) {
+      if (particle_type[i] < 4) {
+        field_particle_split_tag.push_back(i);
+      } else {
+        surface_particle_split_tag.push_back(i);
+      }
+    }
+  }
+
+  auto &coord = rigid_body_surface_particle_coord;
+  auto &spacing = rigid_body_surface_particle_spacing;
+  auto &adaptive_level = rigid_body_surface_particle_adaptive_level;
+
+  auto &gap_coord = *local_managing_gap_particle_coord;
+  auto &gap_spacing = *local_managing_gap_particle_spacing;
+  auto &gap_adaptive_level = *local_managing_gap_particle_adaptive_level;
+
+  unsigned int num_source_coord = coord.size();
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coord_device(
+      "source coordinates", num_source_coord, 3);
+  Kokkos::View<double **>::HostMirror source_coord_host =
+      Kokkos::create_mirror_view(source_coord_device);
+
+  for (size_t i = 0; i < num_source_coord; i++) {
+    for (int j = 0; j < 3; j++) {
+      source_coord_host(i, j) = coord[i][j];
+    }
+  }
+
+  unsigned int num_target_coord = gap_coord.size();
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> target_coord_device(
+      "target coordinates", num_target_coord, 3);
+  Kokkos::View<double **>::HostMirror target_coord_host =
+      Kokkos::create_mirror_view(target_coord_device);
+
+  for (size_t i = 0; i < num_target_coord; i++) {
+    for (int j = 0; j < 3; j++) {
+      target_coord_host(i, j) = gap_coord[i][j];
+    }
+  }
+
+  Kokkos::deep_copy(source_coord_device, source_coord_host);
+  Kokkos::deep_copy(target_coord_device, target_coord_host);
+
+  auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
+
+  int estimated_num_neighbor_max = 2 * pow(5, dim);
+
+  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
+      "h supports", num_target_coord);
+  Kokkos::View<double *>::HostMirror epsilon_host =
+      Kokkos::create_mirror_view(epsilon_device);
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> temp_neighbor_list_device(
+      "temp neighbor lists", num_target_coord, 1);
+  Kokkos::View<int **>::HostMirror temp_neighbor_list_host =
+      Kokkos::create_mirror_view(temp_neighbor_list_device);
+
+  for (int i = 0; i < num_target_coord; i++) {
+    epsilon_host[i] = 2.5 * gap_spacing[i];
+  }
+
+  size_t max_num_neighbor =
+      point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+          true, target_coord_host, temp_neighbor_list_host, epsilon_host, 0.0,
+          0.0) +
+      2;
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
+      "neighbor lists", num_target_coord, max_num_neighbor);
+  Kokkos::View<int **>::HostMirror neighbor_list_host =
+      Kokkos::create_mirror_view(neighbor_list_device);
+
+  point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+      false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
+
+  vector<int> gap_split_tag;
+  gap_split_tag.resize(num_target_coord);
+  for (int i = 0; i < num_target_coord; i++) {
+    gap_split_tag[i] = 0;
+    for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+      // find the nearest particle
+      int neighbor_index = neighbor_list_host(i, j + 1);
+      if (rigid_body_surface_particle_split_tag[neighbor_index] == 1 &&
+          gap_adaptive_level[i] <= adaptive_level[neighbor_index]) {
+        gap_split_tag[i] = 1;
+      }
+    }
+  }
+
+  split_rigid_body_surface_particle(surface_particle_split_tag);
+  collect_rigid_body_surface_particle();
 
   split_field_particle(field_particle_split_tag);
   split_gap_particle(gap_split_tag);
@@ -3895,18 +4050,25 @@ void particle_geometry::collect_rigid_body_surface_particle() {
   rigid_body_surface_particle_coord.clear();
   rigid_body_surface_particle_spacing.clear();
   rigid_body_surface_particle_adaptive_level.clear();
+  rigid_body_surface_particle_split_tag.clear();
 
   std::vector<vec3> &coord = *current_local_managing_particle_coord;
   std::vector<vec3> &spacing = *current_local_managing_particle_p_spacing;
   std::vector<int> &particle_type = *current_local_managing_particle_type;
   std::vector<int> &adaptive_level =
       *current_local_managing_particle_adaptive_level;
+  std::vector<int> &split_tag = *current_local_managing_particle_split_tag;
+
+  if (split_tag.size() != adaptive_level.size()) {
+    split_tag.resize(adaptive_level.size());
+  }
 
   for (int i = 0; i < coord.size(); i++) {
     if (particle_type[i] >= 4) {
       rigid_body_surface_particle_coord.push_back(coord[i]);
       rigid_body_surface_particle_spacing.push_back(spacing[i]);
       rigid_body_surface_particle_adaptive_level.push_back(adaptive_level[i]);
+      rigid_body_surface_particle_split_tag.push_back(split_tag[i]);
     }
   }
 
@@ -4134,6 +4296,36 @@ void particle_geometry::collect_rigid_body_surface_particle() {
 
     for (int i = 0; i < total_in_num; i++) {
       rigid_body_surface_particle_adaptive_level.push_back(recv_buffer[i]);
+    }
+  }
+
+  // move particle split tag
+  {
+    vector<int> send_buffer, recv_buffer;
+    send_buffer.resize(total_out_num);
+    recv_buffer.resize(total_in_num);
+
+    for (int i = 0; i < flatted_out_map.size(); i++) {
+      send_buffer[i] = split_tag[flatted_out_map[i]];
+    }
+
+    // send and recv data buffer
+    for (int i = 0; i < out_graph.size(); i++) {
+      MPI_Isend(send_buffer.data() + out_offset[i], out_num[i], MPI_INT,
+                out_graph[i], 0, MPI_COMM_WORLD, send_request.data() + i);
+    }
+
+    for (int i = 0; i < in_graph.size(); i++) {
+      MPI_Irecv(recv_buffer.data() + in_offset[i], in_num[i], MPI_INT,
+                in_graph[i], 0, MPI_COMM_WORLD, recv_request.data() + i);
+    }
+
+    MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
+    MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    for (int i = 0; i < total_in_num; i++) {
+      rigid_body_surface_particle_split_tag.push_back(recv_buffer[i]);
     }
   }
 }

@@ -89,6 +89,7 @@ private:
   int_type current_local_managing_particle_adaptive_level;
   int_type current_local_managing_particle_new_added;
   int_type current_local_managing_particle_attached_rigid_body;
+  int_type current_local_managing_particle_split_tag;
 
   // managing domain gap particles
   vec_type local_managing_gap_particle_coord;
@@ -102,6 +103,7 @@ private:
   std::vector<vec3> rigid_body_surface_particle_coord;
   std::vector<vec3> rigid_body_surface_particle_spacing;
   std::vector<int> rigid_body_surface_particle_adaptive_level;
+  std::vector<int> rigid_body_surface_particle_split_tag;
 
   vec3 bounding_box[2];
   vec3 bounding_box_size;
@@ -351,6 +353,8 @@ protected:
 
   void uniform_refine();
   void adaptive_refine(std::vector<int> &split_tag);
+  void coarse_level_refine(std::vector<int> &split_tag,
+                           std::vector<int> &origin_split_tag);
 
   void insert_particle(const vec3 &_pos, int _particle_type,
                        const double _spacing, const vec3 &_normal,
