@@ -572,7 +572,8 @@ void particle_geometry::generate_uniform_particle() {
       int actual_whole_max_neighbor_num =
           point_cloud_search.generate2DNeighborListsFromRadiusSearch(
               true, whole_target_coord_host, whole_neighbor_list_host,
-              whole_epsilon_host, 0.0, 0.0);
+              whole_epsilon_host, 0.0, 0.0) +
+          2;
 
       if (actual_whole_max_neighbor_num > estimated_max_num_neighbor) {
         whole_neighbor_list_device =
