@@ -833,6 +833,7 @@ void gmls_solver::write_refinement_data_geometry_only() {
   vector<vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
   vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
   vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
+  vector<vec3> &p_spacing = *(geo_mgr->get_current_work_particle_p_spacing());
 
   int local_particle_num;
   int global_particle_num;
@@ -937,6 +938,28 @@ void gmls_solver::write_refinement_data_geometry_only() {
     for (size_t i = 0; i < normal.size(); i++) {
       file << normal[i][0] << ' ' << normal[i][1] << ' ' << normal[i][2]
            << endl;
+    }
+    file.close();
+  });
+
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" +
+                  to_string(current_refinement_step) + ".vtk",
+              ios::app);
+    file << "SCALARS p_spacing float 3" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  serial_operation([p_spacing, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" +
+                  to_string(current_refinement_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < p_spacing.size(); i++) {
+      file << p_spacing[i][0] << ' ' << p_spacing[i][1] << ' '
+           << p_spacing[i][2] << endl;
     }
     file.close();
   });

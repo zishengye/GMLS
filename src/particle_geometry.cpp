@@ -2176,10 +2176,12 @@ void particle_geometry::generate_rigid_body_surface_particle() {
 
           double theta0 = M_PI * i / M_theta;
           double theta1 = M_PI * (i + 1) / M_theta;
-          // double d_phi = 2 * M_PI / M_phi;
-          // double area = pow(r, 2.0) * (cos(theta0) - cos(theta1)) * d_phi;
 
-          vec3 p_spacing = vec3(d_theta, d_phi, 0);
+          double phi0 = 2 * M_PI * j / M_phi;
+          double phi1 = 2 * M_PI * (j + 1) / M_phi;
+
+          vec3 p_spacing =
+              vec3(r * (cos(theta0) - cos(theta1)), r * (phi1 - phi0), 0.0);
 
           vec3 p_coord = vec3(theta, phi, 0.0);
           vec3 normal =
@@ -3047,56 +3049,82 @@ void particle_geometry::split_rigid_body_surface_particle(
       double phi = p_coord[tag][1];
       double r = rigid_body_size[attached_rigid_body_index[tag]];
 
-      const double old_delta_theta = p_spacing[tag][0] / r;
-      const double delta_theta = 0.5 * old_delta_theta;
+      double old_h = spacing[tag];
+      double old_a = pow(old_h, 2);
 
-      double d_theta = 0.5 * p_spacing[tag][0];
-      double d_phi = 0.5 * p_spacing[tag][1];
+      int old_M_theta = round(r * M_PI / old_h);
 
-      const int old_M_phi =
-          round(2 * M_PI * r * sin(theta) / p_spacing[tag][1]);
+      const double old_delta_theta = M_PI / old_M_theta;
+      double old_theta0 = 0.0;
+      double old_theta1 = old_delta_theta;
 
-      const double old_delta_phi = 2 * M_PI / old_M_phi;
-      const double old_phi0 = phi - 0.5 * old_delta_phi;
-      const double old_phi1 = phi + 0.5 * old_delta_phi;
+      bool find_interval = false;
+      while (!find_interval) {
+        if (theta > old_theta0 && theta < old_theta1) {
+          find_interval = true;
+        } else {
+          old_theta0 += old_delta_theta;
+          old_theta1 += old_delta_theta;
+        }
+      }
+
+      double h = 0.5 * spacing[tag];
+      double a = pow(h, 2);
+
+      int M_theta = round(r * M_PI / h);
+      double d_theta = r * M_PI / M_theta;
+      double d_phi = a / d_theta;
+
+      double delta_theta = M_PI / M_theta;
 
       bool insert = false;
-      for (int i = -1; i < 2; i += 2) {
-        double new_theta = theta + i * delta_theta * 0.5;
-        int M_phi = round(2 * M_PI * r * sin(new_theta) / d_phi);
-        for (int j = 0; j < M_phi; j++) {
-          double new_phi = 2 * M_PI * (j + 0.5) / M_phi;
-          if (new_phi >= old_phi0 && new_phi <= old_phi1) {
-            double theta0 = new_theta - 0.5 * delta_theta;
-            double theta1 = new_theta + 0.5 * delta_theta;
+      for (int i = 0; i < M_theta; i++) {
+        double new_theta = (i + 0.5) * delta_theta;
+        if (new_theta >= old_theta0 && new_theta < old_theta1) {
+          double old_d_theta = r * M_PI / old_M_theta;
+          double old_d_phi = old_a / old_d_theta;
 
-            double d_phi = 2 * M_PI / M_phi;
-            double area = pow(r, 2.0) * (cos(theta0) - cos(theta1)) * d_phi;
+          int old_M_phi = round(2 * M_PI * r * sin(theta) / old_d_phi);
 
-            vec3 new_p_spacing = vec3(d_theta, area / d_theta, 0.0);
-            vec3 new_normal =
-                vec3(sin(new_theta) * cos(new_phi),
-                     sin(new_theta) * sin(new_phi), cos(new_theta));
-            vec3 new_pos = new_normal * r +
-                           rigid_body_coord[attached_rigid_body_index[tag]];
+          const double old_delta_phi = 2 * M_PI / old_M_phi;
+          const double old_phi0 = phi - 0.5 * old_delta_phi;
+          const double old_phi1 = phi + 0.5 * old_delta_phi;
 
-            if (!insert) {
-              coord[tag] = new_pos;
-              volume[tag] /= 8.0;
-              normal[tag] = new_normal;
-              spacing[tag] /= 2.0;
-              p_coord[tag] = vec3(new_theta, new_phi, 0.0);
-              p_spacing[tag] = new_p_spacing;
-              adaptive_level[tag]++;
-              new_added[tag] = -1;
+          int M_phi = round(2 * M_PI * r * sin(new_theta) / d_phi);
 
-              insert = true;
-            } else {
-              double vol = volume[tag];
-              insert_particle(new_pos, particle_type[tag], spacing[tag],
-                              new_normal, adaptive_level[tag], vol, true,
-                              attached_rigid_body_index[tag],
-                              vec3(new_theta, new_phi, 0.0), new_p_spacing);
+          for (int j = 0; j < M_phi; j++) {
+            double new_phi = 2 * M_PI * (j + 0.5) / M_phi;
+            if (new_phi >= old_phi0 && new_phi < old_phi1 - 1e-5) {
+              double theta0 = new_theta - 0.5 * delta_theta;
+              double theta1 = new_theta + 0.5 * delta_theta;
+
+              double delta_phi = 2 * M_PI / M_phi;
+
+              vec3 new_p_spacing =
+                  vec3(r * (cos(theta0) - cos(theta1)), r * delta_phi, 0.0);
+              vec3 new_normal =
+                  vec3(sin(new_theta) * cos(new_phi),
+                       sin(new_theta) * sin(new_phi), cos(new_theta));
+              vec3 new_pos = new_normal * r +
+                             rigid_body_coord[attached_rigid_body_index[tag]];
+
+              if (!insert) {
+                coord[tag] = new_pos;
+                volume[tag] /= 8.0;
+                normal[tag] = new_normal;
+                spacing[tag] /= 2.0;
+                p_coord[tag] = vec3(new_theta, new_phi, 0.0);
+                p_spacing[tag] = new_p_spacing;
+                adaptive_level[tag]++;
+                new_added[tag] = -1;
+
+                insert = true;
+              } else {
+                insert_particle(new_pos, particle_type[tag], spacing[tag],
+                                new_normal, adaptive_level[tag], volume[tag],
+                                true, attached_rigid_body_index[tag],
+                                vec3(new_theta, new_phi, 0.0), new_p_spacing);
+              }
             }
           }
         }

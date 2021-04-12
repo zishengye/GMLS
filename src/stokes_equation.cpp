@@ -329,7 +329,7 @@ void stokes_equation::build_coefficient_matrix() {
   Kokkos::deep_copy(neumann_epsilon_device, neumann_epsilon_host);
 
   if (dim == 2)
-    number_of_batches = max(local_particle_num / 10000, 1);
+    number_of_batches = max(local_particle_num / 100, 1);
   else
     number_of_batches = max(local_particle_num / 100, 1);
 
@@ -588,6 +588,7 @@ void stokes_equation::build_coefficient_matrix() {
   }
 
   double area = 0.0;
+  int area_num = 0;
 
   // outprocess graph
   for (int i = 0; i < local_particle_num; i++) {
@@ -710,9 +711,10 @@ void stokes_equation::build_coefficient_matrix() {
         } else {
           dA = (dim == 3) ? (normal[i] * p_spacing[i][0] * p_spacing[i][1])
                           : (normal[i] * p_spacing[i][0]);
-        }
 
-        area += p_spacing[i][0] * p_spacing[i][1];
+          area += p_spacing[i][0] * p_spacing[i][1];
+          area_num++;
+        }
 
         // apply pressure
         for (int axes1 = 0; axes1 < translation_dof; axes1++) {
@@ -1481,11 +1483,11 @@ void stokes_equation::build_coefficient_matrix() {
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Allreduce(MPI_IN_PLACE, &area, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "surface area: %f\n", area);
+  MPI_Allreduce(MPI_IN_PLACE, &area_num, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "surface area particle num: %d\n", area_num);
 
   auto ff = multi_mgr->get_field_mat(current_refinement_level);
   A.assemble(*ff, field_dof, num_rigid_body, rigid_body_dof);
-
-  // A.write(string("A" + to_string(current_refinement_level) + ".txt"));
 
   // Kokkos::View<double *, Kokkos::DefaultExecutionSpace> sampling_data(
   //     "background pressure", source_index.size());
@@ -1599,6 +1601,17 @@ void stokes_equation::build_coefficient_matrix() {
   // }
   // MPI_Allreduce(MPI_IN_PLACE, &count_num, 1, MPI_INT, MPI_SUM,
   // MPI_COMM_WORLD); PetscPrintf(PETSC_COMM_WORLD, "counter: %d\n", count_num);
+
+  // if (current_refinement_level == 3) {
+  //   // A.write(string("A" + to_string(current_refinement_level) + ".txt"));
+
+  //   for (int i = 0; i < local_particle_num; i++) {
+  //     vec3 dX = coord[i] - vec3(-0.793759, -0.966214, 0.0);
+  //     if (dX.mag() < 0.02) {
+  //       cout << source_index[i] << endl;
+  //     }
+  //   }
+  // }
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
