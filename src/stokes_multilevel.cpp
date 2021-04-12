@@ -829,7 +829,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
                     ff);
     KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
-                     1e-3, 1e-50, 1e10, 10);
+                     1e-3, 1e-50, 1e10, 3);
 
     PC field_relaxation_pc;
     KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
