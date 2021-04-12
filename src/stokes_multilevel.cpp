@@ -829,7 +829,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
                     ff);
     KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
-                     1e-3, 1e-50, 1e10, 5);
+                     1e-3, 1e-50, 1e10, 10);
 
     PC field_relaxation_pc;
     KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
@@ -935,9 +935,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecNorm(residual, NORM_2, &residual_norm);
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
-  if (refinement_step == 1) {
-    VecCopy(residual, _x.get_reference());
-  }
+  // if (refinement_step == 1) {
+  //   VecCopy(residual, _x.get_reference());
+  // }
   VecDestroy(&residual);
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
