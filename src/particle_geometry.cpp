@@ -2766,8 +2766,7 @@ void particle_geometry::coarse_level_refine(vector<int> &split_tag,
     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
       // find the nearest particle
       int neighbor_index = neighbor_list_host(i, j + 1);
-      if (rigid_body_surface_particle_split_tag[neighbor_index] == 1 &&
-          gap_adaptive_level[i] <= adaptive_level[neighbor_index]) {
+      if (rigid_body_surface_particle_split_tag[neighbor_index] == 1) {
         gap_split_tag[i] = 1;
       }
     }
@@ -3368,8 +3367,8 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
             for (int i = 0; i < rigid_body_surface_particle_coord.size(); i++) {
               vec3 rci = _pos - rigid_body_surface_particle_coord[i];
               if (rci.mag() <
-                  0.5 * max(_spacing,
-                            rigid_body_surface_particle_spacing[i][0])) {
+                  0.25 *
+                      max(_spacing, rigid_body_surface_particle_spacing[i])) {
                 return idx;
               }
             }
@@ -3407,8 +3406,8 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
                    i++) {
                 vec3 rci = _pos - rigid_body_surface_particle_coord[i];
                 if (rci.mag() <
-                    0.51 * max(_spacing,
-                               rigid_body_surface_particle_spacing[i][0])) {
+                    0.51 *
+                        max(_spacing, rigid_body_surface_particle_spacing[i])) {
                   return idx;
                 }
               }
@@ -4082,7 +4081,7 @@ void particle_geometry::collect_rigid_body_surface_particle() {
   rigid_body_surface_particle_split_tag.clear();
 
   std::vector<vec3> &coord = *current_local_managing_particle_coord;
-  std::vector<vec3> &spacing = *current_local_managing_particle_p_spacing;
+  std::vector<double> &spacing = *current_local_managing_particle_spacing;
   std::vector<int> &particle_type = *current_local_managing_particle_type;
   std::vector<int> &adaptive_level =
       *current_local_managing_particle_adaptive_level;
@@ -4265,27 +4264,22 @@ void particle_geometry::collect_rigid_body_surface_particle() {
   // move particle spacing
   {
     vector<double> send_buffer, recv_buffer;
-    send_buffer.resize(3 * total_out_num);
-    recv_buffer.resize(3 * total_in_num);
+    send_buffer.resize(total_out_num);
+    recv_buffer.resize(total_in_num);
 
     for (int i = 0; i < flatted_out_map.size(); i++) {
-      for (int j = 0; j < 3; j++) {
-        send_buffer[i * 3 + j] = spacing[flatted_out_map[i]][j];
-      }
+      send_buffer[i] = spacing[flatted_out_map[i]];
     }
 
     // send and recv data buffer
-    int unit_length = 3;
     for (int i = 0; i < out_graph.size(); i++) {
-      MPI_Isend(send_buffer.data() + out_offset[i] * unit_length,
-                out_num[i] * unit_length, MPI_DOUBLE, out_graph[i], 0,
-                MPI_COMM_WORLD, send_request.data() + i);
+      MPI_Isend(send_buffer.data() + out_offset[i], out_num[i], MPI_DOUBLE,
+                out_graph[i], 0, MPI_COMM_WORLD, send_request.data() + i);
     }
 
     for (int i = 0; i < in_graph.size(); i++) {
-      MPI_Irecv(recv_buffer.data() + in_offset[i] * unit_length,
-                in_num[i] * unit_length, MPI_DOUBLE, in_graph[i], 0,
-                MPI_COMM_WORLD, recv_request.data() + i);
+      MPI_Irecv(recv_buffer.data() + in_offset[i], in_num[i], MPI_DOUBLE,
+                in_graph[i], 0, MPI_COMM_WORLD, recv_request.data() + i);
     }
 
     MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
@@ -4293,8 +4287,7 @@ void particle_geometry::collect_rigid_body_surface_particle() {
     MPI_Barrier(MPI_COMM_WORLD);
 
     for (int i = 0; i < total_in_num; i++) {
-      rigid_body_surface_particle_spacing.push_back(vec3(
-          recv_buffer[i * 3], recv_buffer[i * 3 + 1], recv_buffer[i * 3 + 2]));
+      rigid_body_surface_particle_spacing.push_back(recv_buffer[i]);
     }
   }
 

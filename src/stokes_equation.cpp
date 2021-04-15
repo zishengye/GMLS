@@ -1602,15 +1602,8 @@ void stokes_equation::build_coefficient_matrix() {
   // MPI_Allreduce(MPI_IN_PLACE, &count_num, 1, MPI_INT, MPI_SUM,
   // MPI_COMM_WORLD); PetscPrintf(PETSC_COMM_WORLD, "counter: %d\n", count_num);
 
-  // if (current_refinement_level == 3) {
-  //   // A.write(string("A" + to_string(current_refinement_level) + ".txt"));
-
-  //   for (int i = 0; i < local_particle_num; i++) {
-  //     vec3 dX = coord[i] - vec3(-0.793759, -0.966214, 0.0);
-  //     if (dX.mag() < 0.02) {
-  //       cout << source_index[i] << endl;
-  //     }
-  //   }
+  // if (current_refinement_level == 0) {
+  //   A.write(string("A" + to_string(current_refinement_level) + ".txt"));
   // }
 
   MPI_Barrier(MPI_COMM_WORLD);

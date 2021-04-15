@@ -624,11 +624,15 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
+  int rigid_body_dof = (dimension == 2) ? 3 : 6;
+  int field_dof = dimension + 1;
+
   idx_colloid.clear();
 
   for (int i = 0; i < __out_process_matrix.size(); i++) {
     for (int j = 0; j < __out_process_matrix[i].size(); j++) {
-      idx_colloid.push_back(__out_process_matrix[i][j].first);
+      if (__out_process_matrix[i][j].first < global_rigid_body_offset)
+        idx_colloid.push_back(__out_process_matrix[i][j].first / field_dof);
     }
   }
 
@@ -672,9 +676,6 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
   }
 
   idx_colloid.clear();
-
-  int rigid_body_dof = (dimension == 2) ? 3 : 6;
-  int field_dof = dimension + 1;
 
   if (myId == MPIsize - 1) {
     neighbor_inclusion.clear();

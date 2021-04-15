@@ -101,7 +101,7 @@ private:
   int_type local_managing_gap_particle_adaptive_level;
 
   std::vector<vec3> rigid_body_surface_particle_coord;
-  std::vector<vec3> rigid_body_surface_particle_spacing;
+  std::vector<double> rigid_body_surface_particle_spacing;
   std::vector<int> rigid_body_surface_particle_adaptive_level;
   std::vector<int> rigid_body_surface_particle_split_tag;
 
