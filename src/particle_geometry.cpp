@@ -2647,7 +2647,7 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
       // find the nearest particle
       int neighbor_index = neighbor_list_host(i, j + 1);
-      if (gap_adaptive_level[i] == adaptive_level[neighbor_index]) {
+      if (gap_adaptive_level[i] >= adaptive_level[neighbor_index]) {
         gap_split_tag[i] = 0;
       }
     }
