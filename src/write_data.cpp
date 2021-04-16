@@ -904,6 +904,27 @@ void gmls_solver::write_refinement_data_geometry_only() {
     file.open("./vtk/adaptive_step_geometry" +
                   to_string(current_refinement_step) + ".vtk",
               ios::app);
+    file << "SCALARS index int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  serial_operation([particle_type, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" +
+                  to_string(current_refinement_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < particle_type.size(); i++) {
+      file << i << endl;
+    }
+    file.close();
+  });
+
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" +
+                  to_string(current_refinement_step) + ".vtk",
+              ios::app);
     file << "SCALARS d float 1" << endl;
     file << "LOOKUP_TABLE default " << endl;
     file.close();
