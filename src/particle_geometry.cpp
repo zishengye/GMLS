@@ -2268,10 +2268,10 @@ void particle_geometry::generate_rigid_body_surface_particle() {
                      rigid_body_coord[n];
           vec3 p_coord = vec3(0.0, 0.0, 0.0);
           vec3 p_spacing = vec3(h, 0.0, 0.0);
-          // if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-          //     pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-          //   insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
-          //                   p_coord, p_spacing);
+          if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
+              pos[1] >= domain[0][1] && pos[1] < domain[1][1])
+            insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
+                            p_coord, p_spacing);
 
           xPos += 0.5 * h;
           norm = vec3(0.0, -1.0, 0.0);
@@ -2295,10 +2295,10 @@ void particle_geometry::generate_rigid_body_surface_particle() {
           pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                      sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                 rigid_body_coord[n];
-          // if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-          //     pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-          //   insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
-          //                   p_coord, p_spacing);
+          if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
+              pos[1] >= domain[0][1] && pos[1] < domain[1][1])
+            insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
+                            p_coord, p_spacing);
 
           yPos += 0.5 * h;
           norm = vec3(1.0, 0.0, 0.0);
@@ -2322,10 +2322,10 @@ void particle_geometry::generate_rigid_body_surface_particle() {
           pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                      sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                 rigid_body_coord[n];
-          // if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-          //     pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-          //   insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
-          //                   p_coord, p_spacing);
+          if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
+              pos[1] >= domain[0][1] && pos[1] < domain[1][1])
+            insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
+                            p_coord, p_spacing);
 
           xPos -= 0.5 * h;
           norm = vec3(0.0, 1.0, 0.0);
@@ -2349,10 +2349,10 @@ void particle_geometry::generate_rigid_body_surface_particle() {
           pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
                      sin(theta) * xPos + cos(theta) * yPos, 0.0) +
                 rigid_body_coord[n];
-          // if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-          //     pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-          //   insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
-          //                   p_coord, p_spacing);
+          if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
+              pos[1] >= domain[0][1] && pos[1] < domain[1][1])
+            insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
+                            p_coord, p_spacing);
 
           yPos -= 0.5 * h;
           norm = vec3(-1.0, 0.0, 0.0);
@@ -3374,7 +3374,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           if (dis.mag() < rigid_body_size - 1.5 * _spacing) {
             return -1;
           }
-          if (dis.mag() <= rigid_body_size + 0.25 * _spacing) {
+          if (dis.mag() <= rigid_body_size + 0.1 * _spacing) {
             return idx;
           }
 

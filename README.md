@@ -3,7 +3,7 @@
 ## How to access the source files
 
 ```
-git clone wpan@panlab-07.me.wisc.edu:~/git/gmls_solver.git
+git clone wpan@panlab-07.me.wisc.edu:~/git/GMLS_Solver.git
 ```
 
 
