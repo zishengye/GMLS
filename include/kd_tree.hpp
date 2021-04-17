@@ -27,8 +27,9 @@ protected:
   int _max_leaf;
 
 public:
-  KDTree(std::shared_ptr<std::vector<vec3>> point_cloud, const int dimension)
-      : _point_cloud(point_cloud), _dim(dimension), _max_leaf(10) {}
+  KDTree(std::shared_ptr<std::vector<vec3>> point_cloud, const int dimension,
+         const int max_leaf = 5)
+      : _point_cloud(point_cloud), _dim(dimension), _max_leaf(max_leaf) {}
 
   ~KDTree() {}
 
@@ -79,7 +80,7 @@ public:
       p_idx = std::make_shared<std::vector<size_t>>(_tree_3d->vind);
     }
     for (int i = 0; i < _point_cloud->size(); i++) {
-      idx[i] = (*p_idx)[i];
+      idx[(*p_idx)[i]] = i;
     }
   }
 };

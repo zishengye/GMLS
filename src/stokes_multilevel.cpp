@@ -561,6 +561,8 @@ void stokes_multilevel::initial_guess_from_previous_adaptive_step(
     std::vector<double> &initial_guess, std::vector<vec3> &velocity,
     std::vector<double> &pressure, std::vector<vec3> &rb_velocity,
     std::vector<vec3> &rb_angular_velocity) {
+  auto &local_idx = *(geo_mgr->get_last_work_particle_local_index());
+
   petsc_sparse_matrix &I = *(getI(current_refinement_level - 1));
   petsc_sparse_matrix &R = *(getR(current_refinement_level - 1));
   Vec x1, x2;
@@ -577,10 +579,11 @@ void stokes_multilevel::initial_guess_from_previous_adaptive_step(
   VecGetArray(x2, &a);
 
   for (int i = 0; i < old_local_particle_num; i++) {
+    int current_particle_local_index = local_idx[i];
     for (int j = 0; j < velocity_dof; j++) {
-      a[i * field_dof + j] = velocity[i][j];
+      a[current_particle_local_index * field_dof + j] = velocity[i][j];
     }
-    a[i * field_dof + velocity_dof] = pressure[i];
+    a[current_particle_local_index * field_dof + velocity_dof] = pressure[i];
   }
 
   if (mpi_rank == mpi_size - 1) {
@@ -634,8 +637,7 @@ void stokes_multilevel::initial_guess_from_previous_adaptive_step(
 }
 
 int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
-                             std::vector<int> &idx_colloid,
-                             int abandon_this_level) {
+                             std::vector<int> &idx_colloid) {
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nstart of linear system solving setup\n");
 
@@ -721,6 +723,33 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       idx_colloid_sub_colloid.push_back(i + idx_colloid_offset[mpi_rank]);
     }
   }
+
+  // // split colloid rigid body dof to each process
+  // int avg_rigid_body_num = num_rigid_body / mpi_size;
+  // int rigid_body_idx_low = 0;
+  // int rigid_body_idx_high = 0;
+  // int rigid_body_offset =
+  //     idx_colloid_offset[mpi_size] - num_rigid_body * rigid_body_dof;
+  // for (int i = 0; i < mpi_rank; i++) {
+  //   if (i < num_rigid_body % mpi_size) {
+  //     rigid_body_idx_low += avg_rigid_body_num + 1;
+  //   } else {
+  //     rigid_body_idx_low += avg_rigid_body_num;
+  //   }
+  // }
+  // if (mpi_rank < num_rigid_body % mpi_size) {
+  //   rigid_body_idx_high = rigid_body_idx_low + avg_rigid_body_num + 1;
+  // } else {
+  //   rigid_body_idx_high = rigid_body_idx_low + avg_rigid_body_num;
+  // }
+
+  // for (int i = rigid_body_idx_low; i < rigid_body_idx_high; i++) {
+  //   for (int j = 0; j < rigid_body_dof; j++) {
+  //     idx_colloid_sub_colloid.push_back(rigid_body_offset + i *
+  //     rigid_body_dof +
+  //                                       j);
+  //   }
+  // }
 
   IS isg_colloid_sub_field, isg_colloid_sub_colloid;
 
@@ -855,7 +884,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
                KSPGMRES);
     KSPSetTolerances(colloid_relaxation_list[refinement_step]->get_reference(),
-                     1e-3, 1e-50, 1e10, 5000);
+                     1e-3, 1e-50, 1e10, 100);
     KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
                     nn, nn);
 
@@ -899,27 +928,36 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
-  KSPSetOperators(_ksp, shell_mat, shell_mat);
-  KSPSetFromOptions(_ksp);
 
   PC _pc;
 
-  KSPGetPC(_ksp, &_pc);
-  PCSetType(_pc, PCSHELL);
-
   HypreLUShellPC *shell_ctx;
-  HypreLUShellPCCreate(&shell_ctx);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "start of stokes_multilevel preconditioner setup\n");
+  KSPGetPC(_ksp, &_pc);
+  if (refinement_step == 0) {
+    Mat &mat = (*(A_list.end() - 1))->get_reference();
+    KSPSetFromOptions(_ksp);
+    KSPSetOperators(_ksp, shell_mat, mat);
+    PCSetType(_pc, PCLU);
+  } else {
+    KSPSetOperators(_ksp, shell_mat, shell_mat);
+    KSPSetFromOptions(_ksp);
 
-  PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
-  PCShellSetContext(_pc, shell_ctx);
-  PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+    PCSetType(_pc, PCSHELL);
 
-  HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
-                      field_dof);
+    HypreLUShellPCCreate(&shell_ctx);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD,
+                "start of stokes_multilevel preconditioner setup\n");
+
+    PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
+    PCShellSetContext(_pc, shell_ctx);
+    PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+
+    HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
+                        field_dof);
+  }
 
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   PetscReal residual_norm, rhs_norm;
@@ -932,7 +970,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecNorm(residual, NORM_2, &residual_norm);
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
-  // if (refinement_step != 3)
+  // if (refinement_step != 1)
   KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
   KSPConvergedReason convergence_reason;

@@ -228,6 +228,8 @@ void particle_geometry::init(const int _dim, const int _problem_type,
   cutoff_multiplier = _cutoff_multiplier;
   cutoff_distance = _spacing * (cutoff_multiplier + 0.5);
 
+  partitioner.set_dimension(dim);
+
   if (geometry_input_file_name != "") {
     vector<char *> cstrings;
     vector<string> strings;
@@ -3541,21 +3543,15 @@ void particle_geometry::index_work_particle() {
     particle_offset[i + 1] = particle_offset[i] + particle_num[i];
   }
 
-  KDTree point_cloud(current_local_work_particle_coord, dim);
+  KDTree point_cloud(current_local_work_particle_coord, dim, 5);
   point_cloud.generateKDTree();
 
   vector<int> &local_idx = *current_local_work_particle_local_index;
   point_cloud.getIndex(local_idx);
 
-  if (rank == 0) {
-    auto &coord = *current_local_work_particle_coord;
-    for (int i = 0; i < local_particle_num; i++) {
-      cout << coord[i][0] << ' ' << coord[i][1] << ' ' << local_idx[i] << endl;
-    }
-  }
-
   auto &index = *current_local_work_particle_index;
   for (int i = 0; i < local_particle_num; i++) {
+    // local_idx[i] = i;
     index[i] = local_idx[i] + particle_offset[rank];
   }
 

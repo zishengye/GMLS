@@ -1908,7 +1908,7 @@ void stokes_equation::solve_step() {
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
-  multi_mgr->solve(rhs, res, idx_colloid, abandon_this_level);
+  multi_mgr->solve(rhs, res, idx_colloid);
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",

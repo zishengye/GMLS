@@ -36,6 +36,8 @@ private:
 
   int rank, size;
 
+  int dim;
+
 public:
   trilinos_rcp_partitioner() : params("zoltan2 params") {
     comm = Tpetra::getDefaultComm();
@@ -54,6 +56,8 @@ public:
     params.set("imbalance_tolerance", tolerance);
     params.set("num_global_parts", size);
   }
+
+  void set_dimension(int _dim) { dim = _dim; }
 
   void partition(std::vector<long long> &index, std::vector<vec3> &coord,
                  std::vector<int> &result);

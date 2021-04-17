@@ -748,12 +748,35 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
     }
   }
 
-  if (myId == MPIsize - 1) {
-    for (int i = 0; i < num_rigid_body; i++) {
-      for (int j = 0; j < rigid_body_dof; j++) {
-        idx_colloid.push_back(global_rigid_body_offset + i * rigid_body_dof +
-                              j);
-      }
+  // if (myId == MPIsize - 1) {
+  //   for (int i = 0; i < num_rigid_body; i++) {
+  //     for (int j = 0; j < rigid_body_dof; j++) {
+  //       idx_colloid.push_back(global_rigid_body_offset + i * rigid_body_dof +
+  //                             j);
+  //     }
+  //   }
+  // }
+
+  // split colloid rigid body dof to each process
+  int avg_rigid_body_num = num_rigid_body / MPIsize;
+  int rigid_body_idx_low = 0;
+  int rigid_body_idx_high = 0;
+  for (int i = 0; i < myId; i++) {
+    if (i < num_rigid_body % MPIsize) {
+      rigid_body_idx_low += avg_rigid_body_num + 1;
+    } else {
+      rigid_body_idx_low += avg_rigid_body_num;
+    }
+  }
+  if (myId < num_rigid_body % MPIsize) {
+    rigid_body_idx_high = rigid_body_idx_low + avg_rigid_body_num + 1;
+  } else {
+    rigid_body_idx_high = rigid_body_idx_low + avg_rigid_body_num;
+  }
+
+  for (int i = rigid_body_idx_low; i < rigid_body_idx_high; i++) {
+    for (int j = 0; j < rigid_body_dof; j++) {
+      idx_colloid.push_back(global_rigid_body_offset + i * rigid_body_dof + j);
     }
   }
 

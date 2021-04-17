@@ -1,4 +1,5 @@
 #include "trilinos_zoltan2.hpp"
+#include "kd_tree.hpp"
 
 using namespace std;
 
@@ -42,8 +43,55 @@ void trilinos_rcp_partitioner::partition(vector<long long> &index,
 
     if (ptr != NULL) {
       result.resize(local_particle_num);
+
+      vector<double> flatted_mass_center;
+      flatted_mass_center.resize(size * dim);
+
+      for (int i = 0; i < size * dim; i++) {
+        flatted_mass_center[i] = 0.0;
+      }
       for (int i = 0; i < local_particle_num; i++) {
-        result[i] = ptr[i];
+        for (int k = 0; k < dim; k++) {
+          flatted_mass_center[ptr[i] * dim + k] += coord[i][k];
+        }
+      }
+      MPI_Allreduce(MPI_IN_PLACE, flatted_mass_center.data(), size * dim,
+                    MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+      vector<int> part_count;
+      part_count.resize(size);
+      for (int i = 0; i < size; i++) {
+        part_count[i] = 0;
+      }
+      for (int i = 0; i < local_particle_num; i++) {
+        part_count[ptr[i]]++;
+      }
+      MPI_Allreduce(MPI_IN_PLACE, part_count.data(), size, MPI_INT, MPI_SUM,
+                    MPI_COMM_WORLD);
+
+      for (int i = 0; i < size; i++) {
+        for (int k = 0; k < dim; k++) {
+          flatted_mass_center[i * dim + k] /= part_count[i];
+        }
+      }
+
+      shared_ptr<vector<vec3>> mass_center = make_shared<vector<vec3>>();
+      mass_center->resize(size);
+
+      for (int i = 0; i < size; i++) {
+        for (int k = 0; k < dim; k++) {
+          (*mass_center)[i][k] = flatted_mass_center[i * dim + k];
+        }
+      }
+
+      KDTree point_cloud(mass_center, dim, 2);
+      point_cloud.generateKDTree();
+
+      vector<int> part_map;
+      point_cloud.getIndex(part_map);
+
+      for (int i = 0; i < local_particle_num; i++) {
+        result[i] = part_map[ptr[i]];
       }
     } else {
       result.resize(local_particle_num);

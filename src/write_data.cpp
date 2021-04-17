@@ -833,7 +833,7 @@ void gmls_solver::write_refinement_data_geometry_only() {
   vector<vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
   vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
   vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
-  vector<int> &local_idx = *(geo_mgr->get_current_work_particle_index());
+  vector<int> &local_idx = *(geo_mgr->get_current_work_particle_local_index());
   vector<vec3> &p_spacing = *(geo_mgr->get_current_work_particle_p_spacing());
 
   int local_particle_num;
