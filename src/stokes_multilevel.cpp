@@ -29,6 +29,7 @@ void stokes_multilevel::build_interpolation_restriction(
     auto &coord = *(geo_mgr->get_current_work_particle_coord());
     auto &new_added = *(geo_mgr->get_current_work_particle_new_added());
     auto &spacing = *(geo_mgr->get_current_work_particle_spacing());
+    auto &local_idx = *(geo_mgr->get_current_work_particle_local_index());
 
     auto &old_coord = *(geo_mgr->get_last_work_particle_coord());
 
@@ -243,6 +244,7 @@ void stokes_multilevel::build_interpolation_restriction(
     // compute matrix graph
     vector<PetscInt> index;
     for (int i = 0; i < new_local_particle_num; i++) {
+      int current_particle_local_index = local_idx[i];
       if (new_added[i] < 0) {
         // velocity interpolation
         index.resize(old_to_new_neighbor_lists_host(new_actual_index[i], 0) *
@@ -258,7 +260,7 @@ void stokes_multilevel::build_interpolation_restriction(
         }
 
         for (int k = 0; k < velocity_dof; k++) {
-          I.set_col_index(field_dof * i + k, index);
+          I.set_col_index(field_dof * current_particle_local_index + k, index);
         }
 
         // pressure interpolation
@@ -270,12 +272,13 @@ void stokes_multilevel::build_interpolation_restriction(
                               new_actual_index[i], j + 1)] +
               velocity_dof;
         }
-        I.set_col_index(field_dof * i + velocity_dof, index);
+        I.set_col_index(field_dof * current_particle_local_index + velocity_dof,
+                        index);
       } else {
         index.resize(1);
         for (int j = 0; j < field_dof; j++) {
           index[0] = field_dof * new_added[i] + j;
-          I.set_col_index(field_dof * i + j, index);
+          I.set_col_index(field_dof * current_particle_local_index + j, index);
         }
       }
     }
@@ -306,6 +309,7 @@ void stokes_multilevel::build_interpolation_restriction(
                 VectorPointEvaluation, axes1, 0, axes2, 0);
 
     for (int i = 0; i < new_local_particle_num; i++) {
+      int current_particle_local_index = local_idx[i];
       if (new_added[i] < 0) {
         for (int j = 0;
              j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
@@ -317,7 +321,7 @@ void stokes_multilevel::build_interpolation_restriction(
               int neighbor_index =
                   old_source_index[old_to_new_neighbor_lists_host(
                       new_actual_index[i], j + 1)];
-              I.increment(field_dof * i + axes1,
+              I.increment(field_dof * current_particle_local_index + axes1,
                           field_dof * neighbor_index + axes2,
                           old_to_new_velocity_alphas(alpha_index + j));
             }
@@ -329,13 +333,14 @@ void stokes_multilevel::build_interpolation_restriction(
               new_actual_index[i], pressure_old_to_new_alphas_index);
           int neighbor_index = old_source_index[old_to_new_neighbor_lists_host(
               new_actual_index[i], j + 1)];
-          I.increment(field_dof * i + velocity_dof,
+          I.increment(field_dof * current_particle_local_index + velocity_dof,
                       field_dof * neighbor_index + velocity_dof,
                       old_to_new_pressure_alphas(alpha_index + j));
         }
       } else {
         for (int j = 0; j < field_dof; j++) {
-          I.increment(field_dof * i + j, field_dof * new_added[i] + j, 1.0);
+          I.increment(field_dof * current_particle_local_index + j,
+                      field_dof * new_added[i] + j, 1.0);
         }
       }
     }
@@ -370,6 +375,7 @@ void stokes_multilevel::build_interpolation_restriction(
 
     auto &old_coord = *(geo_mgr->get_last_work_particle_coord());
     auto &old_index = *(geo_mgr->get_last_work_particle_index());
+    auto &old_local_index = *(geo_mgr->get_last_work_particle_local_index());
     auto &old_particle_type = *(geo_mgr->get_last_work_particle_type());
     auto &old_spacing = *(geo_mgr->get_last_work_particle_spacing());
 
@@ -483,6 +489,7 @@ void stokes_multilevel::build_interpolation_restriction(
     vector<PetscInt> index;
     int min_neighbor = 1000, max_neighbor = 0;
     for (int i = 0; i < old_local_particle_num; i++) {
+      int current_particle_local_index = old_local_index[i];
       index.resize(neighbor_lists_host(i, 0));
       if (min_neighbor > neighbor_lists_host(i, 0))
         min_neighbor = neighbor_lists_host(i, 0);
@@ -494,7 +501,7 @@ void stokes_multilevel::build_interpolation_restriction(
           index[k] = source_index[neighbor_index] * field_dof + j;
         }
 
-        R.set_col_index(field_dof * i + j, index);
+        R.set_col_index(field_dof * current_particle_local_index + j, index);
       }
     }
 
@@ -520,10 +527,11 @@ void stokes_multilevel::build_interpolation_restriction(
     }
 
     for (int i = 0; i < old_local_particle_num; i++) {
+      int current_particle_local_index = old_local_index[i];
       for (int j = 0; j < field_dof; j++) {
         for (int k = 0; k < neighbor_lists_host(i, 0); k++) {
           int neighbor_index = neighbor_lists_host(i, k + 1);
-          R.increment(field_dof * i + j,
+          R.increment(field_dof * current_particle_local_index + j,
                       source_index[neighbor_index] * field_dof + j,
                       1.0 / neighbor_lists_host(i, 0));
         }

@@ -89,6 +89,7 @@ void stokes_equation::build_coefficient_matrix() {
   auto &p_spacing = *(geo_mgr->get_current_work_particle_p_spacing());
   auto &spacing = *(geo_mgr->get_current_work_particle_spacing());
   auto &adaptive_level = *(geo_mgr->get_current_work_particle_adaptive_level());
+  auto &local_idx = *(geo_mgr->get_current_work_particle_local_index());
   auto &particle_type = *(geo_mgr->get_current_work_particle_type());
   auto &attached_rigid_body =
       *(geo_mgr->get_current_work_particle_attached_rigid_body());
@@ -492,7 +493,7 @@ void stokes_equation::build_coefficient_matrix() {
   vector<vector<PetscInt>> out_process_index(out_process_row);
 
   for (int i = 0; i < local_particle_num; i++) {
-    const int current_particle_local_index = i;
+    const int current_particle_local_index = local_idx[i];
     const int current_particle_global_index = source_index[i];
 
     const int pressure_local_index =
@@ -592,7 +593,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   // outprocess graph
   for (int i = 0; i < local_particle_num; i++) {
-    const int current_particle_local_index = i;
+    const int current_particle_local_index = local_idx[i];
     const int current_particle_global_index = source_index[i];
 
     if (particle_type[i] >= 4) {
@@ -630,7 +631,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   // insert matrix entity
   for (int i = 0; i < local_particle_num; i++) {
-    const int current_particle_local_index = i;
+    const int current_particle_local_index = local_idx[i];
     const int current_particle_global_index = source_index[i];
 
     const int pressure_local_index =
@@ -879,7 +880,7 @@ void stokes_equation::build_coefficient_matrix() {
   // invert_row_index.clear();
   abandon_this_level = 0;
   for (int i = 0; i < local_particle_num; i++) {
-    const int current_particle_local_index = i;
+    const int current_particle_local_index = local_idx[i];
     const int current_particle_global_index = source_index[i];
 
     for (int k = 0; k < field_dof; k++) {
@@ -1242,7 +1243,7 @@ void stokes_equation::build_coefficient_matrix() {
             pressure_neumann_operation[0], 0, 0, 0, 0);
 
     for (int i = 0; i < local_particle_num; i++) {
-      const int current_particle_local_index = i;
+      const int current_particle_local_index = local_idx[i];
       const int current_particle_global_index = source_index[i];
 
       const int pressure_local_index =
@@ -1459,7 +1460,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   abandon_this_level = 0;
   for (int i = 0; i < local_particle_num; i++) {
-    const int current_particle_local_index = i;
+    const int current_particle_local_index = local_idx[i];
     const int current_particle_global_index = source_index[i];
 
     for (int k = 0; k < field_dof; k++) {
@@ -1632,6 +1633,7 @@ void stokes_equation::build_rhs() {
   auto &coord = *(geo_mgr->get_current_work_particle_coord());
   auto &normal = *(geo_mgr->get_current_work_particle_normal());
   auto &particle_type = *(geo_mgr->get_current_work_particle_type());
+  auto &local_idx = *(geo_mgr->get_current_work_particle_local_index());
 
   auto &rigid_body_position = rb_mgr->get_position();
   const auto num_rigid_body = rb_mgr->get_rigid_body_num();
@@ -1691,21 +1693,24 @@ void stokes_equation::build_rhs() {
   // }
 
   for (int i = 0; i < local_particle_num; i++) {
+    int current_particle_local_index = local_idx[i];
     if (particle_type[i] != 0 && particle_type[i] < 4) {
       // 2-d Taylor-Green vortex-like flow
       if (dim == 2) {
         double x = coord[i][0];
         double y = coord[i][1];
 
-        rhs[field_dof * i] = sin(M_PI * x) * cos(M_PI * y);
-        rhs[field_dof * i + 1] = -cos(M_PI * x) * sin(M_PI * y);
+        rhs[field_dof * current_particle_local_index] =
+            sin(M_PI * x) * cos(M_PI * y);
+        rhs[field_dof * current_particle_local_index + 1] =
+            -cos(M_PI * x) * sin(M_PI * y);
 
         const int neumann_index = neumann_map[i];
         const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
             LaplacianOfScalarPointEvaluation, neumann_index,
             neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
 
-        rhs[field_dof * i + velocity_dof] =
+        rhs[field_dof * current_particle_local_index + velocity_dof] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
             bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
@@ -1752,14 +1757,14 @@ void stokes_equation::build_rhs() {
         double x = coord[i][0];
         double y = coord[i][1];
 
-        rhs[field_dof * i] =
+        rhs[field_dof * current_particle_local_index] =
             2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
             2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[field_dof * i + 1] =
+        rhs[field_dof * current_particle_local_index + 1] =
             -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
 
-        rhs[field_dof * i + velocity_dof] =
+        rhs[field_dof * current_particle_local_index + velocity_dof] =
             -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
       }
 
@@ -1798,6 +1803,7 @@ void stokes_equation::build_rhs() {
     double RR = rigid_body_size[0];
 
     for (int i = 0; i < local_particle_num; i++) {
+      int current_particle_local_index = local_idx[i];
       if (particle_type[i] != 0 && particle_type[i] < 4) {
         double x = coord[i][0];
         double y = coord[i][1];
@@ -1821,11 +1827,12 @@ void stokes_equation::build_rhs() {
         double pr = 3 * RR / pow(r, 3) * u * cos(theta);
         double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
 
-        rhs[field_dof * i] =
+        rhs[field_dof * current_particle_local_index] =
             sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
-        rhs[field_dof * i + 1] =
+        rhs[field_dof * current_particle_local_index + 1] =
             sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
-        rhs[field_dof * i + 2] = cos(theta) * vr - sin(theta) * vt;
+        rhs[field_dof * current_particle_local_index + 2] =
+            cos(theta) * vr - sin(theta) * vt;
 
         double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
         double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
@@ -1862,18 +1869,24 @@ void stokes_equation::build_rhs() {
   // make sure pressure term is orthogonal to the constant
   double rhs_pressure_sum = 0.0;
   for (int i = 0; i < local_particle_num; i++) {
-    rhs_pressure_sum += rhs[field_dof * i + velocity_dof];
+    int current_particle_local_index = local_idx[i];
+    rhs_pressure_sum +=
+        rhs[field_dof * current_particle_local_index + velocity_dof];
   }
   MPI_Allreduce(MPI_IN_PLACE, &rhs_pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
   rhs_pressure_sum /= global_particle_num;
   for (int i = 0; i < local_particle_num; i++) {
-    rhs[field_dof * i + velocity_dof] -= rhs_pressure_sum;
+    int current_particle_local_index = local_idx[i];
+    rhs[field_dof * current_particle_local_index + velocity_dof] -=
+        rhs_pressure_sum;
   }
 }
 
 void stokes_equation::solve_step() {
   const int num_rigid_body = rb_mgr->get_rigid_body_num();
+
+  auto &local_idx = *(geo_mgr->get_current_work_particle_local_index());
 
   // build interpolation and resitriction operators
   double timer1, timer2;
@@ -1939,10 +1952,12 @@ void stokes_equation::solve_step() {
 
   double pressure_sum = 0.0;
   for (int i = 0; i < local_particle_num; i++) {
-    pressure[i] = res[field_dof * i + velocity_dof];
+    int current_particle_local_index = local_idx[i];
+    pressure[i] = res[field_dof * current_particle_local_index + velocity_dof];
     pressure_sum += pressure[i];
     for (int axes1 = 0; axes1 < dim; axes1++)
-      velocity[i][axes1] = res[field_dof * i + axes1];
+      velocity[i][axes1] =
+          res[field_dof * current_particle_local_index + axes1];
   }
 
   MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,

@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 
+#include "kd_tree.hpp"
 #include "trilinos_wrapper.hpp"
 #include "vec3.hpp"
 
@@ -42,6 +43,7 @@ private:
   real_type current_local_work_particle_spacing;
   real_type current_local_work_particle_volume;
   int_type current_local_work_particle_index;
+  int_type current_local_work_particle_local_index;
   int_type current_local_work_particle_type;
   int_type current_local_work_particle_adaptive_level;
   int_type current_local_work_particle_new_added;
@@ -53,6 +55,7 @@ private:
   real_type last_local_work_particle_spacing;
   real_type last_local_work_particle_volume;
   int_type last_local_work_particle_index;
+  int_type last_local_work_particle_local_index;
   int_type last_local_work_particle_type;
   int_type last_local_work_particle_adaptive_level;
 
@@ -70,11 +73,13 @@ private:
   // ghost for current level from last level [abbreviated by "clll"]
   vec_type clll_particle_coord;
   int_type clll_particle_index;
+  int_type clll_particle_local_index;
   int_type clll_particle_type;
 
   // ghost for last level from current level [abbreviated by "llcl"]
   vec_type llcl_particle_coord;
   int_type llcl_particle_index;
+  int_type llcl_particle_local_index;
   int_type llcl_particle_type;
 
   // managing domain
@@ -224,6 +229,10 @@ public:
     return current_local_work_particle_index;
   }
 
+  int_type get_current_work_particle_local_index() {
+    return current_local_work_particle_local_index;
+  }
+
   int_type get_current_work_particle_type() {
     return current_local_work_particle_type;
   }
@@ -274,6 +283,10 @@ public:
 
   int_type get_last_work_particle_index() {
     return last_local_work_particle_index;
+  }
+
+  int_type get_last_work_particle_local_index() {
+    return last_local_work_particle_local_index;
   }
 
   int_type get_last_work_particle_type() {

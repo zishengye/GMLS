@@ -356,6 +356,7 @@ void particle_geometry::generate_uniform_particle() {
     current_local_work_particle_spacing.reset();
     current_local_work_particle_volume.reset();
     current_local_work_particle_index.reset();
+    current_local_work_particle_local_index.reset();
     current_local_work_particle_type.reset();
     current_local_work_particle_adaptive_level.reset();
     current_local_work_particle_new_added.reset();
@@ -374,6 +375,7 @@ void particle_geometry::generate_uniform_particle() {
     current_local_work_particle_spacing = make_shared<vector<double>>();
     current_local_work_particle_volume = make_shared<vector<double>>();
     current_local_work_particle_index = make_shared<vector<int>>();
+    current_local_work_particle_local_index = make_shared<vector<int>>();
     current_local_work_particle_type = make_shared<vector<int>>();
     current_local_work_particle_adaptive_level = make_shared<vector<int>>();
     current_local_work_particle_new_added = make_shared<vector<int>>();
@@ -1641,6 +1643,7 @@ void particle_geometry::refine(vector<int> &split_tag) {
   last_local_work_particle_spacing.reset();
   last_local_work_particle_volume.reset();
   last_local_work_particle_index.reset();
+  last_local_work_particle_local_index.reset();
   last_local_work_particle_type.reset();
   last_local_work_particle_adaptive_level.reset();
 
@@ -1652,6 +1655,8 @@ void particle_geometry::refine(vector<int> &split_tag) {
   last_local_work_particle_spacing = move(current_local_work_particle_spacing);
   last_local_work_particle_volume = move(current_local_work_particle_volume);
   last_local_work_particle_index = move(current_local_work_particle_index);
+  last_local_work_particle_local_index =
+      move(current_local_work_particle_local_index);
   last_local_work_particle_type = move(current_local_work_particle_type);
   last_local_work_particle_adaptive_level =
       move(current_local_work_particle_adaptive_level);
@@ -1667,6 +1672,7 @@ void particle_geometry::refine(vector<int> &split_tag) {
   current_local_work_particle_spacing = make_shared<vector<double>>();
   current_local_work_particle_volume = make_shared<vector<double>>();
   current_local_work_particle_index = make_shared<vector<int>>();
+  current_local_work_particle_local_index = make_shared<vector<int>>();
   current_local_work_particle_type = make_shared<vector<int>>();
   current_local_work_particle_adaptive_level = make_shared<vector<int>>();
   current_local_work_particle_new_added = make_shared<vector<int>>();
@@ -1714,20 +1720,27 @@ void particle_geometry::refine(vector<int> &split_tag) {
   clll_particle_type.reset();
   llcl_particle_coord.reset();
   llcl_particle_index.reset();
+  llcl_particle_local_index.reset();
   llcl_particle_type.reset();
 
   clll_particle_coord = make_shared<vector<vec3>>();
   clll_particle_index = make_shared<vector<int>>();
+  clll_particle_local_index = make_shared<vector<int>>();
   clll_particle_type = make_shared<vector<int>>();
   llcl_particle_coord = make_shared<vector<vec3>>();
   llcl_particle_index = make_shared<vector<int>>();
+  llcl_particle_local_index = make_shared<vector<int>>();
   llcl_particle_type = make_shared<vector<int>>();
 
   ghost_clll_forward(last_local_work_particle_coord, clll_particle_coord);
   ghost_clll_forward(last_local_work_particle_index, clll_particle_index);
+  ghost_clll_forward(last_local_work_particle_local_index,
+                     clll_particle_local_index);
   ghost_clll_forward(last_local_work_particle_type, clll_particle_type);
   ghost_llcl_forward(current_local_work_particle_coord, llcl_particle_coord);
   ghost_llcl_forward(current_local_work_particle_index, llcl_particle_index);
+  ghost_llcl_forward(current_local_work_particle_local_index,
+                     llcl_particle_local_index);
   ghost_llcl_forward(current_local_work_particle_type, llcl_particle_type);
 }
 
@@ -3508,8 +3521,6 @@ void particle_geometry::index_particle() {
     particle_offset[i + 1] = particle_offset[i] + particle_num[i];
   }
 
-  // resort particle to improve the spatial locality
-
   vector<long long> &index = *current_local_managing_particle_index;
   for (int i = 0; i < local_particle_num; i++) {
     index[i] = i + particle_offset[rank];
@@ -3530,9 +3541,22 @@ void particle_geometry::index_work_particle() {
     particle_offset[i + 1] = particle_offset[i] + particle_num[i];
   }
 
+  KDTree point_cloud(current_local_work_particle_coord, dim);
+  point_cloud.generateKDTree();
+
+  vector<int> &local_idx = *current_local_work_particle_local_index;
+  point_cloud.getIndex(local_idx);
+
+  if (rank == 0) {
+    auto &coord = *current_local_work_particle_coord;
+    for (int i = 0; i < local_particle_num; i++) {
+      cout << coord[i][0] << ' ' << coord[i][1] << ' ' << local_idx[i] << endl;
+    }
+  }
+
   auto &index = *current_local_work_particle_index;
   for (int i = 0; i < local_particle_num; i++) {
-    index[i] = i + particle_offset[rank];
+    index[i] = local_idx[i] + particle_offset[rank];
   }
 
   // particle distribution summary
