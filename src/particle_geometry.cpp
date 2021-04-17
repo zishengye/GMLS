@@ -3374,7 +3374,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           if (dis.mag() < rigid_body_size - 1.5 * _spacing) {
             return -1;
           }
-          if (dis.mag() <= rigid_body_size + 0.1 * _spacing) {
+          if (dis.mag() <= rigid_body_size + 0.5 * _spacing) {
             return idx;
           }
 
@@ -3410,8 +3410,8 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
                 abs(dis[1]) < half_side_length - 1.5 * _spacing) {
               return -1;
             }
-            if (abs(dis[0]) < half_side_length + 0.25 * _spacing &&
-                abs(dis[1]) < half_side_length + 0.25 * _spacing) {
+            if (abs(dis[0]) < half_side_length + 0.5 * _spacing &&
+                abs(dis[1]) < half_side_length + 0.5 * _spacing) {
               return idx;
             }
             if (abs(dis[0]) < half_side_length + 1.5 * _spacing &&
