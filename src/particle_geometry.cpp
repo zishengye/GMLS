@@ -3382,8 +3382,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
             for (int i = 0; i < rigid_body_surface_particle_coord.size(); i++) {
               vec3 rci = _pos - rigid_body_surface_particle_coord[i];
               if (rci.mag() <
-                  0.25 *
-                      max(_spacing, rigid_body_surface_particle_spacing[i])) {
+                  0.5 * max(_spacing, rigid_body_surface_particle_spacing[i])) {
                 return idx;
               }
             }
