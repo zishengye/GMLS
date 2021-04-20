@@ -970,17 +970,18 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecNorm(residual, NORM_2, &residual_norm);
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
-  // if (refinement_step != 1)
-  KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
+  while (residual_norm / rhs_norm > 1e-5) {
+    KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
-  KSPConvergedReason convergence_reason;
-  KSPGetConvergedReason(_ksp, &convergence_reason);
+    KSPConvergedReason convergence_reason;
+    KSPGetConvergedReason(_ksp, &convergence_reason);
 
-  MatMult(shell_mat, _x.get_reference(), residual);
-  VecAXPY(residual, -1.0, _rhs.get_reference());
-  VecNorm(residual, NORM_2, &residual_norm);
-  PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
-              residual_norm / rhs_norm);
+    MatMult(shell_mat, _x.get_reference(), residual);
+    VecAXPY(residual, -1.0, _rhs.get_reference());
+    VecNorm(residual, NORM_2, &residual_norm);
+    PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+                residual_norm / rhs_norm);
+  }
   // if (refinement_step == 1) {
   //   VecCopy(residual, _x.get_reference());
   // }
