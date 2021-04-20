@@ -890,7 +890,8 @@ void stokes_equation::build_coefficient_matrix() {
       if (A.get_entity(local_index, global_index) < 0.0) {
         cout << current_particle_global_index << ' ' << k << endl;
 
-        cout << source_index[i] << " " << particle_type[i];
+        cout << fixed << setprecision(10) << source_index[i] << " "
+             << particle_type[i];
 
         cout << "(";
         for (int k = 0; k < dim; k++) {

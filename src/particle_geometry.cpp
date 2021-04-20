@@ -2942,8 +2942,9 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
 
           bool insert = false;
           for (int i = -1; i < 2; i += 2) {
-            vec3 new_pos = origin + vec3(normal[tag][1], -normal[tag][0], 0.0) *
-                                        i * spacing[tag] * 0.5;
+            vec3 new_pos = origin +
+                           vec3(normal[tag][1], -normal[tag][0], 0.0) * i *
+                               spacing[tag] * 0.5;
 
             if (!insert) {
               coord[tag] = new_pos;
@@ -2978,9 +2979,9 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
 
           bool insert = false;
           for (int i = -1; i < 2; i += 2) {
-            vec3 new_pos =
-                origin + vec3(x_direction, y_direction, z_direction) * i *
-                             spacing[tag] * 0.5;
+            vec3 new_pos = origin +
+                           vec3(x_direction, y_direction, z_direction) * i *
+                               spacing[tag] * 0.5;
 
             if (!insert) {
               coord[tag] = new_pos;
