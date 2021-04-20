@@ -47,7 +47,7 @@ include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
 link_directories("/opt/petsc/lib/")
-link_directories("/opt/compadre/lib/")
+link_directories("/opt/compadre/lib64/")
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 

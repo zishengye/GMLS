@@ -135,7 +135,8 @@ void gmls_solver::write_time_step_data() {
     ofstream file;
     file.open("./vtk/output_step" + to_string(write_step) + ".vtk", ios::app);
     for (size_t i = 0; i < coord.size(); i++) {
-      file << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << endl;
+      file << fixed << setprecision(10) << coord[i][0] << ' ' << coord[i][1]
+           << ' ' << coord[i][2] << endl;
     }
     file.close();
   });
@@ -453,7 +454,8 @@ void gmls_solver::write_refinement_data() {
                   ".vtk",
               ios::app);
     for (size_t i = 0; i < coord.size(); i++) {
-      file << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << endl;
+      file << fixed << setprecision(10) << coord[i][0] << ' ' << coord[i][1]
+           << ' ' << coord[i][2] << endl;
     }
     file.close();
   });
@@ -865,7 +867,8 @@ void gmls_solver::write_refinement_data_geometry_only() {
                   to_string(current_refinement_step) + ".vtk",
               ios::app);
     for (size_t i = 0; i < coord.size(); i++) {
-      file << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << endl;
+      file << fixed << setprecision(10) << coord[i][0] << ' ' << coord[i][1]
+           << ' ' << coord[i][2] << endl;
     }
     file.close();
   });
@@ -1038,8 +1041,8 @@ void gmls_solver::write_refinement_data_geometry_only() {
                   to_string(current_refinement_step) + ".vtk",
               ios::app);
     for (size_t i = 0; i < gap_coord.size(); i++) {
-      file << gap_coord[i][0] << ' ' << gap_coord[i][1] << ' '
-           << gap_coord[i][2] << endl;
+      file << fixed << setprecision(10) << gap_coord[i][0] << ' '
+           << gap_coord[i][1] << ' ' << gap_coord[i][2] << endl;
     }
     file.close();
   });

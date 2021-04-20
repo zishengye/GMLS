@@ -245,7 +245,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   double max_epsilon = geo_mgr->get_cutoff_distance();
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host(i) = spacing[i] + 1e-5;
+    epsilon_host(i) = (1.00005) * spacing[i];
   }
 
   MPI_Allreduce(MPI_IN_PLACE, &max_epsilon, 1, MPI_DOUBLE, MPI_MAX,
@@ -724,13 +724,12 @@ void stokes_equation::build_coefficient_matrix() {
         }
 
         for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
-          A.out_process_increment(current_rigid_body_local_offset +
-                                      translation_dof + axes1,
-                                  pressure_global_index,
-                                  -rci[(axes1 + 1) % translation_dof] *
-                                          dA[(axes1 + 2) % translation_dof] +
-                                      rci[(axes1 + 2) % translation_dof] *
-                                          dA[(axes1 + 1) % translation_dof]);
+          A.out_process_increment(
+              current_rigid_body_local_offset + translation_dof + axes1,
+              pressure_global_index, -rci[(axes1 + 1) % translation_dof] *
+                                             dA[(axes1 + 2) % translation_dof] +
+                                         rci[(axes1 + 2) % translation_dof] *
+                                             dA[(axes1 + 1) % translation_dof]);
         }
 
         for (int j = 0; j < neighbor_list_host(i, 0); j++) {
@@ -890,7 +889,8 @@ void stokes_equation::build_coefficient_matrix() {
       if (A.get_entity(local_index, global_index) < 0.0) {
         cout << current_particle_global_index << ' ' << k << endl;
 
-        cout << source_index[i] << " " << particle_type[i];
+        cout << fixed << setprecision(10) << source_index[i] << " "
+             << particle_type[i];
 
         cout << "(";
         for (int k = 0; k < dim; k++) {
