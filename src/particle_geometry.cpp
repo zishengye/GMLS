@@ -490,7 +490,7 @@ void particle_geometry::generate_uniform_particle() {
     counter = 0;
     for (int i = 0; i < local_particle_num; i++) {
       if (particle_type[i] != 0) {
-        epsilon_host(counter) = 2.0 * spacing[i] + 1e-5;
+        epsilon_host(counter) = 3.00005 * spacing[i];
         counter++;
       }
     }
