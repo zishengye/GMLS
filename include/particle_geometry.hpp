@@ -10,13 +10,12 @@
 #include <memory>
 #include <vector>
 
+#include "geometry.hpp"
 #include "kd_tree.hpp"
+#include "rigid_body_manager.hpp"
+#include "rigid_body_surface_particle_hierarchy.hpp"
 #include "trilinos_wrapper.hpp"
 #include "vec3.hpp"
-
-class particle_geometry;
-
-#include "rigid_body_manager.hpp"
 
 class particle_geometry {
 public:
@@ -35,6 +34,7 @@ private:
   double cutoff_distance, old_cutoff_distance;
 
   std::shared_ptr<rigid_body_manager> rb_mgr;
+  std::shared_ptr<rigid_body_surface_particle_hierarchy> hierarchy;
 
   // work domain
   vec_type current_local_work_particle_coord;

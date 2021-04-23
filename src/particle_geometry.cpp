@@ -309,6 +309,9 @@ void particle_geometry::init(const int _dim, const int _problem_type,
 void particle_geometry::init_rigid_body(shared_ptr<rigid_body_manager> mgr) {
   rb_mgr = mgr;
   rb_mgr->init_geometry_manager(make_shared<particle_geometry>(*this));
+
+  hierarchy = make_shared<rigid_body_surface_particle_hierarchy>();
+  hierarchy->init(rb_mgr, dim);
 }
 
 void particle_geometry::generate_uniform_particle() {
@@ -2173,40 +2176,33 @@ void particle_geometry::generate_rigid_body_surface_particle() {
   auto &rigid_body_type = rb_mgr->get_rigid_body_type();
 
   if (dim == 3) {
+    hierarchy->set_coarse_level_resolution(uniform_spacing);
+
+    shared_ptr<vector<vec3>> coord_ptr;
+    shared_ptr<vector<vec3>> normal_ptr;
+    shared_ptr<vector<vec3>> spacing_ptr;
+
     double h = uniform_spacing;
     double vol = pow(h, 3);
     double a = pow(h, 2);
 
     for (size_t n = 0; n < rigid_body_coord.size(); n++) {
-      double r = rigid_body_size[n];
-      int M_theta = round(r * M_PI / h);
-      double d_theta = r * M_PI / M_theta;
-      double d_phi = a / d_theta;
+      hierarchy->get_coarse_level_coordinate(n, coord_ptr);
+      hierarchy->get_coarse_level_normal(n, normal_ptr);
+      hierarchy->get_coarse_level_spacing(n, spacing_ptr);
 
-      for (int i = 0; i < M_theta; ++i) {
-        double theta = M_PI * (i + 0.5) / M_theta;
-        int M_phi = round(2 * M_PI * r * sin(theta) / d_phi);
-        for (int j = 0; j < M_phi; ++j) {
-          double phi = 2 * M_PI * (j + 0.5) / M_phi;
+      int num_surface_particle = coord_ptr->size();
+      for (int i = 0; i < num_surface_particle; i++) {
+        vec3 pos = (*coord_ptr)[i] + rigid_body_coord[n];
+        if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
+            pos[1] >= domain[0][1] && pos[1] < domain[1][1] &&
+            pos[2] >= domain[0][2] && pos[2] < domain[1][2]) {
+          vec3 normal = (*normal_ptr)[i];
+          vec3 p_spacing = (*spacing_ptr)[i];
+          vec3 p_coord = vec3(i, 0, 0);
 
-          double theta0 = M_PI * i / M_theta;
-          double theta1 = M_PI * (i + 1) / M_theta;
-
-          double phi0 = 2 * M_PI * j / M_phi;
-          double phi1 = 2 * M_PI * (j + 1) / M_phi;
-
-          vec3 p_spacing =
-              vec3(r * (cos(theta0) - cos(theta1)), r * (phi1 - phi0), 0.0);
-
-          vec3 p_coord = vec3(theta, phi, 0.0);
-          vec3 normal =
-              vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
-          vec3 pos = normal * r + rigid_body_coord[n];
-          if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-              pos[1] >= domain[0][1] && pos[1] < domain[1][1] &&
-              pos[2] >= domain[0][2] && pos[2] < domain[1][2])
-            insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
-                            p_coord, p_spacing);
+          insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
+                          p_coord, p_spacing);
         }
       }
     }
@@ -2942,9 +2938,8 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
 
           bool insert = false;
           for (int i = -1; i < 2; i += 2) {
-            vec3 new_pos = origin +
-                           vec3(normal[tag][1], -normal[tag][0], 0.0) * i *
-                               spacing[tag] * 0.5;
+            vec3 new_pos = origin + vec3(normal[tag][1], -normal[tag][0], 0.0) *
+                                        i * spacing[tag] * 0.5;
 
             if (!insert) {
               coord[tag] = new_pos;
@@ -2979,9 +2974,9 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
 
           bool insert = false;
           for (int i = -1; i < 2; i += 2) {
-            vec3 new_pos = origin +
-                           vec3(x_direction, y_direction, z_direction) * i *
-                               spacing[tag] * 0.5;
+            vec3 new_pos =
+                origin + vec3(x_direction, y_direction, z_direction) * i *
+                             spacing[tag] * 0.5;
 
             if (!insert) {
               coord[tag] = new_pos;
@@ -3059,89 +3054,42 @@ void particle_geometry::split_rigid_body_surface_particle(
   auto &rigid_body_type = rb_mgr->get_rigid_body_type();
 
   if (dim == 3) {
+    vector<int> refined_particle_idx;
     for (auto tag : split_tag) {
-      double theta = p_coord[tag][0];
-      double phi = p_coord[tag][1];
-      double r = rigid_body_size[attached_rigid_body_index[tag]];
-
-      double old_h = spacing[tag];
-      double old_a = pow(old_h, 2);
-
-      int old_M_theta = round(r * M_PI / old_h);
-
-      const double old_delta_theta = M_PI / old_M_theta;
-      double old_theta0 = 0.0;
-      double old_theta1 = old_delta_theta;
-
-      bool find_interval = false;
-      while (!find_interval) {
-        if (theta > old_theta0 && theta < old_theta1) {
-          find_interval = true;
-        } else {
-          old_theta0 += old_delta_theta;
-          old_theta1 += old_delta_theta;
-        }
-      }
-
-      double h = 0.5 * spacing[tag];
-      double a = pow(h, 2);
-
-      int M_theta = round(r * M_PI / h);
-      double d_theta = r * M_PI / M_theta;
-      double d_phi = a / d_theta;
-
-      double delta_theta = M_PI / M_theta;
-
       bool insert = false;
-      for (int i = 0; i < M_theta; i++) {
-        double new_theta = (i + 0.5) * delta_theta;
-        if (new_theta >= old_theta0 && new_theta < old_theta1) {
-          double old_d_theta = r * M_PI / old_M_theta;
-          double old_d_phi = old_a / old_d_theta;
+      int particle_idx = p_coord[tag][0];
+      hierarchy->find_refined_particle(attached_rigid_body_index[tag],
+                                       adaptive_level[tag], particle_idx,
+                                       refined_particle_idx);
+      int fine_adaptive_level = adaptive_level[tag] + 1;
+      for (int i = 0; i < refined_particle_idx.size(); i++) {
+        vec3 new_pos = hierarchy->get_coordinate(attached_rigid_body_index[tag],
+                                                 fine_adaptive_level,
+                                                 refined_particle_idx[i]) +
+                       rigid_body_coord[attached_rigid_body_index[tag]];
+        vec3 new_normal =
+            hierarchy->get_normal(attached_rigid_body_index[tag],
+                                  fine_adaptive_level, refined_particle_idx[i]);
+        vec3 new_spacing = hierarchy->get_spacing(
+            attached_rigid_body_index[tag], fine_adaptive_level,
+            refined_particle_idx[i]);
 
-          int old_M_phi = round(2 * M_PI * r * sin(theta) / old_d_phi);
+        if (!insert) {
+          coord[tag] = new_pos;
+          volume[tag] /= 8.0;
+          normal[tag] = new_normal;
+          spacing[tag] /= 2.0;
+          p_coord[tag] = vec3(refined_particle_idx[i], 0.0, 0.0);
+          p_spacing[tag] = new_spacing;
+          adaptive_level[tag]++;
+          new_added[tag] = -1;
 
-          const double old_delta_phi = 2 * M_PI / old_M_phi;
-          const double old_phi0 = phi - 0.5 * old_delta_phi;
-          const double old_phi1 = phi + 0.5 * old_delta_phi;
-
-          int M_phi = round(2 * M_PI * r * sin(new_theta) / d_phi);
-
-          for (int j = 0; j < M_phi; j++) {
-            double new_phi = 2 * M_PI * (j + 0.5) / M_phi;
-            if (new_phi >= old_phi0 && new_phi < old_phi1 - 1e-5) {
-              double theta0 = new_theta - 0.5 * delta_theta;
-              double theta1 = new_theta + 0.5 * delta_theta;
-
-              double delta_phi = 2 * M_PI / M_phi;
-
-              vec3 new_p_spacing =
-                  vec3(r * (cos(theta0) - cos(theta1)), r * delta_phi, 0.0);
-              vec3 new_normal =
-                  vec3(sin(new_theta) * cos(new_phi),
-                       sin(new_theta) * sin(new_phi), cos(new_theta));
-              vec3 new_pos = new_normal * r +
-                             rigid_body_coord[attached_rigid_body_index[tag]];
-
-              if (!insert) {
-                coord[tag] = new_pos;
-                volume[tag] /= 8.0;
-                normal[tag] = new_normal;
-                spacing[tag] /= 2.0;
-                p_coord[tag] = vec3(new_theta, new_phi, 0.0);
-                p_spacing[tag] = new_p_spacing;
-                adaptive_level[tag]++;
-                new_added[tag] = -1;
-
-                insert = true;
-              } else {
-                insert_particle(new_pos, particle_type[tag], spacing[tag],
-                                new_normal, adaptive_level[tag], volume[tag],
-                                true, attached_rigid_body_index[tag],
-                                vec3(new_theta, new_phi, 0.0), new_p_spacing);
-              }
-            }
-          }
+          insert = true;
+        } else {
+          insert_particle(new_pos, particle_type[tag], spacing[tag], new_normal,
+                          adaptive_level[tag], volume[tag], true,
+                          attached_rigid_body_index[tag],
+                          vec3(refined_particle_idx[i], 0.0, 0.0), new_spacing);
         }
       }
     }

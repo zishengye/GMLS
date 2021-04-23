@@ -5,11 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "vec3.hpp"
-
-class rigid_body_manager;
-
+#include "geometry.hpp"
 #include "particle_geometry.hpp"
+#include "vec3.hpp"
 
 class rigid_body_manager {
 private:

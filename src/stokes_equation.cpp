@@ -216,7 +216,7 @@ void stokes_equation::build_coefficient_matrix() {
       max(Compadre::GMLS::getNP(poly_order, dim,
                                 DivergenceFreeVectorTaylorPolynomial),
           Compadre::GMLS::getNP(poly_order + 1, dim));
-  int satisfied_num_neighbor = 2.0 * min_num_neighbor;
+  int satisfied_num_neighbor = dim * min_num_neighbor;
 
   int estimated_max_num_neighbor =
       pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);
@@ -245,7 +245,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   double max_epsilon = geo_mgr->get_cutoff_distance();
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host(i) = 1.00005 * spacing[i];
+    epsilon_host(i) = spacing[i];
   }
 
   MPI_Allreduce(MPI_IN_PLACE, &max_epsilon, 1, MPI_DOUBLE, MPI_MAX,
@@ -724,12 +724,13 @@ void stokes_equation::build_coefficient_matrix() {
         }
 
         for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
-          A.out_process_increment(
-              current_rigid_body_local_offset + translation_dof + axes1,
-              pressure_global_index, -rci[(axes1 + 1) % translation_dof] *
-                                             dA[(axes1 + 2) % translation_dof] +
-                                         rci[(axes1 + 2) % translation_dof] *
-                                             dA[(axes1 + 1) % translation_dof]);
+          A.out_process_increment(current_rigid_body_local_offset +
+                                      translation_dof + axes1,
+                                  pressure_global_index,
+                                  -rci[(axes1 + 1) % translation_dof] *
+                                          dA[(axes1 + 2) % translation_dof] +
+                                      rci[(axes1 + 2) % translation_dof] *
+                                          dA[(axes1 + 1) % translation_dof]);
         }
 
         for (int j = 0; j < neighbor_list_host(i, 0); j++) {
@@ -890,270 +891,14 @@ void stokes_equation::build_coefficient_matrix() {
         cout << current_particle_global_index << ' ' << k << endl;
 
         cout << fixed << setprecision(10) << source_index[i] << " "
-             << particle_type[i];
+             << particle_type[i] << " " << epsilon[i] << ' '
+             << neighbor_list_host(i, 0) << ' ';
 
         cout << "(";
         for (int k = 0; k < dim; k++) {
           cout << " " << coord[i][k];
         }
         cout << ") " << endl;
-
-        abandon_this_level = 1;
-
-        // swap it with positive diag entity
-        // if (particle_type[i] == 0) {
-        //   if (k == velocity_dof) {
-        //     GMLS temp_pressure(ScalarTaylorPolynomial, PointSample,
-        //                        poly_order + 1, dim, "LU", "STANDARD");
-
-        //     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-        //         temp_target_coord_device("target coordinates", 1, 3);
-        //     Kokkos::View<double **>::HostMirror temp_target_coord_host =
-        //         Kokkos::create_mirror_view(temp_target_coord_device);
-
-        //     for (int j = 0; j < 3; j++) {
-        //       temp_target_coord_host(0, j) = target_coord_host(i, j);
-        //     }
-
-        //     Kokkos::deep_copy(temp_target_coord_device,
-        //     temp_target_coord_host);
-
-        //     Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-        //         temp_neighbor_list_device("neighbor lists", 1,
-        //                                   neighbor_list_host(i, 0) + 1);
-        //     Kokkos::View<int **>::HostMirror temp_neighbor_list_host =
-        //         Kokkos::create_mirror_view(temp_neighbor_list_device);
-
-        //     for (int j = 0; j < neighbor_list_host(i, 0) + 1; j++) {
-        //       temp_neighbor_list_host(0, j) = neighbor_list_host(i, j);
-        //     }
-
-        //     Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
-        //         temp_epsilon_device("h supports", 1);
-        //     Kokkos::View<double *>::HostMirror temp_epsilon_host =
-        //         Kokkos::create_mirror_view(temp_epsilon_device);
-
-        //     temp_epsilon_host(0) = epsilon_host(i);
-
-        //     Kokkos::deep_copy(temp_neighbor_list_device,
-        //                       temp_neighbor_list_host);
-        //     Kokkos::deep_copy(temp_epsilon_device, temp_epsilon_host);
-
-        //     temp_pressure.setProblemData(
-        //         temp_neighbor_list_device, source_coord_device,
-        //         temp_target_coord_device, temp_epsilon_device);
-
-        //     vector<TargetOperation> temp_pressure_operation;
-        //     temp_pressure_operation.resize(2);
-        //     temp_pressure_operation[0] = LaplacianOfScalarPointEvaluation;
-        //     temp_pressure_operation[1] = GradientOfScalarPointEvaluation;
-
-        //     temp_pressure.clearTargets();
-        //     temp_pressure.addTargets(temp_pressure_operation);
-
-        //     temp_pressure.setWeightingType(WeightingFunctionType::Power);
-        //     temp_pressure.setWeightingPower(4);
-
-        //     temp_pressure.generateAlphas(1, true);
-
-        //     auto temp_pressure_alpha = temp_pressure.getAlphas();
-
-        //     const int temp_pressure_laplacian_index =
-        //         temp_pressure.getAlphaColumnOffset(temp_pressure_operation[0],
-        //                                            0, 0, 0, 0);
-        //     vector<int> temp_pressure_gradient_index;
-        //     for (int j = 0; j < dim; j++)
-        //       temp_pressure_gradient_index.push_back(
-        //           temp_pressure.getAlphaColumnOffset(temp_pressure_operation[1],
-        //                                              j, 0, 0, 0));
-
-        //     const int pressure_local_index = i * field_dof + velocity_dof;
-        //     const int pressure_global_index =
-        //         source_index[i] * field_dof + velocity_dof;
-        //     A.zero_row(pressure_local_index);
-
-        //     const double bi = temp_pressure.getAlpha0TensorTo0Tensor(
-        //         LaplacianOfScalarPointEvaluation, 0,
-        //         temp_neighbor_list_host(0, 0));
-
-        //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        //       const int neighbor_particle_index =
-        //           source_index[neighbor_list_host(i, j + 1)];
-
-        //       const int pressure_neighbor_global_index =
-        //           field_dof * neighbor_particle_index + velocity_dof;
-
-        //       auto alpha_index = temp_pressure.getAlphaIndexHost(
-        //           0, temp_pressure_laplacian_index);
-        //       const double Aij = temp_pressure_alpha(alpha_index + j);
-
-        //       // laplacian p
-        //       A.increment(pressure_local_index,
-        //       pressure_neighbor_global_index,
-        //                   -Aij);
-
-        //       for (int axes1 = 0; axes1 < dim; axes1++) {
-        //         const int velocity_local_index =
-        //             field_dof * current_particle_local_index + axes1;
-
-        //         auto alpha_index = temp_pressure.getAlphaIndexHost(
-        //             0, temp_pressure_gradient_index[axes1]);
-        //         const double Dijx = temp_pressure_alpha(alpha_index + j);
-
-        //         // grad p
-        //         A.set(velocity_local_index, pressure_neighbor_global_index,
-        //               Dijx);
-        //       }
-        //     }
-        //   }
-        // } else {
-        //   GMLS temp_pressure(ScalarTaylorPolynomial, PointSample,
-        //                      poly_order + 1, dim, "LU", "STANDARD",
-        //                      "NEUMANN_GRAD_SCALAR");
-
-        //   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-        //       temp_target_coord_device("target coordinates", 1, 3);
-        //   Kokkos::View<double **>::HostMirror temp_target_coord_host =
-        //       Kokkos::create_mirror_view(temp_target_coord_device);
-
-        //   for (int j = 0; j < 3; j++) {
-        //     temp_target_coord_host(0, j) = target_coord_host(i, j);
-        //   }
-
-        //   Kokkos::deep_copy(temp_target_coord_device,
-        //   temp_target_coord_host);
-
-        //   Kokkos::View<double ***, Kokkos::DefaultExecutionSpace>
-        //       temp_tangent_bundle_device("tangent bundles", 1, dim, dim);
-        //   Kokkos::View<double ***>::HostMirror temp_tangent_bundle_host =
-        //       Kokkos::create_mirror_view(temp_tangent_bundle_device);
-
-        //   if (dim == 3) {
-        //     temp_tangent_bundle_host(0, 0, 0) = 0.0;
-        //     temp_tangent_bundle_host(0, 0, 1) = 0.0;
-        //     temp_tangent_bundle_host(0, 0, 2) = 0.0;
-        //     temp_tangent_bundle_host(0, 1, 0) = 0.0;
-        //     temp_tangent_bundle_host(0, 1, 1) = 0.0;
-        //     temp_tangent_bundle_host(0, 1, 2) = 0.0;
-        //     temp_tangent_bundle_host(0, 2, 0) = normal[i][0];
-        //     temp_tangent_bundle_host(0, 2, 1) = normal[i][1];
-        //     temp_tangent_bundle_host(0, 2, 2) = normal[i][2];
-        //   }
-        //   if (dim == 2) {
-        //     temp_tangent_bundle_host(0, 0, 0) = 0.0;
-        //     temp_tangent_bundle_host(0, 0, 1) = 0.0;
-        //     temp_tangent_bundle_host(0, 1, 0) = normal[i][0];
-        //     temp_tangent_bundle_host(0, 1, 1) = normal[i][1];
-        //   }
-
-        //   Kokkos::deep_copy(temp_tangent_bundle_device,
-        //                     temp_tangent_bundle_host);
-
-        //   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-        //       temp_neighbor_list_device("neighbor lists", 1,
-        //                                 neighbor_list_host(i, 0) + 1);
-        //   Kokkos::View<int **>::HostMirror temp_neighbor_list_host =
-        //       Kokkos::create_mirror_view(temp_neighbor_list_device);
-
-        //   for (int j = 0; j < neighbor_list_host(i, 0) + 1; j++) {
-        //     temp_neighbor_list_host(0, j) = neighbor_list_host(i, j);
-        //   }
-
-        //   Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
-        //       temp_epsilon_device("h supports", 1);
-        //   Kokkos::View<double *>::HostMirror temp_epsilon_host =
-        //       Kokkos::create_mirror_view(temp_epsilon_device);
-
-        //   temp_epsilon_host(0) = epsilon_host(i);
-
-        //   Kokkos::deep_copy(temp_neighbor_list_device,
-        //   temp_neighbor_list_host); Kokkos::deep_copy(temp_epsilon_device,
-        //   temp_epsilon_host);
-
-        //   temp_pressure.setProblemData(
-        //       temp_neighbor_list_device, source_coord_device,
-        //       temp_target_coord_device, temp_epsilon_device);
-
-        //   temp_pressure.setTangentBundle(temp_tangent_bundle_device);
-
-        //   vector<TargetOperation> temp_pressure_operation;
-        //   temp_pressure_operation.resize(1);
-        //   temp_pressure_operation[0] = LaplacianOfScalarPointEvaluation;
-
-        //   temp_pressure.clearTargets();
-        //   temp_pressure.addTargets(temp_pressure_operation);
-
-        //   temp_pressure.setWeightingType(WeightingFunctionType::Power);
-        //   temp_pressure.setWeightingPower(4);
-        //   temp_pressure.setOrderOfQuadraturePoints(2);
-        //   temp_pressure.setDimensionOfQuadraturePoints(1);
-        //   temp_pressure.setQuadratureType("LINE");
-
-        //   temp_pressure.generateAlphas(1, true);
-
-        //   auto temp_pressure_alpha = temp_pressure.getAlphas();
-
-        //   const int temp_pressure_laplacian_index =
-        //       temp_pressure.getAlphaColumnOffset(temp_pressure_operation[0],
-        //       0,
-        //                                          0, 0, 0);
-
-        //   const int pressure_local_index = i * field_dof + velocity_dof;
-        //   const int pressure_global_index =
-        //       source_index[i] * field_dof + velocity_dof;
-        //   A.zero_row(pressure_local_index);
-
-        //   const double bi = temp_pressure.getAlpha0TensorTo0Tensor(
-        //       LaplacianOfScalarPointEvaluation, 0,
-        //       temp_neighbor_list_host(0, 0));
-
-        //   for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        //     const int neighbor_particle_index =
-        //         source_index[neighbor_list_host(i, j + 1)];
-
-        //     const int pressure_neighbor_global_index =
-        //         field_dof * neighbor_particle_index + velocity_dof;
-
-        //     auto alpha_index = temp_pressure.getAlphaIndexHost(
-        //         0, temp_pressure_laplacian_index);
-        //     const double Aij = temp_pressure_alpha(alpha_index + j);
-
-        //     // laplacian p
-        //     A.increment(pressure_local_index, pressure_neighbor_global_index,
-        //                 -Aij);
-
-        //     // n \cdot grad p
-        //     for (int axes2 = 0; axes2 < dim; axes2++) {
-        //       double gradient = 0.0;
-        //       const int velocity_global_index =
-        //           field_dof * neighbor_particle_index + axes2;
-        //       for (int axes1 = 0; axes1 < dim; axes1++) {
-        //         auto alpha_index = velocity_basis->getAlphaIndexHost(
-        //             i, velocity_curl_curl_index[axes1 * dim + axes2]);
-        //         const double Lij = eta * velocity_alpha(alpha_index + j);
-
-        //         gradient += normal[i][axes1] * Lij;
-        //       }
-        //       A.increment(pressure_local_index, velocity_global_index,
-        //                   bi * gradient);
-        //     }
-        //   }
-        // }
-
-        // recheck it
-        // if (A.get_entity(local_index, global_index) < 1e-3) {
-        //   cout << epsilon[i] << endl;
-
-        //   for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        //     vec3 dX = source_coord[neighbor_list_host(i, j + 1)] - coord[i];
-
-        //     cout << "(";
-        //     for (int k = 0; k < dim; k++) {
-        //       cout << " " << source_coord[neighbor_list_host(i, j + 1)][k];
-        //     }
-        //     cout << ") " << dX.mag() << endl;
-        //   }
-        // }
       }
     }
   }
@@ -1684,113 +1429,119 @@ void stokes_equation::build_rhs() {
 
   auto neumann_neighbor_list = pressure_neumann_basis->getNeighborLists();
 
-  // for (int i = 0; i < local_particle_num; i++) {
-  //   int current_particle_local_index = local_idx[i];
-  //   if (particle_type[i] != 0 && particle_type[i] < 4) {
-  //     double y = coord[i][1];
-
-  //     rhs[field_dof * current_particle_local_index] = 0.1 * y;
-  //   }
-  // }
-
   for (int i = 0; i < local_particle_num; i++) {
     int current_particle_local_index = local_idx[i];
     if (particle_type[i] != 0 && particle_type[i] < 4) {
-      // 2-d Taylor-Green vortex-like flow
-      if (dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+      double y = coord[i][1];
 
-        rhs[field_dof * current_particle_local_index] =
-            sin(M_PI * x) * cos(M_PI * y);
-        rhs[field_dof * current_particle_local_index + 1] =
-            -cos(M_PI * x) * sin(M_PI * y);
-
-        const int neumann_index = neumann_map[i];
-        const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumann_index,
-            neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
-
-        rhs[field_dof * current_particle_local_index + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) *
-                (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y) -
-                  normal[i][1] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
-      }
-
-      // 3-d Taylor-Green vortex-like flow
-      // if (dim == 3) {
-      //   double x = coord[i][0];
-      //   double y = coord[i][1];
-      //   double z = coord[i][2];
-
-      //   rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-      //   rhs[field_dof * i + 1] =
-      //       -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-      //   rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
-      //   z);
-
-      //   const int neumann_index = neumann_map[i];
-      //   const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-      //       LaplacianOfScalarPointEvaluation, neumann_index,
-      // neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
-
-      //   rhs[field_dof * i + velocity_dof] =
-      //       -4.0 * pow(M_PI, 2.0) *
-      //           (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
-      //            cos(2.0 * M_PI * z)) +
-      //       bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-      //                 sin(M_PI * y) * sin(M_PI * z) -
-      //             normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-      //                 cos(M_PI * y) * sin(M_PI * z) +
-      //             normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-      //                 sin(M_PI * y) * cos(M_PI * z)) +
-      //       bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-      //             normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
-      //             normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
-      // }
-    } else if (particle_type[i] == 0) {
-      if (dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-
-        rhs[field_dof * current_particle_local_index] =
-            2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
-            2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[field_dof * current_particle_local_index + 1] =
-            -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
-            2.0 * M_PI * sin(2.0 * M_PI * y);
-
-        rhs[field_dof * current_particle_local_index + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
-      }
-
-      // if (dim == 3) {
-      //   double x = coord[i][0];
-      //   double y = coord[i][1];
-      //   double z = coord[i][2];
-
-      //   rhs[field_dof * i] =
-      //       3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI *
-      //       z) + 2.0 * M_PI * sin(2.0 * M_PI * x);
-      //   rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
-      //                                cos(M_PI * y) * sin(M_PI * z) +
-      //                            2.0 * M_PI * sin(2.0 * M_PI * y);
-      //   rhs[field_dof * i + 2] =
-      //       3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
-      //       z) + 2.0 * M_PI * sin(2.0 * M_PI * z);
-
-      //   rhs[field_dof * i + velocity_dof] =
-      //       -4.0 * pow(M_PI, 2.0) *
-      //       (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI *
-      //       z));
-      // }
+      rhs[field_dof * current_particle_local_index] = 0.1 * y;
     }
   }
+
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   int current_particle_local_index = local_idx[i];
+  //   if (particle_type[i] != 0 && particle_type[i] < 4) {
+  //     // 2-d Taylor-Green vortex-like flow
+  //     if (dim == 2) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
+
+  //       rhs[field_dof * current_particle_local_index] =
+  //           sin(M_PI * x) * cos(M_PI * y);
+  //       rhs[field_dof * current_particle_local_index + 1] =
+  //           -cos(M_PI * x) * sin(M_PI * y);
+
+  //       const int neumann_index = neumann_map[i];
+  //       const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
+  //           LaplacianOfScalarPointEvaluation, neumann_index,
+  //           neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
+
+  //       rhs[field_dof * current_particle_local_index + velocity_dof] =
+  //           -4.0 * pow(M_PI, 2.0) *
+  //               (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
+  //           bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+  //                     cos(M_PI * y) -
+  //                 normal[i][1] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+  //                     sin(M_PI * y)) +
+  //           bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+  //                 normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
+  //     }
+
+  //     // 3-d Taylor-Green vortex-like flow
+  //     // if (dim == 3) {
+  //     //   double x = coord[i][0];
+  //     //   double y = coord[i][1];
+  //     //   double z = coord[i][2];
+
+  //     //   rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI *
+  //     z);
+  //     //   rhs[field_dof * i + 1] =
+  //     //       -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+  //     //   rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI
+  //     *
+  //     //   z);
+
+  //     //   const int neumann_index = neumann_map[i];
+  //     //   const double bi =
+  //     pressure_neumann_basis->getAlpha0TensorTo0Tensor(
+  //     //       LaplacianOfScalarPointEvaluation, neumann_index,
+  //     // neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
+
+  //     //   rhs[field_dof * i + velocity_dof] =
+  //     //       -4.0 * pow(M_PI, 2.0) *
+  //     //           (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
+  //     //            cos(2.0 * M_PI * z)) +
+  //     //       bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+  //     //                 sin(M_PI * y) * sin(M_PI * z) -
+  //     //             normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+  //     //                 cos(M_PI * y) * sin(M_PI * z) +
+  //     //             normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+  //     //                 sin(M_PI * y) * cos(M_PI * z)) +
+  //     //       bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+  //     //             normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
+  //     //             normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
+  //     // }
+  //   } else if (particle_type[i] == 0) {
+  //     if (dim == 2) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
+
+  //       rhs[field_dof * current_particle_local_index] =
+  //           2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
+  //           2.0 * M_PI * sin(2.0 * M_PI * x);
+  //       rhs[field_dof * current_particle_local_index + 1] =
+  //           -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
+  //           2.0 * M_PI * sin(2.0 * M_PI * y);
+
+  //       rhs[field_dof * current_particle_local_index + velocity_dof] =
+  //           -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI *
+  //           y));
+  //     }
+
+  //     // if (dim == 3) {
+  //     //   double x = coord[i][0];
+  //     //   double y = coord[i][1];
+  //     //   double z = coord[i][2];
+
+  //     //   rhs[field_dof * i] =
+  //     //       3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI
+  //     *
+  //     //       z) + 2.0 * M_PI * sin(2.0 * M_PI * x);
+  //     //   rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
+  //     //                                cos(M_PI * y) * sin(M_PI * z) +
+  //     //                            2.0 * M_PI * sin(2.0 * M_PI * y);
+  //     //   rhs[field_dof * i + 2] =
+  //     //       3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI
+  //     *
+  //     //       z) + 2.0 * M_PI * sin(2.0 * M_PI * z);
+
+  //     //   rhs[field_dof * i + velocity_dof] =
+  //     //       -4.0 * pow(M_PI, 2.0) *
+  //     //       (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI *
+  //     //       z));
+  //     // }
+  //   }
+  // }
   // if (rank == size - 1) {
   //   for (int i = 0; i < num_rigid_body; i++) {
   //     rhs[local_rigid_body_offset + i * rigid_body_dof + 1] = 1.0;
@@ -2166,12 +1917,6 @@ void stokes_equation::check_solution() {
       norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2) +
                        pow(true_velocity[2], 2);
       norm_pressure += pow(true_pressure, 2);
-
-      if (current_refinement_level == 4) {
-        velocity[i][0] = true_velocity[0] - velocity[i][0];
-        velocity[i][1] = true_velocity[1] - velocity[i][1];
-        velocity[i][2] = true_velocity[2] - velocity[i][2];
-      }
     }
   }
 
