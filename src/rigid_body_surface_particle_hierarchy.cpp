@@ -44,31 +44,54 @@ void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,
   const double r = radius;
   const double a = pow(h, 2);
 
-  int M_theta = round(r * M_PI / h);
-  double d_theta = r * M_PI / M_theta;
-  double d_phi = a / d_theta;
+  int N = round(4 * M_PI * r * r) / a;
+  double area = 4 * M_PI * r * r / N;
 
-  for (int i = 0; i < M_theta; ++i) {
-    double theta = M_PI * (i + 0.5) / M_theta;
-    int M_phi = round(2 * M_PI * r * sin(theta) / d_phi);
-    for (int j = 0; j < M_phi; ++j) {
-      double phi = 2 * M_PI * (j + 0.5) / M_phi;
+  double phi = M_PI * (3 - sqrt(5));
 
-      double theta0 = M_PI * i / M_theta;
-      double theta1 = M_PI * (i + 1) / M_theta;
+  for (int i = 0; i < N; i++) {
+    double y = (1.0 - ((double)i / (N - 1)) * 2);
+    double r0 = sqrt(1.0 - y * y);
 
-      double phi0 = 2 * M_PI * j / M_phi;
-      double phi1 = 2 * M_PI * (j + 1) / M_phi;
+    double theta = phi * i;
 
-      vec3 norm =
-          vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
-      vec3 ps = vec3(r * (cos(theta0) - cos(theta1)), r * (phi1 - phi0), 0.0);
+    double x = cos(theta) * r0;
+    double z = sin(theta) * r0;
 
-      coord.push_back(norm * r);
-      normal.push_back(norm);
-      spacing.push_back(ps);
-    }
+    vec3 norm = vec3(x, y, z);
+    vec3 ps = vec3(area, 1.0, 0.0);
+
+    coord.push_back(norm * r);
+    normal.push_back(norm);
+    spacing.push_back(ps);
   }
+
+  // int M_theta = round(r * M_PI / h) + 1;
+  // double d_theta = r * M_PI / M_theta;
+  // double d_phi = a / d_theta;
+
+  // for (int i = 0; i < M_theta; ++i) {
+  //   double theta = M_PI * (i + 0.5) / M_theta;
+  //   int M_phi = round(2 * M_PI * r * sin(theta) / d_phi);
+  //   for (int j = 0; j < M_phi; ++j) {
+  //     double phi = 2 * M_PI * (j + 0.5) / M_phi;
+
+  //     double theta0 = M_PI * i / M_theta;
+  //     double theta1 = M_PI * (i + 1) / M_theta;
+
+  //     double phi0 = 2 * M_PI * j / M_phi;
+  //     double phi1 = 2 * M_PI * (j + 1) / M_phi;
+
+  //     vec3 norm =
+  //         vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+  //     vec3 ps = vec3(r * (cos(theta0) - cos(theta1)), r * (phi1 - phi0),
+  //     0.0);
+
+  //     coord.push_back(norm * r);
+  //     normal.push_back(norm);
+  //     spacing.push_back(ps);
+  //   }
+  // }
 }
 
 void rigid_body_surface_particle_hierarchy::build_hierarchy_mapping(

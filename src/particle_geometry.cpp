@@ -2176,15 +2176,15 @@ void particle_geometry::generate_rigid_body_surface_particle() {
   auto &rigid_body_type = rb_mgr->get_rigid_body_type();
 
   if (dim == 3) {
-    hierarchy->set_coarse_level_resolution(uniform_spacing);
+    double h = uniform_spacing;
+    double vol = pow(h, 3);
+    double a = pow(h, 2);
+
+    hierarchy->set_coarse_level_resolution(h);
 
     shared_ptr<vector<vec3>> coord_ptr;
     shared_ptr<vector<vec3>> normal_ptr;
     shared_ptr<vector<vec3>> spacing_ptr;
-
-    double h = uniform_spacing;
-    double vol = pow(h, 3);
-    double a = pow(h, 2);
 
     for (size_t n = 0; n < rigid_body_coord.size(); n++) {
       hierarchy->get_coarse_level_coordinate(n, coord_ptr);
