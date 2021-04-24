@@ -43,7 +43,7 @@ bool gmls_solver::refinement() {
   auto &local_spacing = *(geo_mgr->get_current_work_particle_spacing());
 
   // mark stage
-  double alpha = 0.5;
+  double alpha = 0.3;
 
   double min_h = 1.0;
   for (int i = 0; i < local_spacing.size(); i++) {

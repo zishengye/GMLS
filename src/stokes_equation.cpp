@@ -1863,60 +1863,62 @@ void stokes_equation::check_solution() {
   double error_pressure = 0.0;
   double norm_pressure = 0.0;
   for (int i = 0; i < local_particle_num; i++) {
-    if (dim == 2) {
-      double x = coord[i][0];
-      double y = coord[i][1];
+    if (particle_type[i] == 0) {
+      if (dim == 2) {
+        double x = coord[i][0];
+        double y = coord[i][1];
 
-      double true_pressure =
-          -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) - true_pressure_mean;
-      double true_velocity[2];
-      true_velocity[0] = cos(M_PI * x) * sin(M_PI * y);
-      true_velocity[1] = -sin(M_PI * x) * cos(M_PI * y);
+        double true_pressure =
+            -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) - true_pressure_mean;
+        double true_velocity[2];
+        true_velocity[0] = cos(M_PI * x) * sin(M_PI * y);
+        true_velocity[1] = -sin(M_PI * x) * cos(M_PI * y);
 
-      error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
-                        pow(true_velocity[1] - velocity[i][1], 2);
-      error_pressure += pow(true_pressure - pressure[i], 2);
+        error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
+                          pow(true_velocity[1] - velocity[i][1], 2);
+        error_pressure += pow(true_pressure - pressure[i], 2);
 
-      norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2);
-      norm_pressure += pow(true_pressure, 2);
-    }
+        norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2);
+        norm_pressure += pow(true_pressure, 2);
+      }
 
-    if (dim == 3) {
-      double x = coord[i][0];
-      double y = coord[i][1];
-      double z = coord[i][2];
+      if (dim == 3) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
 
-      double r = sqrt(x * x + y * y + z * z);
-      double theta = acos(z / r);
-      double phi = atan2(y, x);
+        double r = sqrt(x * x + y * y + z * z);
+        double theta = acos(z / r);
+        double phi = atan2(y, x);
 
-      double vr = u * cos(theta) *
-                  (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
-      double vt = -u * sin(theta) *
-                  (1 - (3 * RR) / (4 * r) - pow(RR, 3) / (4 * pow(r, 3)));
+        double vr = u * cos(theta) *
+                    (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
+        double vt = -u * sin(theta) *
+                    (1 - (3 * RR) / (4 * r) - pow(RR, 3) / (4 * pow(r, 3)));
 
-      double pr = 3 * RR / pow(r, 3) * u * cos(theta);
-      double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
+        double pr = 3 * RR / pow(r, 3) * u * cos(theta);
+        double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
 
-      double true_velocity[3];
+        double true_velocity[3];
 
-      true_velocity[0] =
-          sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
-      true_velocity[1] =
-          sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
-      true_velocity[2] = cos(theta) * vr - sin(theta) * vt;
+        true_velocity[0] =
+            sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
+        true_velocity[1] =
+            sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
+        true_velocity[2] = cos(theta) * vr - sin(theta) * vt;
 
-      double true_pressure =
-          -3 / 2 * RR / pow(r, 2.0) * u * cos(theta) - true_pressure_mean;
+        double true_pressure =
+            -3 / 2 * RR / pow(r, 2.0) * u * cos(theta) - true_pressure_mean;
 
-      error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
-                        pow(true_velocity[1] - velocity[i][1], 2) +
-                        pow(true_velocity[2] - velocity[i][2], 2);
-      error_pressure += pow(true_pressure - pressure[i], 2);
+        error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
+                          pow(true_velocity[1] - velocity[i][1], 2) +
+                          pow(true_velocity[2] - velocity[i][2], 2);
+        error_pressure += pow(true_pressure - pressure[i], 2);
 
-      norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2) +
-                       pow(true_velocity[2], 2);
-      norm_pressure += pow(true_pressure, 2);
+        norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2) +
+                         pow(true_velocity[2], 2);
+        norm_pressure += pow(true_pressure, 2);
+      }
     }
   }
 
