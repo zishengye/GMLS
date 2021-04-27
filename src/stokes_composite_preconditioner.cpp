@@ -279,6 +279,9 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   // solve on coarest-level
   // stage 1
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
+
   VecSet(shell->multi->get_x_list()[0]->get_reference(), 0.0);
   VecScatterBegin(shell->multi->get_field_scatter_list()[0]->get_reference(),
                   shell->multi->get_b_list()[0]->get_reference(),
@@ -302,7 +305,14 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                 shell->multi->get_x_list()[0]->get_reference(), INSERT_VALUES,
                 SCATTER_REVERSE);
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer2 = MPI_Wtime();
+  shell->base_field_duration += timer2 - timer1;
+
   // stage 2
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
+
   MatMult(shell->multi->get_colloid_whole_mat(0)->get_reference(),
           shell->multi->get_x_list()[0]->get_reference(),
           shell->multi->get_colloid_x()->get_reference());
@@ -331,6 +341,10 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                 shell->multi->get_colloid_x()->get_reference(),
                 shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
                 SCATTER_REVERSE);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer2 = MPI_Wtime();
+  shell->base_colloid_duration += timer2 - timer1;
 
   // sweep up
   for (int i = 1; i <= shell->refinement_level; i++) {
@@ -456,6 +470,11 @@ PetscErrorCode HypreLUShellPCDestroy(PC pc) {
   PCShellGetContext(pc, (void **)&shell);
 
   PetscPrintf(PETSC_COMM_WORLD, "\nPreconditioner Log:\n");
+  PetscPrintf(PETSC_COMM_WORLD, "Base field smooth duraction %fs\n",
+              shell->base_field_duration);
+  PetscPrintf(PETSC_COMM_WORLD, "Base colloid smooth duraction %fs\n",
+              shell->base_colloid_duration);
+
   for (int i = 0; i < shell->refinement_level; i++) {
     PetscPrintf(PETSC_COMM_WORLD, "Field smooth level: %d, duraction %fs\n",
                 i + 1, shell->field_smooth_duration[i]);
@@ -469,11 +488,9 @@ PetscErrorCode HypreLUShellPCDestroy(PC pc) {
     PetscPrintf(PETSC_COMM_WORLD, "Interpolation level: %d, duraction %fs\n",
                 i + 1, shell->interpolation_duration[i]);
     PetscPrintf(PETSC_COMM_WORLD, "Level iteration level: %d, duraction %fs\n",
-                i + 1, shell->level_iteration_durat;
-                ion[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "\n")
+                i + 1, shell->level_iteration_duration[i]);
+    PetscPrintf(PETSC_COMM_WORLD, "\n");
   }
-  PetscPrintf(PETSC_COMM_WORLD, "\n");
 
   delete[] shell->field_smooth_duration;
   delete[] shell->colloid_smooth_duration;

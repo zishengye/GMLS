@@ -866,7 +866,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
                     ff);
     KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
-                     1e-3, 1e-50, 1e10, 3);
+                     1e-3, 1e-50, 1e10, 1);
 
     PC field_relaxation_pc;
     KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
@@ -884,7 +884,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
                KSPGMRES);
     KSPSetTolerances(colloid_relaxation_list[refinement_step]->get_reference(),
-                     1e-3, 1e-50, 1e10, 100);
+                     1e-3, 1e-50, 1e10, 1);
     KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
                     nn, nn);
 
