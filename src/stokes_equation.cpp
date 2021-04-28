@@ -163,7 +163,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   double max_epsilon = geo_mgr->get_cutoff_distance();
   for (int i = 0; i < local_particle_num; i++) {
-    whole_epsilon_host(i) = spacing[i];
+    whole_epsilon_host(i) = 1.00005 * spacing[i];
   }
 
   MPI_Allreduce(MPI_IN_PLACE, &max_epsilon, 1, MPI_DOUBLE, MPI_MAX,
@@ -223,6 +223,13 @@ void stokes_equation::build_coefficient_matrix() {
   }
 
   geo_mgr->ghost_forward(epsilon, ghost_epsilon);
+
+  num_neighbor.resize(local_particle_num);
+  for (int i = 0; i < local_particle_num; i++) {
+    num_neighbor[i] = whole_neighbor_list_host(i, 0);
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // matrix assembly
   const int translation_dof = (dim == 3 ? 3 : 2);
@@ -1253,9 +1260,9 @@ void stokes_equation::build_coefficient_matrix() {
   auto ff = multi_mgr->get_field_mat(current_refinement_level);
   A.assemble(*ff, field_dof, num_rigid_body, rigid_body_dof);
 
-  // if (current_refinement_level == 0) {
-  //   A.write(string("A" + to_string(current_refinement_level) + ".txt"));
-  // }
+  if (current_refinement_level == 0) {
+    A.write(string("A" + to_string(current_refinement_level) + ".txt"));
+  }
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
