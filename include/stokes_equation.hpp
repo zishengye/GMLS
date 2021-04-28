@@ -29,6 +29,12 @@ private:
   void check_solution();
   void calculate_error();
 
+  std::shared_ptr<Compadre::GMLS> pressure_basis;
+  std::shared_ptr<Compadre::GMLS> velocity_basis;
+  std::shared_ptr<Compadre::GMLS> pressure_neumann_basis;
+  std::shared_ptr<Compadre::GMLS> normal_pressure_basis;
+  std::shared_ptr<Compadre::GMLS> normal_pressure_neumann_basis;
+
   std::vector<double> epsilon;
   std::vector<double> ghost_epsilon;
 
@@ -67,14 +73,6 @@ private:
 
   bool use_viewer;
 
-  Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-      whole_neighbor_list_device;
-  Kokkos::View<int **>::HostMirror whole_neighbor_list_host;
-  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> whole_epsilon_device;
-  Kokkos::View<double *>::HostMirror whole_epsilon_host;
-
-  std::vector<double> bi;
-
 public:
   stokes_equation() { use_viewer = false; }
 
@@ -88,6 +86,14 @@ public:
   void update();
 
   void set_viewer() { use_viewer = true; }
+
+  std::shared_ptr<Compadre::GMLS> get_pressure_basis() {
+    return pressure_basis;
+  }
+
+  std::shared_ptr<Compadre::GMLS> get_velocity_basis() {
+    return velocity_basis;
+  }
 
   std::vector<vec3> &get_velocity() { return velocity; }
 
