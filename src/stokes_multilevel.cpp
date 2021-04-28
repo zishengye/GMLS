@@ -970,7 +970,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecNorm(residual, NORM_2, &residual_norm);
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
-  while (residual_norm / rhs_norm > 1e-5) {
+  while (residual_norm / rhs_norm > 1e-2) {
     KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
     KSPConvergedReason convergence_reason;
