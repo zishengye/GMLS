@@ -1000,7 +1000,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   KSPDestroy(&_ksp);
 
-  if (refinement_step != 0) {
+  if (refinement_step != 0 && num_rigid_body != 0) {
     VecDestroy(&diag);
 
     MatDestroy(&sub_ff);

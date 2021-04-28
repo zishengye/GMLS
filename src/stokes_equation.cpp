@@ -1680,7 +1680,9 @@ void stokes_equation::check_solution() {
   vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
 
   double u = 1.0;
-  double RR = rigid_body_size[0];
+  double RR;
+  if (num_rigid_body != 0)
+    RR = rigid_body_size[0];
 
   vector<int> particle_num_per_process;
   particle_num_per_process.resize(size);
@@ -1744,8 +1746,8 @@ void stokes_equation::check_solution() {
         double true_pressure =
             -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) - true_pressure_mean;
         double true_velocity[2];
-        true_velocity[0] = cos(M_PI * x) * sin(M_PI * y);
-        true_velocity[1] = -sin(M_PI * x) * cos(M_PI * y);
+        true_velocity[0] = sin(M_PI * x) * cos(M_PI * y);
+        true_velocity[1] = -cos(M_PI * x) * sin(M_PI * y);
 
         error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
                           pow(true_velocity[1] - velocity[i][1], 2);
