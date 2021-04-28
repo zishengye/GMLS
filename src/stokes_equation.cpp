@@ -399,7 +399,7 @@ void stokes_equation::build_coefficient_matrix() {
   }
 
   if (dim == 2)
-    number_of_batches = 1;
+    number_of_batches = max(local_particle_num / 100, 1);
   else
     number_of_batches = max(local_particle_num / 100, 1);
 
@@ -522,7 +522,7 @@ void stokes_equation::build_coefficient_matrix() {
                                poly_order, dim, "LU", "STANDARD");
     GMLS pressure_neumann_basis = GMLS(
         ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
-        poly_order, dim, "LU", "NEUMANN_GRAD_SCALAR");
+        poly_order, dim, "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
 
     // pressure basis
     pressure_basis.setProblemData(neighbor_list_device, source_coord_device,
@@ -1993,8 +1993,6 @@ void stokes_equation::calculate_error() {
     error[i] = 0.0;
   }
 
-  auto neighbor_list = whole_neighbor_list_host;
-
   // error estimation base on velocity
   if (error_esimation_method == VELOCITY_ERROR_EST) {
     vector<vec3> ghost_velocity;
@@ -2044,7 +2042,7 @@ void stokes_equation::calculate_error() {
 
       int batch_size = local_particle_num / number_of_batches +
                        (num < (local_particle_num % number_of_batches));
-      int end_particle = min(local_particle_num, start_particle + batch_size);
+      end_particle = min(local_particle_num, start_particle + batch_size);
       int particle_num = end_particle - start_particle;
 
       Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
@@ -2091,7 +2089,11 @@ void stokes_equation::calculate_error() {
                                          source_coord_device,
                                          target_coord_device, epsilon_device);
 
-      temp_velocity_basis.addTargets(ScalarPointEvaluation);
+      vector<TargetOperation> velocity_operation(2);
+      velocity_operation[0] = GradientOfVectorPointEvaluation;
+      velocity_operation[1] = ScalarPointEvaluation;
+
+      temp_velocity_basis.addTargets(velocity_operation);
 
       temp_velocity_basis.setWeightingType(WeightingFunctionType::Power);
       temp_velocity_basis.setWeightingPower(4);
@@ -2109,8 +2111,7 @@ void stokes_equation::calculate_error() {
               double **, Kokkos::HostSpace>(ghost_velocity_device,
                                             GradientOfVectorPointEvaluation);
 
-      auto coefficients_size =
-          temp_velocity_basis.getPolynomialCoefficientsSize();
+      coefficients_size = temp_velocity_basis.getPolynomialCoefficientsSize();
 
       for (int i = 0; i < particle_num; i++) {
         coefficients_chunk[i + start_particle].resize(coefficients_size);
