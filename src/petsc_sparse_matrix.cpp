@@ -493,6 +493,15 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
     MatSetUp(mat);
     MatMPIBAIJSetPreallocationCSR(mat, block_size, __i.data(), __j.data(),
                                   __val.data());
+
+    MatCreate(MPI_COMM_WORLD, &(__ctx.fluid_part));
+    MatSetSizes(__ctx.fluid_part, row_block, col_block, PETSC_DECIDE,
+                Col_block);
+    MatSetType(__ctx.fluid_part, MATMPIBAIJ);
+    MatSetBlockSize(__ctx.fluid_part, block_size);
+    MatSetUp(__ctx.fluid_part);
+    MatMPIBAIJSetPreallocationCSR(__ctx.fluid_part, block_size, __i.data(),
+                                  __j.data(), __val.data());
   } else {
     MatCreate(MPI_COMM_WORLD, &mat);
     MatSetSizes(mat, row_block, col_block, PETSC_DECIDE, PETSC_DECIDE);
@@ -501,6 +510,15 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
     MatSetUp(mat);
     MatMPIBAIJSetPreallocationCSR(mat, block_size, __i.data(), __j.data(),
                                   __val.data());
+
+    MatCreate(MPI_COMM_WORLD, &(__ctx.fluid_part));
+    MatSetSizes(__ctx.fluid_part, row_block, col_block, PETSC_DECIDE,
+                PETSC_DECIDE);
+    MatSetType(__ctx.fluid_part, MATMPIBAIJ);
+    MatSetBlockSize(__ctx.fluid_part, block_size);
+    MatSetUp(__ctx.fluid_part);
+    MatMPIBAIJSetPreallocationCSR(__ctx.fluid_part, block_size, __i.data(),
+                                  __j.data(), __val.data());
   }
 
   pmat.is_assembled = true;
@@ -584,7 +602,11 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
 
   VecCreateMPI(PETSC_COMM_WORLD, num_rigid_body * rigid_body_dof, PETSC_DECIDE,
                &(__ctx.colloid_vec));
-  VecCreateMPI(PETSC_COMM_WORLD, local_size, PETSC_DECIDE, &(__ctx.fluid_vec));
+  VecCreateSeq(PETSC_COMM_SELF, num_rigid_body * rigid_body_dof,
+               &(__ctx.colloid_vec_local));
+  VecCreateMPI(PETSC_COMM_WORLD, local_size, PETSC_DECIDE, &(__ctx.fluid_vec1));
+  VecCreateMPI(PETSC_COMM_WORLD, local_size, PETSC_DECIDE, &(__ctx.fluid_vec2));
+  VecCreateSeq(PETSC_COMM_SELF, local_size, &(__ctx.fluid_vec_local));
   __ctx.fluid_local_size = local_size;
   __ctx.rigid_body_size = num_rigid_body * rigid_body_dof;
 
@@ -603,9 +625,26 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
                             colloid_part_j.data(), colloid_part_val.data(),
                             &(__ctx.colloid_part));
 
-  MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, local_size, __col, PETSC_DECIDE,
-                            __Col, __i.data(), __j.data(), __val.data(),
-                            &(__ctx.fluid_part));
+  __ctx.fluid_colloid_part_i.resize(local_size + 1);
+
+  size_t nnz = 0;
+  __ctx.fluid_colloid_part_i[0] = 0;
+  for (int i = 0; i < local_size; i++) {
+    for (int k = 0; k < __matrix[i].size(); k++) {
+      if (__matrix[i][k].first >= Col_block) {
+        nnz++;
+
+        __ctx.fluid_colloid_part_j.push_back(__matrix[i][k].first - Col_block);
+        __ctx.fluid_colloid_part_val.push_back(__matrix[i][k].second);
+      }
+    }
+    __ctx.fluid_colloid_part_i[i + 1] = nnz;
+  }
+
+  MatCreateSeqAIJWithArrays(
+      PETSC_COMM_SELF, local_size, num_rigid_body * rigid_body_dof,
+      __ctx.fluid_colloid_part_i.data(), __ctx.fluid_colloid_part_j.data(),
+      __ctx.fluid_colloid_part_val.data(), &(__ctx.fluid_colloid_part));
 
   is_assembled = true;
   is_shell_assembled = true;
@@ -1500,7 +1539,7 @@ PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y) {
   fluid_colloid_matrix_context *ctx;
   MatShellGetContext(mat, &ctx);
 
-  PetscReal *a, *b;
+  PetscReal *a, *b, *c, *d;
 
   PetscReal pressure_sum = 0.0;
   PetscReal average_pressure;
@@ -1531,11 +1570,38 @@ PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y) {
 
   VecRestoreArray(ctx->colloid_vec, &b);
 
-  MatMult(ctx->fluid_part, x, ctx->fluid_vec);
+  VecGetArray(x, &c);
+  VecGetArray(ctx->fluid_vec1, &d);
 
-  VecGetArray(ctx->fluid_vec, &b);
   for (int i = 0; i < ctx->fluid_local_size; i++)
-    a[i] = b[i];
+    d[i] = c[i];
+
+  VecRestoreArray(x, &c);
+  VecRestoreArray(ctx->fluid_vec1, &d);
+
+  MatMult(ctx->fluid_part, ctx->fluid_vec1, ctx->fluid_vec2);
+
+  VecGetArray(ctx->colloid_vec_local, &d);
+
+  if (ctx->myid == ctx->mpisize - 1) {
+    VecGetArray(x, &c);
+    for (int i = 0; i < ctx->rigid_body_size; i++) {
+      d[i] = c[i + ctx->fluid_local_size];
+    }
+    VecRestoreArray(x, &c);
+  }
+
+  MPI_Bcast(d, ctx->rigid_body_size, MPI_DOUBLE, ctx->mpisize - 1,
+            MPI_COMM_WORLD);
+  VecRestoreArray(ctx->colloid_vec_local, &d);
+
+  MatMult(ctx->fluid_colloid_part, ctx->colloid_vec_local,
+          ctx->fluid_vec_local);
+
+  VecGetArray(ctx->fluid_vec_local, &b);
+  VecGetArray(ctx->fluid_vec2, &c);
+  for (int i = 0; i < ctx->fluid_local_size; i++)
+    a[i] = b[i] + c[i];
 
   pressure_sum = 0.0;
   for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
@@ -1549,7 +1615,8 @@ PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y) {
   }
 
   VecRestoreArray(y, &a);
-  VecRestoreArray(ctx->fluid_vec, &b);
+  VecRestoreArray(ctx->fluid_vec2, &c);
+  VecRestoreArray(ctx->fluid_vec_local, &b);
 
   return 0;
 }

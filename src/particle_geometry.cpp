@@ -3491,7 +3491,7 @@ void particle_geometry::index_work_particle() {
     particle_offset[i + 1] = particle_offset[i] + particle_num[i];
   }
 
-  KDTree point_cloud(current_local_work_particle_coord, dim, 5);
+  KDTree point_cloud(current_local_work_particle_coord, dim, 100);
   point_cloud.generateKDTree();
 
   vector<int> &local_idx = *current_local_work_particle_local_index;
@@ -3499,7 +3499,7 @@ void particle_geometry::index_work_particle() {
 
   auto &index = *current_local_work_particle_index;
   for (int i = 0; i < local_particle_num; i++) {
-    // local_idx[i] = i;
+    local_idx[i] = i;
     index[i] = local_idx[i] + particle_offset[rank];
   }
 

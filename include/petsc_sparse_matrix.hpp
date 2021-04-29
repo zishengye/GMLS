@@ -21,8 +21,12 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
 struct fluid_colloid_matrix_context {
   Mat fluid_part;
   Mat colloid_part;
-  Vec fluid_vec;
+  Mat fluid_colloid_part;
+  Vec fluid_vec1;
+  Vec fluid_vec2;
+  Vec fluid_vec_local;
   Vec colloid_vec;
+  Vec colloid_vec_local;
 
   PetscInt fluid_local_size;
   PetscInt rigid_body_size;
@@ -31,6 +35,10 @@ struct fluid_colloid_matrix_context {
   PetscInt global_fluid_particle_num;
   PetscInt field_dof;
   PetscInt pressure_offset;
+
+  std::vector<PetscInt> fluid_colloid_part_i;
+  std::vector<PetscInt> fluid_colloid_part_j;
+  std::vector<PetscReal> fluid_colloid_part_val;
 
   int myid, mpisize;
 };
@@ -99,8 +107,12 @@ public:
     if (is_ctx_assembled) {
       MatDestroy(&__ctx.colloid_part);
       MatDestroy(&__ctx.fluid_part);
+      MatDestroy(&__ctx.fluid_colloid_part);
       VecDestroy(&__ctx.colloid_vec);
-      VecDestroy(&__ctx.fluid_vec);
+      VecDestroy(&__ctx.colloid_vec_local);
+      VecDestroy(&__ctx.fluid_vec1);
+      VecDestroy(&__ctx.fluid_vec2);
+      VecDestroy(&__ctx.fluid_vec_local);
     }
   }
 
