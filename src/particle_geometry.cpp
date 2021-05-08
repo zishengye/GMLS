@@ -2549,7 +2549,7 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
       Kokkos::create_mirror_view(temp_neighbor_list_device);
 
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host[i] = 1.0 * gap_spacing[i];
+    epsilon_host[i] = 1.0005 * gap_spacing[i];
   }
 
   size_t max_num_neighbor =
@@ -3262,17 +3262,15 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
             return idx;
           }
 
-          // if (dis.mag() < rigid_body_size + 1.5 * _spacing) {
-          //   for (int i = 0; i < rigid_body_surface_particle_coord.size();
-          //   i++) {
-          //     vec3 rci = _pos - rigid_body_surface_particle_coord[i];
-          //     if (rci.mag() <
-          //         0.5 * max(_spacing,
-          //         rigid_body_surface_particle_spacing[i])) {
-          //       return idx;
-          //     }
-          //   }
-          // }
+          if (dis.mag() < rigid_body_size + 1.5 * _spacing) {
+            for (int i = 0; i < rigid_body_surface_particle_coord.size(); i++) {
+              vec3 rci = _pos - rigid_body_surface_particle_coord[i];
+              if (rci.mag() <
+                  0.5 * max(_spacing, rigid_body_surface_particle_spacing[i])) {
+                return idx;
+              }
+            }
+          }
         }
       }
       break;
@@ -3301,34 +3299,21 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           } else {
             // get the distance to the boundary
             double dist = 0.0;
-            if (dis[0] < end_point && dis[0] > start_point) {
-              if (dis[1] > 0) {
-                dist = dis[1] - half_side_length;
-              } else {
-                dist = -half_side_length - dis[1];
-              }
-            } else if (dis[1] < end_point && dis[1] > start_point) {
-              if (dis[0] > 0) {
-                dist = dis[0] - half_side_length;
-              } else {
-                dist = -half_side_length - dis[0];
-              }
-            } else {
-              //
-              vec3 new_center = vec3(0.0, 0.0, 0.0);
-              if (dis[1] > 0) {
-                new_center[1] = end_point;
-              } else {
-                new_center[1] = start_point;
-              }
+            if (dis[0] < 0)
+              dis[0] = -dis[0];
+            if (dis[1] < 0)
+              dis[1] = -dis[1];
 
-              if (dis[0] > 0) {
-                new_center[0] = end_point;
-              } else {
-                new_center[0] = start_point;
-              }
-              vec3 circled_dis = dis - new_center;
-              dist = circled_dis.mag() - r;
+            if (dis[0] > end_point && dis[1] > end_point) {
+              vec3 center_point = vec3(end_point, end_point, 0.0);
+              vec3 new_pos = dis - center_point;
+              dist = new_pos.mag() - r;
+            } else if (dis[0] > end_point) {
+              dist = dis[0] - half_side_length;
+            } else if (dis[1] > end_point) {
+              dist = dis[1] - half_side_length;
+            } else {
+              dist = max(dis[0], dis[1]) - half_side_length;
             }
 
             if (dist < -1.5 * _spacing) {
@@ -3338,18 +3323,17 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
               return idx;
             }
 
-            // if (dist < 1.5 * _spacing) {
-            //   for (int i = 0; i < rigid_body_surface_particle_coord.size();
-            //        i++) {
-            //     vec3 rci = _pos - rigid_body_surface_particle_coord[i];
-            //     if (rci.mag() <
-            //         0.5 *
-            //             max(_spacing,
-            //             rigid_body_surface_particle_spacing[i])) {
-            //       return idx;
-            //     }
-            //   }
-            // }
+            if (dist < 1.5 * _spacing) {
+              for (int i = 0; i < rigid_body_surface_particle_coord.size();
+                   i++) {
+                vec3 rci = _pos - rigid_body_surface_particle_coord[i];
+                if (rci.mag() <
+                    0.5 *
+                        max(_spacing, rigid_body_surface_particle_spacing[i])) {
+                  return idx;
+                }
+              }
+            }
           }
         }
         if (dim == 3) {
