@@ -573,7 +573,7 @@ void particle_geometry::generate_uniform_particle() {
           Kokkos::create_mirror_view(whole_epsilon_device);
 
       for (int i = 0; i < local_particle_num; i++) {
-        whole_epsilon_host(i) = 2.5 * spacing[i] + 1e-5;
+        whole_epsilon_host(i) = 2.50005 * spacing[i];
       }
 
       int actual_whole_max_neighbor_num =
@@ -3262,15 +3262,17 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
             return idx;
           }
 
-          if (dis.mag() < rigid_body_size + 1.5 * _spacing) {
-            for (int i = 0; i < rigid_body_surface_particle_coord.size(); i++) {
-              vec3 rci = _pos - rigid_body_surface_particle_coord[i];
-              if (rci.mag() <
-                  0.5 * max(_spacing, rigid_body_surface_particle_spacing[i])) {
-                return idx;
-              }
-            }
-          }
+          // if (dis.mag() < rigid_body_size + 1.5 * _spacing) {
+          //   for (int i = 0; i < rigid_body_surface_particle_coord.size();
+          //   i++) {
+          //     vec3 rci = _pos - rigid_body_surface_particle_coord[i];
+          //     if (rci.mag() <
+          //         0.5 * max(_spacing,
+          //         rigid_body_surface_particle_spacing[i])) {
+          //       return idx;
+          //     }
+          //   }
+          // }
         }
       }
       break;
@@ -3336,17 +3338,18 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
               return idx;
             }
 
-            if (dist < 1.5 * _spacing) {
-              for (int i = 0; i < rigid_body_surface_particle_coord.size();
-                   i++) {
-                vec3 rci = _pos - rigid_body_surface_particle_coord[i];
-                if (rci.mag() <
-                    0.5 *
-                        max(_spacing, rigid_body_surface_particle_spacing[i])) {
-                  return idx;
-                }
-              }
-            }
+            // if (dist < 1.5 * _spacing) {
+            //   for (int i = 0; i < rigid_body_surface_particle_coord.size();
+            //        i++) {
+            //     vec3 rci = _pos - rigid_body_surface_particle_coord[i];
+            //     if (rci.mag() <
+            //         0.5 *
+            //             max(_spacing,
+            //             rigid_body_surface_particle_spacing[i])) {
+            //       return idx;
+            //     }
+            //   }
+            // }
           }
         }
         if (dim == 3) {

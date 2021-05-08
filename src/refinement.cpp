@@ -130,6 +130,12 @@ bool gmls_solver::refinement() {
     }
   }
 
+  next_error = 0.9 * next_error;
+  for (int i = 0; i < local_particle_num; i++) {
+    if (chopper[i].second < next_error)
+      break;
+  }
+
   split_tag.resize(local_particle_num);
   for (int i = 0; i < local_particle_num; i++) {
     split_tag[i] = 0;
