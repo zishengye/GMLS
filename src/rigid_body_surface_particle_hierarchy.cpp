@@ -24,6 +24,11 @@ void rigid_body_surface_particle_hierarchy::extend_hierarchy(
       add_sphere(rigid_body_size_list[compressed_rigid_body_index], resolution);
     }
     break;
+  case 2:
+    if (dimension == 2) {
+      add_rounded_square(rigid_body_size_list[compressed_rigid_body_index],
+                         resolution);
+    }
   }
 
   mapping[compressed_rigid_body_index].push_back(hierarchy_coord.size() - 1);
@@ -92,6 +97,108 @@ void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,
   //     spacing.push_back(ps);
   //   }
   // }
+}
+
+void rigid_body_surface_particle_hierarchy::add_rounded_square(
+    const double half_side_length, const double h) {
+  hierarchy_coord.push_back(vector<vec3>());
+  hierarchy_normal.push_back(vector<vec3>());
+  hierarchy_spacing.push_back(vector<vec3>());
+
+  vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
+  vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
+  vector<vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
+
+  const double rounded_ratio = 0.2;
+
+  const double hs = half_side_length;
+  const double r = rounded_ratio * hs;
+
+  // place particles on the straight lines
+  const double ratio = 1.0 - rounded_ratio;
+  int N = round(2.0 * ratio * half_side_length / h);
+  double dist = 2.0 * ratio * half_side_length / N;
+
+  double start_point = -ratio * half_side_length + 0.5 * dist;
+  double end_point = ratio * half_side_length;
+  double xPos, yPos;
+  xPos = start_point;
+  yPos = half_side_length;
+  while (xPos < end_point) {
+    coord.push_back(vec3(xPos, yPos, 0.0));
+    normal.push_back(vec3(0.0, 1.0, 0.0));
+    spacing.push_back(vec3(dist, 0.0, 0.0));
+    xPos += dist;
+  }
+
+  xPos = start_point;
+  yPos = -half_side_length;
+  while (xPos < end_point) {
+    coord.push_back(vec3(xPos, yPos, 0.0));
+    normal.push_back(vec3(0.0, -1.0, 0.0));
+    spacing.push_back(vec3(dist, 0.0, 0.0));
+    xPos += dist;
+  }
+
+  xPos = half_side_length;
+  yPos = start_point;
+  while (yPos < end_point) {
+    coord.push_back(vec3(xPos, yPos, 0.0));
+    normal.push_back(vec3(1.0, 0.0, 0.0));
+    spacing.push_back(vec3(dist, 0.0, 0.0));
+    yPos += dist;
+  }
+
+  xPos = -half_side_length;
+  yPos = start_point;
+  while (yPos < end_point) {
+    coord.push_back(vec3(xPos, yPos, 0.0));
+    normal.push_back(vec3(-1.0, 0.0, 0.0));
+    spacing.push_back(vec3(dist, 0.0, 0.0));
+    yPos += dist;
+  }
+
+  // place particles on rounded corners
+  int M_theta = round(0.5 * M_PI * r / h);
+  double d_theta = 0.5 * M_PI * r / M_theta;
+
+  vec3 p_spacing = vec3(d_theta, 0, 0);
+
+  for (int i = 0; i < M_theta; ++i) {
+    double theta = 0.5 * M_PI / M_theta * (i + 0.5);
+    vec3 norm = vec3(cos(theta), sin(theta), 0.0);
+
+    coord.push_back(norm * r + vec3(end_point, end_point, 0.0));
+    normal.push_back(norm);
+    spacing.push_back(p_spacing);
+  }
+
+  for (int i = 0; i < M_theta; ++i) {
+    double theta = 0.5 * M_PI / M_theta * (i + 0.5) + M_PI * 0.5;
+    vec3 norm = vec3(cos(theta), sin(theta), 0.0);
+
+    coord.push_back(norm * r + vec3(-end_point, end_point, 0.0));
+    normal.push_back(norm);
+    spacing.push_back(p_spacing);
+  }
+
+  for (int i = 0; i < M_theta; ++i) {
+    double theta = 0.5 * M_PI / M_theta * (i + 0.5) + M_PI;
+    vec3 norm = vec3(cos(theta), sin(theta), 0.0);
+
+    coord.push_back(norm * r + vec3(-end_point, -end_point, 0.0));
+    normal.push_back(norm);
+    spacing.push_back(p_spacing);
+  }
+
+  for (int i = 0; i < M_theta; ++i) {
+    double theta = 0.5 * M_PI / M_theta * (i + 0.5) + M_PI * 1.5;
+    vec3 norm = vec3(cos(theta), sin(theta), 0.0);
+
+    coord.push_back(norm * r + vec3(end_point, -end_point, 0.0));
+    normal.push_back(norm);
+    spacing.push_back(p_spacing);
+  }
 }
 
 void rigid_body_surface_particle_hierarchy::build_hierarchy_mapping(

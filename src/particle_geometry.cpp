@@ -2209,13 +2209,14 @@ void particle_geometry::generate_rigid_body_surface_particle() {
   }
 
   if (dim == 2) {
+    double h = uniform_spacing;
 
+    hierarchy->set_coarse_level_resolution(h);
     for (size_t n = 0; n < rigid_body_coord.size(); n++) {
       switch (rigid_body_type[n]) {
       case 1:
         // circle
         {
-          double h = uniform_spacing;
           double vol = pow(h, 2);
 
           double r = rigid_body_size[n];
@@ -2240,129 +2241,43 @@ void particle_geometry::generate_rigid_body_surface_particle() {
         break;
 
       case 2:
-        // square
+        // rounded square
         {
-          double half_side_length = rigid_body_size[n];
+          double vol = pow(h, 2);
+
           double theta = rigid_body_orientation[n][0];
 
-          int particle_num_per_size =
-              rigid_body_size[n] * 2.0 / uniform_spacing;
+          shared_ptr<vector<vec3>> coord_ptr;
+          shared_ptr<vector<vec3>> normal_ptr;
+          shared_ptr<vector<vec3>> spacing_ptr;
 
-          double h = rigid_body_size[n] * 2.0 / particle_num_per_size;
-          vec3 particleSize = vec3(h, h, 0.0);
-          double vol = pow(h, 2.0);
+          hierarchy->get_coarse_level_coordinate(n, coord_ptr);
+          hierarchy->get_coarse_level_normal(n, normal_ptr);
+          hierarchy->get_coarse_level_spacing(n, spacing_ptr);
 
-          double xPos, yPos;
-          xPos = -half_side_length;
-          yPos = -half_side_length;
-
-          vec3 norm = vec3(-sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
-          vec3 normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                             sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-          vec3 pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
-                          sin(theta) * xPos + cos(theta) * yPos, 0.0) +
-                     rigid_body_coord[n];
-          vec3 p_coord = vec3(0.0, 0.0, 0.0);
-          vec3 p_spacing = vec3(h, 0.0, 0.0);
-          if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-              pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-            insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
-                            p_coord, p_spacing);
-
-          xPos += 0.5 * h;
-          norm = vec3(0.0, -1.0, 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-          while (xPos < half_side_length) {
-            pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
-                       sin(theta) * xPos + cos(theta) * yPos, 0.0) +
-                  rigid_body_coord[n];
+          int num_surface_particle = coord_ptr->size();
+          for (int i = 0; i < num_surface_particle; i++) {
+            vec3 unrotated_pos = (*coord_ptr)[i];
+            vec3 unrotated_norm = (*normal_ptr)[i];
+            vec3 pos = vec3(cos(theta) * unrotated_pos[0] -
+                                sin(theta) * unrotated_pos[1],
+                            sin(theta) * unrotated_pos[0] +
+                                cos(theta) * unrotated_pos[1],
+                            0.0) +
+                       rigid_body_coord[n];
             if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-                pos[1] >= domain[0][1] && pos[1] < domain[1][1])
+                pos[1] >= domain[0][1] && pos[1] < domain[1][1]) {
+              vec3 normal = vec3(cos(theta) * unrotated_norm[0] -
+                                     sin(theta) * unrotated_norm[1],
+                                 sin(theta) * unrotated_norm[0] +
+                                     cos(theta) * unrotated_norm[1],
+                                 0.0);
+              vec3 p_spacing = (*spacing_ptr)[i];
+              vec3 p_coord = vec3(i, 0, 0);
+
               insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
                               p_coord, p_spacing);
-            xPos += h;
-          }
-
-          xPos = half_side_length;
-          norm = vec3(sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-          pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
-                     sin(theta) * xPos + cos(theta) * yPos, 0.0) +
-                rigid_body_coord[n];
-          if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-              pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-            insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
-                            p_coord, p_spacing);
-
-          yPos += 0.5 * h;
-          norm = vec3(1.0, 0.0, 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-          while (yPos < half_side_length) {
-            pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
-                       sin(theta) * xPos + cos(theta) * yPos, 0.0) +
-                  rigid_body_coord[n];
-            if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-                pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-              insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
-                              p_coord, p_spacing);
-            yPos += h;
-          }
-
-          yPos = half_side_length;
-          norm = vec3(sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-          pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
-                     sin(theta) * xPos + cos(theta) * yPos, 0.0) +
-                rigid_body_coord[n];
-          if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-              pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-            insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
-                            p_coord, p_spacing);
-
-          xPos -= 0.5 * h;
-          norm = vec3(0.0, 1.0, 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-          while (xPos > -half_side_length) {
-            pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
-                       sin(theta) * xPos + cos(theta) * yPos, 0.0) +
-                  rigid_body_coord[n];
-            if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-                pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-              insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
-                              p_coord, p_spacing);
-            xPos -= h;
-          }
-
-          xPos = -half_side_length;
-          norm = vec3(-sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-          pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
-                     sin(theta) * xPos + cos(theta) * yPos, 0.0) +
-                rigid_body_coord[n];
-          if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-              pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-            insert_particle(pos, 4, uniform_spacing, normal, 0, vol, true, n,
-                            p_coord, p_spacing);
-
-          yPos -= 0.5 * h;
-          norm = vec3(-1.0, 0.0, 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-          while (yPos > -half_side_length) {
-            pos = vec3(cos(theta) * xPos - sin(theta) * yPos,
-                       sin(theta) * xPos + cos(theta) * yPos, 0.0) +
-                  rigid_body_coord[n];
-            if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-                pos[1] >= domain[0][1] && pos[1] < domain[1][1])
-              insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
-                              p_coord, p_spacing);
-            yPos -= h;
+            }
           }
         }
 
@@ -3153,32 +3068,52 @@ void particle_geometry::split_rigid_body_surface_particle(
       case 2:
         // square
         {
-          if (particle_type[tag] == 4) {
-            // corner particle
-            spacing[tag] /= 2.0;
-            volume[tag] /= 4.0;
-            adaptive_level[tag]++;
-            p_spacing[tag] = vec3(p_spacing[tag][0] / 2.0, 0.0, 0.0);
-          } else {
-            // side particle
-            spacing[tag] /= 2.0;
-            volume[tag] /= 4.0;
-            adaptive_level[tag]++;
-            new_added[tag] = -1;
-            p_spacing[tag] = vec3(p_spacing[tag][0] / 2.0, 0.0, 0.0);
+          double theta =
+              rigid_body_orientation[attached_rigid_body_index[tag]][0];
+          vector<int> refined_particle_idx;
+          bool insert = false;
+          int particle_idx = p_coord[tag][0];
+          hierarchy->find_refined_particle(attached_rigid_body_index[tag],
+                                           adaptive_level[tag], particle_idx,
+                                           refined_particle_idx);
+          int fine_adaptive_level = adaptive_level[tag] + 1;
+          for (int i = 0; i < refined_particle_idx.size(); i++) {
+            vec3 new_pos = hierarchy->get_coordinate(
+                attached_rigid_body_index[tag], fine_adaptive_level,
+                refined_particle_idx[i]);
+            vec3 new_normal = hierarchy->get_normal(
+                attached_rigid_body_index[tag], fine_adaptive_level,
+                refined_particle_idx[i]);
+            vec3 new_spacing = hierarchy->get_spacing(
+                attached_rigid_body_index[tag], fine_adaptive_level,
+                refined_particle_idx[i]);
 
-            vec3 old_pos = coord[tag];
+            vec3 new_coord =
+                vec3(new_pos[0] * cos(theta) - new_pos[1] * sin(theta),
+                     new_pos[0] * sin(theta) + new_pos[1] * cos(theta), 0.0) +
+                rigid_body_coord[attached_rigid_body_index[tag]];
+            vec3 new_norm = vec3(
+                new_normal[0] * cos(theta) - new_normal[1] * sin(theta),
+                new_normal[0] * sin(theta) + new_normal[1] * cos(theta), 0.0);
 
-            vec3 delta = vec3(-normal[tag][1], normal[tag][0], 0.0) * 0.5 *
-                         p_spacing[tag][0];
-            coord[tag] = old_pos + delta;
+            if (!insert) {
+              coord[tag] = new_coord;
+              volume[tag] /= 8.0;
+              normal[tag] = new_norm;
+              spacing[tag] /= 2.0;
+              p_coord[tag] = vec3(refined_particle_idx[i], 0.0, 0.0);
+              p_spacing[tag] = new_spacing;
+              adaptive_level[tag]++;
+              new_added[tag] = -1;
 
-            vec3 new_pos = old_pos - delta;
-
-            insert_particle(new_pos, particle_type[tag], spacing[tag],
-                            normal[tag], adaptive_level[tag], volume[tag], true,
-                            attached_rigid_body_index[tag], p_coord[tag],
-                            p_spacing[tag]);
+              insert = true;
+            } else {
+              insert_particle(new_coord, particle_type[tag], spacing[tag],
+                              new_norm, adaptive_level[tag], volume[tag], true,
+                              attached_rigid_body_index[tag],
+                              vec3(refined_particle_idx[i], 0.0, 0.0),
+                              new_spacing);
+            }
           }
         }
 
@@ -3341,10 +3276,17 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
       break;
 
     case 2:
-      // square in 2d, cubic in 3d
+      // rounded square in 2d, cubic in 3d
       {
         if (dim == 2) {
-          double half_side_length = rigid_body_size;
+          const double half_side_length = rigid_body_size;
+          const double rounded_ratio = 0.2;
+          const double ratio = 1.0 - rounded_ratio;
+          const double r = rounded_ratio * half_side_length;
+
+          double start_point = -ratio * half_side_length;
+          double end_point = ratio * half_side_length;
+
           double theta = rigid_body_ori[0];
 
           vec3 abs_dis = _pos - rigid_body_pos;
@@ -3355,21 +3297,51 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           if (_attached_rigid_body_index >= 0) {
             // this is a particle on the rigid body surface
           } else {
-            if (abs(dis[0]) < half_side_length - 1.5 * _spacing &&
-                abs(dis[1]) < half_side_length - 1.5 * _spacing) {
+            // get the distance to the boundary
+            double dist = 0.0;
+            if (dis[0] < end_point && dis[0] > start_point) {
+              if (dis[1] > 0) {
+                dist = dis[1] - half_side_length;
+              } else {
+                dist = -half_side_length - dis[1];
+              }
+            } else if (dis[1] < end_point && dis[1] > start_point) {
+              if (dis[0] > 0) {
+                dist = dis[0] - half_side_length;
+              } else {
+                dist = -half_side_length - dis[0];
+              }
+            } else {
+              //
+              vec3 new_center = vec3(0.0, 0.0, 0.0);
+              if (dis[1] > 0) {
+                new_center[1] = end_point;
+              } else {
+                new_center[1] = start_point;
+              }
+
+              if (dis[0] > 0) {
+                new_center[0] = end_point;
+              } else {
+                new_center[0] = start_point;
+              }
+              vec3 circled_dis = dis - new_center;
+              dist = circled_dis.mag() - r;
+            }
+
+            if (dist < -1.5 * _spacing) {
               return -1;
             }
-            if (abs(dis[0]) < half_side_length + 0.5 * _spacing &&
-                abs(dis[1]) < half_side_length + 0.5 * _spacing) {
+            if (dist < 0.5 * _spacing) {
               return idx;
             }
-            if (abs(dis[0]) < half_side_length + 1.5 * _spacing &&
-                abs(dis[1]) < half_side_length + 1.5 * _spacing) {
+
+            if (dist < 1.5 * _spacing) {
               for (int i = 0; i < rigid_body_surface_particle_coord.size();
                    i++) {
                 vec3 rci = _pos - rigid_body_surface_particle_coord[i];
                 if (rci.mag() <
-                    0.51 *
+                    0.5 *
                         max(_spacing, rigid_body_surface_particle_spacing[i])) {
                   return idx;
                 }
@@ -3499,7 +3471,7 @@ void particle_geometry::index_work_particle() {
 
   auto &index = *current_local_work_particle_index;
   for (int i = 0; i < local_particle_num; i++) {
-    local_idx[i] = i;
+    // local_idx[i] = i;
     index[i] = local_idx[i] + particle_offset[rank];
   }
 
