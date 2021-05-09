@@ -724,33 +724,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     }
   }
 
-  // // split colloid rigid body dof to each process
-  // int avg_rigid_body_num = num_rigid_body / mpi_size;
-  // int rigid_body_idx_low = 0;
-  // int rigid_body_idx_high = 0;
-  // int rigid_body_offset =
-  //     idx_colloid_offset[mpi_size] - num_rigid_body * rigid_body_dof;
-  // for (int i = 0; i < mpi_rank; i++) {
-  //   if (i < num_rigid_body % mpi_size) {
-  //     rigid_body_idx_low += avg_rigid_body_num + 1;
-  //   } else {
-  //     rigid_body_idx_low += avg_rigid_body_num;
-  //   }
-  // }
-  // if (mpi_rank < num_rigid_body % mpi_size) {
-  //   rigid_body_idx_high = rigid_body_idx_low + avg_rigid_body_num + 1;
-  // } else {
-  //   rigid_body_idx_high = rigid_body_idx_low + avg_rigid_body_num;
-  // }
-
-  // for (int i = rigid_body_idx_low; i < rigid_body_idx_high; i++) {
-  //   for (int j = 0; j < rigid_body_dof; j++) {
-  //     idx_colloid_sub_colloid.push_back(rigid_body_offset + i *
-  //     rigid_body_dof +
-  //                                       j);
-  //   }
-  // }
-
   IS isg_colloid_sub_field, isg_colloid_sub_colloid;
 
   petsc_vector _rhs, _x;
@@ -884,7 +857,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
                KSPGMRES);
     KSPSetTolerances(colloid_relaxation_list[refinement_step]->get_reference(),
-                     1e-3, 1e-50, 1e10, 1);
+                     1e-3, 1e-50, 1e10, 5);
     KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
                     nn, nn);
 

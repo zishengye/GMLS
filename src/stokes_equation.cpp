@@ -1652,6 +1652,7 @@ void stokes_equation::solve_step() {
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
+  // if (current_refinement_level < 4)
   multi_mgr->solve(rhs, res, idx_colloid);
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();

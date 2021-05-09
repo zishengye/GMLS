@@ -3464,7 +3464,7 @@ void particle_geometry::index_work_particle() {
 
   auto &index = *current_local_work_particle_index;
   for (int i = 0; i < local_particle_num; i++) {
-    local_idx[i] = i;
+    // local_idx[i] = i;
     index[i] = local_idx[i] + particle_offset[rank];
   }
 
