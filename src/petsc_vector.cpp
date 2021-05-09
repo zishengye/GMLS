@@ -3,8 +3,14 @@
 using namespace std;
 
 void petsc_vector::create(vector<double> &_vec) {
-  VecCreateMPIWithArray(MPI_COMM_WORLD, 1, _vec.size(), PETSC_DECIDE,
-                        _vec.data(), &vec);
+  VecCreateMPI(MPI_COMM_WORLD, _vec.size(), PETSC_DECIDE, &vec);
+
+  PetscScalar *a;
+  VecGetArray(vec, &a);
+  for (int i = 0; i < _vec.size(); i++) {
+    a[i] = _vec[i];
+  }
+  VecRestoreArray(vec, &a);
 }
 
 void petsc_vector::create(petsc_vector &_vec) {
