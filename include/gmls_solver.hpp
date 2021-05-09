@@ -108,7 +108,7 @@ private:
   }
 
   void write_time_step_data();
-  void write_refinement_data();
+  void write_refinement_data(std::vector<int> &split_tag);
   void write_refinement_data_geometry_only();
 
   // geometry manager

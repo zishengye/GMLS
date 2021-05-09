@@ -144,6 +144,9 @@ bool gmls_solver::refinement() {
     split_tag[chopper[i].first] = 1;
   }
 
+  if (write_data)
+    write_refinement_data(split_tag);
+
   // prevent over splitting
   vector<int> candidate_split_tag, ghost_split_tag;
 
@@ -293,9 +296,6 @@ bool gmls_solver::refinement() {
   //     }
   //   }
   // }
-
-  if (write_data)
-    write_refinement_data();
 
   // for (int i = 0; i < local_particle_num; i++) {
   //   split_tag[i] = 0;

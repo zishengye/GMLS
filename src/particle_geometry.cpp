@@ -604,8 +604,8 @@ void particle_geometry::generate_uniform_particle() {
         }
       }
 
-      coarse_level_refine(split_tag, origin_split_tag);
-      // adaptive_refine(split_tag);
+      // coarse_level_refine(split_tag, origin_split_tag);
+      adaptive_refine(split_tag);
     } else {
       pass_check = true;
     }
@@ -2570,13 +2570,19 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
   gap_split_tag.resize(num_target_coord);
   for (int i = 0; i < num_target_coord; i++) {
     gap_split_tag[i] = 1;
+    double dist = bounding_box_size[0];
+    int idx = 0;
     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-      // find the nearest particle
+      // find the nearest boundary particle
       int neighbor_index = neighbor_list_host(i, j + 1);
-      if (gap_adaptive_level[i] >= adaptive_level[neighbor_index]) {
-        gap_split_tag[i] = 0;
+      vec3 dX = coord[neighbor_index] - gap_coord[i];
+      if (dX.mag() < dist) {
+        dist = dX.mag();
+        idx = neighbor_index;
       }
     }
+    if (gap_adaptive_level[i] >= adaptive_level[idx])
+      gap_split_tag[i] = 0;
   }
 
   split_field_particle(field_particle_split_tag);
@@ -2617,6 +2623,9 @@ void particle_geometry::coarse_level_refine(vector<int> &split_tag,
       }
     }
   }
+
+  split_rigid_body_surface_particle(surface_particle_split_tag);
+  collect_rigid_body_surface_particle();
 
   auto &coord = rigid_body_surface_particle_coord;
   auto &spacing = rigid_body_surface_particle_spacing;
@@ -2668,7 +2677,7 @@ void particle_geometry::coarse_level_refine(vector<int> &split_tag,
       Kokkos::create_mirror_view(temp_neighbor_list_device);
 
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host[i] = 2.5 * gap_spacing[i];
+    epsilon_host[i] = 1.0 * gap_spacing[i];
   }
 
   size_t max_num_neighbor =
@@ -2688,18 +2697,15 @@ void particle_geometry::coarse_level_refine(vector<int> &split_tag,
   vector<int> gap_split_tag;
   gap_split_tag.resize(num_target_coord);
   for (int i = 0; i < num_target_coord; i++) {
-    gap_split_tag[i] = 0;
+    gap_split_tag[i] = 1;
     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
       // find the nearest particle
       int neighbor_index = neighbor_list_host(i, j + 1);
-      if (rigid_body_surface_particle_split_tag[neighbor_index] == 1) {
-        gap_split_tag[i] = 1;
+      if (gap_adaptive_level[i] >= adaptive_level[neighbor_index]) {
+        gap_split_tag[i] = 0;
       }
     }
   }
-
-  split_rigid_body_surface_particle(surface_particle_split_tag);
-  collect_rigid_body_surface_particle();
 
   split_field_particle(field_particle_split_tag);
   split_gap_particle(gap_split_tag);
