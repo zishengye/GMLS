@@ -2176,7 +2176,7 @@ void stokes_equation::calculate_error() {
       for (int i = 0; i < number_of_batches; i++) {
         GMLS temp_velocity_basis =
             GMLS(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
-                 poly_order, dim, "SVD", "STANDARD");
+                 poly_order, dim, "LU", "STANDARD");
 
         int batch_size = local_particle_num / number_of_batches +
                          (i < (local_particle_num % number_of_batches));
