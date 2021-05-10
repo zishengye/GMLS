@@ -855,9 +855,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
               colloid_relaxation_list[refinement_step]->get_pointer());
 
     KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
-               KSPGMRES);
+               KSPRICHARDSON);
     KSPSetTolerances(colloid_relaxation_list[refinement_step]->get_reference(),
-                     1e-3, 1e-50, 1e10, 5);
+                     1e-3, 1e-50, 1e10, 1);
     KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
                     nn, nn);
 
@@ -944,7 +944,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
   int counter = 0;
-  while (residual_norm / rhs_norm > 1e-2 && counter < 2) {
+  while (residual_norm / rhs_norm > 1e-4 && counter < 2) {
     KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
     KSPConvergedReason convergence_reason;
@@ -971,7 +971,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "Current memory usage %.2f GB\n", mem / 1e9);
 
-  if (residual_norm / rhs_norm < 1e-3) {
+  if (residual_norm / rhs_norm < 1e-4) {
     _x.copy(x);
   }
 
