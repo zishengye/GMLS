@@ -2184,6 +2184,26 @@ void particle_geometry::generate_rigid_body_surface_particle() {
   auto &rigid_body_type = rb_mgr->get_rigid_body_type();
 
   if (dim == 3) {
+    // Actually, each core could just manage some of the surface particles, no
+    // matter where they are.
+    // Therefore, the management would be distributed among cores.
+
+    int num_rigid_body = rigid_body_coord.size();
+    int start_idx, end_idx;
+    int average_num = num_rigid_body / size;
+    start_idx = 0;
+    for (int i = 0; i < rank; i++) {
+      if (i < num_rigid_body % size)
+        start_idx += (average_num + 1);
+      else
+        start_idx += average_num;
+    }
+    if (rank < num_rigid_body % size)
+      end_idx = start_idx + (average_num + 1);
+    else
+      end_idx = start_idx + average_num;
+    end_idx = min(end_idx, num_rigid_body);
+
     double h = uniform_spacing;
     double vol = pow(h, 3);
     double a = pow(h, 2);
@@ -2193,24 +2213,82 @@ void particle_geometry::generate_rigid_body_surface_particle() {
     shared_ptr<vector<vec3>> coord_ptr;
     shared_ptr<vector<vec3>> normal_ptr;
     shared_ptr<vector<vec3>> spacing_ptr;
+    shared_ptr<vector<triple<int>>> element_ptr;
 
-    for (size_t n = 0; n < rigid_body_coord.size(); n++) {
+    surface_element.clear();
+    surface_element_adaptive_level.clear();
+
+    for (size_t n = start_idx; n < end_idx; n++) {
+      double theta = rigid_body_orientation[n][0];
+      double phi = rigid_body_orientation[n][1];
+
       hierarchy->get_coarse_level_coordinate(n, coord_ptr);
       hierarchy->get_coarse_level_normal(n, normal_ptr);
       hierarchy->get_coarse_level_spacing(n, spacing_ptr);
+      hierarchy->get_coarse_level_element(n, element_ptr);
+
+      surface_element.push_back(vector<triple<int>>());
+      surface_element_adaptive_level.push_back(vector<int>());
+      vector<int> idx_map;
+
+      vector<triple<int>> &current_element =
+          surface_element[surface_element.size() - 1];
+      vector<int> &current_element_adaptive_level =
+          surface_element_adaptive_level[surface_element_adaptive_level.size() -
+                                         1];
 
       int num_surface_particle = coord_ptr->size();
       for (int i = 0; i < num_surface_particle; i++) {
-        vec3 pos = (*coord_ptr)[i] + rigid_body_coord[n];
-        if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-            pos[1] >= domain[0][1] && pos[1] < domain[1][1] &&
-            pos[2] >= domain[0][2] && pos[2] < domain[1][2]) {
-          vec3 normal = (*normal_ptr)[i];
-          vec3 p_spacing = (*spacing_ptr)[i];
-          vec3 p_coord = vec3(i, 0, 0);
+        vec3 unrotated_pos = (*coord_ptr)[i];
+        vec3 unrotated_norm = (*normal_ptr)[i];
+        vec3 pos = unrotated_pos + rigid_body_coord[n];
+        vec3 normal = unrotated_norm;
+        vec3 p_spacing = vec3(0.0, 1.0, 0.0);
+        vec3 p_coord = vec3(i, 0, 0);
 
-          insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
-                          p_coord, p_spacing);
+        insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
+                        p_coord, p_spacing);
+
+        int idx = current_local_managing_particle_coord->size() - 1;
+        idx_map.push_back(idx);
+      }
+
+      for (int i = 0; i < element_ptr->size(); i++) {
+        current_element.push_back((*element_ptr)[i]);
+        current_element_adaptive_level.push_back(0);
+      }
+
+      // change the index from single surface to the local index
+      for (int i = 0; i < current_element.size(); i++) {
+        for (int j = 0; j < 3; j++) {
+          current_element[i][j] = idx_map[current_element[i][j]];
+        }
+      }
+
+      vector<vec3> &coord = (*current_local_managing_particle_coord);
+      vector<vec3> &p_spacing = (*current_local_managing_particle_p_spacing);
+      double area = 0.0;
+      // assign area weights
+      for (int i = 0; i < current_element.size(); i++) {
+        vec3 p0 = coord[current_element[i][0]];
+        vec3 p1 = coord[current_element[i][1]];
+        vec3 p2 = coord[current_element[i][2]];
+
+        vec3 dX1 = p0 - p1;
+        vec3 dX2 = p1 - p2;
+        vec3 dX3 = p2 - p0;
+
+        double a = dX1.mag();
+        double b = dX2.mag();
+        double c = dX3.mag();
+
+        double s = 0.5 * (a + b + c);
+
+        double A = sqrt(s * (s - a) * (s - b) * (s - c));
+        area += A;
+
+        for (int j = 0; j < 3; j++) {
+          p_spacing[current_element[i][j]][0] += A / 3.0;
         }
       }
     }
@@ -2983,42 +3061,221 @@ void particle_geometry::split_rigid_body_surface_particle(
   auto &rigid_body_type = rb_mgr->get_rigid_body_type();
 
   if (dim == 3) {
-    vector<int> refined_particle_idx;
-    for (auto tag : split_tag) {
-      bool insert = false;
-      int particle_idx = p_coord[tag][0];
-      hierarchy->find_refined_particle(attached_rigid_body_index[tag],
-                                       adaptive_level[tag], particle_idx,
-                                       refined_particle_idx);
-      int fine_adaptive_level = adaptive_level[tag] + 1;
-      for (int i = 0; i < refined_particle_idx.size(); i++) {
-        vec3 new_pos = hierarchy->get_coordinate(attached_rigid_body_index[tag],
-                                                 fine_adaptive_level,
-                                                 refined_particle_idx[i]) +
-                       rigid_body_coord[attached_rigid_body_index[tag]];
-        vec3 new_normal =
-            hierarchy->get_normal(attached_rigid_body_index[tag],
-                                  fine_adaptive_level, refined_particle_idx[i]);
-        vec3 new_spacing = hierarchy->get_spacing(
-            attached_rigid_body_index[tag], fine_adaptive_level,
-            refined_particle_idx[i]);
+    sort(split_tag.begin(), split_tag.end());
 
-        if (!insert) {
-          coord[tag] = new_pos;
-          volume[tag] /= 8.0;
-          normal[tag] = new_normal;
-          spacing[tag] /= 2.0;
-          p_coord[tag] = vec3(refined_particle_idx[i], 0.0, 0.0);
-          p_spacing[tag] = new_spacing;
-          adaptive_level[tag]++;
-          new_added[tag] = -1;
+    int num_rigid_body = rigid_body_coord.size();
+    int start_idx, end_idx;
+    int average_num = num_rigid_body / size;
+    start_idx = 0;
+    for (int i = 0; i < rank; i++) {
+      if (i < num_rigid_body % size)
+        start_idx += (average_num + 1);
+      else
+        start_idx += average_num;
+    }
+    if (rank < num_rigid_body % size)
+      end_idx = start_idx + (average_num + 1);
+    else
+      end_idx = start_idx + average_num;
+    end_idx = min(end_idx, num_rigid_body);
 
-          insert = true;
-        } else {
-          insert_particle(new_pos, particle_type[tag], spacing[tag], new_normal,
-                          adaptive_level[tag], volume[tag], true,
-                          attached_rigid_body_index[tag],
-                          vec3(refined_particle_idx[i], 0.0, 0.0), new_spacing);
+    for (size_t n = start_idx; n < end_idx; n++) {
+      vector<int> element_split_tag;
+      vector<triple<int>> &current_element = surface_element[n - start_idx];
+      vector<int> &current_element_adaptive_level =
+          surface_element_adaptive_level[n - start_idx];
+      element_split_tag.resize(current_element.size());
+
+      for (int i = 0; i < element_split_tag.size(); i++) {
+        element_split_tag[i] = 0;
+      }
+
+      for (int i = 0; i < current_element.size(); i++) {
+        for (int j = 0; j < 3; j++) {
+          auto it = lower_bound(split_tag.begin(), split_tag.end(),
+                                current_element[i][j]);
+
+          if (it != split_tag.end() && *it == current_element[i][j]) {
+            if (adaptive_level[*it] == current_element_adaptive_level[i]) {
+              element_split_tag[i] = 1;
+              break;
+            }
+          }
+        }
+      }
+
+      // increase the adaptive level of particles
+      for (auto tag : split_tag) {
+        volume[tag] /= 8.0;
+        spacing[tag] /= 2.0;
+        adaptive_level[tag]++;
+      }
+
+      // build edge info
+      vector<vector<int>> edge;
+      edge.resize(coord.size());
+      for (int i = 0; i < current_element.size(); i++) {
+        int idx0 = current_element[i][0];
+        int idx1 = current_element[i][1];
+        int idx2 = current_element[i][2];
+
+        edge[min(idx0, idx1)].push_back(max(idx0, idx1));
+        edge[min(idx1, idx2)].push_back(max(idx1, idx2));
+        edge[min(idx2, idx0)].push_back(max(idx2, idx0));
+      }
+      for (int i = 0; i < edge.size(); i++) {
+        sort(edge[i].begin(), edge[i].end());
+        edge[i].erase(unique(edge[i].begin(), edge[i].end()), edge[i].end());
+      }
+
+      int num_edge;
+      vector<int> edge_offset;
+      edge_offset.resize(edge.size() + 1);
+      edge_offset[0] = 0;
+      for (int i = 0; i < edge.size(); i++) {
+        edge_offset[i + 1] = edge_offset[i] + edge[i].size();
+      }
+      num_edge = edge_offset[edge.size()];
+
+      vector<int> mid_point_idx;
+      mid_point_idx.resize(num_edge);
+
+      vector<int> edge_adaptive_level;
+      edge_adaptive_level.resize(num_edge);
+      for (int i = 0; i < edge.size(); i++) {
+        for (int j = 0; j < edge[i].size(); j++) {
+          edge_adaptive_level[edge_offset[i] + j] =
+              max(adaptive_level[i], adaptive_level[edge[i][j]]);
+        }
+      }
+
+      // mark edge to split
+      vector<int> edge_split_tag;
+      edge_split_tag.resize(num_edge);
+      for (int i = 0; i < edge_split_tag.size(); i++) {
+        edge_split_tag[i] = 0;
+      }
+      for (int i = 0; i < element_split_tag.size(); i++) {
+        if (element_split_tag[i] == 1) {
+          int idx0 = current_element[i][0];
+          int idx1 = current_element[i][1];
+          int idx2 = current_element[i][2];
+
+          size_t edge1 =
+              lower_bound(edge[min(idx0, idx1)].begin(),
+                          edge[min(idx0, idx1)].end(), max(idx0, idx1)) -
+              edge[min(idx0, idx1)].begin();
+          size_t edge2 =
+              lower_bound(edge[min(idx1, idx2)].begin(),
+                          edge[min(idx1, idx2)].end(), max(idx1, idx2)) -
+              edge[min(idx1, idx2)].begin();
+          size_t edge3 =
+              lower_bound(edge[min(idx2, idx0)].begin(),
+                          edge[min(idx2, idx0)].end(), max(idx2, idx0)) -
+              edge[min(idx2, idx0)].begin();
+
+          edge_split_tag[edge_offset[min(idx0, idx1)] + edge1] = 1;
+          edge_split_tag[edge_offset[min(idx1, idx2)] + edge2] = 1;
+          edge_split_tag[edge_offset[min(idx2, idx0)] + edge3] = 1;
+        }
+      }
+
+      // split edge
+      for (int i = 0; i < edge.size(); i++) {
+        for (int j = 0; j < edge[i].size(); j++) {
+          if (edge_split_tag[edge_offset[i] + j] == 1) {
+            vec3 p0 = coord[i] - rigid_body_coord[n];
+            vec3 p1 = coord[edge[i][j]] - rigid_body_coord[n];
+
+            int adaptive_level = edge_adaptive_level[edge_offset[i] + j];
+            double spacing = pow(0.5, adaptive_level) * uniform_spacing;
+            double vol = pow(spacing, dim);
+
+            vec3 p2 = (p0 + p1) * 0.5;
+            vec3 n2;
+
+            int idx2 = coord.size();
+            mid_point_idx[edge_offset[i] + j] = idx2;
+
+            hierarchy->move_to_boundary(n, p2);
+            hierarchy->get_normal(n, p2, n2);
+
+            p2 = p2 + rigid_body_coord[n];
+
+            vec3 p_spacing = vec3(0.0, 1.0, 0.0);
+            vec3 p_coord = vec3(idx2, 0, 0);
+
+            insert_particle(p2, 5, spacing, n2, adaptive_level, vol, true, n,
+                            p_coord, p_spacing);
+          }
+        }
+      }
+
+      // create new element
+      for (int i = 0; i < element_split_tag.size(); i++) {
+        if (element_split_tag[i] == 1) {
+          current_element_adaptive_level[i]++;
+
+          int idx0 = current_element[i][0];
+          int idx1 = current_element[i][1];
+          int idx2 = current_element[i][2];
+
+          size_t edge1 =
+              lower_bound(edge[min(idx0, idx1)].begin(),
+                          edge[min(idx0, idx1)].end(), max(idx0, idx1)) -
+              edge[min(idx0, idx1)].begin();
+          size_t edge2 =
+              lower_bound(edge[min(idx1, idx2)].begin(),
+                          edge[min(idx1, idx2)].end(), max(idx1, idx2)) -
+              edge[min(idx1, idx2)].begin();
+          size_t edge3 =
+              lower_bound(edge[min(idx2, idx0)].begin(),
+                          edge[min(idx2, idx0)].end(), max(idx2, idx0)) -
+              edge[min(idx2, idx0)].begin();
+
+          int idx3 = mid_point_idx[edge_offset[min(idx0, idx1)] + edge1];
+          int idx4 = mid_point_idx[edge_offset[min(idx1, idx2)] + edge2];
+          int idx5 = mid_point_idx[edge_offset[min(idx2, idx0)] + edge3];
+
+          // rebuild elements
+          current_element[i] = triple<int>(idx0, idx3, idx5);
+          current_element.push_back(triple<int>(idx1, idx3, idx4));
+          current_element.push_back(triple<int>(idx3, idx4, idx5));
+          current_element.push_back(triple<int>(idx4, idx5, idx2));
+
+          int adaptive_level = current_element_adaptive_level[i];
+
+          current_element_adaptive_level.push_back(adaptive_level);
+          current_element_adaptive_level.push_back(adaptive_level);
+          current_element_adaptive_level.push_back(adaptive_level);
+        }
+      }
+
+      // assign area weights
+      for (int i = 0; i < current_element.size(); i++) {
+        for (int j = 0; j < 3; j++) {
+          p_spacing[current_element[i][j]][0] = 0.0;
+        }
+      }
+      for (int i = 0; i < current_element.size(); i++) {
+        vec3 p0 = coord[current_element[i][0]];
+        vec3 p1 = coord[current_element[i][1]];
+        vec3 p2 = coord[current_element[i][2]];
+
+        vec3 dX1 = p0 - p1;
+        vec3 dX2 = p1 - p2;
+        vec3 dX3 = p2 - p0;
+
+        double a = dX1.mag();
+        double b = dX2.mag();
+        double c = dX3.mag();
+
+        double s = 0.5 * (a + b + c);
+
+        double A = sqrt(s * (s - a) * (s - b) * (s - c));
+
+        for (int j = 0; j < 3; j++) {
+          p_spacing[current_element[i][j]][0] += A / 3.0;
         }
       }
     }

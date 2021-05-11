@@ -216,7 +216,7 @@ void stokes_equation::build_coefficient_matrix() {
       max(Compadre::GMLS::getNP(poly_order, dim,
                                 DivergenceFreeVectorTaylorPolynomial),
           Compadre::GMLS::getNP(poly_order + 1, dim));
-  int satisfied_num_neighbor = dim * min_num_neighbor;
+  int satisfied_num_neighbor = 2.0 * min_num_neighbor;
 
   int estimated_max_num_neighbor =
       pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);

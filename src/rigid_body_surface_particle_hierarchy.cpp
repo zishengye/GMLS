@@ -43,23 +43,22 @@ void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,
   hierarchy_coord.push_back(vector<vec3>());
   hierarchy_normal.push_back(vector<vec3>());
   hierarchy_spacing.push_back(vector<vec3>());
+  hierarchy_element.push_back(vector<triple<int>>());
 
   vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
   vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
   vector<vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
+  vector<triple<int>> &element =
+      hierarchy_element[hierarchy_element.size() - 1];
 
   ifstream input("shape/sphere.txt", ios::in);
   if (!input.is_open()) {
-    PetscPrintf(PETSC_COMM_WORLD, "rigid body input file does not exist\n");
+    PetscPrintf(PETSC_COMM_WORLD, "surface point input file does not exist\n");
     return;
   }
 
   while (!input.eof()) {
     vec3 xyz;
-    double size;
-    int type;
-    input >> type;
-    input >> size;
     for (int i = 0; i < 3; i++) {
       input >> xyz[i];
     }
@@ -71,6 +70,26 @@ void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,
   }
 
   input.close();
+
+  input.open("shape/sphere_element.txt", ios::in);
+
+  if (!input.is_open()) {
+    PetscPrintf(PETSC_COMM_WORLD,
+                "surface element input file does not exist\n");
+    return;
+  }
+
+  while (!input.eof()) {
+    triple<int> idx;
+    for (int i = 0; i < 3; i++) {
+      input >> idx[i];
+      idx[i]--;
+    }
+
+    element.push_back(idx);
+  }
+
+  input.close();
 }
 
 void rigid_body_surface_particle_hierarchy::add_rounded_square(
@@ -78,6 +97,7 @@ void rigid_body_surface_particle_hierarchy::add_rounded_square(
   hierarchy_coord.push_back(vector<vec3>());
   hierarchy_normal.push_back(vector<vec3>());
   hierarchy_spacing.push_back(vector<vec3>());
+  hierarchy_element.push_back(vector<triple<int>>());
 
   vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
   vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
@@ -368,8 +388,27 @@ void rigid_body_surface_particle_hierarchy::get_coarse_level_spacing(
       hierarchy_spacing[find_rigid_body(rigid_body_index, 0)]);
 }
 
+void rigid_body_surface_particle_hierarchy::get_coarse_level_element(
+    const int rigid_body_index, shared_ptr<vector<triple<int>>> &element_ptr) {
+  element_ptr = make_shared<vector<triple<int>>>(
+      hierarchy_element[find_rigid_body(rigid_body_index, 0)]);
+}
+
 void rigid_body_surface_particle_hierarchy::write_log() {
   for (int i = 0; i < rb_idx.size(); i++) {
     cout << rb_idx[i] << endl;
   }
+}
+
+void rigid_body_surface_particle_hierarchy::move_to_boundary(
+    int rigid_body_index, vec3 &pos) {
+  double mag = pos.mag();
+  double r = rigid_body_size_list[rb_idx[rigid_body_index]];
+  pos = pos * (r / mag);
+}
+
+void rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
+                                                       vec3 pos, vec3 &norm) {
+  double mag = pos.mag();
+  norm = pos * (1.0 / mag);
 }

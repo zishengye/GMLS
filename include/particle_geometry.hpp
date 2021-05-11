@@ -151,6 +151,10 @@ private:
   std::vector<int> ghost_llcl_map;
   std::vector<int> reserve_llcl_map;
 
+  // surface element
+  std::vector<std::vector<triple<int>>> surface_element;
+  std::vector<std::vector<int>> surface_element_adaptive_level;
+
   // mpi
   int rank, size;
 
