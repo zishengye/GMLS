@@ -5,6 +5,7 @@
 #include <vector>
 
 #include <Compadre_PointCloudSearch.hpp>
+#include <petscksp.h>
 
 #include "geometry.hpp"
 #include "rigid_body_manager.hpp"

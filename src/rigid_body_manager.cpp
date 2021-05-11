@@ -44,6 +44,8 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
     type 3: equilateral triangle in 2d, tetrahedron in 3d
      */
   }
+
+  input.close();
 }
 
 bool rigid_body_manager::rigid_body_collision_detection() {

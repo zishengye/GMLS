@@ -1468,35 +1468,36 @@ void stokes_equation::build_rhs() {
       }
 
       // 3-d Taylor-Green vortex-like flow
-      if (dim == 3) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
+      // if (dim == 3) {
+      //   double x = coord[i][0];
+      //   double y = coord[i][1];
+      //   double z = coord[i][2];
 
-        rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-        rhs[field_dof * i + 1] =
-            -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-        rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+      //   rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+      //   rhs[field_dof * i + 1] =
+      //       -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+      //   rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
+      //   z);
 
-        const int neumann_index = neumann_map[i];
-        const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumann_index,
-            neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
+      //   const int neumann_index = neumann_map[i];
+      //   const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
+      //       LaplacianOfScalarPointEvaluation, neumann_index,
+      //       neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
 
-        rhs[field_dof * i + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) *
-                (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
-                 cos(2.0 * M_PI * z)) +
-            bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y) * sin(M_PI * z) -
-                  normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y) * sin(M_PI * z) +
-                  normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      sin(M_PI * y) * cos(M_PI * z)) +
-            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
-                  normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
-      }
+      //   rhs[field_dof * i + velocity_dof] =
+      //       -4.0 * pow(M_PI, 2.0) *
+      //           (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
+      //            cos(2.0 * M_PI * z)) +
+      //       bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+      //                 sin(M_PI * y) * sin(M_PI * z) -
+      //             normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+      //                 cos(M_PI * y) * sin(M_PI * z) +
+      //             normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+      //                 sin(M_PI * y) * cos(M_PI * z)) +
+      //       bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+      //             normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
+      //             normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
+      // }
     } else if (particle_type[i] == 0) {
       if (dim == 2) {
         double x = coord[i][0];
@@ -1513,25 +1514,26 @@ void stokes_equation::build_rhs() {
             -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
       }
 
-      if (dim == 3) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
+      // if (dim == 3) {
+      //   double x = coord[i][0];
+      //   double y = coord[i][1];
+      //   double z = coord[i][2];
 
-        rhs[field_dof * i] =
-            3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z) +
-            2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
-                                     cos(M_PI * y) * sin(M_PI * z) +
-                                 2.0 * M_PI * sin(2.0 * M_PI * y);
-        rhs[field_dof * i + 2] =
-            3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
-            2.0 * M_PI * sin(2.0 * M_PI * z);
+      //   rhs[field_dof * i] =
+      //       3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI *
+      //       z) + 2.0 * M_PI * sin(2.0 * M_PI * x);
+      //   rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
+      //                                cos(M_PI * y) * sin(M_PI * z) +
+      //                            2.0 * M_PI * sin(2.0 * M_PI * y);
+      //   rhs[field_dof * i + 2] =
+      //       3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
+      //       z) + 2.0 * M_PI * sin(2.0 * M_PI * z);
 
-        rhs[field_dof * i + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) *
-            (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
-      }
+      //   rhs[field_dof * i + velocity_dof] =
+      //       -4.0 * pow(M_PI, 2.0) *
+      //       (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI *
+      //       z));
+      // }
     }
   }
   // if (rank == size - 1) {
