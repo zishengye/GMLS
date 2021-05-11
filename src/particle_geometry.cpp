@@ -314,7 +314,7 @@ void particle_geometry::init_rigid_body(shared_ptr<rigid_body_manager> mgr) {
   hierarchy->init(rb_mgr, dim);
 }
 
-void particle_geometry::generate_uniform_particle() {
+bool particle_geometry::generate_uniform_particle() {
   // prepare data storage
   current_local_managing_particle_coord = make_shared<vector<vec3>>();
   current_local_managing_particle_normal = make_shared<vector<vec3>>();
@@ -349,6 +349,7 @@ void particle_geometry::generate_uniform_particle() {
 
   // check if enough fluid particles has been inserted in any gap
   bool pass_check = false;
+  int trial_num = 0;
 
   while (!pass_check) {
     index_particle();
@@ -606,10 +607,17 @@ void particle_geometry::generate_uniform_particle() {
 
       // coarse_level_refine(split_tag, origin_split_tag);
       adaptive_refine(split_tag);
+      trial_num++;
+
+      if (trial_num > 15) {
+        return false;
+      }
     } else {
       pass_check = true;
     }
   }
+
+  return true;
 }
 
 void particle_geometry::clear_particle() {}

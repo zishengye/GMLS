@@ -870,7 +870,7 @@ void stokes_equation::build_coefficient_matrix() {
     }
 
     if (current_refinement_level == 0) {
-      A.increment(pressure_local_index, pressure_global_index, 1e-3);
+      A.increment(pressure_local_index, pressure_global_index, 1e-1);
     }
 
     // end of pressure block

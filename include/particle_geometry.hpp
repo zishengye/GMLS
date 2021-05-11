@@ -173,7 +173,7 @@ public:
             std::string geometry_input_file_name = "");
   void init_rigid_body(std::shared_ptr<rigid_body_manager> mgr);
 
-  void generate_uniform_particle();
+  bool generate_uniform_particle();
 
   void clear_particle();
 
