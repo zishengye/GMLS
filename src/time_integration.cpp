@@ -140,7 +140,10 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
   PetscPrintf(PETSC_COMM_WORLD, "start of refinement step\n");
 
   // get initial value
-  geo_mgr->generate_uniform_particle();
+  if (!geo_mgr->generate_uniform_particle()) {
+    PetscPrintf(PETSC_COMM_WORLD, "\nWrong colloids placement\n");
+    return;
+  }
 
   current_refinement_step = 0;
   equation_mgr->reset();
@@ -353,18 +356,6 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
           break;
         }
 
-        // Check if the colloids contact with each other or move out of the
-        // domain
-        if (rb_mgr->rigid_body_collision_detection()) {
-          // halve the time step and restart the time integration
-          dt = 0.5 * dt;
-          acceptableTrial = false;
-          err = 100;
-          break;
-        } else {
-          acceptableTrial = true;
-        }
-
         if (rank == 0) {
           output_runge_kutta.open("traj_runge_kutta.txt", ios::app);
           output_runge_kutta << t << '\t';
@@ -386,7 +377,17 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
           output_runge_kutta.close();
         }
 
-        geo_mgr->generate_uniform_particle();
+        // Check if the colloids contact with each other or move out of the
+        // domain
+        if (!geo_mgr->generate_uniform_particle()) {
+          // halve the time step and restart the time integration
+          dt = 0.5 * dt;
+          acceptableTrial = false;
+          err = 100;
+          break;
+        } else {
+          acceptableTrial = true;
+        }
 
         PetscPrintf(PETSC_COMM_WORLD, "start of refinement step\n");
 
