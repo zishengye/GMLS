@@ -3104,13 +3104,6 @@ void particle_geometry::split_rigid_body_surface_particle(
         }
       }
 
-      // increase the adaptive level of particles
-      for (auto tag : split_tag) {
-        volume[tag] /= 8.0;
-        spacing[tag] /= 2.0;
-        adaptive_level[tag]++;
-      }
-
       // build edge info
       vector<vector<int>> edge;
       edge.resize(coord.size());
@@ -3145,7 +3138,7 @@ void particle_geometry::split_rigid_body_surface_particle(
       for (int i = 0; i < edge.size(); i++) {
         for (int j = 0; j < edge[i].size(); j++) {
           edge_adaptive_level[edge_offset[i] + j] =
-              max(adaptive_level[i], adaptive_level[edge[i][j]]);
+              max(adaptive_level[i], adaptive_level[edge[i][j]]) + 1;
         }
       }
 
@@ -3177,7 +3170,72 @@ void particle_geometry::split_rigid_body_surface_particle(
           edge_split_tag[edge_offset[min(idx0, idx1)] + edge1] = 1;
           edge_split_tag[edge_offset[min(idx1, idx2)] + edge2] = 1;
           edge_split_tag[edge_offset[min(idx2, idx0)] + edge3] = 1;
+
+          // check if the midpoint has been inserted or not
+          int idx_check1, idx_check2;
+          vec3 mid_point;
+
+          idx_check1 = min(idx0, idx1);
+          idx_check2 = max(idx0, idx1);
+          mid_point = (coord[idx_check1] + coord[idx_check2]) * 0.5;
+          hierarchy->move_to_boundary(n, mid_point);
+          auto it1 = lower_bound(edge[idx_check1].begin(),
+                                 edge[idx_check1].end(), idx_check2);
+          for (auto it = it1 + 1; it != edge[idx_check1].end(); it++) {
+            auto res = lower_bound(edge[idx_check2].begin(),
+                                   edge[idx_check2].end(), *it);
+            if (res != edge[idx_check2].end() && *res == *it) {
+              vec3 dX = mid_point - coord[*res];
+              if (dX.mag() < 1e-3 * spacing[idx_check1]) {
+                edge_split_tag[edge_offset[idx_check1] + edge1] = 0;
+                mid_point_idx[edge_offset[idx_check1] + edge1] = *res;
+              }
+            }
+          }
+
+          idx_check1 = min(idx1, idx2);
+          idx_check2 = max(idx1, idx2);
+          mid_point = (coord[idx_check1] + coord[idx_check2]) * 0.5;
+          hierarchy->move_to_boundary(n, mid_point);
+          auto it2 = lower_bound(edge[idx_check1].begin(),
+                                 edge[idx_check1].end(), idx_check2);
+          for (auto it = it2 + 1; it != edge[idx_check1].end(); it++) {
+            auto res = lower_bound(edge[idx_check2].begin(),
+                                   edge[idx_check2].end(), *it);
+            if (res != edge[idx_check2].end() && *res == *it) {
+              vec3 dX = mid_point - coord[*res];
+              if (dX.mag() < 1e-3 * spacing[idx_check1]) {
+                edge_split_tag[edge_offset[idx_check1] + edge2] = 0;
+                mid_point_idx[edge_offset[idx_check1] + edge2] = *res;
+              }
+            }
+          }
+
+          idx_check1 = min(idx2, idx0);
+          idx_check2 = max(idx2, idx0);
+          mid_point = (coord[idx_check1] + coord[idx_check2]) * 0.5;
+          hierarchy->move_to_boundary(n, mid_point);
+          auto it3 = lower_bound(edge[idx_check1].begin(),
+                                 edge[idx_check1].end(), idx_check2);
+          for (auto it = it3 + 1; it != edge[idx_check1].end(); it++) {
+            auto res = lower_bound(edge[idx_check2].begin(),
+                                   edge[idx_check2].end(), *it);
+            if (res != edge[idx_check2].end() && *res == *it) {
+              vec3 dX = mid_point - coord[*res];
+              if (dX.mag() < 1e-3 * spacing[idx_check1]) {
+                edge_split_tag[edge_offset[idx_check1] + edge3] = 0;
+                mid_point_idx[edge_offset[idx_check1] + edge3] = *res;
+              }
+            }
+          }
         }
+      }
+
+      // increase the adaptive level of particles
+      for (auto tag : split_tag) {
+        volume[tag] /= 8.0;
+        spacing[tag] /= 2.0;
+        adaptive_level[tag]++;
       }
 
       // split edge
