@@ -792,7 +792,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   Vec diag;
 
-  Mat sub_ff, sub_fc, sub_cf, fc_s;
+  Mat sub_ff, sub_fc, sub_cf, sub_cc, fc_s;
 
   // setup preconditioner for base level
   if (refinement_step == 0) {
@@ -872,6 +872,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
                        MAT_INITIAL_MATRIX, &sub_fc);
     MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_field,
                        MAT_INITIAL_MATRIX, &sub_cf);
+    MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_colloid,
+                       MAT_INITIAL_MATRIX, &sub_cc);
 
     MatCreateVecs(sub_ff, &diag, NULL);
     MatGetDiagonal(sub_ff, diag);
@@ -879,6 +881,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     MatDiagonalScale(sub_fc, diag, NULL);
     MatMatMult(sub_cf, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
     MatScale(fc_s, -1.0);
+    MatAXPY(fc_s, 1.0, sub_cc, DIFFERENT_NONZERO_PATTERN);
 
     PCFieldSplitSetIS(neighbor_relaxation_pc, "0", isg_colloid_sub_field);
     PCFieldSplitSetIS(neighbor_relaxation_pc, "1", isg_colloid_sub_colloid);
@@ -983,6 +986,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     MatDestroy(&sub_ff);
     MatDestroy(&sub_fc);
     MatDestroy(&sub_cf);
+    MatDestroy(&sub_cc);
     MatDestroy(&fc_s);
 
     ISDestroy(&isg_colloid_sub_field);
