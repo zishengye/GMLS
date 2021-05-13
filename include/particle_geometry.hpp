@@ -206,7 +206,7 @@ public:
   void ghost_llcl_forward(real_type source, real_type target);
   void ghost_llcl_forward(vec_type source, vec_type target);
 
-  void refine(std::vector<int> &split_tag);
+  bool refine(std::vector<int> &split_tag);
 
   // get work domain data
   vec_type get_current_work_particle_coord() {
@@ -366,9 +366,10 @@ protected:
   void init_domain_boundary();
 
   void generate_field_particle();
-  void generate_rigid_body_surface_particle();
+  bool generate_rigid_body_surface_particle();
 
   void uniform_refine();
+  bool automatic_refine(std::vector<int> &split_tag);
   void adaptive_refine(std::vector<int> &split_tag);
   void coarse_level_refine(std::vector<int> &split_tag,
                            std::vector<int> &origin_split_tag);
