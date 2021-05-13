@@ -724,6 +724,11 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
         __j.begin() +
             __i[local_rigid_body_offset + num_rigid_body * rigid_body_dof]);
 
+    for (int i = 0; i < neighbor_inclusion.size(); i++) {
+      if (neighbor_inclusion[i] < global_rigid_body_offset)
+        neighbor_inclusion[i] /= field_dof;
+    }
+
     sort(neighbor_inclusion.begin(), neighbor_inclusion.end());
 
     neighbor_inclusion.erase(
