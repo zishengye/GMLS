@@ -792,15 +792,6 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
     }
   }
 
-  // if (myId == MPIsize - 1) {
-  //   for (int i = 0; i < num_rigid_body; i++) {
-  //     for (int j = 0; j < rigid_body_dof; j++) {
-  //       idx_colloid.push_back(global_rigid_body_offset + i * rigid_body_dof +
-  //                             j);
-  //     }
-  //   }
-  // }
-
   // split colloid rigid body dof to each process
   int avg_rigid_body_num = num_rigid_body / MPIsize;
   int rigid_body_idx_low = 0;

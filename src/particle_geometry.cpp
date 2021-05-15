@@ -345,81 +345,95 @@ bool particle_geometry::generate_uniform_particle() {
   collect_rigid_body_surface_particle();
   generate_field_particle();
 
-  index_particle();
+  // check if enough fluid particles has been inserted in any gap
+  bool pass_check = false;
+  int trial_num = 0;
 
-  balance_workload();
+  while (!pass_check) {
+    index_particle();
 
-  current_local_work_particle_coord.reset();
-  current_local_work_particle_normal.reset();
-  current_local_work_particle_p_spacing.reset();
-  current_local_work_particle_spacing.reset();
-  current_local_work_particle_volume.reset();
-  current_local_work_particle_index.reset();
-  current_local_work_particle_local_index.reset();
-  current_local_work_particle_type.reset();
-  current_local_work_particle_adaptive_level.reset();
-  current_local_work_particle_new_added.reset();
-  current_local_work_particle_attached_rigid_body.reset();
-  current_local_work_particle_num_neighbor.reset();
+    balance_workload();
 
-  current_local_work_ghost_particle_coord.reset();
-  current_local_work_ghost_particle_volume.reset();
-  current_local_work_ghost_particle_index.reset();
-  current_local_work_ghost_particle_type.reset();
-  current_local_work_ghost_attached_rigid_body.reset();
+    current_local_work_particle_coord.reset();
+    current_local_work_particle_normal.reset();
+    current_local_work_particle_p_spacing.reset();
+    current_local_work_particle_spacing.reset();
+    current_local_work_particle_volume.reset();
+    current_local_work_particle_index.reset();
+    current_local_work_particle_local_index.reset();
+    current_local_work_particle_type.reset();
+    current_local_work_particle_adaptive_level.reset();
+    current_local_work_particle_new_added.reset();
+    current_local_work_particle_attached_rigid_body.reset();
+    current_local_work_particle_num_neighbor.reset();
 
-  current_local_work_particle_coord = make_shared<vector<vec3>>();
-  current_local_work_particle_normal = make_shared<vector<vec3>>();
-  current_local_work_particle_p_spacing = make_shared<vector<vec3>>();
-  current_local_work_particle_spacing = make_shared<vector<double>>();
-  current_local_work_particle_volume = make_shared<vector<double>>();
-  current_local_work_particle_index = make_shared<vector<int>>();
-  current_local_work_particle_local_index = make_shared<vector<int>>();
-  current_local_work_particle_type = make_shared<vector<int>>();
-  current_local_work_particle_adaptive_level = make_shared<vector<int>>();
-  current_local_work_particle_new_added = make_shared<vector<int>>();
-  current_local_work_particle_attached_rigid_body = make_shared<vector<int>>();
-  current_local_work_particle_num_neighbor = make_shared<vector<int>>();
+    current_local_work_ghost_particle_coord.reset();
+    current_local_work_ghost_particle_volume.reset();
+    current_local_work_ghost_particle_index.reset();
+    current_local_work_ghost_particle_type.reset();
+    current_local_work_ghost_attached_rigid_body.reset();
 
-  current_local_work_ghost_particle_coord = make_shared<vector<vec3>>();
-  current_local_work_ghost_particle_volume = make_shared<vector<double>>();
-  current_local_work_ghost_particle_index = make_shared<vector<int>>();
-  current_local_work_ghost_particle_type = make_shared<vector<int>>();
-  current_local_work_ghost_attached_rigid_body = make_shared<vector<int>>();
+    current_local_work_particle_coord = make_shared<vector<vec3>>();
+    current_local_work_particle_normal = make_shared<vector<vec3>>();
+    current_local_work_particle_p_spacing = make_shared<vector<vec3>>();
+    current_local_work_particle_spacing = make_shared<vector<double>>();
+    current_local_work_particle_volume = make_shared<vector<double>>();
+    current_local_work_particle_index = make_shared<vector<int>>();
+    current_local_work_particle_local_index = make_shared<vector<int>>();
+    current_local_work_particle_type = make_shared<vector<int>>();
+    current_local_work_particle_adaptive_level = make_shared<vector<int>>();
+    current_local_work_particle_new_added = make_shared<vector<int>>();
+    current_local_work_particle_attached_rigid_body =
+        make_shared<vector<int>>();
+    current_local_work_particle_num_neighbor = make_shared<vector<int>>();
 
-  migrate_forward(current_local_managing_particle_coord,
-                  current_local_work_particle_coord);
-  migrate_forward(current_local_managing_particle_normal,
-                  current_local_work_particle_normal);
-  migrate_forward(current_local_managing_particle_p_spacing,
-                  current_local_work_particle_p_spacing);
-  migrate_forward(current_local_managing_particle_spacing,
-                  current_local_work_particle_spacing);
-  migrate_forward(current_local_managing_particle_volume,
-                  current_local_work_particle_volume);
-  migrate_forward(current_local_managing_particle_type,
-                  current_local_work_particle_type);
-  migrate_forward(current_local_managing_particle_adaptive_level,
-                  current_local_work_particle_adaptive_level);
-  migrate_forward(current_local_managing_particle_new_added,
-                  current_local_work_particle_new_added);
-  migrate_forward(current_local_managing_particle_attached_rigid_body,
-                  current_local_work_particle_attached_rigid_body);
+    current_local_work_ghost_particle_coord = make_shared<vector<vec3>>();
+    current_local_work_ghost_particle_volume = make_shared<vector<double>>();
+    current_local_work_ghost_particle_index = make_shared<vector<int>>();
+    current_local_work_ghost_particle_type = make_shared<vector<int>>();
+    current_local_work_ghost_attached_rigid_body = make_shared<vector<int>>();
 
-  index_work_particle();
+    migrate_forward(current_local_managing_particle_coord,
+                    current_local_work_particle_coord);
+    migrate_forward(current_local_managing_particle_normal,
+                    current_local_work_particle_normal);
+    migrate_forward(current_local_managing_particle_p_spacing,
+                    current_local_work_particle_p_spacing);
+    migrate_forward(current_local_managing_particle_spacing,
+                    current_local_work_particle_spacing);
+    migrate_forward(current_local_managing_particle_volume,
+                    current_local_work_particle_volume);
+    migrate_forward(current_local_managing_particle_type,
+                    current_local_work_particle_type);
+    migrate_forward(current_local_managing_particle_adaptive_level,
+                    current_local_work_particle_adaptive_level);
+    migrate_forward(current_local_managing_particle_new_added,
+                    current_local_work_particle_new_added);
+    migrate_forward(current_local_managing_particle_attached_rigid_body,
+                    current_local_work_particle_attached_rigid_body);
 
-  build_ghost();
+    index_work_particle();
 
-  ghost_forward(current_local_work_particle_coord,
-                current_local_work_ghost_particle_coord);
-  ghost_forward(current_local_work_particle_volume,
-                current_local_work_ghost_particle_volume);
-  ghost_forward(current_local_work_particle_index,
-                current_local_work_ghost_particle_index);
-  ghost_forward(current_local_work_particle_type,
-                current_local_work_ghost_particle_type);
-  ghost_forward(current_local_work_particle_attached_rigid_body,
-                current_local_work_ghost_attached_rigid_body);
+    build_ghost();
+
+    ghost_forward(current_local_work_particle_coord,
+                  current_local_work_ghost_particle_coord);
+    ghost_forward(current_local_work_particle_volume,
+                  current_local_work_ghost_particle_volume);
+    ghost_forward(current_local_work_particle_index,
+                  current_local_work_ghost_particle_index);
+    ghost_forward(current_local_work_particle_type,
+                  current_local_work_ghost_particle_type);
+    ghost_forward(current_local_work_particle_attached_rigid_body,
+                  current_local_work_ghost_attached_rigid_body);
+
+    vector<int> split_tag;
+    if (automatic_refine(split_tag)) {
+      adaptive_refine(split_tag);
+    } else {
+      pass_check = true;
+    }
+  }
 
   return true;
 }
@@ -1448,15 +1462,7 @@ bool particle_geometry::refine(vector<int> &split_tag) {
   if (refinement_type == UNIFORM_REFINE) {
     uniform_refine();
   } else if (refinement_type == ADAPTIVE_REFINE) {
-    vector<int> automatic_split_tag;
-    if (automatic_refine(automatic_split_tag)) {
-      PetscPrintf(PETSC_COMM_WORLD, "Automatic refinement\n");
-      adaptive_refine(automatic_split_tag);
-    } else {
-      PetscPrintf(PETSC_COMM_WORLD, "Adaptive refinement\n");
-      adaptive_refine(split_tag);
-      res = true;
-    }
+    adaptive_refine(split_tag);
   }
 
   index_particle();

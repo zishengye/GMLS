@@ -362,6 +362,8 @@ public:
     return min_dis;
   }
 
+  bool automatic_refine(std::vector<int> &split_tag);
+
 protected:
   void init_domain_boundary();
 
@@ -369,7 +371,6 @@ protected:
   bool generate_rigid_body_surface_particle();
 
   void uniform_refine();
-  bool automatic_refine(std::vector<int> &split_tag);
   void adaptive_refine(std::vector<int> &split_tag);
   void coarse_level_refine(std::vector<int> &split_tag,
                            std::vector<int> &origin_split_tag);

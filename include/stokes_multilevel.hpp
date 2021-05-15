@@ -22,6 +22,8 @@ private:
   std::vector<matrix_type> ff_list; // field sub-matrix list
   std::vector<matrix_type> nn_list; // nearfield sub-matrix list
   std::vector<matrix_type> nw_list; // nearfield-whole sub-matrix list
+  std::vector<matrix_type> pp_list; // pressure sub-matrix list
+  std::vector<matrix_type> pw_list; // pressure-whole sub-matrix list
   std::vector<is_type> isg_field_list;
   std::vector<is_type> isg_colloid_list;
   std::vector<is_type> isg_pressure_list;
@@ -46,6 +48,7 @@ private:
   std::vector<vector_type> t_colloid_list;
 
   std::vector<vector_type> x_pressure_list;
+  std::vector<vector_type> y_pressure_list;
 
   std::vector<vecscatter_type> field_scatter_list;
   std::vector<vecscatter_type> colloid_scatter_list;
@@ -56,6 +59,7 @@ private:
   // relaxation list
   std::vector<ksp_type> field_relaxation_list;
   std::vector<ksp_type> colloid_relaxation_list;
+  std::vector<ksp_type> pressure_relaxation_list;
 
   ksp_type ksp_field_base, ksp_colloid_base;
 
@@ -108,12 +112,18 @@ public:
   ksp_type get_colloid_relaxation(int num_level) {
     return colloid_relaxation_list[num_level];
   }
+  ksp_type get_pressure_relaxation(int num_level) {
+    return pressure_relaxation_list[num_level];
+  }
   ksp_type get_field_base() { return ksp_field_base; }
   ksp_type get_colloid_base() { return ksp_colloid_base; }
 
   matrix_type get_field_mat(int num_level) { return ff_list[num_level]; }
   matrix_type get_colloid_whole_mat(int num_level) {
     return nw_list[num_level];
+  }
+  matrix_type get_pressure_whole_mat(int num_level) {
+    return pw_list[num_level];
   }
 
   vector_type get_colloid_x() { return x_colloid; }
@@ -141,6 +151,8 @@ public:
     ff_list.push_back(std::make_shared<petsc_sparse_matrix>());
     nn_list.push_back(std::make_shared<petsc_sparse_matrix>());
     nw_list.push_back(std::make_shared<petsc_sparse_matrix>());
+    pp_list.push_back(std::make_shared<petsc_sparse_matrix>());
+    pw_list.push_back(std::make_shared<petsc_sparse_matrix>());
   }
 
   void clear();
@@ -174,6 +186,7 @@ public:
   std::vector<vector_type> &get_t_colloid_list() { return t_colloid_list; }
 
   std::vector<vector_type> &get_x_pressure_list() { return x_pressure_list; }
+  std::vector<vector_type> &get_y_pressure_list() { return y_pressure_list; }
 
   std::vector<vecscatter_type> &get_field_scatter_list() {
     return field_scatter_list;
