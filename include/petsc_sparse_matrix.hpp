@@ -19,7 +19,7 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
 }
 
 struct fluid_colloid_matrix_context {
-  Mat fluid_part;
+  Mat *fluid_part;
   Mat colloid_part;
   Mat fluid_colloid_part;
   Vec fluid_vec1;
@@ -106,7 +106,6 @@ public:
     }
     if (is_ctx_assembled) {
       MatDestroy(&__ctx.colloid_part);
-      MatDestroy(&__ctx.fluid_part);
       MatDestroy(&__ctx.fluid_colloid_part);
       VecDestroy(&__ctx.colloid_vec);
       VecDestroy(&__ctx.colloid_vec_local);

@@ -485,6 +485,13 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
 
   Mat &mat = pmat.get_reference();
 
+  PetscLogDouble mem;
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage before assembly of ff %.2f GB\n",
+              mem / 1e9);
+
   if (Col_block != 0) {
     MatCreate(MPI_COMM_WORLD, &mat);
     MatSetSizes(mat, row_block, col_block, PETSC_DECIDE, Col_block);
@@ -494,14 +501,7 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
     MatMPIBAIJSetPreallocationCSR(mat, block_size, __i.data(), __j.data(),
                                   __val.data());
 
-    MatCreate(MPI_COMM_WORLD, &(__ctx.fluid_part));
-    MatSetSizes(__ctx.fluid_part, row_block, col_block, PETSC_DECIDE,
-                Col_block);
-    MatSetType(__ctx.fluid_part, MATMPIBAIJ);
-    MatSetBlockSize(__ctx.fluid_part, block_size);
-    MatSetUp(__ctx.fluid_part);
-    MatMPIBAIJSetPreallocationCSR(__ctx.fluid_part, block_size, __i.data(),
-                                  __j.data(), __val.data());
+    __ctx.fluid_part = &mat;
   } else {
     MatCreate(MPI_COMM_WORLD, &mat);
     MatSetSizes(mat, row_block, col_block, PETSC_DECIDE, PETSC_DECIDE);
@@ -511,14 +511,7 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
     MatMPIBAIJSetPreallocationCSR(mat, block_size, __i.data(), __j.data(),
                                   __val.data());
 
-    MatCreate(MPI_COMM_WORLD, &(__ctx.fluid_part));
-    MatSetSizes(__ctx.fluid_part, row_block, col_block, PETSC_DECIDE,
-                PETSC_DECIDE);
-    MatSetType(__ctx.fluid_part, MATMPIBAIJ);
-    MatSetBlockSize(__ctx.fluid_part, block_size);
-    MatSetUp(__ctx.fluid_part);
-    MatMPIBAIJSetPreallocationCSR(__ctx.fluid_part, block_size, __i.data(),
-                                  __j.data(), __val.data());
+    __ctx.fluid_part = &mat;
   }
 
   pmat.is_assembled = true;
@@ -557,6 +550,12 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
       __val[__i[i] + n] = __matrix[i][n].second;
     }
   }
+
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage before assembly of normal mat %.2f GB\n",
+              mem / 1e9);
 
   if (__Col != 0)
     MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
@@ -641,6 +640,8 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
     __ctx.fluid_colloid_part_i[i + 1] = nnz;
   }
 
+  // since this function doesn't copy the array, they could not be released at
+  // this time
   MatCreateSeqAIJWithArrays(
       PETSC_COMM_SELF, local_size, num_rigid_body * rigid_body_dof,
       __ctx.fluid_colloid_part_i.data(), __ctx.fluid_colloid_part_j.data(),
@@ -817,6 +818,12 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
 
   MPI_Barrier(MPI_COMM_WORLD);
 
+  PetscLogDouble mem;
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "Current memory usage before shrink %.2f GB\n",
+              mem / 1e9);
+
   __i.clear();
   __j.clear();
   __val.clear();
@@ -830,6 +837,11 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
 
   __matrix.shrink_to_fit();
   __out_process_matrix.shrink_to_fit();
+
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "Current memory usage after shrink %.2f GB\n",
+              mem / 1e9);
 
   return 0;
 }
@@ -1575,7 +1587,7 @@ PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y) {
   VecRestoreArray(x, &c);
   VecRestoreArray(ctx->fluid_vec1, &d);
 
-  MatMult(ctx->fluid_part, ctx->fluid_vec1, ctx->fluid_vec2);
+  MatMult(*(ctx->fluid_part), ctx->fluid_vec1, ctx->fluid_vec2);
 
   VecGetArray(ctx->colloid_vec_local, &d);
 

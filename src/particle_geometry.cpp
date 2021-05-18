@@ -2342,14 +2342,19 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
   for (int i = 0; i < coord.size(); i++) {
     if (particle_type[i] != 0) {
       if (dim == 2) {
-        if (coord[i][0] < domain[0][0] || coord[i][0] > domain[1][0] ||
-            coord[i][1] < domain[0][1] || coord[i][1] > domain[1][1])
+        if (coord[i][0] < bounding_box[0][0] ||
+            coord[i][0] > bounding_box[1][0] ||
+            coord[i][1] < bounding_box[0][1] ||
+            coord[i][1] > bounding_box[1][1])
           pass_test = 1;
       }
       if (dim == 3) {
-        if (coord[i][0] < domain[0][0] || coord[i][0] > domain[1][0] ||
-            coord[i][1] < domain[0][1] || coord[i][1] > domain[1][1] ||
-            coord[i][2] < domain[0][2] || coord[i][2] > domain[1][2])
+        if (coord[i][0] < bounding_box[0][0] ||
+            coord[i][0] > bounding_box[1][0] ||
+            coord[i][1] < bounding_box[0][1] ||
+            coord[i][1] > bounding_box[1][1] ||
+            coord[i][2] < bounding_box[0][2] ||
+            coord[i][2] > bounding_box[1][2])
           pass_test = 1;
       }
       if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) != -2)
