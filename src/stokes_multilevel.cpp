@@ -737,6 +737,13 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   Mat &nw = nw_list[refinement_step]->get_reference();
   Mat &pp = pp_list[refinement_step]->get_reference();
 
+  PetscLogDouble mem;
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage before extract matrices %.2f GB\n",
+              mem / 1e9);
+
   MatCreateSubMatrix(mat, isg_colloid->get_reference(),
                      isg_colloid->get_reference(), MAT_INITIAL_MATRIX,
                      nn_list[refinement_step]->get_pointer());
@@ -749,6 +756,12 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   MatCreateSubMatrix(mat, isg_pressure->get_reference(), NULL,
                      MAT_INITIAL_MATRIX,
                      pw_list[refinement_step]->get_pointer());
+
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage after extract matrices %.2f GB\n",
+              mem / 1e9);
 
   // setup current level vectors
   x_list.push_back(make_shared<petsc_vector>());
@@ -1017,7 +1030,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPConvergedReason reason;
   KSPGetConvergedReason(_ksp, &reason);
 
-  PetscLogDouble mem;
   PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "Current memory usage %.2f GB\n", mem / 1e9);

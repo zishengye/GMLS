@@ -32,8 +32,7 @@ private:
   std::shared_ptr<Compadre::GMLS> pressure_basis;
   std::shared_ptr<Compadre::GMLS> velocity_basis;
   std::shared_ptr<Compadre::GMLS> pressure_neumann_basis;
-  std::shared_ptr<Compadre::GMLS> normal_pressure_basis;
-  std::shared_ptr<Compadre::GMLS> normal_pressure_neumann_basis;
+  std::shared_ptr<Compadre::GMLS> velocity_colloid_basis;
 
   std::vector<double> epsilon;
   std::vector<double> ghost_epsilon;

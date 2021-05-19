@@ -108,6 +108,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_basis.reset();
   velocity_basis.reset();
   pressure_neumann_basis.reset();
+  velocity_colloid_basis.reset();
 
   PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -123,6 +124,9 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_neumann_basis = make_shared<GMLS>(
       ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample,
       poly_order, dim, "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
+  velocity_colloid_basis =
+      make_shared<GMLS>(DivergenceFreeVectorTaylorPolynomial, VectorPointSample,
+                        poly_order, dim, "LU", "STANDARD");
 
   vector<vec3> &rigid_body_position = rb_mgr->get_position();
   const int num_rigid_body = rb_mgr->get_rigid_body_num();
@@ -154,9 +158,13 @@ void stokes_equation::build_coefficient_matrix() {
   }
 
   int num_neumann_target_coord = 0;
+  int num_colloid_target_coord = 0;
   for (int i = 0; i < local_particle_num; i++) {
     if (particle_type[i] != 0) {
       num_neumann_target_coord++;
+    }
+    if (particle_type[i] >= 4) {
+      num_colloid_target_coord++;
     }
   }
 
@@ -169,6 +177,11 @@ void stokes_equation::build_coefficient_matrix() {
                                   num_neumann_target_coord, 3);
   Kokkos::View<double **>::HostMirror neumann_target_coord_host =
       Kokkos::create_mirror_view(neumann_target_coord_device);
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+      colloid_target_coord_device("collloid target coordinates",
+                                  num_colloid_target_coord, 3);
+  Kokkos::View<double **>::HostMirror colloid_target_coord_host =
+      Kokkos::create_mirror_view(colloid_target_coord_device);
 
   // create target coords
   int counter;
@@ -187,19 +200,37 @@ void stokes_equation::build_coefficient_matrix() {
     }
   }
 
+  vector<int> colloid_map;
+  colloid_map.resize(local_particle_num);
+  counter = 0;
+  for (int i = 0; i < local_particle_num; i++) {
+    if (particle_type[i] >= 4) {
+      for (int j = 0; j < 3; j++) {
+        colloid_target_coord_host(counter, j) = coord[i][j];
+      }
+      counter++;
+    }
+  }
+
   Kokkos::deep_copy(source_coord_device, source_coord_host);
   Kokkos::deep_copy(target_coord_device, target_coord_host);
   Kokkos::deep_copy(neumann_target_coord_device, neumann_target_coord_host);
+  Kokkos::deep_copy(colloid_target_coord_device, colloid_target_coord_host);
 
   // tangent bundle for neumann boundary particles
   Kokkos::View<double ***, Kokkos::DefaultExecutionSpace> tangent_bundle_device(
       "tangent bundles", num_neumann_target_coord, dim, dim);
   Kokkos::View<double ***>::HostMirror tangent_bundle_host =
       Kokkos::create_mirror_view(tangent_bundle_device);
+  Kokkos::View<double ***, Kokkos::DefaultExecutionSpace>
+      colloid_tangent_bundle_device("tangent bundles", num_colloid_target_coord,
+                                    dim, dim);
+  Kokkos::View<double ***>::HostMirror colloid_tangent_bundle_host =
+      Kokkos::create_mirror_view(colloid_tangent_bundle_device);
 
-  counter = 0;
   for (int i = 0; i < local_particle_num; i++) {
     if (particle_type[i] != 0) {
+      counter = neumann_map[i];
       if (dim == 3) {
         tangent_bundle_host(counter, 0, 0) = 0.0;
         tangent_bundle_host(counter, 0, 1) = 0.0;
@@ -219,9 +250,31 @@ void stokes_equation::build_coefficient_matrix() {
       }
       counter++;
     }
+
+    if (particle_type[i] >= 4) {
+      counter = colloid_map[i];
+      if (dim == 3) {
+        colloid_tangent_bundle_host(counter, 0, 0) = 0.0;
+        colloid_tangent_bundle_host(counter, 0, 1) = 0.0;
+        colloid_tangent_bundle_host(counter, 0, 2) = 0.0;
+        colloid_tangent_bundle_host(counter, 1, 0) = 0.0;
+        colloid_tangent_bundle_host(counter, 1, 1) = 0.0;
+        colloid_tangent_bundle_host(counter, 1, 2) = 0.0;
+        colloid_tangent_bundle_host(counter, 2, 0) = normal[i][0];
+        colloid_tangent_bundle_host(counter, 2, 1) = normal[i][1];
+        colloid_tangent_bundle_host(counter, 2, 2) = normal[i][2];
+      }
+      if (dim == 2) {
+        colloid_tangent_bundle_host(counter, 0, 0) = 0.0;
+        colloid_tangent_bundle_host(counter, 0, 1) = 0.0;
+        colloid_tangent_bundle_host(counter, 1, 0) = normal[i][0];
+        colloid_tangent_bundle_host(counter, 1, 1) = normal[i][1];
+      }
+    }
   }
 
   Kokkos::deep_copy(tangent_bundle_device, tangent_bundle_host);
+  Kokkos::deep_copy(colloid_tangent_bundle_device, colloid_tangent_bundle_host);
 
   // neighbor search
   auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
@@ -232,30 +285,17 @@ void stokes_equation::build_coefficient_matrix() {
           Compadre::GMLS::getNP(poly_order + 1, dim));
   int satisfied_num_neighbor = 2.0 * min_num_neighbor;
 
-  int estimated_max_num_neighbor =
-      pow(pow(2, dim), 2) * pow(epsilon_multiplier, dim);
+  int estimated_max_num_neighbor = 3.0 * satisfied_num_neighbor;
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
       "neighbor lists", num_target_coord, estimated_max_num_neighbor);
   Kokkos::View<int **>::HostMirror neighbor_list_host =
       Kokkos::create_mirror_view(neighbor_list_device);
 
-  Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-      neumann_neighbor_list_device("neumann boundary neighbor lists",
-                                   num_neumann_target_coord,
-                                   estimated_max_num_neighbor);
-  Kokkos::View<int **>::HostMirror neumann_neighbor_list_host =
-      Kokkos::create_mirror_view(neumann_neighbor_list_device);
-
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
       "h supports", num_target_coord);
   Kokkos::View<double *>::HostMirror epsilon_host =
       Kokkos::create_mirror_view(epsilon_device);
-
-  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> neumann_epsilon_device(
-      "neumann boundary h supports", num_neumann_target_coord);
-  Kokkos::View<double *>::HostMirror neumann_epsilon_host =
-      Kokkos::create_mirror_view(neumann_epsilon_device);
 
   double max_epsilon = geo_mgr->get_cutoff_distance();
   for (int i = 0; i < num_target_coord; i++) {
@@ -268,7 +308,19 @@ void stokes_equation::build_coefficient_matrix() {
   // ensure every particle has enough neighbors
   bool pass_neighbor_search = false;
   int ite_counter = 0;
+  int mean_neighbor;
   while (!pass_neighbor_search) {
+    int num_neighbor_size_needed =
+        1 + point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+                true, target_coord_host, neighbor_list_host, epsilon_host, 0.0,
+                max_epsilon);
+    if (estimated_max_num_neighbor < num_neighbor_size_needed) {
+      estimated_max_num_neighbor = num_neighbor_size_needed;
+      neighbor_list_device =
+          Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
+              "neighbor lists", num_target_coord, estimated_max_num_neighbor);
+      neighbor_list_host = Kokkos::create_mirror_view(neighbor_list_device);
+    }
     point_cloud_search.generate2DNeighborListsFromRadiusSearch(
         false, target_coord_host, neighbor_list_host, epsilon_host, 0.0,
         max_epsilon);
@@ -276,6 +328,7 @@ void stokes_equation::build_coefficient_matrix() {
     bool pass_neighbor_num_check = true;
     min_neighbor = 1000;
     max_neighbor = 0;
+    mean_neighbor = 0;
     for (int i = 0; i < local_particle_num; i++) {
       int local_num_neighbor = 0;
       for (int j = 0; j < neighbor_list_host(i, 0); j++) {
@@ -293,11 +346,14 @@ void stokes_equation::build_coefficient_matrix() {
         min_neighbor = neighbor_list_host(i, 0);
       if (neighbor_list_host(i, 0) > max_neighbor)
         max_neighbor = neighbor_list_host(i, 0);
+      mean_neighbor += neighbor_list_host(i, 0);
     }
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &min_neighbor, 1, MPI_INT, MPI_MIN,
                   MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &max_neighbor, 1, MPI_INT, MPI_MAX,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &mean_neighbor, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
 
     int process_counter = 0;
@@ -313,23 +369,60 @@ void stokes_equation::build_coefficient_matrix() {
     ite_counter++;
   }
 
-  PetscPrintf(MPI_COMM_WORLD,
-              "iteration counter: %d min neighbor: %d, max neighbor: %d \n",
-              ite_counter, min_neighbor, max_neighbor);
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage after creation of neighbor list %.2f GB\n",
+              mem / 1e9);
 
-  counter = 0;
+  PetscPrintf(MPI_COMM_WORLD,
+              "iteration counter: %d min neighbor: %d, max neighbor: %d , mean "
+              "neighbor %f\n",
+              ite_counter, min_neighbor, max_neighbor,
+              (double)mean_neighbor / (double)global_particle_num);
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+      neumann_neighbor_list_device("neumann boundary neighbor lists",
+                                   num_neumann_target_coord, max_neighbor + 1);
+  Kokkos::View<int **>::HostMirror neumann_neighbor_list_host =
+      Kokkos::create_mirror_view(neumann_neighbor_list_device);
+
+  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> neumann_epsilon_device(
+      "neumann boundary h supports", num_neumann_target_coord);
+  Kokkos::View<double *>::HostMirror neumann_epsilon_host =
+      Kokkos::create_mirror_view(neumann_epsilon_device);
+
+  Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+      colloid_neighbor_list_device("colloid boundary neighbor lists",
+                                   num_colloid_target_coord, max_neighbor + 1);
+  Kokkos::View<int **>::HostMirror colloid_neighbor_list_host =
+      Kokkos::create_mirror_view(colloid_neighbor_list_device);
+
+  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> colloid_epsilon_device(
+      "colloid boundary h supports", num_colloid_target_coord);
+  Kokkos::View<double *>::HostMirror colloid_epsilon_host =
+      Kokkos::create_mirror_view(colloid_epsilon_device);
+
   epsilon.resize(local_particle_num);
   for (int i = 0; i < num_target_coord; i++) {
     epsilon[i] = epsilon_host(i);
     if (particle_type[i] != 0) {
+      counter = neumann_map[i];
       neumann_epsilon_host(counter) = epsilon_host(i);
       neumann_neighbor_list_host(counter, 0) = neighbor_list_host(i, 0);
       for (int j = 0; j < neighbor_list_host(i, 0); j++) {
         neumann_neighbor_list_host(counter, j + 1) =
             neighbor_list_host(i, j + 1);
       }
-
-      counter++;
+    }
+    if (particle_type[i] >= 4) {
+      counter = colloid_map[i];
+      colloid_epsilon_host(counter) = epsilon_host(i);
+      colloid_neighbor_list_host(counter, 0) = neighbor_list_host(i, 0);
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        colloid_neighbor_list_host(counter, j + 1) =
+            neighbor_list_host(i, j + 1);
+      }
     }
   }
 
@@ -346,11 +439,19 @@ void stokes_equation::build_coefficient_matrix() {
   Kokkos::deep_copy(epsilon_device, epsilon_host);
   Kokkos::deep_copy(neumann_neighbor_list_device, neumann_neighbor_list_host);
   Kokkos::deep_copy(neumann_epsilon_device, neumann_epsilon_host);
+  Kokkos::deep_copy(colloid_neighbor_list_device, colloid_neighbor_list_host);
+  Kokkos::deep_copy(colloid_epsilon_device, colloid_epsilon_host);
 
   if (dim == 2)
     number_of_batches = max(local_particle_num / 100, 1);
   else
     number_of_batches = max(local_particle_num / 10, 1);
+
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage before pressure basis %.2f GB\n",
+              mem / 1e9);
 
   // pressure basis
   pressure_basis->setProblemData(neighbor_list_device, source_coord_device,
@@ -383,16 +484,18 @@ void stokes_equation::build_coefficient_matrix() {
     pressure_gradient_index.push_back(pressure_basis->getAlphaColumnOffset(
         pressure_operation[1], i, 0, 0, 0));
 
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage before velocity basis %.2f GB\n",
+              mem / 1e9);
+
   // velocity basis
   velocity_basis->setProblemData(neighbor_list_device, source_coord_device,
                                  target_coord_device, epsilon_device);
 
-  vector<TargetOperation> velocity_operation(2);
-  velocity_operation[0] = CurlCurlOfVectorPointEvaluation;
-  velocity_operation[1] = GradientOfVectorPointEvaluation;
-
   velocity_basis->clearTargets();
-  velocity_basis->addTargets(velocity_operation);
+  velocity_basis->addTargets(CurlCurlOfVectorPointEvaluation);
 
   velocity_basis->setWeightingType(WeightingFunctionType::Power);
   velocity_basis->setWeightingPower(4);
@@ -412,16 +515,44 @@ void stokes_equation::build_coefficient_matrix() {
                                                i, 0, j, 0);
     }
   }
+
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage before colloid velocity basis %.2f GB\n",
+              mem / 1e9);
+
+  // velocity colloid boundary basis
+  velocity_colloid_basis->setProblemData(
+      colloid_neighbor_list_device, source_coord_device,
+      colloid_target_coord_device, colloid_epsilon_device);
+
+  velocity_colloid_basis->clearTargets();
+  velocity_colloid_basis->addTargets(GradientOfVectorPointEvaluation);
+
+  velocity_colloid_basis->setWeightingType(WeightingFunctionType::Power);
+  velocity_colloid_basis->setWeightingPower(4);
+
+  velocity_colloid_basis->generateAlphas(number_of_batches, false);
+
   vector<int> velocity_gradient_index(pow(dim, 3));
   for (int i = 0; i < dim; i++) {
     for (int j = 0; j < dim; j++) {
       for (int k = 0; k < dim; k++) {
         velocity_gradient_index[(i * dim + j) * dim + k] =
-            velocity_basis->getAlphaColumnOffset(
+            velocity_colloid_basis->getAlphaColumnOffset(
                 GradientOfVectorPointEvaluation, i, j, k, 0);
       }
     }
   }
+
+  auto velocity_colloid_alpha = velocity_colloid_basis->getAlphas();
+
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage before neumann pressure basis %.2f GB\n",
+              mem / 1e9);
 
   // pressure Neumann boundary basis
   pressure_neumann_basis->setProblemData(
@@ -799,12 +930,13 @@ void stokes_equation::build_coefficient_matrix() {
                 const int velocity_gradient_index_2 =
                     velocity_gradient_index[(axes2 * dim + axes1) * dim +
                                             axes3];
-                auto alpha_index1 = velocity_basis->getAlphaIndexHost(
-                    i, velocity_gradient_index_1);
-                auto alpha_index2 = velocity_basis->getAlphaIndexHost(
-                    i, velocity_gradient_index_2);
-                const double sigma = eta * (velocity_alpha(alpha_index1 + j) +
-                                            velocity_alpha(alpha_index2 + j));
+                auto alpha_index1 = velocity_colloid_basis->getAlphaIndexHost(
+                    colloid_map[i], velocity_gradient_index_1);
+                auto alpha_index2 = velocity_colloid_basis->getAlphaIndexHost(
+                    colloid_map[i], velocity_gradient_index_2);
+                const double sigma =
+                    eta * (velocity_colloid_alpha(alpha_index1 + j) +
+                           velocity_colloid_alpha(alpha_index2 + j));
 
                 f[axes1] += sigma * dA[axes2];
               }
@@ -2037,7 +2169,7 @@ void stokes_equation::calculate_error() {
 
     Kokkos::deep_copy(ghost_pressure_device, ghost_pressure_host);
 
-    Evaluator pressure_evaluator(normal_pressure_basis.get());
+    Evaluator pressure_evaluator(pressure_basis.get());
 
     auto coefficients =
         pressure_evaluator
@@ -2050,12 +2182,11 @@ void stokes_equation::calculate_error() {
                                           GradientOfScalarPointEvaluation,
                                           PointSample);
 
-    auto coefficients_size =
-        normal_pressure_basis->getPolynomialCoefficientsSize();
+    auto coefficients_size = pressure_basis->getPolynomialCoefficientsSize();
 
     // boundary needs special treatment
     {
-      Evaluator pressure_neumann_evaluator(normal_pressure_neumann_basis.get());
+      Evaluator pressure_neumann_evaluator(pressure_neumann_basis.get());
 
       auto coefficients_neumann =
           pressure_neumann_evaluator
