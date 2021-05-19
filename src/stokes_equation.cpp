@@ -205,6 +205,7 @@ void stokes_equation::build_coefficient_matrix() {
   counter = 0;
   for (int i = 0; i < local_particle_num; i++) {
     if (particle_type[i] >= 4) {
+      colloid_map[i] = counter;
       for (int j = 0; j < 3; j++) {
         colloid_target_coord_host(counter, j) = coord[i][j];
       }
@@ -642,7 +643,7 @@ void stokes_equation::build_coefficient_matrix() {
   vector<bool> velocity_fixed;
   velocity_fixed.resize(num_rigid_body * rigid_body_dof);
   for (int i = 0; i < num_rigid_body * rigid_body_dof; i++) {
-    velocity_fixed[i] = true;
+    velocity_fixed[i] = false;
   }
 
   // compute matrix graph
