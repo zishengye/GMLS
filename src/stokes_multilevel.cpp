@@ -1050,6 +1050,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
     ISDestroy(&isg_colloid_sub_field);
     ISDestroy(&isg_colloid_sub_colloid);
+    ISDestroy(&isg_colloid_field);
   }
 
   return 0;
