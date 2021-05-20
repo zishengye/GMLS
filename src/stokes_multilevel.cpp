@@ -1068,6 +1068,8 @@ void stokes_multilevel::clear() {
   ff_list.clear();
   nn_list.clear();
   nw_list.clear();
+  pp_list.clear();
+  pw_list.clear();
 
   isg_field_list.clear();
   isg_colloid_list.clear();
@@ -1100,6 +1102,7 @@ void stokes_multilevel::clear() {
 
   field_relaxation_list.clear();
   colloid_relaxation_list.clear();
+  pressure_relaxation_list.clear();
 
   if (base_level_initialized) {
     x_colloid.reset();

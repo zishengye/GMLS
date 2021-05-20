@@ -1315,6 +1315,7 @@ void stokes_equation::build_rhs() {
 
   if (dim == 3) {
     vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
+    vector<vec3> &rigid_body_position = rb_mgr->get_position();
 
     double u = 1.0;
     double RR = rigid_body_size[0];
@@ -1322,9 +1323,9 @@ void stokes_equation::build_rhs() {
     for (int i = 0; i < local_particle_num; i++) {
       int current_particle_local_index = local_idx[i];
       if (particle_type[i] != 0 && particle_type[i] < 4) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
+        double x = coord[i][0] - rigid_body_position[0][0];
+        double y = coord[i][1] - rigid_body_position[0][1];
+        double z = coord[i][2] - rigid_body_position[0][2];
 
         const int neumann_index = neumann_map[i];
         // const double bi =
@@ -1355,9 +1356,9 @@ void stokes_equation::build_rhs() {
         double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
         double p3 = cos(theta) * pr - sin(theta) * pt;
       } else if (particle_type[i] >= 4) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
+        double x = coord[i][0] - rigid_body_position[0][0];
+        double y = coord[i][1] - rigid_body_position[0][1];
+        double z = coord[i][2] - rigid_body_position[0][2];
 
         double r = sqrt(x * x + y * y + z * z);
         double theta = acos(z / r);
@@ -1378,9 +1379,9 @@ void stokes_equation::build_rhs() {
       }
     }
 
-    // if (rank == size - 1) {
-    //   rhs[local_rigid_body_offset + 2] = 6 * M_PI * RR * u;
-    // }
+    if (rank == size - 1) {
+      rhs[local_rigid_body_offset + 2] = 6 * M_PI * RR * u;
+    }
   }
 
   // make sure pressure term is orthogonal to the constant
@@ -1602,9 +1603,9 @@ void stokes_equation::check_solution() {
     }
 
     if (dim == 3) {
-      double x = coord[i][0];
-      double y = coord[i][1];
-      double z = coord[i][2];
+      double x = coord[i][0] - rigid_body_position[0][0];
+      double y = coord[i][1] - rigid_body_position[0][1];
+      double z = coord[i][2] - rigid_body_position[0][2];
 
       double r = sqrt(x * x + y * y + z * z);
       double theta = acos(z / r);
@@ -1648,9 +1649,9 @@ void stokes_equation::check_solution() {
     }
 
     if (dim == 3) {
-      double x = coord[i][0];
-      double y = coord[i][1];
-      double z = coord[i][2];
+      double x = coord[i][0] - rigid_body_position[0][0];
+      double y = coord[i][1] - rigid_body_position[0][1];
+      double z = coord[i][2] - rigid_body_position[0][2];
 
       double r = sqrt(x * x + y * y + z * z);
       double theta = acos(z / r);
