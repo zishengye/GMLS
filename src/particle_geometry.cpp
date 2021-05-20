@@ -2419,6 +2419,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
   auto &spacing = *current_local_work_particle_spacing;
   auto &coord = *current_local_work_particle_coord;
   auto &attached_rigid_body = *current_local_work_particle_attached_rigid_body;
+  auto &adaptive_level = *current_local_work_particle_adaptive_level;
 
   auto &source_coord = *current_local_work_ghost_particle_coord;
   auto &source_particle_type = *current_local_work_ghost_particle_type;
@@ -2520,6 +2521,63 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
       }
 
       counter++;
+    }
+  }
+
+  // ensure the difference of adaptive level on a single colloid is no greater
+  // than 8
+
+  int num_rigid_body = rb_mgr->get_rigid_body_num();
+
+  vector<int> min_rigid_body_adaptive_level;
+  vector<int> max_rigid_body_adaptive_level;
+
+  min_rigid_body_adaptive_level.resize(num_rigid_body);
+  max_rigid_body_adaptive_level.resize(num_rigid_body);
+  for (int i = 0; i < num_rigid_body; i++) {
+    min_rigid_body_adaptive_level[i] = 1000;
+    max_rigid_body_adaptive_level[i] = 0;
+  }
+
+  for (int i = 0; i < local_particle_num; i++) {
+    if (particle_type[i] >= 4) {
+      int rigid_body_idx = attached_rigid_body[i];
+      if (min_rigid_body_adaptive_level[rigid_body_idx] > adaptive_level[i]) {
+        min_rigid_body_adaptive_level[rigid_body_idx] = adaptive_level[i];
+      }
+      if (max_rigid_body_adaptive_level[rigid_body_idx] < adaptive_level[i]) {
+        max_rigid_body_adaptive_level[rigid_body_idx] = adaptive_level[i];
+      }
+    }
+  }
+  MPI_Allreduce(MPI_IN_PLACE, min_rigid_body_adaptive_level.data(),
+                num_rigid_body, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, max_rigid_body_adaptive_level.data(),
+                num_rigid_body, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+
+  int need_modify;
+  for (int i = 0; i < num_rigid_body; i++) {
+    if (max_rigid_body_adaptive_level[i] - min_rigid_body_adaptive_level[i] >=
+        5)
+      need_modify = 1;
+  }
+
+  if (need_modify) {
+    for (int i = 0; i < local_particle_num; i++) {
+      split_tag[0] = 0;
+    }
+
+    for (int i = 0; i < local_particle_num; i++) {
+      if (particle_type[i] >= 4) {
+        int rigid_body_idx = attached_rigid_body[i];
+        if (max_rigid_body_adaptive_level[rigid_body_idx] -
+                    min_rigid_body_adaptive_level[rigid_body_idx] >=
+                5 &&
+            adaptive_level[i] ==
+                min_rigid_body_adaptive_level[rigid_body_idx]) {
+          split_tag[i] = 1;
+        }
+      }
     }
   }
 

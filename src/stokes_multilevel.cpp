@@ -971,17 +971,21 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   HypreLUShellPC *shell_ctx;
 
+  static PetscInt restart;
+
   KSPGetPC(_ksp, &_pc);
-  // if (refinement_step == 0) {
-  //   Mat &mat = (*(A_list.end() - 1))->get_reference();
-  //   KSPSetFromOptions(_ksp);
-  //   KSPSetOperators(_ksp, shell_mat, mat);
-  //   PCSetType(_pc, PCLU);
-  // } else {
   KSPSetOperators(_ksp, shell_mat, shell_mat);
   KSPSetFromOptions(_ksp);
 
   PCSetType(_pc, PCSHELL);
+
+  if (refinement_step == 0) {
+    KSPGMRESGetRestart(_ksp, &restart);
+  } else {
+    KSPGMRESSetRestart(_ksp, restart);
+  }
+
+  KSPSetUp(_ksp);
 
   HypreLUShellPCCreate(&shell_ctx);
 
@@ -1009,7 +1013,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
   int counter = 0;
-  while (residual_norm / rhs_norm > 1e-5 && counter < 5) {
+  while (residual_norm / rhs_norm > 1e-4 && counter < 5) {
     KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
     KSPConvergedReason convergence_reason;
@@ -1021,10 +1025,14 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
                 residual_norm / rhs_norm);
     counter++;
+
+    if (residual_norm / rhs_norm > 1e-4) {
+      restart += 50;
+      KSPGMRESSetRestart(_ksp, restart);
+
+      KSPSetUp(_ksp);
+    }
   }
-  // if (refinement_step == 1) {
-  //   VecCopy(residual, _x.get_reference());
-  // }
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
   KSPConvergedReason reason;
@@ -1034,7 +1042,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "Current memory usage %.2f GB\n", mem / 1e9);
 
-  if (residual_norm / rhs_norm < 1e-5) {
+  if (residual_norm / rhs_norm < 1e-4 || refinement_step == 0) {
     _x.copy(x);
   }
 
