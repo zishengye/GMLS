@@ -2647,7 +2647,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
       for (int j = 0; j < whole_neighbor_list_host(i, 0); j++) {
         int neighbor_index = whole_neighbor_list_host(i, j + 1);
         if ((ghost_split_tag[neighbor_index] == 1) &&
-            (ghost_adaptive_level[neighbor_index] == adaptive_level[i])) {
+            (ghost_adaptive_level[neighbor_index] >= adaptive_level[i])) {
           split_tag[i] = 1;
         }
       }

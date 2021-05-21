@@ -39,110 +39,108 @@ bool gmls_solver::refinement() {
     return false;
 
   vector<int> split_tag;
-  if (!geo_mgr->automatic_refine(split_tag)) {
-    vector<double> &error = equation_mgr->get_error();
+  vector<double> &error = equation_mgr->get_error();
 
-    auto &local_spacing = *(geo_mgr->get_current_work_particle_spacing());
+  auto &local_spacing = *(geo_mgr->get_current_work_particle_spacing());
 
-    // mark stage
-    double alpha = 0.7;
+  // mark stage
+  double alpha = 0.7;
 
-    double min_h = 1.0;
-    for (int i = 0; i < local_spacing.size(); i++) {
-      if (min_h > local_spacing[i])
-        min_h = local_spacing[i];
-    }
-    MPI_Allreduce(MPI_IN_PLACE, &min_h, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+  double min_h = 1.0;
+  for (int i = 0; i < local_spacing.size(); i++) {
+    if (min_h > local_spacing[i])
+      min_h = local_spacing[i];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &min_h, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
-    double min_dis = 1.0;
-    for (int i = 0; i < rigid_body_position.size(); i++) {
-      for (int j = i + 1; j < rigid_body_position.size(); j++) {
-        vec3 dist = rigid_body_position[i] - rigid_body_position[j];
-        if (min_dis > dist.mag() - rigid_body_size[i] - rigid_body_size[j]) {
-          min_dis = dist.mag() - rigid_body_size[i] - rigid_body_size[j];
-        }
+  double min_dis = 1.0;
+  for (int i = 0; i < rigid_body_position.size(); i++) {
+    for (int j = i + 1; j < rigid_body_position.size(); j++) {
+      vec3 dist = rigid_body_position[i] - rigid_body_position[j];
+      if (min_dis > dist.mag() - rigid_body_size[i] - rigid_body_size[j]) {
+        min_dis = dist.mag() - rigid_body_size[i] - rigid_body_size[j];
       }
     }
+  }
 
-    PetscPrintf(PETSC_COMM_WORLD, "alpha: %f, min distance: %f, min h: %f\n",
-                alpha, min_dis, min_h);
+  PetscPrintf(PETSC_COMM_WORLD, "alpha: %f, min distance: %f, min h: %f\n",
+              alpha, min_dis, min_h);
 
-    vector<pair<int, double>> chopper;
-    pair<int, double> to_add;
+  vector<pair<int, double>> chopper;
+  pair<int, double> to_add;
 
-    const int local_particle_num = error.size();
+  const int local_particle_num = error.size();
 
-    double local_error = 0.0;
-    for (int i = 0; i < local_particle_num; i++) {
-      to_add = pair<int, double>(i, pow(error[i], 2.0));
-      chopper.push_back(to_add);
-      local_error += pow(error[i], 2.0);
-    }
-    MPI_Allreduce(&local_error, &global_error, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
+  double local_error = 0.0;
+  for (int i = 0; i < local_particle_num; i++) {
+    to_add = pair<int, double>(i, pow(error[i], 2.0));
+    chopper.push_back(to_add);
+    local_error += pow(error[i], 2.0);
+  }
+  MPI_Allreduce(&local_error, &global_error, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
 
-    std::sort(chopper.begin(), chopper.end(), pair_compare);
+  std::sort(chopper.begin(), chopper.end(), pair_compare);
 
-    // parallel selection
-    int split_max_index = 0;
+  // parallel selection
+  int split_max_index = 0;
 
-    double error_max, error_min, current_error_split, next_error;
-    error_max = chopper[0].second;
-    error_min = chopper[local_particle_num - 1].second;
+  double error_max, error_min, current_error_split, next_error;
+  error_max = chopper[0].second;
+  error_min = chopper[local_particle_num - 1].second;
 
-    MPI_Allreduce(MPI_IN_PLACE, &error_max, 1, MPI_DOUBLE, MPI_MAX,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &error_min, 1, MPI_DOUBLE, MPI_MIN,
-                  MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &error_max, 1, MPI_DOUBLE, MPI_MAX,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &error_min, 1, MPI_DOUBLE, MPI_MIN,
+                MPI_COMM_WORLD);
 
-    current_error_split = (error_max + error_min) / 2.0;
-    bool selection_finished = false;
-    while (!selection_finished) {
-      int ite = 0;
-      double error_sum = 0.0;
-      while (ite < local_particle_num) {
-        if (chopper[ite].second > current_error_split) {
-          error_sum += chopper[ite].second;
-          next_error = error_min;
-          ite++;
-        } else {
-          next_error = chopper[ite].second;
-          break;
-        }
-      }
-
-      MPI_Barrier(MPI_COMM_WORLD);
-      MPI_Allreduce(MPI_IN_PLACE, &error_sum, 1, MPI_DOUBLE, MPI_SUM,
-                    MPI_COMM_WORLD);
-      MPI_Allreduce(MPI_IN_PLACE, &next_error, 1, MPI_DOUBLE, MPI_MAX,
-                    MPI_COMM_WORLD);
-
-      if ((error_sum < alpha * global_error) &&
-          (error_sum + next_error >= alpha * global_error)) {
-        selection_finished = true;
-        split_max_index = ite;
-      } else if (error_sum < alpha * global_error) {
-        error_max = current_error_split;
-        current_error_split = (error_min + error_max) / 2.0;
+  current_error_split = (error_max + error_min) / 2.0;
+  bool selection_finished = false;
+  while (!selection_finished) {
+    int ite = 0;
+    double error_sum = 0.0;
+    while (ite < local_particle_num) {
+      if (chopper[ite].second > current_error_split) {
+        error_sum += chopper[ite].second;
+        next_error = error_min;
+        ite++;
       } else {
-        error_min = current_error_split;
-        current_error_split = (error_min + error_max) / 2.0;
+        next_error = chopper[ite].second;
+        break;
       }
     }
 
-    next_error = 0.9 * next_error;
-    for (int i = 0; i < local_particle_num; i++) {
-      if (chopper[i].second < next_error)
-        break;
-    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &error_sum, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &next_error, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
 
-    split_tag.resize(local_particle_num);
-    for (int i = 0; i < local_particle_num; i++) {
-      split_tag[i] = 0;
+    if ((error_sum < alpha * global_error) &&
+        (error_sum + next_error >= alpha * global_error)) {
+      selection_finished = true;
+      split_max_index = ite;
+    } else if (error_sum < alpha * global_error) {
+      error_max = current_error_split;
+      current_error_split = (error_min + error_max) / 2.0;
+    } else {
+      error_min = current_error_split;
+      current_error_split = (error_min + error_max) / 2.0;
     }
-    for (int i = 0; i < split_max_index; i++) {
-      split_tag[chopper[i].first] = 1;
-    }
+  }
+
+  next_error = 0.9 * next_error;
+  for (int i = 0; i < local_particle_num; i++) {
+    if (chopper[i].second < next_error)
+      break;
+  }
+
+  split_tag.resize(local_particle_num);
+  for (int i = 0; i < local_particle_num; i++) {
+    split_tag[i] = 0;
+  }
+  for (int i = 0; i < split_max_index; i++) {
+    split_tag[chopper[i].first] = 1;
   }
 
   if (write_data)
