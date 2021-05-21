@@ -371,7 +371,7 @@ protected:
   bool generate_rigid_body_surface_particle();
 
   void uniform_refine();
-  void adaptive_refine(std::vector<int> &split_tag);
+  bool adaptive_refine(std::vector<int> &split_tag);
   void coarse_level_refine(std::vector<int> &split_tag,
                            std::vector<int> &origin_split_tag);
 
@@ -384,7 +384,7 @@ protected:
                        vec3 _p_spacing = vec3(0.0, 0.0, 0.0));
 
   void split_field_particle(std::vector<int> &split_tag);
-  void split_rigid_body_surface_particle(std::vector<int> &split_tag);
+  bool split_rigid_body_surface_particle(std::vector<int> &split_tag);
   void split_gap_particle(std::vector<int> &split_tag);
 
   int is_gap_particle(const vec3 &_pos, double _spacing,

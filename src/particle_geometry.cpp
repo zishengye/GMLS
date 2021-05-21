@@ -429,7 +429,8 @@ bool particle_geometry::generate_uniform_particle() {
 
     vector<int> split_tag;
     if (automatic_refine(split_tag)) {
-      adaptive_refine(split_tag);
+      if (!adaptive_refine(split_tag))
+        return false;
     } else {
       pass_check = true;
     }
@@ -2659,7 +2660,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
   return false;
 }
 
-void particle_geometry::adaptive_refine(vector<int> &split_tag) {
+bool particle_geometry::adaptive_refine(vector<int> &split_tag) {
   old_cutoff_distance = cutoff_distance;
 
   vector<int> &managing_split_tag = *current_local_managing_particle_split_tag;
@@ -2687,7 +2688,8 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
     }
   }
 
-  split_rigid_body_surface_particle(surface_particle_split_tag);
+  if (!split_rigid_body_surface_particle(surface_particle_split_tag))
+    return false;
   collect_rigid_body_surface_particle();
 
   auto &coord = rigid_body_surface_particle_coord;
@@ -2778,6 +2780,8 @@ void particle_geometry::adaptive_refine(vector<int> &split_tag) {
 
   split_field_particle(field_particle_split_tag);
   split_gap_particle(gap_split_tag);
+
+  return true;
 }
 
 void particle_geometry::coarse_level_refine(vector<int> &split_tag,
@@ -3146,7 +3150,7 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
   }
 }
 
-void particle_geometry::split_rigid_body_surface_particle(
+bool particle_geometry::split_rigid_body_surface_particle(
     vector<int> &split_tag) {
   auto &coord = *current_local_managing_particle_coord;
   auto &normal = *current_local_managing_particle_normal;
@@ -3587,6 +3591,39 @@ void particle_geometry::split_rigid_body_surface_particle(
       }
     }
   }
+
+  // check if it is an acceptable trial of particle distribution
+  vector<int> &attached_rigid_body =
+      (*current_local_managing_particle_attached_rigid_body);
+
+  int pass_test = 0;
+
+  for (int i = 0; i < coord.size(); i++) {
+    if (particle_type[i] != 0) {
+      if (dim == 2) {
+        if (coord[i][0] < bounding_box[0][0] ||
+            coord[i][0] > bounding_box[1][0] ||
+            coord[i][1] < bounding_box[0][1] ||
+            coord[i][1] > bounding_box[1][1])
+          pass_test = 1;
+      }
+      if (dim == 3) {
+        if (coord[i][0] < bounding_box[0][0] ||
+            coord[i][0] > bounding_box[1][0] ||
+            coord[i][1] < bounding_box[0][1] ||
+            coord[i][1] > bounding_box[1][1] ||
+            coord[i][2] < bounding_box[0][2] ||
+            coord[i][2] > bounding_box[1][2])
+          pass_test = 1;
+      }
+      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) != -2)
+        pass_test = 1;
+    }
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, &pass_test, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+  return (pass_test == 0);
 }
 
 void particle_geometry::split_gap_particle(vector<int> &split_tag) {
