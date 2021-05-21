@@ -2525,7 +2525,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
   }
 
   // ensure the difference of adaptive level on a single colloid is no greater
-  // than 8
+  // than 5
 
   int num_rigid_body = rb_mgr->get_rigid_body_num();
 
@@ -2555,26 +2555,28 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
   MPI_Allreduce(MPI_IN_PLACE, max_rigid_body_adaptive_level.data(),
                 num_rigid_body, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
-  int need_modify;
+  int need_modify = 0;
   for (int i = 0; i < num_rigid_body; i++) {
     if (max_rigid_body_adaptive_level[i] - min_rigid_body_adaptive_level[i] >=
-        5)
+        5) {
       need_modify = 1;
+    }
   }
+  PetscPrintf(PETSC_COMM_WORLD, "need modify: %d\n", need_modify);
 
   if (need_modify) {
     for (int i = 0; i < local_particle_num; i++) {
-      split_tag[0] = 0;
+      split_tag[i] = 0;
     }
 
     for (int i = 0; i < local_particle_num; i++) {
       if (particle_type[i] >= 4) {
         int rigid_body_idx = attached_rigid_body[i];
-        if (max_rigid_body_adaptive_level[rigid_body_idx] -
-                    min_rigid_body_adaptive_level[rigid_body_idx] >=
-                5 &&
-            adaptive_level[i] ==
-                min_rigid_body_adaptive_level[rigid_body_idx]) {
+        if ((max_rigid_body_adaptive_level[rigid_body_idx] -
+                 min_rigid_body_adaptive_level[rigid_body_idx] >=
+             5) &&
+            (adaptive_level[i] ==
+             min_rigid_body_adaptive_level[rigid_body_idx])) {
           split_tag[i] = 1;
         }
       }
@@ -2586,7 +2588,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
   MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
-  if (num_critical_particle != 0) {
+  if (num_critical_particle != 0 || need_modify) {
     // need local refinement
     vector<int> ghost_split_tag;
     ghost_forward(split_tag, ghost_split_tag);
@@ -2638,10 +2640,14 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
         false, whole_target_coord_host, whole_neighbor_list_host,
         whole_epsilon_host, 0.0, 0.0);
 
+    vector<int> ghost_adaptive_level;
+    ghost_forward(adaptive_level, ghost_adaptive_level);
+
     for (int i = 0; i < local_particle_num; i++) {
       for (int j = 0; j < whole_neighbor_list_host(i, 0); j++) {
         int neighbor_index = whole_neighbor_list_host(i, j + 1);
-        if (ghost_split_tag[neighbor_index] == 1) {
+        if ((ghost_split_tag[neighbor_index] == 1) &&
+            (ghost_adaptive_level[neighbor_index] == adaptive_level[i])) {
           split_tag[i] = 1;
         }
       }

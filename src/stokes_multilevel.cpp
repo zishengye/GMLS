@@ -835,6 +835,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetOperators(ksp_field_base->get_reference(), ff, ff);
     KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
 
+    // KSPSetType(ksp_field_base->get_reference(), KSPRICHARDSON);
+    // KSPSetTolerances(ksp_field_base->get_reference(), 1e-3, 1e-50, 1e10, 1);
+
     KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
     KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
 
@@ -845,6 +848,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     PCSetType(pc_field_base, PCLU);
     PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
     // PCSetType(pc_field_base, PCHYPRE);
+    // PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
 
     KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
@@ -1026,7 +1030,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
                 residual_norm / rhs_norm);
     counter++;
 
-    if (residual_norm / rhs_norm > 1e-4) {
+    if (convergence_reason != KSP_CONVERGED_RTOL) {
       restart += 50;
       KSPGMRESSetRestart(_ksp, restart);
 
@@ -1034,9 +1038,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     }
   }
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
-
-  KSPConvergedReason reason;
-  KSPGetConvergedReason(_ksp, &reason);
 
   PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
