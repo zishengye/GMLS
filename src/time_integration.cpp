@@ -148,8 +148,9 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
   current_refinement_step = 0;
   equation_mgr->reset();
   do {
-    if (write_data)
+    if (write_data) {
       write_refinement_data_geometry_only();
+    }
     PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
                 current_refinement_step);
     equation_mgr->update();

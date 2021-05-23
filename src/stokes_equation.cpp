@@ -300,7 +300,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   double max_epsilon = geo_mgr->get_cutoff_distance();
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host(i) = spacing[i];
+    epsilon_host(i) = 1.0005 * spacing[i];
   }
 
   MPI_Allreduce(MPI_IN_PLACE, &max_epsilon, 1, MPI_DOUBLE, MPI_MAX,

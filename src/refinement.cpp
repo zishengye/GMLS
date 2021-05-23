@@ -129,7 +129,8 @@ bool gmls_solver::refinement() {
     }
   }
 
-  next_error = 0.9 * next_error;
+  MPI_Allreduce(MPI_IN_PLACE, &next_error, 1, MPI_DOUBLE, MPI_MIN,
+                MPI_COMM_WORLD);
   for (int i = 0; i < local_particle_num; i++) {
     if (chopper[i].second < next_error)
       break;

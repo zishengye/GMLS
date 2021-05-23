@@ -858,6 +858,8 @@ void gmls_solver::write_refinement_data_geometry_only() {
   vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
   vector<int> &local_idx = *(geo_mgr->get_current_work_particle_local_index());
   vector<vec3> &p_spacing = *(geo_mgr->get_current_work_particle_p_spacing());
+  vector<int> &adaptive_level =
+      *(geo_mgr->get_current_work_particle_adaptive_level());
 
   int local_particle_num;
   int global_particle_num;
@@ -1031,9 +1033,30 @@ void gmls_solver::write_refinement_data_geometry_only() {
     file.close();
   });
 
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" +
+                  to_string(current_refinement_step) + ".vtk",
+              ios::app);
+    file << "SCALARS l int 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  serial_operation([adaptive_level, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step_geometry" +
+                  to_string(current_refinement_step) + ".vtk",
+              ios::app);
+    for (size_t i = 0; i < adaptive_level.size(); i++) {
+      file << adaptive_level[i] << endl;
+    }
+    file.close();
+  });
+
   vector<vec3> &gap_coord = *(geo_mgr->get_local_gap_particle_coord());
   vector<double> &gap_spacing = *(geo_mgr->get_local_gap_particle_spacing());
-  vector<int> &adaptive_level =
+  vector<int> &gap_adaptive_level =
       *(geo_mgr->get_local_gap_particle_adaptive_level());
 
   int global_gap_particle_num = gap_coord.size();
@@ -1108,13 +1131,13 @@ void gmls_solver::write_refinement_data_geometry_only() {
     file.close();
   });
 
-  serial_operation([adaptive_level, this]() {
+  serial_operation([gap_adaptive_level, this]() {
     ofstream file;
     file.open("./vtk/adaptive_gap_geometry" +
                   to_string(current_refinement_step) + ".vtk",
               ios::app);
-    for (size_t i = 0; i < adaptive_level.size(); i++) {
-      file << adaptive_level[i] << endl;
+    for (size_t i = 0; i < gap_adaptive_level.size(); i++) {
+      file << gap_adaptive_level[i] << endl;
     }
     file.close();
   });
@@ -1129,14 +1152,95 @@ void gmls_solver::write_refinement_data_geometry_only() {
     file.close();
   });
 
-  serial_operation([adaptive_level, this]() {
+  serial_operation([gap_adaptive_level, this]() {
     ofstream file;
     file.open("./vtk/adaptive_gap_geometry" +
                   to_string(current_refinement_step) + ".vtk",
               ios::app);
-    for (size_t i = 0; i < adaptive_level.size(); i++) {
+    for (size_t i = 0; i < gap_adaptive_level.size(); i++) {
       file << rank << endl;
     }
     file.close();
   });
+}
+
+void gmls_solver::write_geometry_ghost() {
+  vector<vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
+  vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
+  vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
+
+  vector<vec3> source_coord;
+  vector<double> source_spacing;
+  vector<int> source_particle_type;
+
+  geo_mgr->ghost_forward(coord, source_coord);
+  geo_mgr->ghost_forward(spacing, source_spacing);
+  geo_mgr->ghost_forward(particle_type, source_particle_type);
+
+  ofstream file;
+  file.open("./vtk/geometry" + to_string(rank) + ".vtk", ios::trunc);
+  if (!file.is_open()) {
+    cout << "adaptive step output file open failed\n";
+  }
+  file << "# vtk DataFile Version 2.0" << endl;
+  file << "particlePositions" << endl;
+  file << "ASCII" << endl;
+  file << "DATASET POLYDATA " << endl;
+  file << " POINTS " << coord.size() << " float" << endl;
+
+  for (size_t i = 0; i < coord.size(); i++) {
+    file << fixed << setprecision(10) << coord[i][0] << ' ' << coord[i][1]
+         << ' ' << coord[i][2] << endl;
+  }
+
+  file << "POINT_DATA " << coord.size() << endl;
+
+  file << "SCALARS ID int 1" << endl;
+  file << "LOOKUP_TABLE default" << endl;
+
+  for (size_t i = 0; i < particle_type.size(); i++) {
+    file << particle_type[i] << endl;
+  }
+
+  file << "SCALARS d float 1" << endl;
+  file << "LOOKUP_TABLE default " << endl;
+
+  for (size_t i = 0; i < spacing.size(); i++) {
+    file << spacing[i] << endl;
+  }
+
+  file.close();
+
+  file.open("./vtk/geometry_ghost" + to_string(rank) + ".vtk", ios::trunc);
+  if (!file.is_open()) {
+    cout << "adaptive step output file open failed\n";
+  }
+  file << "# vtk DataFile Version 2.0" << endl;
+  file << "particlePositions" << endl;
+  file << "ASCII" << endl;
+  file << "DATASET POLYDATA " << endl;
+  file << " POINTS " << source_coord.size() << " float" << endl;
+
+  for (size_t i = 0; i < source_coord.size(); i++) {
+    file << fixed << setprecision(10) << source_coord[i][0] << ' '
+         << source_coord[i][1] << ' ' << source_coord[i][2] << endl;
+  }
+
+  file << "POINT_DATA " << source_coord.size() << endl;
+
+  file << "SCALARS ID int 1" << endl;
+  file << "LOOKUP_TABLE default" << endl;
+
+  for (size_t i = 0; i < source_particle_type.size(); i++) {
+    file << source_particle_type[i] << endl;
+  }
+
+  file << "SCALARS d float 1" << endl;
+  file << "LOOKUP_TABLE default " << endl;
+
+  for (size_t i = 0; i < source_spacing.size(); i++) {
+    file << source_spacing[i] << endl;
+  }
+
+  file.close();
 }

@@ -2427,6 +2427,19 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
   auto &source_attached_rigid_body =
       *current_local_work_ghost_attached_rigid_body;
 
+  /*
+  Automatic refine would have two stages.
+  In the first stage, the solver would place field and wall boundary particles
+  consistent with the nearby solid body surface particles.
+  This is mainly used when solid body and the whole computational domain has
+  magnitudes of differences in size.
+  In the second stage, the solver would refine the overall domain to ensure
+  enough fluid particles are inserted to start the simulation.
+  */
+
+  // first stage
+
+  // second stage
   // check over all boundary particles
   int local_particle_num = coord.size();
   int num_source_coord = source_coord.size();
@@ -2584,8 +2597,6 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
     }
   }
 
-  vector<int> origin_split_tag = split_tag;
-
   MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
@@ -2742,7 +2753,7 @@ bool particle_geometry::adaptive_refine(vector<int> &split_tag) {
       Kokkos::create_mirror_view(temp_neighbor_list_device);
 
   for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host[i] = 1.0005 * gap_spacing[i];
+    epsilon_host[i] = 2.0 * gap_spacing[i];
   }
 
   size_t max_num_neighbor =
@@ -3599,7 +3610,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
   int pass_test = 0;
 
   for (int i = 0; i < coord.size(); i++) {
-    if (particle_type[i] != 0) {
+    if (particle_type[i] >= 4) {
       if (dim == 2) {
         if (coord[i][0] < bounding_box[0][0] ||
             coord[i][0] > bounding_box[1][0] ||
@@ -4128,7 +4139,7 @@ void particle_geometry::build_ghost() {
   whole_ghost_in_num.resize(size);
 
   for (int i = 0; i < size; i++) {
-    int out_num = whole_ghost_out_map[i].size();
+    int out_num = (int)(whole_ghost_out_map[i].size());
     MPI_Gather(&out_num, 1, MPI_INT, whole_ghost_in_num.data(), 1, MPI_INT, i,
                MPI_COMM_WORLD);
   }
@@ -4516,20 +4527,20 @@ void particle_geometry::collect_rigid_body_surface_particle() {
 
   vector<double> whole_work_domain;
   whole_work_domain.resize(size * 6);
-  MPI_Allgather(&work_domain_low[0], 1, MPI_DOUBLE, whole_work_domain.data(), 1,
-                MPI_DOUBLE, MPI_COMM_WORLD);
-  MPI_Allgather(&work_domain_low[1], 1, MPI_DOUBLE,
+  MPI_Allgather(&(work_domain_low[0]), 1, MPI_DOUBLE, whole_work_domain.data(),
+                1, MPI_DOUBLE, MPI_COMM_WORLD);
+  MPI_Allgather(&(work_domain_low[1]), 1, MPI_DOUBLE,
                 whole_work_domain.data() + size, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-  MPI_Allgather(&work_domain_low[2], 1, MPI_DOUBLE,
+  MPI_Allgather(&(work_domain_low[2]), 1, MPI_DOUBLE,
                 whole_work_domain.data() + size * 2, 1, MPI_DOUBLE,
                 MPI_COMM_WORLD);
-  MPI_Allgather(&work_domain_high[0], 1, MPI_DOUBLE,
+  MPI_Allgather(&(work_domain_high[0]), 1, MPI_DOUBLE,
                 whole_work_domain.data() + size * 3, 1, MPI_DOUBLE,
                 MPI_COMM_WORLD);
-  MPI_Allgather(&work_domain_high[1], 1, MPI_DOUBLE,
+  MPI_Allgather(&(work_domain_high[1]), 1, MPI_DOUBLE,
                 whole_work_domain.data() + size * 4, 1, MPI_DOUBLE,
                 MPI_COMM_WORLD);
-  MPI_Allgather(&work_domain_high[2], 1, MPI_DOUBLE,
+  MPI_Allgather(&(work_domain_high[2]), 1, MPI_DOUBLE,
                 whole_work_domain.data() + size * 5, 1, MPI_DOUBLE,
                 MPI_COMM_WORLD);
 
@@ -4617,6 +4628,8 @@ void particle_geometry::collect_rigid_body_surface_particle() {
       in_offset.push_back(total_in_num);
     }
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
 
   vector<MPI_Request> send_request;
   vector<MPI_Request> recv_request;

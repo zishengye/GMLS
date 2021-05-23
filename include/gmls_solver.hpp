@@ -110,6 +110,7 @@ private:
   void write_time_step_data();
   void write_refinement_data(std::vector<int> &split_tag);
   void write_refinement_data_geometry_only();
+  void write_geometry_ghost();
 
   // geometry manager
   std::shared_ptr<particle_geometry> geo_mgr;
