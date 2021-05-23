@@ -2129,24 +2129,27 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
       case 1:
         // circle
         {
-          double vol = pow(h, 2);
+          if (rigid_body_coord[n][0] >= domain[0][0] &&
+              rigid_body_coord[n][0] < domain[1][0] &&
+              rigid_body_coord[n][1] >= domain[0][1] &&
+              rigid_body_coord[n][1] < domain[1][1]) {
+            double vol = pow(h, 2);
 
-          double r = rigid_body_size[n];
+            double r = rigid_body_size[n];
 
-          int M_theta = round(2 * M_PI * r / h);
-          double d_theta = 2 * M_PI * r / M_theta;
+            int M_theta = round(2 * M_PI * r / h);
+            double d_theta = 2 * M_PI * r / M_theta;
 
-          vec3 p_spacing = vec3(d_theta, 0, 0);
+            vec3 p_spacing = vec3(d_theta, 0, 0);
 
-          for (int i = 0; i < M_theta; ++i) {
-            double theta = 2 * M_PI * (i + 0.5) / M_theta;
-            vec3 p_coord = vec3(theta, 0.0, 0.0);
-            vec3 normal = vec3(cos(theta), sin(theta), 0.0);
-            vec3 pos = normal * r + rigid_body_coord[n];
-            if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-                pos[1] >= domain[0][1] && pos[1] < domain[1][1])
+            for (int i = 0; i < M_theta; ++i) {
+              double theta = 2 * M_PI * (i + 0.5) / M_theta;
+              vec3 p_coord = vec3(theta, 0.0, 0.0);
+              vec3 normal = vec3(cos(theta), sin(theta), 0.0);
+              vec3 pos = normal * r + rigid_body_coord[n];
               insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
                               p_coord, p_spacing);
+            }
           }
         }
 
@@ -2155,30 +2158,33 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
       case 2:
         // rounded square
         {
-          double vol = pow(h, 2);
 
-          double theta = rigid_body_orientation[n][0];
+          if (rigid_body_coord[n][0] >= domain[0][0] &&
+              rigid_body_coord[n][0] < domain[1][0] &&
+              rigid_body_coord[n][1] >= domain[0][1] &&
+              rigid_body_coord[n][1] < domain[1][1]) {
+            double vol = pow(h, 2);
 
-          shared_ptr<vector<vec3>> coord_ptr;
-          shared_ptr<vector<vec3>> normal_ptr;
-          shared_ptr<vector<vec3>> spacing_ptr;
+            double theta = rigid_body_orientation[n][0];
 
-          hierarchy->get_coarse_level_coordinate(n, coord_ptr);
-          hierarchy->get_coarse_level_normal(n, normal_ptr);
-          hierarchy->get_coarse_level_spacing(n, spacing_ptr);
+            shared_ptr<vector<vec3>> coord_ptr;
+            shared_ptr<vector<vec3>> normal_ptr;
+            shared_ptr<vector<vec3>> spacing_ptr;
 
-          int num_surface_particle = coord_ptr->size();
-          for (int i = 0; i < num_surface_particle; i++) {
-            vec3 unrotated_pos = (*coord_ptr)[i];
-            vec3 unrotated_norm = (*normal_ptr)[i];
-            vec3 pos = vec3(cos(theta) * unrotated_pos[0] -
-                                sin(theta) * unrotated_pos[1],
-                            sin(theta) * unrotated_pos[0] +
-                                cos(theta) * unrotated_pos[1],
-                            0.0) +
-                       rigid_body_coord[n];
-            if (pos[0] >= domain[0][0] && pos[0] < domain[1][0] &&
-                pos[1] >= domain[0][1] && pos[1] < domain[1][1]) {
+            hierarchy->get_coarse_level_coordinate(n, coord_ptr);
+            hierarchy->get_coarse_level_normal(n, normal_ptr);
+            hierarchy->get_coarse_level_spacing(n, spacing_ptr);
+
+            int num_surface_particle = coord_ptr->size();
+            for (int i = 0; i < num_surface_particle; i++) {
+              vec3 unrotated_pos = (*coord_ptr)[i];
+              vec3 unrotated_norm = (*normal_ptr)[i];
+              vec3 pos = vec3(cos(theta) * unrotated_pos[0] -
+                                  sin(theta) * unrotated_pos[1],
+                              sin(theta) * unrotated_pos[0] +
+                                  cos(theta) * unrotated_pos[1],
+                              0.0) +
+                         rigid_body_coord[n];
               vec3 normal = vec3(cos(theta) * unrotated_norm[0] -
                                      sin(theta) * unrotated_norm[1],
                                  sin(theta) * unrotated_norm[0] +
@@ -2196,134 +2202,135 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
         break;
 
       case 3: {
-        double theta = rigid_body_orientation[n][0];
-        double side_length = rigid_body_size[n];
-        int side_step = side_length / uniform_spacing;
-        double h = side_length / side_step;
-        double vol = pow(h, 2.0);
-        vec3 particleSize = vec3(h, h, 0.0);
-        vec3 increase_normal;
-        vec3 start_point;
-        vec3 normal;
-        vec3 norm;
-        vec3 p_coord = vec3(0.0, 0.0, 0.0);
-        vec3 p_spacing = vec3(h, 0.0, 0.0);
-        vec3 translation = vec3(0.0, -sqrt(3) / 6.0 * side_length, 0.0);
-        // first side
-        // {
-        //   vec3 pos = vec3(0.0, 0.5 * sqrt(3) * side_length, 0.0) +
-        //   translation;
-        //   // rotate
-        //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
-        //                       sin(theta) * pos[0] + cos(theta) * pos[1], 0.0)
-        //                       +
-        //                  rigid_body_coord[n];
+        if (rigid_body_coord[n][0] >= domain[0][0] &&
+            rigid_body_coord[n][0] < domain[1][0] &&
+            rigid_body_coord[n][1] >= domain[0][1] &&
+            rigid_body_coord[n][1] < domain[1][1]) {
+          double theta = rigid_body_orientation[n][0];
+          double side_length = rigid_body_size[n];
+          int side_step = side_length / uniform_spacing;
+          double h = side_length / side_step;
+          double vol = pow(h, 2.0);
+          vec3 particleSize = vec3(h, h, 0.0);
+          vec3 increase_normal;
+          vec3 start_point;
+          vec3 normal;
+          vec3 norm;
+          vec3 p_coord = vec3(0.0, 0.0, 0.0);
+          vec3 p_spacing = vec3(h, 0.0, 0.0);
+          vec3 translation = vec3(0.0, -sqrt(3) / 6.0 * side_length, 0.0);
+          // first side
+          // {
+          //   vec3 pos = vec3(0.0, 0.5 * sqrt(3) * side_length, 0.0) +
+          //   translation;
+          //   // rotate
+          //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+          //                       sin(theta) * pos[0] + cos(theta) * pos[1],
+          //                       0.0)
+          //                       +
+          //                  rigid_body_coord[n];
 
-        //   norm = vec3(0.0, 1.0, 0.0);
-        //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-        //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-        //   if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
-        //       new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
-        //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
-        //     true,
-        //                     n, p_coord, p_spacing);
-        // }
+          //   norm = vec3(0.0, 1.0, 0.0);
+          //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+          //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+          //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
+          //     true,
+          //                     n, p_coord, p_spacing);
+          // }
 
-        increase_normal = vec3(cos(M_PI / 3), -sin(M_PI / 3), 0.0);
-        start_point = vec3(0.0, sqrt(3) / 2.0 * side_length, 0.0);
-        norm = vec3(cos(M_PI / 6.0), sin(M_PI / 6.0), 0.0);
-        normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                      sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-        for (int i = 0; i < side_step; i++) {
-          vec3 pos =
-              start_point + increase_normal * ((i + 0.5) * h) + translation;
-          // rotate
-          vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
-                              sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
-                         rigid_body_coord[n];
+          increase_normal = vec3(cos(M_PI / 3), -sin(M_PI / 3), 0.0);
+          start_point = vec3(0.0, sqrt(3) / 2.0 * side_length, 0.0);
+          norm = vec3(cos(M_PI / 6.0), sin(M_PI / 6.0), 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+          for (int i = 0; i < side_step; i++) {
+            vec3 pos =
+                start_point + increase_normal * ((i + 0.5) * h) + translation;
+            // rotate
+            vec3 new_pos =
+                vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+                     sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
+                rigid_body_coord[n];
 
-          if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
-              new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
             insert_particle(new_pos, 5, uniform_spacing, normal, 0, vol, true,
                             n, p_coord, p_spacing);
-        }
+          }
 
-        // second side
-        // {
-        //   vec3 pos = vec3(0.5 * side_length, 0.0, 0.0) + translation;
-        //   // rotate
-        //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
-        //                       sin(theta) * pos[0] + cos(theta) * pos[1], 0.0)
-        //                       +
-        //                  rigid_body_coord[n];
+          // second side
+          // {
+          //   vec3 pos = vec3(0.5 * side_length, 0.0, 0.0) + translation;
+          //   // rotate
+          //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+          //                       sin(theta) * pos[0] + cos(theta) * pos[1],
+          //                       0.0)
+          //                       +
+          //                  rigid_body_coord[n];
 
-        //   norm = vec3(cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
-        //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-        //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+          //   norm = vec3(cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
+          //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+          //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
 
-        //   if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
-        //       new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
-        //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
-        //     true,
-        //                     n, p_coord, p_spacing);
-        // }
+          //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
+          //     true,
+          //                     n, p_coord, p_spacing);
+          // }
 
-        increase_normal = vec3(-1.0, 0.0, 0.0);
-        start_point = vec3(0.5 * side_length, 0.0, 0.0);
-        norm = vec3(0.0, -1.0, 0.0);
-        normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                      sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-        for (int i = 0; i < side_step; i++) {
-          vec3 pos =
-              start_point + increase_normal * ((i + 0.5) * h) + translation;
-          // rotate
-          vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
-                              sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
-                         rigid_body_coord[n];
+          increase_normal = vec3(-1.0, 0.0, 0.0);
+          start_point = vec3(0.5 * side_length, 0.0, 0.0);
+          norm = vec3(0.0, -1.0, 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+          for (int i = 0; i < side_step; i++) {
+            vec3 pos =
+                start_point + increase_normal * ((i + 0.5) * h) + translation;
+            // rotate
+            vec3 new_pos =
+                vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+                     sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
+                rigid_body_coord[n];
 
-          if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
-              new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
             insert_particle(new_pos, 5, uniform_spacing, normal, 0, vol, true,
                             n, p_coord, p_spacing);
-        }
+          }
 
-        // third side
-        // {
-        //   vec3 pos = vec3(-0.5 * side_length, 0.0, 0.0) + translation;
-        //   // rotate
-        //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
-        //                       sin(theta) * pos[0] + cos(theta) * pos[1], 0.0)
-        //                       +
-        //                  rigid_body_coord[n];
+          // third side
+          // {
+          //   vec3 pos = vec3(-0.5 * side_length, 0.0, 0.0) + translation;
+          //   // rotate
+          //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+          //                       sin(theta) * pos[0] + cos(theta) * pos[1],
+          //                       0.0)
+          //                       +
+          //                  rigid_body_coord[n];
 
-        //   norm = vec3(-cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
-        //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-        //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+          //   norm = vec3(-cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
+          //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+          //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
 
-        //   if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
-        //       new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
-        //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
-        //     true,
-        //                     n, p_coord, p_spacing);
-        // }
+          //   if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
+          //       new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
+          //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
+          //     true,
+          //                     n, p_coord, p_spacing);
+          // }
 
-        increase_normal = vec3(cos(M_PI / 3), sin(M_PI / 3), 0.0);
-        start_point = vec3(-0.5 * side_length, 0.0, 0.0);
-        norm = vec3(-cos(M_PI / 6.0), sin(M_PI / 6.0), 0.0);
-        normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
-                      sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
-        for (int i = 0; i < side_step; i++) {
-          vec3 pos =
-              start_point + increase_normal * ((i + 0.5) * h) + translation;
-          // rotate
-          vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
-                              sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
-                         rigid_body_coord[n];
+          increase_normal = vec3(cos(M_PI / 3), sin(M_PI / 3), 0.0);
+          start_point = vec3(-0.5 * side_length, 0.0, 0.0);
+          norm = vec3(-cos(M_PI / 6.0), sin(M_PI / 6.0), 0.0);
+          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+                        sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
+          for (int i = 0; i < side_step; i++) {
+            vec3 pos =
+                start_point + increase_normal * ((i + 0.5) * h) + translation;
+            // rotate
+            vec3 new_pos =
+                vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+                     sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
+                rigid_body_coord[n];
 
-          if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
-              new_pos[1] >= domain[0][1] && new_pos[1] < domain[1][1])
             insert_particle(new_pos, 5, uniform_spacing, normal, 0, vol, true,
                             n, p_coord, p_spacing);
+          }
         }
       }
 
@@ -2438,234 +2445,340 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
   */
 
   // first stage
+  // {
+  //   int local_particle_num = coord.size();
+  //   int num_source_coord = source_coord.size();
+
+  //   int num_target_coord = 0;
+  //   for (int i = 0; i < local_particle_num; i++) {
+  //     if (particle_type[i] != 0)
+  //       num_target_coord++;
+  //   }
+
+  //   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+  //   source_coord_device(
+  //       "source coordinates", num_source_coord, 3);
+  //   Kokkos::View<double **>::HostMirror source_coord_host =
+  //       Kokkos::create_mirror_view(source_coord_device);
+
+  //   for (size_t i = 0; i < num_source_coord; i++) {
+  //     for (int j = 0; j < 3; j++) {
+  //       source_coord_host(i, j) = source_coord[i][j];
+  //     }
+  //   }
+
+  //   auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
+
+  //   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+  //       whole_target_coord_device("target coordinates", local_particle_num,
+  //       3);
+  //   Kokkos::View<double **>::HostMirror whole_target_coord_host =
+  //       Kokkos::create_mirror_view(whole_target_coord_device);
+
+  //   for (int i = 0; i < local_particle_num; i++) {
+  //     for (int j = 0; j < 3; j++) {
+  //       whole_target_coord_host(i, j) = coord[i][j];
+  //     }
+  //   }
+
+  //   int estimated_max_num_neighbor = 2.0 * pow(5, dim);
+  //   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+  //       whole_neighbor_list_device("neighbor lists", local_particle_num,
+  //                                  estimated_max_num_neighbor);
+  //   Kokkos::View<int **>::HostMirror whole_neighbor_list_host =
+  //       Kokkos::create_mirror_view(whole_neighbor_list_device);
+
+  //   Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+  //   whole_epsilon_device(
+  //       "h supports", local_particle_num);
+  //   Kokkos::View<double *>::HostMirror whole_epsilon_host =
+  //       Kokkos::create_mirror_view(whole_epsilon_device);
+
+  //   for (int i = 0; i < local_particle_num; i++) {
+  //     whole_epsilon_host(i) = 2.50005 * spacing[i];
+  //   }
+
+  //   int actual_whole_max_neighbor_num =
+  //       point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+  //           true, whole_target_coord_host, whole_neighbor_list_host,
+  //           whole_epsilon_host, 0.0, 0.0) +
+  //       2;
+
+  //   if (actual_whole_max_neighbor_num > estimated_max_num_neighbor) {
+  //     whole_neighbor_list_device =
+  //         Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
+  //             "neighbor lists", local_particle_num,
+  //             actual_whole_max_neighbor_num + 1);
+  //     whole_neighbor_list_host =
+  //         Kokkos::create_mirror_view(whole_neighbor_list_device);
+  //   }
+
+  //   point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+  //       false, whole_target_coord_host, whole_neighbor_list_host,
+  //       whole_epsilon_host, 0.0, 0.0);
+
+  //   int num_critical_particle;
+  //   split_tag.resize(local_particle_num);
+
+  //   vector<int> source_particle_type, source_adaptive_level;
+  //   ghost_forward(particle_type, source_particle_type);
+  //   ghost_forward(adaptive_level, source_adaptive_level);
+
+  //   for (int i = 0; i < local_particle_num; i++) {
+  //     if (particle_type[i] < 4) {
+  //       for (int j = 0; j < whole_neighbor_list_host(i, 0); j++) {
+  //         int neighbor_index = whole_neighbor_list_host(i, j + 1);
+  //         if (source_particle_type[neighbor_index] >= 4) {
+  //           if (adaptive_level[i] < source_adaptive_level[neighbor_index]) {
+  //             num_critical_particle++;
+  //             split_tag[i] = 1;
+  //             break;
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+
+  //   MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
+  //                 MPI_COMM_WORLD);
+  //   PetscPrintf(PETSC_COMM_WORLD, "num cirtical particle: %d\n",
+  //               num_critical_particle);
+  //   if (num_critical_particle != 0)
+  //     return true;
+  // }
 
   // second stage
-  // check over all boundary particles
-  int local_particle_num = coord.size();
-  int num_source_coord = source_coord.size();
+  {
+    // check over all boundary particles
+    int local_particle_num = coord.size();
+    int num_source_coord = source_coord.size();
 
-  int num_target_coord = 0;
-  for (int i = 0; i < local_particle_num; i++) {
-    if (particle_type[i] != 0)
-      num_target_coord++;
-  }
-
-  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coord_device(
-      "source coordinates", num_source_coord, 3);
-  Kokkos::View<double **>::HostMirror source_coord_host =
-      Kokkos::create_mirror_view(source_coord_device);
-
-  for (size_t i = 0; i < num_source_coord; i++) {
-    for (int j = 0; j < 3; j++) {
-      source_coord_host(i, j) = source_coord[i][j];
+    int num_target_coord = 0;
+    for (int i = 0; i < local_particle_num; i++) {
+      if (particle_type[i] != 0)
+        num_target_coord++;
     }
-  }
 
-  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> target_coord_device(
-      "target coordinates", num_target_coord, 3);
-  Kokkos::View<double **>::HostMirror target_coord_host =
-      Kokkos::create_mirror_view(target_coord_device);
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coord_device(
+        "source coordinates", num_source_coord, 3);
+    Kokkos::View<double **>::HostMirror source_coord_host =
+        Kokkos::create_mirror_view(source_coord_device);
 
-  int counter = 0;
-  for (int i = 0; i < local_particle_num; i++) {
-    if (particle_type[i] != 0) {
+    for (size_t i = 0; i < num_source_coord; i++) {
       for (int j = 0; j < 3; j++) {
-        target_coord_host(counter, j) = coord[i][j];
+        source_coord_host(i, j) = source_coord[i][j];
       }
-      counter++;
     }
-  }
 
-  Kokkos::deep_copy(source_coord_device, source_coord_host);
-  Kokkos::deep_copy(target_coord_device, target_coord_host);
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> target_coord_device(
+        "target coordinates", num_target_coord, 3);
+    Kokkos::View<double **>::HostMirror target_coord_host =
+        Kokkos::create_mirror_view(target_coord_device);
 
-  auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
-
-  int estimated_max_num_neighbor = pow(4, dim);
-
-  Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
-      "neighbor lists", num_target_coord, estimated_max_num_neighbor);
-  Kokkos::View<int **>::HostMirror neighbor_list_host =
-      Kokkos::create_mirror_view(neighbor_list_device);
-
-  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
-      "h supports", num_target_coord);
-  Kokkos::View<double *>::HostMirror epsilon_host =
-      Kokkos::create_mirror_view(epsilon_device);
-
-  counter = 0;
-  for (int i = 0; i < local_particle_num; i++) {
-    if (particle_type[i] != 0) {
-      epsilon_host(counter) = 3.00005 * spacing[i];
-      counter++;
-    }
-  }
-
-  int actual_max_neighbor =
-      point_cloud_search.generate2DNeighborListsFromRadiusSearch(
-          true, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0) +
-      2;
-
-  if (actual_max_neighbor > estimated_max_num_neighbor) {
-    neighbor_list_device = Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
-        "neighbor lists", num_target_coord, actual_max_neighbor + 1);
-    neighbor_list_host = Kokkos::create_mirror_view(neighbor_list_device);
-  }
-
-  point_cloud_search.generate2DNeighborListsFromRadiusSearch(
-      false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
-
-  int num_critical_particle = 0;
-  counter = 0;
-  split_tag.resize(local_particle_num);
-  for (int i = 0; i < local_particle_num; i++) {
-    split_tag[i] = 0;
-    if (particle_type[i] != 0) {
-      int target_index = neighbor_list_host(counter, 1);
-      for (int j = 1; j < neighbor_list_host(counter, 0); j++) {
-        int neighbor_index = neighbor_list_host(counter, j + 1);
-        if (source_particle_type[neighbor_index] != 0 &&
-            attached_rigid_body[i] !=
-                source_attached_rigid_body[neighbor_index]) {
-          num_critical_particle++;
-          split_tag[i] = 1;
-
-          break;
+    int counter = 0;
+    for (int i = 0; i < local_particle_num; i++) {
+      if (particle_type[i] != 0) {
+        for (int j = 0; j < 3; j++) {
+          target_coord_host(counter, j) = coord[i][j];
         }
-      }
-
-      counter++;
-    }
-  }
-
-  // ensure the difference of adaptive level on a single colloid is no greater
-  // than 5
-
-  int num_rigid_body = rb_mgr->get_rigid_body_num();
-
-  vector<int> min_rigid_body_adaptive_level;
-  vector<int> max_rigid_body_adaptive_level;
-
-  min_rigid_body_adaptive_level.resize(num_rigid_body);
-  max_rigid_body_adaptive_level.resize(num_rigid_body);
-  for (int i = 0; i < num_rigid_body; i++) {
-    min_rigid_body_adaptive_level[i] = 1000;
-    max_rigid_body_adaptive_level[i] = 0;
-  }
-
-  for (int i = 0; i < local_particle_num; i++) {
-    if (particle_type[i] >= 4) {
-      int rigid_body_idx = attached_rigid_body[i];
-      if (min_rigid_body_adaptive_level[rigid_body_idx] > adaptive_level[i]) {
-        min_rigid_body_adaptive_level[rigid_body_idx] = adaptive_level[i];
-      }
-      if (max_rigid_body_adaptive_level[rigid_body_idx] < adaptive_level[i]) {
-        max_rigid_body_adaptive_level[rigid_body_idx] = adaptive_level[i];
+        counter++;
       }
     }
-  }
-  MPI_Allreduce(MPI_IN_PLACE, min_rigid_body_adaptive_level.data(),
-                num_rigid_body, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-  MPI_Allreduce(MPI_IN_PLACE, max_rigid_body_adaptive_level.data(),
-                num_rigid_body, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
-  int need_modify = 0;
-  for (int i = 0; i < num_rigid_body; i++) {
-    if (max_rigid_body_adaptive_level[i] - min_rigid_body_adaptive_level[i] >=
-        5) {
-      need_modify = 1;
+    Kokkos::deep_copy(source_coord_device, source_coord_host);
+    Kokkos::deep_copy(target_coord_device, target_coord_host);
+
+    auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
+
+    int estimated_max_num_neighbor = pow(4, dim);
+
+    Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
+        "neighbor lists", num_target_coord, estimated_max_num_neighbor);
+    Kokkos::View<int **>::HostMirror neighbor_list_host =
+        Kokkos::create_mirror_view(neighbor_list_device);
+
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
+        "h supports", num_target_coord);
+    Kokkos::View<double *>::HostMirror epsilon_host =
+        Kokkos::create_mirror_view(epsilon_device);
+
+    counter = 0;
+    for (int i = 0; i < local_particle_num; i++) {
+      if (particle_type[i] != 0) {
+        epsilon_host(counter) = 3.00005 * spacing[i];
+        counter++;
+      }
     }
-  }
-  PetscPrintf(PETSC_COMM_WORLD, "need modify: %d\n", need_modify);
 
-  if (need_modify) {
+    int actual_max_neighbor =
+        point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+            true, target_coord_host, neighbor_list_host, epsilon_host, 0.0,
+            0.0) +
+        2;
+
+    if (actual_max_neighbor > estimated_max_num_neighbor) {
+      neighbor_list_device =
+          Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
+              "neighbor lists", num_target_coord, actual_max_neighbor + 1);
+      neighbor_list_host = Kokkos::create_mirror_view(neighbor_list_device);
+    }
+
+    point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+        false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
+
+    int num_critical_particle = 0;
+    counter = 0;
+    split_tag.resize(local_particle_num);
     for (int i = 0; i < local_particle_num; i++) {
       split_tag[i] = 0;
+      if (particle_type[i] != 0) {
+        int target_index = neighbor_list_host(counter, 1);
+        for (int j = 1; j < neighbor_list_host(counter, 0); j++) {
+          int neighbor_index = neighbor_list_host(counter, j + 1);
+          if (source_particle_type[neighbor_index] != 0 &&
+              attached_rigid_body[i] !=
+                  source_attached_rigid_body[neighbor_index]) {
+            num_critical_particle++;
+            split_tag[i] = 1;
+
+            break;
+          }
+        }
+
+        counter++;
+      }
+    }
+
+    // ensure the difference of adaptive level on a single colloid is no greater
+    // than 5
+
+    int num_rigid_body = rb_mgr->get_rigid_body_num();
+
+    vector<int> min_rigid_body_adaptive_level;
+    vector<int> max_rigid_body_adaptive_level;
+
+    min_rigid_body_adaptive_level.resize(num_rigid_body);
+    max_rigid_body_adaptive_level.resize(num_rigid_body);
+    for (int i = 0; i < num_rigid_body; i++) {
+      min_rigid_body_adaptive_level[i] = 1000;
+      max_rigid_body_adaptive_level[i] = 0;
     }
 
     for (int i = 0; i < local_particle_num; i++) {
       if (particle_type[i] >= 4) {
         int rigid_body_idx = attached_rigid_body[i];
-        if ((max_rigid_body_adaptive_level[rigid_body_idx] -
-                 min_rigid_body_adaptive_level[rigid_body_idx] >=
-             5) &&
-            (adaptive_level[i] ==
-             min_rigid_body_adaptive_level[rigid_body_idx])) {
-          split_tag[i] = 1;
+        if (min_rigid_body_adaptive_level[rigid_body_idx] > adaptive_level[i]) {
+          min_rigid_body_adaptive_level[rigid_body_idx] = adaptive_level[i];
+        }
+        if (max_rigid_body_adaptive_level[rigid_body_idx] < adaptive_level[i]) {
+          max_rigid_body_adaptive_level[rigid_body_idx] = adaptive_level[i];
         }
       }
     }
-  }
+    MPI_Allreduce(MPI_IN_PLACE, min_rigid_body_adaptive_level.data(),
+                  num_rigid_body, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, max_rigid_body_adaptive_level.data(),
+                  num_rigid_body, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
-  MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
-                MPI_COMM_WORLD);
+    int need_modify = 0;
+    for (int i = 0; i < num_rigid_body; i++) {
+      if (max_rigid_body_adaptive_level[i] - min_rigid_body_adaptive_level[i] >=
+          5) {
+        need_modify = 1;
+      }
+    }
+    PetscPrintf(PETSC_COMM_WORLD, "need modify: %d\n", need_modify);
 
-  if (num_critical_particle != 0 || need_modify) {
-    // need local refinement
-    vector<int> ghost_split_tag;
-    ghost_forward(split_tag, ghost_split_tag);
+    if (need_modify) {
+      for (int i = 0; i < local_particle_num; i++) {
+        split_tag[i] = 0;
+      }
 
-    Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-        whole_target_coord_device("target coordinates", local_particle_num, 3);
-    Kokkos::View<double **>::HostMirror whole_target_coord_host =
-        Kokkos::create_mirror_view(whole_target_coord_device);
-
-    for (int i = 0; i < local_particle_num; i++) {
-      for (int j = 0; j < 3; j++) {
-        whole_target_coord_host(i, j) = coord[i][j];
+      for (int i = 0; i < local_particle_num; i++) {
+        if (particle_type[i] >= 4) {
+          int rigid_body_idx = attached_rigid_body[i];
+          if ((max_rigid_body_adaptive_level[rigid_body_idx] -
+                   min_rigid_body_adaptive_level[rigid_body_idx] >=
+               5) &&
+              (adaptive_level[i] ==
+               min_rigid_body_adaptive_level[rigid_body_idx])) {
+            split_tag[i] = 1;
+          }
+        }
       }
     }
 
-    estimated_max_num_neighbor = 2.0 * pow(5, dim);
+    MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
 
-    Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-        whole_neighbor_list_device("neighbor lists", local_particle_num,
-                                   estimated_max_num_neighbor);
-    Kokkos::View<int **>::HostMirror whole_neighbor_list_host =
-        Kokkos::create_mirror_view(whole_neighbor_list_device);
+    if (num_critical_particle != 0 || need_modify) {
+      // need local refinement
+      vector<int> ghost_split_tag;
+      ghost_forward(split_tag, ghost_split_tag);
 
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> whole_epsilon_device(
-        "h supports", local_particle_num);
-    Kokkos::View<double *>::HostMirror whole_epsilon_host =
-        Kokkos::create_mirror_view(whole_epsilon_device);
+      Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+          whole_target_coord_device("target coordinates", local_particle_num,
+                                    3);
+      Kokkos::View<double **>::HostMirror whole_target_coord_host =
+          Kokkos::create_mirror_view(whole_target_coord_device);
 
-    for (int i = 0; i < local_particle_num; i++) {
-      whole_epsilon_host(i) = 2.50005 * spacing[i];
-    }
+      for (int i = 0; i < local_particle_num; i++) {
+        for (int j = 0; j < 3; j++) {
+          whole_target_coord_host(i, j) = coord[i][j];
+        }
+      }
 
-    int actual_whole_max_neighbor_num =
-        point_cloud_search.generate2DNeighborListsFromRadiusSearch(
-            true, whole_target_coord_host, whole_neighbor_list_host,
-            whole_epsilon_host, 0.0, 0.0) +
-        2;
+      estimated_max_num_neighbor = 2.0 * pow(5, dim);
 
-    if (actual_whole_max_neighbor_num > estimated_max_num_neighbor) {
-      whole_neighbor_list_device =
-          Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
-              "neighbor lists", local_particle_num,
-              actual_whole_max_neighbor_num + 1);
-      whole_neighbor_list_host =
+      Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+          whole_neighbor_list_device("neighbor lists", local_particle_num,
+                                     estimated_max_num_neighbor);
+      Kokkos::View<int **>::HostMirror whole_neighbor_list_host =
           Kokkos::create_mirror_view(whole_neighbor_list_device);
-    }
 
-    point_cloud_search.generate2DNeighborListsFromRadiusSearch(
-        false, whole_target_coord_host, whole_neighbor_list_host,
-        whole_epsilon_host, 0.0, 0.0);
+      Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+          whole_epsilon_device("h supports", local_particle_num);
+      Kokkos::View<double *>::HostMirror whole_epsilon_host =
+          Kokkos::create_mirror_view(whole_epsilon_device);
 
-    vector<int> ghost_adaptive_level;
-    ghost_forward(adaptive_level, ghost_adaptive_level);
+      for (int i = 0; i < local_particle_num; i++) {
+        whole_epsilon_host(i) = 2.50005 * spacing[i];
+      }
 
-    for (int i = 0; i < local_particle_num; i++) {
-      for (int j = 0; j < whole_neighbor_list_host(i, 0); j++) {
-        int neighbor_index = whole_neighbor_list_host(i, j + 1);
-        if ((ghost_split_tag[neighbor_index] == 1) &&
-            (ghost_adaptive_level[neighbor_index] >= adaptive_level[i])) {
-          split_tag[i] = 1;
+      int actual_whole_max_neighbor_num =
+          point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+              true, whole_target_coord_host, whole_neighbor_list_host,
+              whole_epsilon_host, 0.0, 0.0) +
+          2;
+
+      if (actual_whole_max_neighbor_num > estimated_max_num_neighbor) {
+        whole_neighbor_list_device =
+            Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
+                "neighbor lists", local_particle_num,
+                actual_whole_max_neighbor_num + 1);
+        whole_neighbor_list_host =
+            Kokkos::create_mirror_view(whole_neighbor_list_device);
+      }
+
+      point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+          false, whole_target_coord_host, whole_neighbor_list_host,
+          whole_epsilon_host, 0.0, 0.0);
+
+      vector<int> ghost_adaptive_level;
+      ghost_forward(adaptive_level, ghost_adaptive_level);
+
+      for (int i = 0; i < local_particle_num; i++) {
+        for (int j = 0; j < whole_neighbor_list_host(i, 0); j++) {
+          int neighbor_index = whole_neighbor_list_host(i, j + 1);
+          if ((ghost_split_tag[neighbor_index] == 1) &&
+              (ghost_adaptive_level[neighbor_index] >= adaptive_level[i])) {
+            split_tag[i] = 1;
+          }
         }
       }
-    }
 
-    return true;
+      return true;
+    }
   }
 
   return false;
