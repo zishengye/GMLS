@@ -348,6 +348,7 @@ bool particle_geometry::generate_uniform_particle() {
   // check if enough fluid particles has been inserted in any gap
   bool pass_check = false;
   int trial_num = 0;
+  int stage = 1;
 
   while (!pass_check) {
     index_particle();
@@ -428,7 +429,7 @@ bool particle_geometry::generate_uniform_particle() {
                   current_local_work_ghost_attached_rigid_body);
 
     vector<int> split_tag;
-    if (automatic_refine(split_tag)) {
+    if (automatic_refine(split_tag, stage)) {
       if (!adaptive_refine(split_tag))
         return false;
     } else {
@@ -2422,7 +2423,7 @@ void particle_geometry::uniform_refine() {
   generate_field_particle();
 }
 
-bool particle_geometry::automatic_refine(vector<int> &split_tag) {
+bool particle_geometry::automatic_refine(vector<int> &split_tag, int &stage) {
   auto &particle_type = *current_local_work_particle_type;
   auto &spacing = *current_local_work_particle_spacing;
   auto &coord = *current_local_work_particle_coord;
@@ -2445,110 +2446,109 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
   */
 
   // first stage
-  // {
-  //   int local_particle_num = coord.size();
-  //   int num_source_coord = source_coord.size();
+  if (stage == 1) {
+    int local_particle_num = coord.size();
+    int num_source_coord = source_coord.size();
 
-  //   int num_target_coord = 0;
-  //   for (int i = 0; i < local_particle_num; i++) {
-  //     if (particle_type[i] != 0)
-  //       num_target_coord++;
-  //   }
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coord_device(
+        "source coordinates", num_source_coord, 3);
+    Kokkos::View<double **>::HostMirror source_coord_host =
+        Kokkos::create_mirror_view(source_coord_device);
 
-  //   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-  //   source_coord_device(
-  //       "source coordinates", num_source_coord, 3);
-  //   Kokkos::View<double **>::HostMirror source_coord_host =
-  //       Kokkos::create_mirror_view(source_coord_device);
+    for (size_t i = 0; i < num_source_coord; i++) {
+      for (int j = 0; j < 3; j++) {
+        source_coord_host(i, j) = source_coord[i][j];
+      }
+    }
 
-  //   for (size_t i = 0; i < num_source_coord; i++) {
-  //     for (int j = 0; j < 3; j++) {
-  //       source_coord_host(i, j) = source_coord[i][j];
-  //     }
-  //   }
+    auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
 
-  //   auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+        whole_target_coord_device("target coordinates", local_particle_num, 3);
+    Kokkos::View<double **>::HostMirror whole_target_coord_host =
+        Kokkos::create_mirror_view(whole_target_coord_device);
 
-  //   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-  //       whole_target_coord_device("target coordinates", local_particle_num,
-  //       3);
-  //   Kokkos::View<double **>::HostMirror whole_target_coord_host =
-  //       Kokkos::create_mirror_view(whole_target_coord_device);
+    for (int i = 0; i < local_particle_num; i++) {
+      for (int j = 0; j < 3; j++) {
+        whole_target_coord_host(i, j) = coord[i][j];
+      }
+    }
 
-  //   for (int i = 0; i < local_particle_num; i++) {
-  //     for (int j = 0; j < 3; j++) {
-  //       whole_target_coord_host(i, j) = coord[i][j];
-  //     }
-  //   }
+    int estimated_max_num_neighbor = 2.0 * pow(5, dim);
+    Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+        whole_neighbor_list_device("neighbor lists", local_particle_num,
+                                   estimated_max_num_neighbor);
+    Kokkos::View<int **>::HostMirror whole_neighbor_list_host =
+        Kokkos::create_mirror_view(whole_neighbor_list_device);
 
-  //   int estimated_max_num_neighbor = 2.0 * pow(5, dim);
-  //   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-  //       whole_neighbor_list_device("neighbor lists", local_particle_num,
-  //                                  estimated_max_num_neighbor);
-  //   Kokkos::View<int **>::HostMirror whole_neighbor_list_host =
-  //       Kokkos::create_mirror_view(whole_neighbor_list_device);
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> whole_epsilon_device(
+        "h supports", local_particle_num);
+    Kokkos::View<double *>::HostMirror whole_epsilon_host =
+        Kokkos::create_mirror_view(whole_epsilon_device);
 
-  //   Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
-  //   whole_epsilon_device(
-  //       "h supports", local_particle_num);
-  //   Kokkos::View<double *>::HostMirror whole_epsilon_host =
-  //       Kokkos::create_mirror_view(whole_epsilon_device);
+    for (int i = 0; i < local_particle_num; i++) {
+      whole_epsilon_host(i) = 2.50005 * spacing[i];
+    }
 
-  //   for (int i = 0; i < local_particle_num; i++) {
-  //     whole_epsilon_host(i) = 2.50005 * spacing[i];
-  //   }
+    int actual_whole_max_neighbor_num =
+        point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+            true, whole_target_coord_host, whole_neighbor_list_host,
+            whole_epsilon_host, 0.0, 0.0) +
+        2;
 
-  //   int actual_whole_max_neighbor_num =
-  //       point_cloud_search.generate2DNeighborListsFromRadiusSearch(
-  //           true, whole_target_coord_host, whole_neighbor_list_host,
-  //           whole_epsilon_host, 0.0, 0.0) +
-  //       2;
+    if (actual_whole_max_neighbor_num > estimated_max_num_neighbor) {
+      whole_neighbor_list_device =
+          Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
+              "neighbor lists", local_particle_num,
+              actual_whole_max_neighbor_num + 1);
+      whole_neighbor_list_host =
+          Kokkos::create_mirror_view(whole_neighbor_list_device);
+    }
 
-  //   if (actual_whole_max_neighbor_num > estimated_max_num_neighbor) {
-  //     whole_neighbor_list_device =
-  //         Kokkos::View<int **, Kokkos::DefaultExecutionSpace>(
-  //             "neighbor lists", local_particle_num,
-  //             actual_whole_max_neighbor_num + 1);
-  //     whole_neighbor_list_host =
-  //         Kokkos::create_mirror_view(whole_neighbor_list_device);
-  //   }
+    point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+        false, whole_target_coord_host, whole_neighbor_list_host,
+        whole_epsilon_host, 0.0, 0.0);
 
-  //   point_cloud_search.generate2DNeighborListsFromRadiusSearch(
-  //       false, whole_target_coord_host, whole_neighbor_list_host,
-  //       whole_epsilon_host, 0.0, 0.0);
+    int num_critical_particle = 0;
+    split_tag.resize(local_particle_num);
 
-  //   int num_critical_particle;
-  //   split_tag.resize(local_particle_num);
+    vector<int> source_particle_type, source_adaptive_level;
+    ghost_forward(particle_type, source_particle_type);
+    ghost_forward(adaptive_level, source_adaptive_level);
 
-  //   vector<int> source_particle_type, source_adaptive_level;
-  //   ghost_forward(particle_type, source_particle_type);
-  //   ghost_forward(adaptive_level, source_adaptive_level);
+    for (int i = 0; i < local_particle_num; i++) {
+      split_tag[i] = 0;
+      if (particle_type[i] < 4) {
+        for (int j = 0; j < whole_neighbor_list_host(i, 0); j++) {
+          int neighbor_index = whole_neighbor_list_host(i, j + 1);
+          if (source_particle_type[neighbor_index] >= 4) {
+            if (adaptive_level[i] < source_adaptive_level[neighbor_index]) {
+              num_critical_particle++;
+              split_tag[i] = 1;
+              cout << coord[i][0] << ' ' << coord[i][1] << ", "
+                   << source_coord[neighbor_index][0] << ' '
+                   << source_coord[neighbor_index][1] << ", "
+                   << adaptive_level[i] << ' '
+                   << source_adaptive_level[neighbor_index] << endl;
+              break;
+            }
+          }
+        }
+      }
+    }
 
-  //   for (int i = 0; i < local_particle_num; i++) {
-  //     if (particle_type[i] < 4) {
-  //       for (int j = 0; j < whole_neighbor_list_host(i, 0); j++) {
-  //         int neighbor_index = whole_neighbor_list_host(i, j + 1);
-  //         if (source_particle_type[neighbor_index] >= 4) {
-  //           if (adaptive_level[i] < source_adaptive_level[neighbor_index]) {
-  //             num_critical_particle++;
-  //             split_tag[i] = 1;
-  //             break;
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
+    MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "num cirtical particle: %d\n",
+                num_critical_particle);
+    if (num_critical_particle != 0)
+      return true;
 
-  //   MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
-  //                 MPI_COMM_WORLD);
-  //   PetscPrintf(PETSC_COMM_WORLD, "num cirtical particle: %d\n",
-  //               num_critical_particle);
-  //   if (num_critical_particle != 0)
-  //     return true;
-  // }
+    stage = 2;
+  }
 
   // second stage
-  {
+  if (stage == 2) {
     // check over all boundary particles
     int local_particle_num = coord.size();
     int num_source_coord = source_coord.size();
@@ -2710,6 +2710,8 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
 
     MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "num cirtical particle: %d\n",
+                num_critical_particle);
 
     if (num_critical_particle != 0 || need_modify) {
       // need local refinement
