@@ -57,6 +57,10 @@ void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,
     return;
   }
 
+  int adaptive_level;
+  input >> adaptive_level;
+  hierarchy_adaptive_level.push_back(adaptive_level);
+
   while (!input.eof()) {
     vec3 xyz;
     for (int i = 0; i < 3; i++) {

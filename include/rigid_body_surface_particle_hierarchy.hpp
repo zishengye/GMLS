@@ -17,6 +17,7 @@ private:
   std::vector<std::vector<vec3>> hierarchy_normal;
   std::vector<std::vector<vec3>> hierarchy_spacing;
   std::vector<std::vector<triple<int>>> hierarchy_element;
+  std::vector<int> hierarchy_adaptive_level;
 
   // the refinement relation is seen as a CRS matrix
   std::vector<std::vector<int>> hierarchy;
@@ -81,6 +82,10 @@ public:
   void
   get_coarse_level_spacing(const int rigid_body_index,
                            std::shared_ptr<std::vector<vec3>> &spacing_ptr);
+
+  int get_coarse_level_adaptive_level(const int rigid_body_index) {
+    return hierarchy_adaptive_level[find_rigid_body(rigid_body_index, 0)];
+  }
 
   void get_coarse_level_element(
       const int rigid_body_index,

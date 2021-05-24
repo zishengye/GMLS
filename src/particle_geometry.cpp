@@ -269,6 +269,11 @@ void particle_geometry::init(const int _dim, const int _problem_type,
     bounding_box[1][2] = 1.0;
   }
 
+  for (int i = 0; i < 3; i++) {
+    bounding_box[0][i] += 1e-10 * bounding_box[0][i];
+    bounding_box[1][i] -= 1e-10 * bounding_box[1][i];
+  }
+
   if (dim == 2) {
     process_split(process_x, process_y, process_i, process_j, size, rank);
   } else if (dim == 3) {
@@ -2054,6 +2059,10 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
       hierarchy->get_coarse_level_spacing(n, spacing_ptr);
       hierarchy->get_coarse_level_element(n, element_ptr);
 
+      int adaptive_level = hierarchy->get_coarse_level_adaptive_level(n);
+      h *= pow(0.5, adaptive_level);
+      vol = pow(h, 3);
+
       surface_element.push_back(vector<triple<int>>());
       surface_element_adaptive_level.push_back(vector<int>());
       vector<int> idx_map;
@@ -2073,7 +2082,7 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
         vec3 p_spacing = vec3(0.0, 1.0, 0.0);
         vec3 p_coord = vec3(i, 0, 0);
 
-        insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
+        insert_particle(pos, 5, h, normal, adaptive_level, vol, true, n,
                         p_coord, p_spacing);
 
         int idx = current_local_managing_particle_coord->size() - 1;
@@ -2082,7 +2091,7 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
 
       for (int i = 0; i < element_ptr->size(); i++) {
         current_element.push_back((*element_ptr)[i]);
-        current_element_adaptive_level.push_back(0);
+        current_element_adaptive_level.push_back(adaptive_level);
       }
 
       // change the index from single surface to the local index
@@ -2525,11 +2534,6 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag, int &stage) {
             if (adaptive_level[i] < source_adaptive_level[neighbor_index]) {
               num_critical_particle++;
               split_tag[i] = 1;
-              cout << coord[i][0] << ' ' << coord[i][1] << ", "
-                   << source_coord[neighbor_index][0] << ' '
-                   << source_coord[neighbor_index][1] << ", "
-                   << adaptive_level[i] << ' '
-                   << source_adaptive_level[neighbor_index] << endl;
               break;
             }
           }

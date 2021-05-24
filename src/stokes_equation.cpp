@@ -1239,36 +1239,35 @@ void stokes_equation::build_rhs() {
       }
 
       // 3-d Taylor-Green vortex-like flow
-      // if (dim == 3) {
-      //   double x = coord[i][0];
-      //   double y = coord[i][1];
-      //   double z = coord[i][2];
+      if (dim == 3 && num_rigid_body == 0) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
 
-      //   rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-      //   rhs[field_dof * i + 1] =
-      //       -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-      //   rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
-      //   z);
+        rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+        rhs[field_dof * i + 1] =
+            -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+        rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
 
-      //   const int neumann_index = neumann_map[i];
-      //   const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-      //       LaplacianOfScalarPointEvaluation, neumann_index,
-      //       neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
+        const int neumann_index = neumann_map[i];
+        const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
+            LaplacianOfScalarPointEvaluation, neumann_index,
+            neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
 
-      //   rhs[field_dof * i + velocity_dof] =
-      //       -4.0 * pow(M_PI, 2.0) *
-      //           (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
-      //            cos(2.0 * M_PI * z)) +
-      //       bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-      //                 sin(M_PI * y) * sin(M_PI * z) -
-      //             normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-      //                 cos(M_PI * y) * sin(M_PI * z) +
-      //             normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-      //                 sin(M_PI * y) * cos(M_PI * z)) +
-      //       bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-      //             normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
-      //             normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
-      // }
+        rhs[field_dof * i + velocity_dof] =
+            -4.0 * pow(M_PI, 2.0) *
+                (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
+                 cos(2.0 * M_PI * z)) +
+            bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                      sin(M_PI * y) * sin(M_PI * z) -
+                  normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                      cos(M_PI * y) * sin(M_PI * z) +
+                  normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                      sin(M_PI * y) * cos(M_PI * z)) +
+            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
+                  normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
+      }
     } else if (particle_type[i] == 0) {
       if (dim == 2) {
         double x = coord[i][0];
@@ -1284,27 +1283,25 @@ void stokes_equation::build_rhs() {
         rhs[field_dof * current_particle_local_index + velocity_dof] =
             -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
       }
+      if (dim == 3 && num_rigid_body == 0) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
 
-      // if (dim == 3) {
-      //   double x = coord[i][0];
-      //   double y = coord[i][1];
-      //   double z = coord[i][2];
+        rhs[field_dof * i] =
+            3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z) +
+            2.0 * M_PI * sin(2.0 * M_PI * x);
+        rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
+                                     cos(M_PI * y) * sin(M_PI * z) +
+                                 2.0 * M_PI * sin(2.0 * M_PI * y);
+        rhs[field_dof * i + 2] =
+            3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
+            2.0 * M_PI * sin(2.0 * M_PI * z);
 
-      //   rhs[field_dof * i] =
-      //       3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI *
-      //       z) + 2.0 * M_PI * sin(2.0 * M_PI * x);
-      //   rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
-      //                                cos(M_PI * y) * sin(M_PI * z) +
-      //                            2.0 * M_PI * sin(2.0 * M_PI * y);
-      //   rhs[field_dof * i + 2] =
-      //       3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
-      //       z) + 2.0 * M_PI * sin(2.0 * M_PI * z);
-
-      //   rhs[field_dof * i + velocity_dof] =
-      //       -4.0 * pow(M_PI, 2.0) *
-      //       (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI *
-      //       z));
-      // }
+        rhs[field_dof * i + velocity_dof] =
+            -4.0 * pow(M_PI, 2.0) *
+            (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
+      }
     }
   }
   // if (rank == size - 1) {
@@ -1313,7 +1310,7 @@ void stokes_equation::build_rhs() {
   //   }
   // }
 
-  if (dim == 3) {
+  if (dim == 3 && num_rigid_body != 0) {
     vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
     vector<vec3> &rigid_body_position = rb_mgr->get_position();
 
@@ -1603,17 +1600,30 @@ void stokes_equation::check_solution() {
     }
 
     if (dim == 3) {
-      double x = coord[i][0] - rigid_body_position[0][0];
-      double y = coord[i][1] - rigid_body_position[0][1];
-      double z = coord[i][2] - rigid_body_position[0][2];
+      if (num_rigid_body != 0) {
+        double x = coord[i][0] - rigid_body_position[0][0];
+        double y = coord[i][1] - rigid_body_position[0][1];
+        double z = coord[i][2] - rigid_body_position[0][2];
 
-      double r = sqrt(x * x + y * y + z * z);
-      double theta = acos(z / r);
+        double r = sqrt(x * x + y * y + z * z);
+        double theta = acos(z / r);
 
-      double true_pressure = -1.5 * RR / pow(r, 2.0) * u * cos(theta);
+        double true_pressure = -1.5 * RR / pow(r, 2.0) * u * cos(theta);
 
-      true_pressure_mean += true_pressure;
-      pressure_mean += pressure[i];
+        true_pressure_mean += true_pressure;
+        pressure_mean += pressure[i];
+      }
+      if (num_rigid_body == 0) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
+
+        double true_pressure =
+            -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) - cos(2.0 * M_PI * z);
+
+        true_pressure_mean += true_pressure;
+        pressure_mean += pressure[i];
+      }
     }
   }
 
@@ -1649,41 +1659,66 @@ void stokes_equation::check_solution() {
     }
 
     if (dim == 3) {
-      double x = coord[i][0] - rigid_body_position[0][0];
-      double y = coord[i][1] - rigid_body_position[0][1];
-      double z = coord[i][2] - rigid_body_position[0][2];
+      if (num_rigid_body != 0) {
+        double x = coord[i][0] - rigid_body_position[0][0];
+        double y = coord[i][1] - rigid_body_position[0][1];
+        double z = coord[i][2] - rigid_body_position[0][2];
 
-      double r = sqrt(x * x + y * y + z * z);
-      double theta = acos(z / r);
-      double phi = atan2(y, x);
+        double r = sqrt(x * x + y * y + z * z);
+        double theta = acos(z / r);
+        double phi = atan2(y, x);
 
-      double vr = u * cos(theta) *
-                  (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
-      double vt = -u * sin(theta) *
-                  (1 - (3 * RR) / (4 * r) - pow(RR, 3) / (4 * pow(r, 3)));
+        double vr = u * cos(theta) *
+                    (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
+        double vt = -u * sin(theta) *
+                    (1 - (3 * RR) / (4 * r) - pow(RR, 3) / (4 * pow(r, 3)));
 
-      double pr = 3 * RR / pow(r, 3) * u * cos(theta);
-      double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
+        double pr = 3 * RR / pow(r, 3) * u * cos(theta);
+        double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
 
-      vec3 true_velocity;
+        vec3 true_velocity;
 
-      true_velocity[0] =
-          sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
-      true_velocity[1] =
-          sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
-      true_velocity[2] = cos(theta) * vr - sin(theta) * vt;
+        true_velocity[0] =
+            sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
+        true_velocity[1] =
+            sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
+        true_velocity[2] = cos(theta) * vr - sin(theta) * vt;
 
-      double true_pressure =
-          -1.5 * RR / pow(r, 2.0) * u * cos(theta) - true_pressure_mean;
+        double true_pressure =
+            -1.5 * RR / pow(r, 2.0) * u * cos(theta) - true_pressure_mean;
 
-      error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
-                        pow(true_velocity[1] - velocity[i][1], 2) +
-                        pow(true_velocity[2] - velocity[i][2], 2);
-      error_pressure += pow(true_pressure - pressure[i], 2);
+        error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
+                          pow(true_velocity[1] - velocity[i][1], 2) +
+                          pow(true_velocity[2] - velocity[i][2], 2);
+        error_pressure += pow(true_pressure - pressure[i], 2);
 
-      norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2) +
-                       pow(true_velocity[2], 2);
-      norm_pressure += pow(true_pressure, 2);
+        norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2) +
+                         pow(true_velocity[2], 2);
+        norm_pressure += pow(true_pressure, 2);
+      }
+      if (num_rigid_body == 0) {
+        double x = coord[i][0];
+        double y = coord[i][1];
+        double z = coord[i][2];
+
+        vec3 true_velocity;
+
+        true_velocity[0] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+        true_velocity[1] = -2.0 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+        true_velocity[2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+
+        double true_pressure = -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) -
+                               cos(2.0 * M_PI * z) - true_pressure_mean;
+
+        error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
+                          pow(true_velocity[1] - velocity[i][1], 2) +
+                          pow(true_velocity[2] - velocity[i][2], 2);
+        error_pressure += pow(true_pressure - pressure[i], 2);
+
+        norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2) +
+                         pow(true_velocity[2], 2);
+        norm_pressure += pow(true_pressure, 2);
+      }
     }
   }
 
