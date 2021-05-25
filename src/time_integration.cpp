@@ -155,6 +155,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                 current_refinement_step);
     equation_mgr->update();
   } while (refinement());
+  MPI_Barrier(MPI_COMM_WORLD);
 
   for (int i = 0; i < numRigidBody; i++) {
     for (int j = 0; j < 3; j++) {
@@ -402,6 +403,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                       current_refinement_step);
           equation_mgr->update();
         } while (refinement());
+        MPI_Barrier(MPI_COMM_WORLD);
 
         // average
         // for (int j = 0; j < 3; j++) {

@@ -31,6 +31,13 @@ void rigid_body_surface_particle_hierarchy::extend_hierarchy(
       add_rounded_square(rigid_body_size_list[compressed_rigid_body_index],
                          resolution);
     }
+    break;
+  case 5:
+    if (dimension == 3) {
+      add_customized_shape(rigid_body_size_list[compressed_rigid_body_index],
+                           resolution);
+    }
+    break;
   }
 
   mapping[compressed_rigid_body_index].push_back(hierarchy_coord.size() - 1);
@@ -197,6 +204,64 @@ void rigid_body_surface_particle_hierarchy::add_rounded_square(
     normal.push_back(norm);
     spacing.push_back(p_spacing);
   }
+}
+
+void rigid_body_surface_particle_hierarchy::add_customized_shape(
+    const double size, const double h) {
+  hierarchy_coord.push_back(vector<vec3>());
+  hierarchy_normal.push_back(vector<vec3>());
+  hierarchy_spacing.push_back(vector<vec3>());
+  hierarchy_element.push_back(vector<triple<int>>());
+
+  vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
+  vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
+  vector<vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
+  vector<triple<int>> &element =
+      hierarchy_element[hierarchy_element.size() - 1];
+
+  ifstream input("shape/microcolony.txt", ios::in);
+  if (!input.is_open()) {
+    PetscPrintf(PETSC_COMM_WORLD, "surface point input file does not exist\n");
+    return;
+  }
+
+  int adaptive_level;
+  input >> adaptive_level;
+  hierarchy_adaptive_level.push_back(adaptive_level);
+
+  while (!input.eof()) {
+    vec3 xyz;
+    for (int i = 0; i < 3; i++) {
+      input >> xyz[i];
+    }
+
+    coord.push_back(xyz);
+    double mag = 1.0 / xyz.mag();
+    normal.push_back(xyz * mag);
+    spacing.push_back(vec3(1.0, 0.0, 0.0));
+  }
+
+  input.close();
+
+  input.open("shape/microcolony_element.txt", ios::in);
+
+  if (!input.is_open()) {
+    PetscPrintf(PETSC_COMM_WORLD,
+                "surface element input file does not exist\n");
+    return;
+  }
+
+  while (!input.eof()) {
+    triple<int> idx;
+    for (int i = 0; i < 3; i++) {
+      input >> idx[i];
+      idx[i]--;
+    }
+
+    element.push_back(idx);
+  }
+
+  input.close();
 }
 
 void rigid_body_surface_particle_hierarchy::build_hierarchy_mapping(
@@ -406,13 +471,87 @@ void rigid_body_surface_particle_hierarchy::write_log() {
 
 void rigid_body_surface_particle_hierarchy::move_to_boundary(
     int rigid_body_index, vec3 &pos) {
-  double mag = pos.mag();
-  double r = rigid_body_size_list[rb_idx[rigid_body_index]];
-  pos = pos * (r / mag);
+  switch (rigid_body_type_list[rb_idx[rigid_body_index]]) {
+  case 1: {
+    double mag = pos.mag();
+    double r = rigid_body_size_list[rb_idx[rigid_body_index]];
+    pos = pos * (r / mag);
+  } break;
+  case 2:
+    break;
+  case 5: {
+    double r1 = 0.025;
+    double r2 = 0.005;
+    double d = 0.023;
+
+    double theta1 = 0.5 * M_PI + asin((d - r2) / (r1 - r2));
+    double s = sqrt((pow(r1 - r2, 2.0) - pow(d - r2, 2.0)));
+    double theta2 = M_PI - atan(s / d);
+
+    double r = pos.mag();
+    double theta = acos(pos[2] / r);
+    double phi = atan2(pos[1], pos[0]);
+
+    if (theta < theta1) {
+      r = r1;
+    } else if (theta < theta2) {
+      double theta_prime = theta - theta1;
+      r = (r1 - r2) * cos(theta_prime) +
+          sqrt(pow(r1 - r2, 2.0) * pow(cos(theta_prime), 2.0) -
+               (pow(r1 - r2, 2.0) - pow(r2, 2.0)));
+    } else {
+      r = d / cos(M_PI - theta);
+    }
+
+    pos[0] = r * cos(phi) * sin(theta);
+    pos[1] = r * sin(phi) * sin(theta);
+    pos[2] = r * cos(theta);
+
+    if (isnan(pos.mag()))
+      cout << r << ' ' << phi << ' ' << theta << endl;
+  } break;
+  }
 }
 
 void rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
                                                        vec3 pos, vec3 &norm) {
-  double mag = pos.mag();
-  norm = pos * (1.0 / mag);
+
+  switch (rigid_body_type_list[rb_idx[rigid_body_index]]) {
+  case 1: {
+    double mag = pos.mag();
+    norm = pos * (1.0 / mag);
+  } break;
+  case 2:
+    break;
+  case 5: {
+    double r1 = 0.025;
+    double r2 = 0.005;
+    double d = 0.023;
+
+    double theta1 = 0.5 * M_PI + asin((d - r2) / (r1 - r2));
+    double s = sqrt((pow(r1 - r2, 2.0) - pow(d - r2, 2.0)) / d);
+    double theta2 = M_PI - atan(s / d);
+
+    double r = pos.mag();
+    double theta = acos(pos[2] / r);
+    double phi = atan2(pos[1], pos[0]);
+
+    if (theta < theta1) {
+      norm = vec3(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta));
+    } else if (theta < theta2) {
+      vec3 new_center =
+          vec3((r1 - r2) * cos(phi) * sin(theta),
+               (r1 - r2) * sin(phi) * sin(theta), (r1 - r2) * cos(theta));
+      vec3 new_pos = pos - new_center;
+      double new_r = new_pos.mag();
+      double new_theta = acos(new_pos[2] / new_r);
+      double new_phi = atan2(new_pos[1], new_pos[0]);
+
+      norm = vec3(cos(new_phi) * sin(new_theta), sin(new_phi) * sin(new_theta),
+                  cos(new_theta));
+    } else {
+      norm = vec3(0.0, 0.0, -1.0);
+    }
+  } break;
+  }
 }

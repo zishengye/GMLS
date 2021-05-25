@@ -3372,15 +3372,6 @@ bool particle_geometry::split_rigid_body_surface_particle(
       vector<int> mid_point_idx;
       mid_point_idx.resize(num_edge);
 
-      vector<int> edge_adaptive_level;
-      edge_adaptive_level.resize(num_edge);
-      for (int i = 0; i < edge.size(); i++) {
-        for (int j = 0; j < edge[i].size(); j++) {
-          edge_adaptive_level[edge_offset[i] + j] =
-              max(adaptive_level[i], adaptive_level[edge[i][j]]) + 1;
-        }
-      }
-
       // mark edge to split
       vector<int> edge_split_tag;
       edge_split_tag.resize(num_edge);
@@ -3412,19 +3403,24 @@ bool particle_geometry::split_rigid_body_surface_particle(
 
           // check if the midpoint has been inserted or not
           int idx_check1, idx_check2;
-          vec3 mid_point;
+          vec3 mid_point_original, mid_point_current;
 
           idx_check1 = min(idx0, idx1);
           idx_check2 = max(idx0, idx1);
-          mid_point = (coord[idx_check1] + coord[idx_check2]) * 0.5;
-          hierarchy->move_to_boundary(n, mid_point);
+          mid_point_current = (coord[idx_check1] + coord[idx_check2]) * 0.5;
+          mid_point_original = mid_point_current - rigid_body_coord[n];
+          hierarchy->move_to_boundary(n, mid_point_original);
+          if (isnan(mid_point_original.mag()))
+            cout << mid_point_current[0] << ' ' << mid_point_current[1] << ' '
+                 << mid_point_current[2] << endl;
+          mid_point_current = mid_point_original + rigid_body_coord[n];
           auto it1 = lower_bound(edge[idx_check1].begin(),
                                  edge[idx_check1].end(), idx_check2);
           for (auto it = it1 + 1; it != edge[idx_check1].end(); it++) {
             auto res = lower_bound(edge[idx_check2].begin(),
                                    edge[idx_check2].end(), *it);
             if (res != edge[idx_check2].end() && *res == *it) {
-              vec3 dX = mid_point - coord[*res];
+              vec3 dX = mid_point_current - coord[*res];
               if (dX.mag() < 1e-3 * spacing[idx_check1]) {
                 edge_split_tag[edge_offset[idx_check1] + edge1] = 0;
                 mid_point_idx[edge_offset[idx_check1] + edge1] = *res;
@@ -3434,15 +3430,17 @@ bool particle_geometry::split_rigid_body_surface_particle(
 
           idx_check1 = min(idx1, idx2);
           idx_check2 = max(idx1, idx2);
-          mid_point = (coord[idx_check1] + coord[idx_check2]) * 0.5;
-          hierarchy->move_to_boundary(n, mid_point);
+          mid_point_current = (coord[idx_check1] + coord[idx_check2]) * 0.5;
+          mid_point_original = mid_point_current - rigid_body_coord[n];
+          hierarchy->move_to_boundary(n, mid_point_original);
+          mid_point_current = mid_point_original + rigid_body_coord[n];
           auto it2 = lower_bound(edge[idx_check1].begin(),
                                  edge[idx_check1].end(), idx_check2);
           for (auto it = it2 + 1; it != edge[idx_check1].end(); it++) {
             auto res = lower_bound(edge[idx_check2].begin(),
                                    edge[idx_check2].end(), *it);
             if (res != edge[idx_check2].end() && *res == *it) {
-              vec3 dX = mid_point - coord[*res];
+              vec3 dX = mid_point_current - coord[*res];
               if (dX.mag() < 1e-3 * spacing[idx_check1]) {
                 edge_split_tag[edge_offset[idx_check1] + edge2] = 0;
                 mid_point_idx[edge_offset[idx_check1] + edge2] = *res;
@@ -3452,15 +3450,17 @@ bool particle_geometry::split_rigid_body_surface_particle(
 
           idx_check1 = min(idx2, idx0);
           idx_check2 = max(idx2, idx0);
-          mid_point = (coord[idx_check1] + coord[idx_check2]) * 0.5;
-          hierarchy->move_to_boundary(n, mid_point);
+          mid_point_current = (coord[idx_check1] + coord[idx_check2]) * 0.5;
+          mid_point_original = mid_point_current - rigid_body_coord[n];
+          hierarchy->move_to_boundary(n, mid_point_original);
+          mid_point_current = mid_point_original + rigid_body_coord[n];
           auto it3 = lower_bound(edge[idx_check1].begin(),
                                  edge[idx_check1].end(), idx_check2);
           for (auto it = it3 + 1; it != edge[idx_check1].end(); it++) {
             auto res = lower_bound(edge[idx_check2].begin(),
                                    edge[idx_check2].end(), *it);
             if (res != edge[idx_check2].end() && *res == *it) {
-              vec3 dX = mid_point - coord[*res];
+              vec3 dX = mid_point_current - coord[*res];
               if (dX.mag() < 1e-3 * spacing[idx_check1]) {
                 edge_split_tag[edge_offset[idx_check1] + edge3] = 0;
                 mid_point_idx[edge_offset[idx_check1] + edge3] = *res;
@@ -3478,6 +3478,14 @@ bool particle_geometry::split_rigid_body_surface_particle(
       }
 
       // split edge
+      vector<int> edge_adaptive_level;
+      edge_adaptive_level.resize(num_edge);
+      for (int i = 0; i < edge.size(); i++) {
+        for (int j = 0; j < edge[i].size(); j++) {
+          edge_adaptive_level[edge_offset[i] + j] =
+              max(adaptive_level[i], adaptive_level[edge[i][j]]);
+        }
+      }
       for (int i = 0; i < edge.size(); i++) {
         for (int j = 0; j < edge[i].size(); j++) {
           if (edge_split_tag[edge_offset[i] + j] == 1) {
@@ -3746,8 +3754,11 @@ bool particle_geometry::split_rigid_body_surface_particle(
             coord[i][2] > bounding_box[1][2])
           pass_test = 1;
       }
-      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) != -2)
+      if (is_gap_particle(coord[i], uniform_spacing, attached_rigid_body[i]) !=
+          -2) {
         pass_test = 1;
+        break;
+      }
     }
   }
 
@@ -3853,7 +3864,8 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
         vec3 dis = _pos - rigid_body_pos;
         if (_attached_rigid_body_index >= 0) {
           // this is a particle on the rigid body surface
-          if (_attached_rigid_body_index != idx && dis.mag() < 0.0)
+          if (_attached_rigid_body_index != idx &&
+              dis.mag() < rigid_body_size + 1e-3 * _spacing)
             return idx;
         } else {
           // this is a fluid particle
@@ -3919,7 +3931,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
 
           if (_attached_rigid_body_index >= 0) {
             // this is a particle on the rigid body surface
-            if (_attached_rigid_body_index != idx && dist < 0.0) {
+            if (_attached_rigid_body_index != idx && dist < 1e-3 * _spacing) {
               return idx;
             }
           } else {
@@ -4018,6 +4030,64 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
       if (dim == 3) {
       }
       break;
+    case 5: {
+      vec3 dis = _pos - rigid_body_pos;
+
+      if (_attached_rigid_body_index >= 0) {
+        // this is a particle on the rigid body surface
+        if (_attached_rigid_body_index != idx && dis.mag() < 0.0)
+          return idx;
+      } else {
+        // this is a fluid particle
+        double r1 = 0.025;
+        double r2 = 0.005;
+        double d = 0.023;
+
+        double theta1 = 0.5 * M_PI + asin((d - r2) / (r1 - r2));
+        double s = sqrt((pow(r1 - r2, 2.0) - pow(d - r2, 2.0)));
+        double theta2 = M_PI - atan(s / d);
+
+        double r = dis.mag();
+        double theta = acos(dis[2] / r);
+        double phi = atan2(dis[1], dis[0]);
+
+        double rr;
+
+        if (theta < theta1) {
+          rr = r1;
+        } else if (theta < theta2) {
+          double theta_prime = theta - theta1;
+          rr = (r1 - r2) * cos(theta_prime) +
+               sqrt(pow(r1 - r2, 2.0) * pow(cos(theta_prime), 2.0) -
+                    (pow(r1 - r2, 2.0) - pow(r2, 2.0)));
+        } else {
+          rr = d / cos(M_PI - theta);
+        }
+
+        vec3 dist = _pos - vec3(-0.0031250001, -0.0031250001, -0.0093750001);
+        if (dist.mag() < 1e-5)
+          cout << theta2 << ' ' << theta << ' ' << rr << endl;
+
+        double min_dis = r - rr;
+
+        if (min_dis < -1.5 * _spacing) {
+          return -1;
+        }
+        if (min_dis <= 0.5 * _spacing) {
+          return idx;
+        }
+
+        if (min_dis < 1.5 * _spacing) {
+          for (int i = 0; i < rigid_body_surface_particle_coord.size(); i++) {
+            vec3 rci = _pos - rigid_body_surface_particle_coord[i];
+            if (rci.mag() <
+                0.5 * max(_spacing, rigid_body_surface_particle_spacing[i])) {
+              return idx;
+            }
+          }
+        }
+      }
+    } break;
     }
   }
 

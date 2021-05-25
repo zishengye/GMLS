@@ -1017,6 +1017,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
               residual_norm / rhs_norm);
   int counter = 0;
+  double initial_residual = residual_norm / rhs_norm;
   while (residual_norm / rhs_norm > 1e-4 && counter < 5) {
     KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
@@ -1036,6 +1037,10 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
       KSPSetUp(_ksp);
     }
+    if (convergence_reason == KSP_CONVERGED_RTOL &&
+        residual_norm / rhs_norm > 1e-4) {
+      KSPSetTolerances(_ksp, pow(10, -7 - counter), 1e-10, 1e50, 500);
+    }
   }
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
@@ -1043,7 +1048,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "Current memory usage %.2f GB\n", mem / 1e9);
 
-  if (residual_norm / rhs_norm < 1e-4 || refinement_step == 0) {
+  if (residual_norm / rhs_norm < initial_residual || refinement_step == 0) {
     _x.copy(x);
   }
 

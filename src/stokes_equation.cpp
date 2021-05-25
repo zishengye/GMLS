@@ -2365,6 +2365,7 @@ void stokes_equation::calculate_error() {
     error[i] *= volume[i];
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
   MPI_Allreduce(&local_error, &global_error, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
   MPI_Allreduce(&local_direct_gradient_norm, &global_direct_gradient_norm, 1,
