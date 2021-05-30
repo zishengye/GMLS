@@ -13,7 +13,7 @@ PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell) {
 
 PetscErrorCode HypreLUShellPCSetUp(PC pc, stokes_multilevel *multi, Vec x,
                                    PetscInt local_particle_num,
-                                   PetscInt field_dof) {
+                                   PetscInt field_dof, int num_rigid_body) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
@@ -23,6 +23,8 @@ PetscErrorCode HypreLUShellPCSetUp(PC pc, stokes_multilevel *multi, Vec x,
 
   shell->local_particle_num = local_particle_num;
   shell->field_dof = field_dof;
+
+  shell->num_rigid_body = num_rigid_body;
 
   PetscInt global_particle_num;
   MPI_Allreduce(&local_particle_num, &global_particle_num, 1, MPI_INT, MPI_SUM,
@@ -253,139 +255,151 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                   shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
                   SCATTER_REVERSE);
 
-    // neighbor part smoothing
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
+    if (shell->num_rigid_body != 0) {
+      // neighbor part smoothing
+      MPI_Barrier(MPI_COMM_WORLD);
+      timer1 = MPI_Wtime();
 
-    MatMult(shell->multi->getA(i)->get_shell_reference(),
-            shell->multi->get_x_list()[i]->get_reference(),
-            shell->multi->get_r_list()[i]->get_reference());
+      MatMult(shell->multi->getA(i)->get_shell_reference(),
+              shell->multi->get_x_list()[i]->get_reference(),
+              shell->multi->get_r_list()[i]->get_reference());
 
-    VecAXPY(shell->multi->get_r_list()[i]->get_reference(), -1.0,
-            shell->multi->get_b_list()[i]->get_reference());
+      VecAXPY(shell->multi->get_r_list()[i]->get_reference(), -1.0,
+              shell->multi->get_b_list()[i]->get_reference());
 
-    VecScale(shell->multi->get_r_list()[i]->get_reference(), -1.0);
+      VecScale(shell->multi->get_r_list()[i]->get_reference(), -1.0);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->colloid_smooth_matmult_duration[i - 1] += timer2 - timer1;
+      MPI_Barrier(MPI_COMM_WORLD);
+      timer2 = MPI_Wtime();
+      shell->colloid_smooth_matmult_duration[i - 1] += timer2 - timer1;
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
+      MPI_Barrier(MPI_COMM_WORLD);
+      timer1 = MPI_Wtime();
 
-    VecScatterBegin(
-        shell->multi->get_colloid_scatter_list()[i]->get_reference(),
-        shell->multi->get_r_list()[i]->get_reference(),
-        shell->multi->get_x_colloid_list()[i]->get_reference(), INSERT_VALUES,
-        SCATTER_FORWARD);
-    VecScatterEnd(shell->multi->get_colloid_scatter_list()[i]->get_reference(),
-                  shell->multi->get_r_list()[i]->get_reference(),
-                  shell->multi->get_x_colloid_list()[i]->get_reference(),
-                  INSERT_VALUES, SCATTER_FORWARD);
+      VecScatterBegin(
+          shell->multi->get_colloid_scatter_list()[i]->get_reference(),
+          shell->multi->get_r_list()[i]->get_reference(),
+          shell->multi->get_x_colloid_list()[i]->get_reference(), INSERT_VALUES,
+          SCATTER_FORWARD);
+      VecScatterEnd(
+          shell->multi->get_colloid_scatter_list()[i]->get_reference(),
+          shell->multi->get_r_list()[i]->get_reference(),
+          shell->multi->get_x_colloid_list()[i]->get_reference(), INSERT_VALUES,
+          SCATTER_FORWARD);
 
-    KSPSolve(shell->multi->get_colloid_relaxation(i)->get_reference(),
-             shell->multi->get_x_colloid_list()[i]->get_reference(),
-             shell->multi->get_b_colloid_list()[i]->get_reference());
+      KSPSolve(shell->multi->get_colloid_relaxation(i)->get_reference(),
+               shell->multi->get_x_colloid_list()[i]->get_reference(),
+               shell->multi->get_b_colloid_list()[i]->get_reference());
 
-    VecScatterBegin(
-        shell->multi->get_colloid_scatter_list()[i]->get_reference(),
-        shell->multi->get_b_colloid_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-        SCATTER_REVERSE);
-    VecScatterEnd(shell->multi->get_colloid_scatter_list()[i]->get_reference(),
-                  shell->multi->get_b_colloid_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-                  SCATTER_REVERSE);
+      VecScatterBegin(
+          shell->multi->get_colloid_scatter_list()[i]->get_reference(),
+          shell->multi->get_b_colloid_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
+      VecScatterEnd(
+          shell->multi->get_colloid_scatter_list()[i]->get_reference(),
+          shell->multi->get_b_colloid_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->colloid_smooth_duration[i - 1] += timer2 - timer1;
+      MPI_Barrier(MPI_COMM_WORLD);
+      timer2 = MPI_Wtime();
+      shell->colloid_smooth_duration[i - 1] += timer2 - timer1;
 
-    // orthogonalize to constant vector
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(),
-        shell->multi->get_x_pressure_list()[i]->get_reference(), INSERT_VALUES,
-        SCATTER_FORWARD);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(),
-                  shell->multi->get_x_pressure_list()[i]->get_reference(),
-                  INSERT_VALUES, SCATTER_FORWARD);
+      // orthogonalize to constant vector
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
 
-    VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-           &pressure_sum);
-    VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(), &size);
-    VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-           -pressure_sum / size);
+      VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
+             &pressure_sum);
+      VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
+                 &size);
+      VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
+             -pressure_sum / size);
 
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_x_pressure_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-        SCATTER_REVERSE);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_x_pressure_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-                  SCATTER_REVERSE);
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
 
-    // pressure part smoothing
-    MatMult(shell->multi->get_pressure_whole_mat(i)->get_reference(),
-            shell->multi->get_x_list()[i]->get_reference(),
-            shell->multi->get_x_pressure_list()[i]->get_reference());
+      // pressure part smoothing
+      MatMult(shell->multi->get_pressure_whole_mat(i)->get_reference(),
+              shell->multi->get_x_list()[i]->get_reference(),
+              shell->multi->get_x_pressure_list()[i]->get_reference());
 
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_b_list()[i]->get_reference(),
-        shell->multi->get_y_pressure_list()[i]->get_reference(), INSERT_VALUES,
-        SCATTER_FORWARD);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_b_list()[i]->get_reference(),
-                  shell->multi->get_y_pressure_list()[i]->get_reference(),
-                  INSERT_VALUES, SCATTER_FORWARD);
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_b_list()[i]->get_reference(),
+          shell->multi->get_y_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_b_list()[i]->get_reference(),
+          shell->multi->get_y_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
 
-    VecAXPY(shell->multi->get_y_pressure_list()[i]->get_reference(), -1.0,
-            shell->multi->get_x_pressure_list()[i]->get_reference());
+      VecAXPY(shell->multi->get_y_pressure_list()[i]->get_reference(), -1.0,
+              shell->multi->get_x_pressure_list()[i]->get_reference());
 
-    KSPSolve(shell->multi->get_pressure_relaxation(i)->get_reference(),
-             shell->multi->get_y_pressure_list()[i]->get_reference(),
-             shell->multi->get_x_pressure_list()[i]->get_reference());
+      KSPSolve(shell->multi->get_pressure_relaxation(i)->get_reference(),
+               shell->multi->get_y_pressure_list()[i]->get_reference(),
+               shell->multi->get_x_pressure_list()[i]->get_reference());
 
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_x_pressure_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-        SCATTER_REVERSE);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_x_pressure_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-                  SCATTER_REVERSE);
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
 
-    // orthogonalize to constant vector
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(),
-        shell->multi->get_x_pressure_list()[i]->get_reference(), INSERT_VALUES,
-        SCATTER_FORWARD);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(),
-                  shell->multi->get_x_pressure_list()[i]->get_reference(),
-                  INSERT_VALUES, SCATTER_FORWARD);
+      // orthogonalize to constant vector
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
 
-    VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-           &pressure_sum);
-    VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(), &size);
-    VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-           -pressure_sum / size);
+      VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
+             &pressure_sum);
+      VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
+                 &size);
+      VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
+             -pressure_sum / size);
 
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_x_pressure_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-        SCATTER_REVERSE);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_x_pressure_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-                  SCATTER_REVERSE);
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
+    }
 
     // restriction
     MPI_Barrier(MPI_COMM_WORLD);
@@ -500,69 +514,75 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                 shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
                 SCATTER_REVERSE);
 
-  // stage 2
-  MPI_Barrier(MPI_COMM_WORLD);
-  timer1 = MPI_Wtime();
+  if (shell->num_rigid_body != 0) {
+    // stage 2
+    MPI_Barrier(MPI_COMM_WORLD);
+    timer1 = MPI_Wtime();
 
-  MatMult(shell->multi->getA(0)->get_shell_reference(),
-          shell->multi->get_x_list()[0]->get_reference(),
-          shell->multi->get_r_list()[0]->get_reference());
+    MatMult(shell->multi->getA(0)->get_shell_reference(),
+            shell->multi->get_x_list()[0]->get_reference(),
+            shell->multi->get_r_list()[0]->get_reference());
 
-  VecAXPY(shell->multi->get_r_list()[0]->get_reference(), -1.0,
-          shell->multi->get_b_list()[0]->get_reference());
+    VecAXPY(shell->multi->get_r_list()[0]->get_reference(), -1.0,
+            shell->multi->get_b_list()[0]->get_reference());
 
-  VecScale(shell->multi->get_r_list()[0]->get_reference(), -1.0);
+    VecScale(shell->multi->get_r_list()[0]->get_reference(), -1.0);
 
-  VecScatterBegin(shell->multi->get_colloid_scatter_list()[0]->get_reference(),
+    VecScatterBegin(
+        shell->multi->get_colloid_scatter_list()[0]->get_reference(),
+        shell->multi->get_r_list()[0]->get_reference(),
+        shell->multi->get_colloid_y()->get_reference(), INSERT_VALUES,
+        SCATTER_FORWARD);
+    VecScatterEnd(shell->multi->get_colloid_scatter_list()[0]->get_reference(),
                   shell->multi->get_r_list()[0]->get_reference(),
                   shell->multi->get_colloid_y()->get_reference(), INSERT_VALUES,
                   SCATTER_FORWARD);
-  VecScatterEnd(shell->multi->get_colloid_scatter_list()[0]->get_reference(),
-                shell->multi->get_r_list()[0]->get_reference(),
-                shell->multi->get_colloid_y()->get_reference(), INSERT_VALUES,
-                SCATTER_FORWARD);
 
-  KSPSolve(shell->multi->get_colloid_base()->get_reference(),
-           shell->multi->get_colloid_y()->get_reference(),
-           shell->multi->get_colloid_x()->get_reference());
+    KSPSolve(shell->multi->get_colloid_base()->get_reference(),
+             shell->multi->get_colloid_y()->get_reference(),
+             shell->multi->get_colloid_x()->get_reference());
 
-  VecScatterBegin(shell->multi->get_colloid_scatter_list()[0]->get_reference(),
+    VecScatterBegin(
+        shell->multi->get_colloid_scatter_list()[0]->get_reference(),
+        shell->multi->get_colloid_x()->get_reference(),
+        shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
+        SCATTER_REVERSE);
+    VecScatterEnd(shell->multi->get_colloid_scatter_list()[0]->get_reference(),
                   shell->multi->get_colloid_x()->get_reference(),
                   shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
                   SCATTER_REVERSE);
-  VecScatterEnd(shell->multi->get_colloid_scatter_list()[0]->get_reference(),
-                shell->multi->get_colloid_x()->get_reference(),
-                shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
-                SCATTER_REVERSE);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  timer2 = MPI_Wtime();
-  shell->base_colloid_duration += timer2 - timer1;
+    MPI_Barrier(MPI_COMM_WORLD);
+    timer2 = MPI_Wtime();
+    shell->base_colloid_duration += timer2 - timer1;
 
-  // orthogonalize to constant vector
-  VecScatterBegin(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
+    // orthogonalize to constant vector
+    VecScatterBegin(
+        shell->multi->get_pressure_scatter_list()[0]->get_reference(),
+        shell->multi->get_x_list()[0]->get_reference(),
+        shell->multi->get_x_pressure_list()[0]->get_reference(), INSERT_VALUES,
+        SCATTER_FORWARD);
+    VecScatterEnd(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
                   shell->multi->get_x_list()[0]->get_reference(),
                   shell->multi->get_x_pressure_list()[0]->get_reference(),
                   INSERT_VALUES, SCATTER_FORWARD);
-  VecScatterEnd(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-                shell->multi->get_x_list()[0]->get_reference(),
-                shell->multi->get_x_pressure_list()[0]->get_reference(),
-                INSERT_VALUES, SCATTER_FORWARD);
 
-  VecSum(shell->multi->get_x_pressure_list()[0]->get_reference(),
-         &pressure_sum);
-  VecGetSize(shell->multi->get_x_pressure_list()[0]->get_reference(), &size);
-  VecSet(shell->multi->get_x_pressure_list()[0]->get_reference(),
-         -pressure_sum / size);
+    VecSum(shell->multi->get_x_pressure_list()[0]->get_reference(),
+           &pressure_sum);
+    VecGetSize(shell->multi->get_x_pressure_list()[0]->get_reference(), &size);
+    VecSet(shell->multi->get_x_pressure_list()[0]->get_reference(),
+           -pressure_sum / size);
 
-  VecScatterBegin(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
+    VecScatterBegin(
+        shell->multi->get_pressure_scatter_list()[0]->get_reference(),
+        shell->multi->get_x_pressure_list()[0]->get_reference(),
+        shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
+        SCATTER_REVERSE);
+    VecScatterEnd(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
                   shell->multi->get_x_pressure_list()[0]->get_reference(),
                   shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
                   SCATTER_REVERSE);
-  VecScatterEnd(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-                shell->multi->get_x_pressure_list()[0]->get_reference(),
-                shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
-                SCATTER_REVERSE);
+  }
 
   // sweep up
   for (int i = 1; i <= shell->refinement_level; i++) {
@@ -683,139 +703,151 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                   shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
                   SCATTER_REVERSE);
 
-    // neighbor part smoothing
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
+    if (shell->num_rigid_body != 0) {
+      // neighbor part smoothing
+      MPI_Barrier(MPI_COMM_WORLD);
+      timer1 = MPI_Wtime();
 
-    MatMult(shell->multi->getA(i)->get_shell_reference(),
-            shell->multi->get_x_list()[i]->get_reference(),
-            shell->multi->get_r_list()[i]->get_reference());
+      MatMult(shell->multi->getA(i)->get_shell_reference(),
+              shell->multi->get_x_list()[i]->get_reference(),
+              shell->multi->get_r_list()[i]->get_reference());
 
-    VecAXPY(shell->multi->get_r_list()[i]->get_reference(), -1.0,
-            shell->multi->get_b_list()[i]->get_reference());
+      VecAXPY(shell->multi->get_r_list()[i]->get_reference(), -1.0,
+              shell->multi->get_b_list()[i]->get_reference());
 
-    VecScale(shell->multi->get_r_list()[i]->get_reference(), -1.0);
+      VecScale(shell->multi->get_r_list()[i]->get_reference(), -1.0);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->colloid_smooth_matmult_duration[i - 1] += timer2 - timer1;
+      MPI_Barrier(MPI_COMM_WORLD);
+      timer2 = MPI_Wtime();
+      shell->colloid_smooth_matmult_duration[i - 1] += timer2 - timer1;
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
+      MPI_Barrier(MPI_COMM_WORLD);
+      timer1 = MPI_Wtime();
 
-    VecScatterBegin(
-        shell->multi->get_colloid_scatter_list()[i]->get_reference(),
-        shell->multi->get_r_list()[i]->get_reference(),
-        shell->multi->get_x_colloid_list()[i]->get_reference(), INSERT_VALUES,
-        SCATTER_FORWARD);
-    VecScatterEnd(shell->multi->get_colloid_scatter_list()[i]->get_reference(),
-                  shell->multi->get_r_list()[i]->get_reference(),
-                  shell->multi->get_x_colloid_list()[i]->get_reference(),
-                  INSERT_VALUES, SCATTER_FORWARD);
+      VecScatterBegin(
+          shell->multi->get_colloid_scatter_list()[i]->get_reference(),
+          shell->multi->get_r_list()[i]->get_reference(),
+          shell->multi->get_x_colloid_list()[i]->get_reference(), INSERT_VALUES,
+          SCATTER_FORWARD);
+      VecScatterEnd(
+          shell->multi->get_colloid_scatter_list()[i]->get_reference(),
+          shell->multi->get_r_list()[i]->get_reference(),
+          shell->multi->get_x_colloid_list()[i]->get_reference(), INSERT_VALUES,
+          SCATTER_FORWARD);
 
-    KSPSolve(shell->multi->get_colloid_relaxation(i)->get_reference(),
-             shell->multi->get_x_colloid_list()[i]->get_reference(),
-             shell->multi->get_b_colloid_list()[i]->get_reference());
+      KSPSolve(shell->multi->get_colloid_relaxation(i)->get_reference(),
+               shell->multi->get_x_colloid_list()[i]->get_reference(),
+               shell->multi->get_b_colloid_list()[i]->get_reference());
 
-    VecScatterBegin(
-        shell->multi->get_colloid_scatter_list()[i]->get_reference(),
-        shell->multi->get_b_colloid_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-        SCATTER_REVERSE);
-    VecScatterEnd(shell->multi->get_colloid_scatter_list()[i]->get_reference(),
-                  shell->multi->get_b_colloid_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-                  SCATTER_REVERSE);
+      VecScatterBegin(
+          shell->multi->get_colloid_scatter_list()[i]->get_reference(),
+          shell->multi->get_b_colloid_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
+      VecScatterEnd(
+          shell->multi->get_colloid_scatter_list()[i]->get_reference(),
+          shell->multi->get_b_colloid_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->colloid_smooth_duration[i - 1] += timer2 - timer1;
+      MPI_Barrier(MPI_COMM_WORLD);
+      timer2 = MPI_Wtime();
+      shell->colloid_smooth_duration[i - 1] += timer2 - timer1;
 
-    // orthogonalize to constant vector
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(),
-        shell->multi->get_x_pressure_list()[i]->get_reference(), INSERT_VALUES,
-        SCATTER_FORWARD);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(),
-                  shell->multi->get_x_pressure_list()[i]->get_reference(),
-                  INSERT_VALUES, SCATTER_FORWARD);
+      // orthogonalize to constant vector
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
 
-    VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-           &pressure_sum);
-    VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(), &size);
-    VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-           -pressure_sum / size);
+      VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
+             &pressure_sum);
+      VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
+                 &size);
+      VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
+             -pressure_sum / size);
 
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_x_pressure_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-        SCATTER_REVERSE);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_x_pressure_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-                  SCATTER_REVERSE);
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
 
-    // pressure part smoothing
-    MatMult(shell->multi->get_pressure_whole_mat(i)->get_reference(),
-            shell->multi->get_x_list()[i]->get_reference(),
-            shell->multi->get_x_pressure_list()[i]->get_reference());
+      // pressure part smoothing
+      MatMult(shell->multi->get_pressure_whole_mat(i)->get_reference(),
+              shell->multi->get_x_list()[i]->get_reference(),
+              shell->multi->get_x_pressure_list()[i]->get_reference());
 
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_b_list()[i]->get_reference(),
-        shell->multi->get_y_pressure_list()[i]->get_reference(), INSERT_VALUES,
-        SCATTER_FORWARD);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_b_list()[i]->get_reference(),
-                  shell->multi->get_y_pressure_list()[i]->get_reference(),
-                  INSERT_VALUES, SCATTER_FORWARD);
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_b_list()[i]->get_reference(),
+          shell->multi->get_y_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_b_list()[i]->get_reference(),
+          shell->multi->get_y_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
 
-    VecAXPY(shell->multi->get_y_pressure_list()[i]->get_reference(), -1.0,
-            shell->multi->get_x_pressure_list()[i]->get_reference());
+      VecAXPY(shell->multi->get_y_pressure_list()[i]->get_reference(), -1.0,
+              shell->multi->get_x_pressure_list()[i]->get_reference());
 
-    KSPSolve(shell->multi->get_pressure_relaxation(i)->get_reference(),
-             shell->multi->get_y_pressure_list()[i]->get_reference(),
-             shell->multi->get_x_pressure_list()[i]->get_reference());
+      KSPSolve(shell->multi->get_pressure_relaxation(i)->get_reference(),
+               shell->multi->get_y_pressure_list()[i]->get_reference(),
+               shell->multi->get_x_pressure_list()[i]->get_reference());
 
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_x_pressure_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-        SCATTER_REVERSE);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_x_pressure_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-                  SCATTER_REVERSE);
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
 
-    // orthogonalize to constant vector
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(),
-        shell->multi->get_x_pressure_list()[i]->get_reference(), INSERT_VALUES,
-        SCATTER_FORWARD);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(),
-                  shell->multi->get_x_pressure_list()[i]->get_reference(),
-                  INSERT_VALUES, SCATTER_FORWARD);
+      // orthogonalize to constant vector
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          INSERT_VALUES, SCATTER_FORWARD);
 
-    VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-           &pressure_sum);
-    VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(), &size);
-    VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-           -pressure_sum / size);
+      VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
+             &pressure_sum);
+      VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
+                 &size);
+      VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
+             -pressure_sum / size);
 
-    VecScatterBegin(
-        shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-        shell->multi->get_x_pressure_list()[i]->get_reference(),
-        shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-        SCATTER_REVERSE);
-    VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-                  shell->multi->get_x_pressure_list()[i]->get_reference(),
-                  shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-                  SCATTER_REVERSE);
+      VecScatterBegin(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
+      VecScatterEnd(
+          shell->multi->get_pressure_scatter_list()[i]->get_reference(),
+          shell->multi->get_x_pressure_list()[i]->get_reference(),
+          shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
+          SCATTER_REVERSE);
+    }
   }
 
   VecCopy(shell->multi->get_x_list()[shell->refinement_level]->get_reference(),
@@ -828,28 +860,30 @@ PetscErrorCode HypreLUShellPCDestroy(PC pc) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
 
-  PetscPrintf(PETSC_COMM_WORLD, "\nPreconditioner Log:\n");
-  PetscPrintf(PETSC_COMM_WORLD, "Base field smooth duraction %fs\n",
-              shell->base_field_duration);
-  PetscPrintf(PETSC_COMM_WORLD, "Base colloid smooth duraction %fs\n",
-              shell->base_colloid_duration);
+  // PetscPrintf(PETSC_COMM_WORLD, "\nPreconditioner Log:\n");
+  // PetscPrintf(PETSC_COMM_WORLD, "Base field smooth duraction %fs\n",
+  //             shell->base_field_duration);
+  // PetscPrintf(PETSC_COMM_WORLD, "Base colloid smooth duraction %fs\n",
+  //             shell->base_colloid_duration);
 
-  for (int i = 0; i < shell->refinement_level; i++) {
-    PetscPrintf(PETSC_COMM_WORLD, "Field smooth level: %d, duraction %fs\n",
-                i + 1, shell->field_smooth_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Colloid smooth level: %d, duraction %fs\n",
-                i + 1, shell->colloid_smooth_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD,
-                "Colloid matmult smooth level: %d, duraction %fs\n", i + 1,
-                shell->colloid_smooth_matmult_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Restriction level: %d, duraction %fs\n",
-                i + 1, shell->restriction_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Interpolation level: %d, duraction %fs\n",
-                i + 1, shell->interpolation_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Level iteration level: %d, duraction %fs\n",
-                i + 1, shell->level_iteration_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "\n");
-  }
+  // for (int i = 0; i < shell->refinement_level; i++) {
+  //   PetscPrintf(PETSC_COMM_WORLD, "Field smooth level: %d, duraction %fs\n",
+  //               i + 1, shell->field_smooth_duration[i]);
+  //   PetscPrintf(PETSC_COMM_WORLD, "Colloid smooth level: %d, duraction
+  //   %fs\n",
+  //               i + 1, shell->colloid_smooth_duration[i]);
+  //   PetscPrintf(PETSC_COMM_WORLD,
+  //               "Colloid matmult smooth level: %d, duraction %fs\n", i + 1,
+  //               shell->colloid_smooth_matmult_duration[i]);
+  //   PetscPrintf(PETSC_COMM_WORLD, "Restriction level: %d, duraction %fs\n",
+  //               i + 1, shell->restriction_duration[i]);
+  //   PetscPrintf(PETSC_COMM_WORLD, "Interpolation level: %d, duraction %fs\n",
+  //               i + 1, shell->interpolation_duration[i]);
+  //   PetscPrintf(PETSC_COMM_WORLD, "Level iteration level: %d, duraction
+  //   %fs\n",
+  //               i + 1, shell->level_iteration_duration[i]);
+  //   PetscPrintf(PETSC_COMM_WORLD, "\n");
+  // }
 
   delete[] shell->field_smooth_duration;
   delete[] shell->colloid_smooth_duration;

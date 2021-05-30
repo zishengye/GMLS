@@ -69,8 +69,8 @@ void stokes_equation::update() {
   build_coefficient_matrix();
   build_rhs();
   solve_step();
-  check_solution();
   calculate_error();
+  check_solution();
 
   current_refinement_level++;
 }
@@ -1540,6 +1540,7 @@ void stokes_equation::check_solution() {
   vector<vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
   vector<vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
   vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
+  auto &volume = *(geo_mgr->get_current_work_particle_volume());
 
   vector<vec3> &rigid_body_position = rb_mgr->get_position();
   const int num_rigid_body = rb_mgr->get_rigid_body_num();
@@ -1570,18 +1571,12 @@ void stokes_equation::check_solution() {
 
   vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
 
-  double u = 1.0;
-  double RR = rigid_body_size[0];
+  double u, RR;
 
-  vector<int> particle_num_per_process;
-  particle_num_per_process.resize(size);
-
-  MPI_Allgather(&local_particle_num, 1, MPI_INT,
-                particle_num_per_process.data(), 1, MPI_INT, MPI_COMM_WORLD);
-
-  int local_rigid_body_offset = particle_num_per_process[size - 1] * field_dof;
-  int global_rigid_body_offset = global_particle_num * field_dof;
-  int local_out_process_offset = particle_num_per_process[size - 1] * field_dof;
+  if (num_rigid_body != 0) {
+    u = 1.0;
+    RR = rigid_body_size[0];
+  }
 
   int local_dof = local_velocity_dof + local_pressure_dof;
 
@@ -1647,15 +1642,16 @@ void stokes_equation::check_solution() {
       double true_pressure =
           -cos(2.0 * M_PI * x) - cos(2.0 * M_PI * y) - true_pressure_mean;
       double true_velocity[2];
-      true_velocity[0] = cos(M_PI * x) * sin(M_PI * y);
-      true_velocity[1] = -sin(M_PI * x) * cos(M_PI * y);
+      true_velocity[0] = sin(M_PI * x) * cos(M_PI * y);
+      true_velocity[1] = -cos(M_PI * x) * sin(M_PI * y);
 
-      error_velocity += pow(true_velocity[0] - velocity[i][0], 2) +
-                        pow(true_velocity[1] - velocity[i][1], 2);
-      error_pressure += pow(true_pressure - pressure[i], 2);
+      error_velocity += pow(true_velocity[0] - velocity[i][0], 2) * volume[i] +
+                        pow(true_velocity[1] - velocity[i][1], 2) * volume[i];
+      error_pressure += pow(true_pressure - pressure[i], 2) * volume[i];
 
-      norm_velocity += pow(true_velocity[0], 2) + pow(true_velocity[1], 2);
-      norm_pressure += pow(true_pressure, 2);
+      norm_velocity += pow(true_velocity[0], 2) * volume[i] +
+                       pow(true_velocity[1], 2) * volume[i];
+      norm_pressure += pow(true_pressure, 2) * volume[i];
     }
 
     if (dim == 3) {
@@ -1668,13 +1664,15 @@ void stokes_equation::check_solution() {
         double theta = acos(z / r);
         double phi = atan2(y, x);
 
-        double vr = u * cos(theta) *
-                    (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
-        double vt = -u * sin(theta) *
-                    (1 - (3 * RR) / (4 * r) - pow(RR, 3) / (4 * pow(r, 3)));
+        double vr =
+            u * cos(theta) *
+            (1.0 - (3.0 * RR) / (2.0 * r) + pow(RR, 3.0) / (2.0 * pow(r, 3.0)));
+        double vt =
+            -u * sin(theta) *
+            (1.0 - (3.0 * RR) / (4.0 * r) - pow(RR, 3.0) / (4.0 * pow(r, 3.0)));
 
-        double pr = 3 * RR / pow(r, 3) * u * cos(theta);
-        double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
+        double pr = 3.0 * RR / pow(r, 3.0) * u * cos(theta);
+        double pt = 3.0 / 2.0 * RR / pow(r, 3.0) * u * sin(theta);
 
         vec3 true_velocity;
 
@@ -1744,115 +1742,104 @@ void stokes_equation::check_solution() {
   MPI_Barrier(MPI_COMM_WORLD);
 
   // gradient
-  // Evaluator velocity_evaluator(velocity_basis.get());
-  // Evaluator pressure_evaluator(pressure_basis.get());
-  // Evaluator pressure_neumann_evaluator(pressure_neumann_basis.get());
+  double error_velocity_gradient = 0.0;
+  double norm_velocity_gradient = 0.0;
+  if (dim == 3 && num_rigid_body != 0) {
+    for (int i = 0; i < local_particle_num; i++) {
+      double x = coord[i][0];
+      double y = coord[i][1];
+      double z = coord[i][2];
 
-  // vector<vec3> ghost_velocity;
-  // geo_mgr->ghost_forward(velocity, ghost_velocity);
+      double r = sqrt(x * x + y * y + z * z);
+      double theta = acos(z / r);
+      double phi = atan2(y, x);
 
-  // Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-  // ghost_velocity_device(
-  //     "source velocity", ghost_velocity.size(), 3);
-  // Kokkos::View<double **>::HostMirror ghost_velocity_host =
-  //     Kokkos::create_mirror_view(ghost_velocity_device);
+      double dvr[3][3];
 
-  // for (size_t i = 0; i < ghost_velocity.size(); i++) {
-  //   ghost_velocity_host(i, 0) = ghost_velocity[i][0];
-  //   ghost_velocity_host(i, 1) = ghost_velocity[i][1];
-  //   ghost_velocity_host(i, 2) = ghost_velocity[i][2];
-  // }
+      dvr[0][0] = u * cos(theta) *
+                  (3.0 * RR / 2.0 / pow(r, 2.0) -
+                   3.0 * pow(RR, 3.0) / 2.0 / pow(r, 4.0));
+      dvr[0][1] = -u * sin(theta) *
+                  (1.0 / r - 3.0 * RR / 2.0 / pow(r, 2.0) +
+                   pow(RR, 3.0) / 2.0 / pow(r, 4.0));
+      dvr[0][2] = 0.0;
+      dvr[1][0] = -u * sin(theta) *
+                  (3.0 * RR / 4.0 / pow(r, 2.0) +
+                   3.0 * pow(RR, 3.0) / 4.0 / pow(r, 4.0));
+      dvr[1][1] = -u * cos(theta) *
+                  (1.0 / r - 3.0 * RR / 4.0 / pow(r, 2.0) -
+                   pow(RR, 3.0) / 4.0 / pow(r, 4.0));
+      dvr[1][2] = 0.0;
+      dvr[2][0] = 0.0;
+      dvr[2][1] = 0.0;
+      dvr[2][2] = 0.0;
 
-  // Kokkos::deep_copy(ghost_velocity_device, ghost_velocity_host);
+      double R[3][3];
+      R[0][0] = sin(theta) * cos(phi);
+      R[0][1] = sin(theta) * sin(phi);
+      R[0][2] = cos(theta);
+      R[1][0] = cos(theta) * cos(phi);
+      R[1][1] = cos(theta) * sin(phi);
+      R[1][2] = -sin(theta);
+      R[2][0] = -sin(phi);
+      R[2][1] = cos(phi);
+      R[2][2] = 0.0;
 
-  // auto velocity_gradient =
-  //     velocity_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
-  //         double **, Kokkos::HostSpace>(ghost_velocity_device,
-  //                                       GradientOfVectorPointEvaluation);
+      double du[3][3];
+      for (int m = 0; m < 3; m++) {
+        for (int n = 0; n < 3; n++) {
+          du[m][n] = 0.0;
+          for (int j = 0; j < 3; j++) {
+            for (int k = 0; k < 3; k++) {
+              du[m][n] += R[j][m] * R[k][n] * dvr[j][k];
+            }
+          }
+        }
+      }
 
-  // vector<double> ghost_pressure;
-  // geo_mgr->ghost_forward(pressure, ghost_pressure);
+      for (int m = 0; m < 3; m++) {
+        for (int n = 0; n < 3; n++) {
+          error_velocity_gradient +=
+              pow(gradient[i][m * dim + n] - du[m][n], 2.0);
+          norm_velocity_gradient += pow(du[m][n], 2.0);
+          gradient[i][m * dim + n] = du[m][n];
+        }
+      }
+    }
+  }
 
-  // Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
-  // ghost_pressure_device(
-  //     "background pressure", ghost_pressure.size());
-  // Kokkos::View<double *>::HostMirror ghost_pressure_host =
-  //     Kokkos::create_mirror_view(ghost_pressure_device);
+  if (dim == 2) {
+    for (int i = 0; i < local_particle_num; i++) {
+      double x = coord[i][0];
+      double y = coord[i][1];
 
-  // for (size_t i = 0; i < ghost_pressure.size(); i++) {
-  //   ghost_pressure_host(i) = ghost_pressure[i];
-  // }
+      double du[2][2];
+      du[0][0] = M_PI * cos(M_PI * x) * cos(M_PI * y);
+      du[0][1] = -M_PI * sin(M_PI * x) * sin(M_PI * y);
+      du[1][0] = M_PI * sin(M_PI * x) * sin(M_PI * y);
+      du[1][1] = -M_PI * cos(M_PI * x) * cos(M_PI * y);
 
-  // Kokkos::deep_copy(ghost_pressure_device, ghost_pressure_host);
+      for (int m = 0; m < 2; m++) {
+        for (int n = 0; n < 2; n++) {
+          error_velocity_gradient +=
+              pow(gradient[i][m * dim + n] - du[m][n], 2.0);
+          norm_velocity_gradient += pow(du[m][n], 2.0);
+        }
+      }
+    }
+  }
 
-  // auto pressure_gradient =
-  //     pressure_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
-  //         double **, Kokkos::HostSpace>(
-  //         ghost_pressure_device, GradientOfScalarPointEvaluation,
-  //         StaggeredEdgeAnalyticGradientIntegralSample);
+  MPI_Allreduce(MPI_IN_PLACE, &error_velocity_gradient, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &norm_velocity_gradient, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
 
-  // auto pressure_gradient_neumann =
-  //     pressure_neumann_evaluator.applyAlphasToDataAllComponentsAllTargetSites<
-  //         double **, Kokkos::HostSpace>(
-  //         ghost_pressure_device, GradientOfScalarPointEvaluation,
-  //         StaggeredEdgeAnalyticGradientIntegralSample);
-
-  // auto neumann_neighbor_list = pressure_neumann_basis->getNeighborLists();
-
-  // double error_velocity_gradient, error_pressure_gradient;
-  // double norm_velocity_gradient, norm_pressure_gradient;
-
-  // error_velocity_gradient = 0.0;
-  // norm_velocity_gradient = 0.0;
-  // for (int i = 0; i < local_particle_num; i++) {
-  //   double x = coord[i][0];
-  //   double y = coord[i][1];
-  //   double z = coord[i][2];
-
-  //   double r = sqrt(x * x + y * y + z * z);
-  //   double theta = acos(z / r);
-  //   double phi = atan2(y, x);
-
-  //   double dvr[2];
-  //   double dvt[2];
-
-  //   dvr[0] = u * cos(theta) *
-  //            (3 * RR / 2 / pow(r, 2) - 3 * pow(RR, 3) / 2 / pow(r, 4));
-  //   dvr[1] = -u * sin(theta) *
-  //            (1 / r - 3 * RR / 2 / pow(r, 2) + pow(RR, 3) / 2 / pow(r, 4));
-  //   dvt[0] = -u * sin(theta) *
-  //            (3 * RR / 4 / pow(r, 2) + 3 * pow(RR, 3) / 4 / pow(r, 4));
-  //   dvt[1] = -u * cos(theta) *
-  //            (1 / r - 3 * RR / 4 / pow(r, 2) - pow(RR, 3) / 4 / pow(r, 4));
-
-  //   double dudx = -M_PI * sin(M_PI * x) * sin(M_PI * y);
-  //   double dudy = M_PI * cos(M_PI * x) * cos(M_PI * y);
-  //   double dvdx = -M_PI * cos(M_PI * x) * cos(M_PI * y);
-  //   double dvdy = M_PI * sin(M_PI * x) * sin(M_PI * y);
-
-  //   double dudx_gmls = velocity_gradient(i, 0);
-  //   double dudy_gmls = velocity_gradient(i, 1);
-  //   double dvdx_gmls = velocity_gradient(i, 2);
-  //   double dvdy_gmls = velocity_gradient(i, 3);
-
-  //   error_velocity_gradient +=
-  //       pow(dudx - dudx_gmls, 2.0) + pow(dvdy - dvdy_gmls, 2.0) +
-  //       pow(0.5 * (dudy + dvdx - dudy_gmls - dvdx_gmls), 2.0);
-  //   norm_velocity_gradient +=
-  //       pow(dudx, 2.0) + pow(dvdy, 2.0) + pow(0.5 * (dudy + dvdx), 2.0);
-  // }
-
-  // MPI_Allreduce(MPI_IN_PLACE, &error_velocity_gradient, 1, MPI_DOUBLE,
-  // MPI_SUM,
-  //               MPI_COMM_WORLD);
-  // MPI_Allreduce(MPI_IN_PLACE, &norm_velocity_gradient, 1, MPI_DOUBLE,
-  // MPI_SUM,
-  //               MPI_COMM_WORLD);
-
-  // PetscPrintf(MPI_COMM_WORLD, "relative velocity gradient error: %.10f\n",
-  //             sqrt(error_velocity_gradient / norm_velocity_gradient));
-  // PetscPrintf(MPI_COMM_WORLD, "RMS velocity gradient error: %.10f\n",
-  //             sqrt(error_velocity_gradient / global_particle_num));
+  PetscPrintf(MPI_COMM_WORLD, "relative velocity gradient error: %.10f\n",
+              sqrt(error_velocity_gradient / norm_velocity_gradient));
+  PetscPrintf(MPI_COMM_WORLD, "RMS velocity gradient error: %.10f\n",
+              sqrt(error_velocity_gradient / global_particle_num));
+  PetscPrintf(MPI_COMM_WORLD, "error: %.10f, and norm %.10f\n",
+              sqrt(error_velocity_gradient), sqrt(norm_velocity_gradient));
 
   // error_pressure_gradient = 0.0;
   // norm_pressure_gradient = 0.0;
@@ -2146,25 +2133,12 @@ void stokes_equation::calculate_error() {
           }
 
           for (int axes1 = 0; axes1 < dim; axes1++) {
-            for (int axes2 = axes1; axes2 < dim; axes2++) {
-              if (axes1 == axes2)
-                error[i] +=
-                    pow(reconstructed_gradient[axes1 * dim + axes2] -
-                            ghost_recovered_gradient[neighbor_index]
-                                                    [axes1 * dim + axes2],
-                        2) *
-                    source_volume[neighbor_index];
-              else {
-                error[i] +=
-                    pow(0.5 * (reconstructed_gradient[axes1 * dim + axes2] -
-                               ghost_recovered_gradient[neighbor_index]
-                                                       [axes1 * dim + axes2] +
-                               reconstructed_gradient[axes2 * dim + axes1] -
-                               ghost_recovered_gradient[neighbor_index]
-                                                       [axes2 * dim + axes1]),
-                        2) *
-                    source_volume[neighbor_index];
-              }
+            for (int axes2 = 0; axes2 < dim; axes2++) {
+              error[i] += pow(reconstructed_gradient[axes1 * dim + axes2] -
+                                  ghost_recovered_gradient[neighbor_index]
+                                                          [axes1 * dim + axes2],
+                              2) *
+                          source_volume[neighbor_index];
             }
           }
         }
@@ -2174,17 +2148,11 @@ void stokes_equation::calculate_error() {
       local_error += error[i] * volume[i];
 
       for (int axes1 = 0; axes1 < dim; axes1++) {
-        for (int axes2 = axes1; axes2 < dim; axes2++) {
-          if (axes1 == axes2)
-            local_direct_gradient_norm +=
-                pow(direct_gradient[i][axes1 * dim + axes2], 2) * volume[i];
-          else {
-            local_direct_gradient_norm +=
-                pow(0.5 * (direct_gradient[i][axes1 * dim + axes2] +
-                           direct_gradient[i][axes2 * dim + axes1]),
-                    2) *
-                volume[i];
-          }
+        for (int axes2 = 0; axes2 < dim; axes2++) {
+          local_direct_gradient_norm +=
+              pow(direct_gradient[i][axes1 * dim + axes2], 2) * volume[i];
+          recovered_gradient[i][axes1 * dim + axes2] =
+              direct_gradient[i][axes1 * dim + axes2];
         }
       }
     }

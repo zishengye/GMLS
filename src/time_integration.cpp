@@ -40,7 +40,7 @@ void gmls_solver::foward_euler_integration() {
     current_refinement_step = 0;
     equation_mgr->reset();
     do {
-      if (write_data)
+      if (write_data == 1 || write_data == 4)
         write_refinement_data_geometry_only();
       PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
                   current_refinement_step);
@@ -51,7 +51,7 @@ void gmls_solver::foward_euler_integration() {
     PetscPrintf(PETSC_COMM_WORLD, "==== End of time integration ====\n");
     PetscPrintf(PETSC_COMM_WORLD, "=================================\n\n");
 
-    if (write_data != 0) {
+    if (write_data == 2 || write_data == 4) {
       write_time_step_data();
     }
   }
@@ -148,7 +148,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
   current_refinement_step = 0;
   equation_mgr->reset();
   do {
-    if (write_data) {
+    if (write_data == 1 || write_data == 4) {
       write_refinement_data_geometry_only();
     }
     PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
@@ -176,7 +176,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
     }
   }
 
-  if (write_data != 0) {
+  if (write_data == 2 || write_data == 4) {
     write_time_step_data();
   }
 
@@ -397,7 +397,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
         current_refinement_step = 0;
         equation_mgr->reset();
         do {
-          if (write_data)
+          if (write_data == 1 || write_data == 4)
             write_refinement_data_geometry_only();
           PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
                       current_refinement_step);
@@ -634,7 +634,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
       }
     }
 
-    if (write_data != 0) {
+    if (write_data == 2 || write_data == 4) {
       write_time_step_data();
     }
   }

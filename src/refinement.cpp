@@ -144,7 +144,7 @@ bool gmls_solver::refinement() {
     split_tag[chopper[i].first] = 1;
   }
 
-  if (write_data)
+  if (write_data == 1 || write_data == 4)
     write_refinement_data(split_tag);
 
   // prevent over splitting

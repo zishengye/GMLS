@@ -10,7 +10,7 @@
 struct HypreLUShellPC {
   stokes_multilevel *multi;
 
-  int refinement_level;
+  int refinement_level, num_rigid_body;
 
   PetscInt local_particle_num, global_particle_num, field_dof;
 
@@ -24,7 +24,7 @@ PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell);
 
 PetscErrorCode HypreLUShellPCSetUp(PC pc, stokes_multilevel *multi, Vec x,
                                    PetscInt local_particle_num,
-                                   PetscInt field_dof);
+                                   PetscInt field_dof, int num_rigid_body);
 
 PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y);
 
