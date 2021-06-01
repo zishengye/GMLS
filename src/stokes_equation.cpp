@@ -71,6 +71,7 @@ void stokes_equation::update() {
   solve_step();
   calculate_error();
   check_solution();
+  collect_force();
 
   current_refinement_level++;
 }
@@ -1187,6 +1188,13 @@ void stokes_equation::build_rhs() {
   auto &local_idx = *(geo_mgr->get_current_work_particle_local_index());
 
   auto &rigid_body_position = rb_mgr->get_position();
+  auto &rigid_body_velocity = rb_mgr->get_velocity();
+  auto &rigid_body_angular_velocity = rb_mgr->get_angular_velocity();
+  auto &rigid_body_force = rb_mgr->get_force();
+  auto &rigid_body_torque = rb_mgr->get_torque();
+  auto &rigid_body_velocity_force_switch = rb_mgr->get_velocity_force_switch();
+  auto &rigid_body_angvelocity_torque_switch =
+      rb_mgr->get_angvelocity_torque_switch();
   const auto num_rigid_body = rb_mgr->get_rigid_body_num();
 
   int local_particle_num;
@@ -1418,7 +1426,24 @@ void stokes_equation::build_rhs() {
 
   if (dim == 3 && num_rigid_body != 0) {
     if (rank == size - 1) {
-      rhs[local_rigid_body_offset + 1] = 0.03;
+      for (int i = 0; i < num_rigid_body; i++) {
+        for (int axes = 0; axes < translation_dof; axes++) {
+          if (rigid_body_velocity_force_switch[i][axes])
+            rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
+                rigid_body_velocity[i][axes];
+          else
+            rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
+                rigid_body_force[i][axes];
+        }
+        for (int axes = 0; axes < rotation_dof; axes++) {
+          if (rigid_body_velocity_force_switch[i][axes])
+            rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
+                axes] = rigid_body_angular_velocity[i][axes];
+          else
+            rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
+                axes] = rigid_body_torque[i][axes];
+        }
+      }
     }
   }
 
@@ -2191,8 +2216,6 @@ void stokes_equation::calculate_error() {
         for (int axes2 = 0; axes2 < dim; axes2++) {
           local_direct_gradient_norm +=
               pow(direct_gradient[i][axes1 * dim + axes2], 2) * volume[i];
-          recovered_gradient[i][axes1 * dim + axes2] =
-              direct_gradient[i][axes1 * dim + axes2];
         }
       }
     }
@@ -2388,5 +2411,89 @@ void stokes_equation::calculate_error() {
 
   for (int i = 0; i < local_particle_num; i++) {
     error[i] = sqrt(error[i]);
+  }
+}
+
+void stokes_equation::collect_force() {
+  auto &coord = *(geo_mgr->get_current_work_particle_coord());
+  auto &normal = *(geo_mgr->get_current_work_particle_normal());
+  auto &p_spacing = *(geo_mgr->get_current_work_particle_p_spacing());
+  auto &particle_type = *(geo_mgr->get_current_work_particle_type());
+  auto &attached_rigid_body =
+      *(geo_mgr->get_current_work_particle_attached_rigid_body());
+
+  int local_particle_num = coord.size();
+
+  auto &rigid_body_position = rb_mgr->get_position();
+  auto &rigid_body_force = rb_mgr->get_force();
+  auto &rigid_body_torque = rb_mgr->get_torque();
+
+  auto num_rigid_body = rb_mgr->get_rigid_body_num();
+
+  const int translation_dof = (dim == 3 ? 3 : 2);
+  const int rotation_dof = (dim == 3 ? 3 : 1);
+  const int rigid_body_dof = (dim == 3 ? 6 : 3);
+
+  vector<double> flattened_force;
+  vector<double> flattened_torque;
+
+  flattened_force.resize(num_rigid_body * translation_dof);
+  flattened_torque.resize(num_rigid_body * rotation_dof);
+
+  for (int i = 0; i < num_rigid_body; i++) {
+    for (int j = 0; j < translation_dof; j++) {
+      flattened_force[i * translation_dof + j] = 0.0;
+    }
+    for (int j = 0; j < rotation_dof; j++) {
+      flattened_torque[i * rotation_dof + j] = 0.0;
+    }
+  }
+
+  for (int i = 0; i < local_particle_num; i++) {
+    if (particle_type[i] >= 4) {
+      int rigid_body_idx = attached_rigid_body[i];
+      vec3 rci = coord[i] - rigid_body_position[rigid_body_idx];
+      vec3 dA = (dim == 3) ? (normal[i] * p_spacing[i][0] * p_spacing[i][1])
+                           : (normal[i] * p_spacing[i][0]);
+
+      vec3 f;
+      for (int axes1 = 0; axes1 < dim; axes1++) {
+        f[axes1] = -dA[axes1] * pressure[i];
+        for (int axes2 = 0; axes2 < dim; axes2++) {
+          f[axes1] += 0.5 *
+                      (gradient[i][axes1 * dim + axes2] +
+                       gradient[i][axes2 * dim + axes1]) *
+                      dA[axes2];
+        }
+      }
+
+      for (int axes1 = 0; axes1 < translation_dof; axes1++) {
+        flattened_force[rigid_body_idx * translation_dof + axes1] += f[axes1];
+      }
+
+      for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
+        flattened_torque[rigid_body_idx * rotation_dof + axes1] +=
+            rci[(axes1 + 1) % translation_dof] *
+                f[(axes1 + 2) % translation_dof] -
+            rci[(axes1 + 2) % translation_dof] *
+                f[(axes1 + 1) % translation_dof];
+      }
+    }
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, flattened_force.data(),
+                num_rigid_body * translation_dof, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, flattened_torque.data(),
+                num_rigid_body * rotation_dof, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  for (int i = 0; i < num_rigid_body; i++) {
+    for (int j = 0; j < translation_dof; j++) {
+      rigid_body_force[i][j] = flattened_force[i * translation_dof + j];
+    }
+    for (int j = 0; j < rotation_dof; j++) {
+      rigid_body_torque[i][j] = flattened_torque[i * rotation_dof + j];
+    }
   }
 }

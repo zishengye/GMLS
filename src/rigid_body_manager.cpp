@@ -48,7 +48,7 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
 
     for (int i = 0; i < dim; i++) {
       input >> vf_switch[i];
-      if (vf_switch[i] == 0) {
+      if (vf_switch[i] == 1) {
         input >> vxyz[i];
         fxyz[i] = 0.0;
       } else {
@@ -58,7 +58,7 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
     }
     for (int i = 0; i < rotation_dof; i++) {
       input >> rt_switch[i];
-      if (rt_switch[i] == 0) {
+      if (rt_switch[i] == 1) {
         input >> rvxyz[i];
         txyz[i] = 0.0;
       } else {

@@ -28,6 +28,7 @@ private:
   void solve_step();
   void check_solution();
   void calculate_error();
+  void collect_force();
 
   std::shared_ptr<Compadre::GMLS> pressure_basis;
   std::shared_ptr<Compadre::GMLS> velocity_basis;
