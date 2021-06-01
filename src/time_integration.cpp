@@ -62,6 +62,8 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
   vector<vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
   vector<vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
   vector<vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
+  vector<vec3> &rigidBodyForce = rb_mgr->get_force();
+  vector<vec3> &rigidBodyTorque = rb_mgr->get_torque();
 
   int numRigidBody = rb_mgr->get_rigid_body_num();
 
@@ -204,6 +206,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
   ofstream output;
   ofstream output_runge_kutta;
   ofstream outputVelocity;
+  ofstream outputForce;
   if (rank == 0) {
     output.open(trajectory_output_file_name, ios::trunc);
     output << t << '\t';
@@ -222,7 +225,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
     output_runge_kutta.close();
 
     outputVelocity.open(velocity_output_file_name, ios::trunc);
-    outputVelocity << t + dt << '\t';
+    outputVelocity << t << '\t';
     for (int num = 0; num < numRigidBody; num++) {
       for (int j = 0; j < 3; j++) {
         outputVelocity << rigidBodyVelocity[num][j] << '\t';
@@ -233,6 +236,19 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
     }
     outputVelocity << endl;
     outputVelocity.close();
+
+    outputForce.open(force_output_file_name, ios::trunc);
+    outputForce << t << '\t';
+    for (int num = 0; num < numRigidBody; num++) {
+      for (int j = 0; j < 3; j++) {
+        outputForce << rigidBodyForce[num][j] << '\t';
+      }
+      for (int j = 0; j < 3; j++) {
+        outputForce << rigidBodyTorque[num][j] << '\t';
+      }
+    }
+    outputForce << endl;
+    outputForce.close();
   }
 
   // main loop

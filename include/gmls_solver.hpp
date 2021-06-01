@@ -82,6 +82,7 @@ private:
   std::string rigid_body_input_file_name;
   std::string trajectory_output_file_name;
   std::string velocity_output_file_name;
+  std::string force_output_file_name;
   bool rigid_body_inclusion;
 
   std::shared_ptr<stokes_equation> equation_mgr;

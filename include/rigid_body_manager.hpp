@@ -17,7 +17,10 @@ private:
   std::vector<vec3> rigid_body_angular_velocity;
   std::vector<vec3> rigid_body_acceleration;
   std::vector<vec3> rigid_body_angular_acceleration;
-  std::vector<bool> velocity_fixed;
+  std::vector<vec3> rigid_body_force;
+  std::vector<vec3> rigid_body_torque;
+  std::vector<vec3> rigid_body_velocity_force_switch;
+  std::vector<vec3> rigid_body_angvelocity_torque_switch;
 
   std::vector<int> rigid_body_type;
   std::vector<std::vector<double>> rigid_body_size;
@@ -81,7 +84,17 @@ public:
     return rigid_body_angular_velocity;
   }
 
-  std::vector<bool> &get_velocity_fixed() { return velocity_fixed; }
+  std::vector<vec3> &get_velocity_force_switch() {
+    return rigid_body_velocity_force_switch;
+  }
+
+  std::vector<vec3> &get_angvelocity_torque_switch() {
+    return rigid_body_angvelocity_torque_switch;
+  }
+
+  std::vector<vec3> &get_force() { return rigid_body_force; }
+
+  std::vector<vec3> &get_torque() { return rigid_body_torque; }
 
   void set_position(int _rigid_body_index, vec3 &_position) {
     if (_rigid_body_index < rigid_body_position.size()) {

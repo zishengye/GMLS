@@ -147,6 +147,10 @@ gmls_solver::gmls_solver(int argc, char **argv) {
                               velocity_output_file_name) == 1) {
       velocity_output_file_name = "vel.txt";
     }
+    if (SearchCommand<string>(argc, argv, "-force_output",
+                              force_output_file_name) == 1) {
+      force_output_file_name = "force.txt";
+    }
   } else {
     rigid_body_inclusion = false;
   }

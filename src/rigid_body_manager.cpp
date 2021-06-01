@@ -38,15 +38,48 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
       input >> rxyz[i];
     }
 
+    vec3 vf_switch;
+    vec3 rt_switch;
+
+    vec3 vxyz;
+    vec3 fxyz;
+    vec3 rvxyz;
+    vec3 txyz;
+
+    for (int i = 0; i < dim; i++) {
+      input >> vf_switch[i];
+      if (vf_switch[i] == 0) {
+        input >> vxyz[i];
+        fxyz[i] = 0.0;
+      } else {
+        input >> fxyz[i];
+        vxyz[i] = 0.0;
+      }
+    }
+    for (int i = 0; i < rotation_dof; i++) {
+      input >> rt_switch[i];
+      if (rt_switch[i] == 0) {
+        input >> rvxyz[i];
+        txyz[i] = 0.0;
+      } else {
+        input >> txyz[i];
+        rvxyz[i] = 0.0;
+      }
+    }
+
     rigid_body_type.push_back(type);
     rigid_body_size.push_back(size_list);
     rigid_body_position.push_back(xyz);
     rigid_body_orientation.push_back(rxyz);
 
-    rigid_body_velocity.push_back(vec3(0.0, 0.0, 0.0));
-    rigid_body_angular_velocity.push_back(vec3(0.0, 0.0, 0.0));
+    rigid_body_velocity_force_switch.push_back(vf_switch);
+    rigid_body_angvelocity_torque_switch.push_back(rt_switch);
+    rigid_body_velocity.push_back(vxyz);
+    rigid_body_angular_velocity.push_back(rvxyz);
     rigid_body_acceleration.push_back(vec3(0.0, 0.0, 0.0));
     rigid_body_angular_acceleration.push_back(vec3(0.0, 0.0, 0.0));
+    rigid_body_force.push_back(fxyz);
+    rigid_body_torque.push_back(txyz);
 
     /* rigid body type
     type 1: circle in 2d, sphere in 3d
