@@ -283,6 +283,7 @@ void particle_geometry::init(const int _dim, const int _problem_type,
       auxiliary_size.push_back(cap_height);
     }
   } else {
+    domain_type = 0;
     // default setup
     bounding_box_size[0] = 2.0;
     bounding_box_size[1] = 2.0;
@@ -306,6 +307,15 @@ void particle_geometry::init(const int _dim, const int _problem_type,
   } else if (dim == 3) {
     process_split(process_x, process_y, process_z, process_i, process_j,
                   process_k, size, rank);
+  }
+
+  if (domain_type == 1) {
+    process_x = size;
+    process_y = 1;
+    process_z = 1;
+    process_i = rank;
+    process_j = 0;
+    process_k = 0;
   }
 
   if (refinement_type == UNIFORM_REFINE) {

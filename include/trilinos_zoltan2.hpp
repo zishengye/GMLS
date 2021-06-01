@@ -47,9 +47,9 @@ public:
 
     tolerance = 1.1;
 
-    params.set("debug_level", "no_status");
+    params.set("debug_level", "basic_status");
     params.set("debug_procs", "0");
-    params.set("error_check_level", "no_assertions");
+    params.set("error_check_level", "debug_mode_assertions");
     params.set("debug_output_stream", "null");
 
     params.set("algorithm", "rcb");

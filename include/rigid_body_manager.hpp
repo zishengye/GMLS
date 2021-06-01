@@ -17,6 +17,7 @@ private:
   std::vector<vec3> rigid_body_angular_velocity;
   std::vector<vec3> rigid_body_acceleration;
   std::vector<vec3> rigid_body_angular_acceleration;
+  std::vector<bool> velocity_fixed;
 
   std::vector<int> rigid_body_type;
   std::vector<std::vector<double>> rigid_body_size;
@@ -79,6 +80,8 @@ public:
   std::vector<vec3> &get_angular_velocity() {
     return rigid_body_angular_velocity;
   }
+
+  std::vector<bool> &get_velocity_fixed() { return velocity_fixed; }
 
   void set_position(int _rigid_body_index, vec3 &_position) {
     if (_rigid_body_index < rigid_body_position.size()) {

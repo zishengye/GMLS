@@ -640,7 +640,7 @@ void stokes_equation::build_coefficient_matrix() {
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
 
-  vector<bool> velocity_fixed;
+  auto &velocity_fixed = rb_mgr->get_velocity_fixed();
   velocity_fixed.resize(num_rigid_body * rigid_body_dof);
   for (int i = 0; i < num_rigid_body * rigid_body_dof; i++) {
     velocity_fixed[i] = true;
