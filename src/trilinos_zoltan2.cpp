@@ -3,6 +3,11 @@
 
 using namespace std;
 
+struct bundle {
+  int num;
+  int rank;
+};
+
 void trilinos_rcp_partitioner::partition(vector<long long> &index,
                                          vector<vec3> &coord,
                                          vector<int> &result) {
@@ -12,7 +17,21 @@ void trilinos_rcp_partitioner::partition(vector<long long> &index,
 
   MPI_Allreduce(&local_particle_num, &global_particle_num, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
+
   if ((global_particle_num / size) > 10) {
+    int need_move_data = 0;
+    if (local_particle_num == 0)
+      need_move_data = 1;
+    MPI_Allreduce(MPI_IN_PLACE, &need_move_data, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+    if (need_move_data != 0) {
+      bundle b;
+      b.num = local_particle_num;
+      b.rank = rank;
+
+      MPI_Allreduce(MPI_IN_PLACE, &b, 1, MPI_2INTEGER, MPI_MAXLOC,
+                    MPI_COMM_WORLD);
+    }
     vector<double> x, y, z;
     x.resize(local_particle_num);
     y.resize(local_particle_num);

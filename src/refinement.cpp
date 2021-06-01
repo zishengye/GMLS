@@ -28,7 +28,6 @@ bool gmls_solver::refinement() {
 
   auto &rigid_body_position = rb_mgr->get_position();
   const auto num_rigid_body = rb_mgr->get_rigid_body_num();
-  vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
   vector<vec3> &rigid_body_velocity = rb_mgr->get_velocity();
   vector<vec3> &rigid_body_angular_velocity = rb_mgr->get_angular_velocity();
   if (isnan(global_error) || global_error < refinement_tolerance) {
@@ -46,25 +45,7 @@ bool gmls_solver::refinement() {
   // mark stage
   double alpha = 0.7;
 
-  double min_h = 1.0;
-  for (int i = 0; i < local_spacing.size(); i++) {
-    if (min_h > local_spacing[i])
-      min_h = local_spacing[i];
-  }
-  MPI_Allreduce(MPI_IN_PLACE, &min_h, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-
-  double min_dis = 1.0;
-  for (int i = 0; i < rigid_body_position.size(); i++) {
-    for (int j = i + 1; j < rigid_body_position.size(); j++) {
-      vec3 dist = rigid_body_position[i] - rigid_body_position[j];
-      if (min_dis > dist.mag() - rigid_body_size[i] - rigid_body_size[j]) {
-        min_dis = dist.mag() - rigid_body_size[i] - rigid_body_size[j];
-      }
-    }
-  }
-
-  PetscPrintf(PETSC_COMM_WORLD, "alpha: %f, min distance: %f, min h: %f\n",
-              alpha, min_dis, min_h);
+  PetscPrintf(PETSC_COMM_WORLD, "alpha: %f\n", alpha);
 
   vector<pair<int, double>> chopper;
   pair<int, double> to_add;

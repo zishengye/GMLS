@@ -19,6 +19,16 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
     int type;
     input >> type;
     input >> size;
+    vector<double> size_list;
+    size_list.push_back(size);
+    if (type == 5) {
+      // r2
+      input >> size;
+      size_list.push_back(size);
+      // d
+      input >> size;
+      size_list.push_back(size);
+    }
     for (int i = 0; i < dim; i++) {
       input >> xyz[i];
     }
@@ -29,7 +39,7 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
     }
 
     rigid_body_type.push_back(type);
-    rigid_body_size.push_back(size);
+    rigid_body_size.push_back(size_list);
     rigid_body_position.push_back(xyz);
     rigid_body_orientation.push_back(rxyz);
 
@@ -61,8 +71,9 @@ bool rigid_body_manager::rigid_body_collision_detection(double &min_dis) {
     for (int j = i + 1; j < rigid_body_position.size(); j++) {
       if (rigid_body_type[i] == 1 && rigid_body_type[j] == 1) {
         vec3 dist = rigid_body_position[i] - rigid_body_position[j];
-        if (min_dis > dist.mag() - rigid_body_size[i] - rigid_body_size[j]) {
-          min_dis = dist.mag() - rigid_body_size[i] - rigid_body_size[j];
+        if (min_dis >
+            dist.mag() - rigid_body_size[i][0] - rigid_body_size[j][0]) {
+          min_dis = dist.mag() - rigid_body_size[i][0] - rigid_body_size[j][0];
         }
       }
       if (rigid_body_type[i] == 2 && rigid_body_type[j] == 2) {
@@ -71,8 +82,8 @@ bool rigid_body_manager::rigid_body_collision_detection(double &min_dis) {
         double theta1 = rigid_body_orientation[i][0];
         double theta2 = rigid_body_orientation[j][0];
 
-        if (dist.mag() - rigid_body_size[i] - rigid_body_size[j] < 0.0) {
-          double half_length = rigid_body_size[i];
+        if (dist.mag() - rigid_body_size[i][0] - rigid_body_size[j][0] < 0.0) {
+          double half_length = rigid_body_size[i][0];
           vec3 x11 = vec3(-half_length, -half_length, 0.0);
           vec3 x12 = vec3(-half_length, half_length, 0.0);
           vec3 x21 = vec3(half_length, -half_length, 0.0);

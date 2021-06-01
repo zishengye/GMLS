@@ -105,10 +105,10 @@ private:
   int_type local_managing_gap_particle_particle_type;
   int_type local_managing_gap_particle_adaptive_level;
 
-  std::vector<vec3> rigid_body_surface_particle_coord;
-  std::vector<double> rigid_body_surface_particle_spacing;
-  std::vector<int> rigid_body_surface_particle_adaptive_level;
-  std::vector<int> rigid_body_surface_particle_split_tag;
+  std::vector<vec3> surface_particle_coord;
+  std::vector<double> surface_particle_spacing;
+  std::vector<int> surface_particle_adaptive_level;
+  std::vector<int> surface_particle_split_tag;
 
   vec3 bounding_box[2];
   vec3 bounding_box_size;
@@ -117,6 +117,9 @@ private:
   vec3 domain_bounding_box[2];
   vec3 domain[2];
   triple<int> domain_count;
+
+  int domain_type;
+  std::vector<double> auxiliary_size;
 
   std::vector<int> domain_boundary_type;
 
@@ -368,6 +371,7 @@ protected:
   void init_domain_boundary();
 
   void generate_field_particle();
+  void generate_field_surface_particle();
   bool generate_rigid_body_surface_particle();
 
   void uniform_refine();
@@ -384,11 +388,13 @@ protected:
                        vec3 _p_spacing = vec3(0.0, 0.0, 0.0));
 
   void split_field_particle(std::vector<int> &split_tag);
+  void split_field_surface_particle(std::vector<int> &split_tag);
   bool split_rigid_body_surface_particle(std::vector<int> &split_tag);
   void split_gap_particle(std::vector<int> &split_tag);
 
   int is_gap_particle(const vec3 &_pos, double _spacing,
                       int _attached_rigid_body_index);
+  int is_field_particle(const vec3 &_pos, double _spacing);
 
   void index_particle();
   void index_work_particle();
@@ -401,7 +407,7 @@ protected:
 
   void build_ghost_for_last_level();
 
-  void collect_rigid_body_surface_particle();
+  void collect_surface_particle();
 };
 
 #endif

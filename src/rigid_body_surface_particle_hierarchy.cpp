@@ -23,18 +23,19 @@ void rigid_body_surface_particle_hierarchy::extend_hierarchy(
   switch (rigid_body_type_list[compressed_rigid_body_index]) {
   case 1:
     if (dimension == 3) {
-      add_sphere(rigid_body_size_list[compressed_rigid_body_index], resolution);
+      add_sphere(rigid_body_size_list[compressed_rigid_body_index][0],
+                 resolution);
     }
     break;
   case 2:
     if (dimension == 2) {
-      add_rounded_square(rigid_body_size_list[compressed_rigid_body_index],
+      add_rounded_square(rigid_body_size_list[compressed_rigid_body_index][0],
                          resolution);
     }
     break;
   case 5:
     if (dimension == 3) {
-      add_customized_shape(rigid_body_size_list[compressed_rigid_body_index],
+      add_customized_shape(rigid_body_size_list[compressed_rigid_body_index][0],
                            resolution);
     }
     break;
@@ -369,12 +370,12 @@ void rigid_body_surface_particle_hierarchy::init(
     bool flag = false;
 
     const int current_rigid_body_type = rb_mgr->get_rigid_body_type(i);
-    const double current_rigid_body_size = rb_mgr->get_rigid_body_size(i);
+    auto &current_rigid_body_size = rb_mgr->get_rigid_body_size(i);
 
     for (int j = 0; j < rigid_body_type_list.size(); j++) {
       if (rigid_body_type_list[j] == current_rigid_body_type &&
-          abs(rigid_body_size_list[j] - current_rigid_body_size) <
-              1e-5 * current_rigid_body_size) {
+          abs(rigid_body_size_list[j][0] - current_rigid_body_size[0]) <
+              1e-5 * current_rigid_body_size[0]) {
         flag = true;
         rb_idx[i] = j;
       }
@@ -474,15 +475,16 @@ void rigid_body_surface_particle_hierarchy::move_to_boundary(
   switch (rigid_body_type_list[rb_idx[rigid_body_index]]) {
   case 1: {
     double mag = pos.mag();
-    double r = rigid_body_size_list[rb_idx[rigid_body_index]];
+    double r = rigid_body_size_list[rb_idx[rigid_body_index]][0];
     pos = pos * (r / mag);
   } break;
   case 2:
     break;
   case 5: {
-    double r1 = 0.025;
-    double r2 = 0.005;
-    double d = 0.023;
+    auto &rigid_body_size = rb_mgr->get_rigid_body_size(rigid_body_index);
+    double r1 = rigid_body_size[0];
+    double r2 = rigid_body_size[1];
+    double d = rigid_body_size[2];
 
     double theta1 = 0.5 * M_PI + asin((d - r2) / (r1 - r2));
     double s = sqrt((pow(r1 - r2, 2.0) - pow(d - r2, 2.0)));
@@ -524,9 +526,10 @@ void rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
   case 2:
     break;
   case 5: {
-    double r1 = 0.025;
-    double r2 = 0.005;
-    double d = 0.023;
+    auto &rigid_body_size = rb_mgr->get_rigid_body_size(rigid_body_index);
+    double r1 = rigid_body_size[0];
+    double r2 = rigid_body_size[1];
+    double d = rigid_body_size[2];
 
     double theta1 = 0.5 * M_PI + asin((d - r2) / (r1 - r2));
     double s = sqrt((pow(r1 - r2, 2.0) - pow(d - r2, 2.0)) / d);

@@ -24,7 +24,7 @@ private:
   std::vector<std::vector<int>> hierarchy_index;
 
   std::vector<int> rigid_body_type_list;
-  std::vector<double> rigid_body_size_list;
+  std::vector<std::vector<double>> rigid_body_size_list;
 
   std::vector<std::vector<int>> mapping;
   std::vector<std::vector<int>> hierarchy_mapping;

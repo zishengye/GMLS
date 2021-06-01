@@ -643,7 +643,7 @@ void stokes_equation::build_coefficient_matrix() {
   vector<bool> velocity_fixed;
   velocity_fixed.resize(num_rigid_body * rigid_body_dof);
   for (int i = 0; i < num_rigid_body * rigid_body_dof; i++) {
-    velocity_fixed[i] = false;
+    velocity_fixed[i] = true;
   }
 
   // compute matrix graph
@@ -1079,9 +1079,7 @@ void stokes_equation::build_coefficient_matrix() {
       const int global_index = current_particle_global_index * field_dof + k;
 
       if (A.get_entity(local_index, global_index) < 0.0) {
-        cout << current_particle_global_index << ' ' << k << endl;
-
-        cout << fixed << setprecision(10) << source_index[i] << " "
+        cout << fixed << setprecision(10) << source_index[i] << " " << k << ' '
              << adaptive_level[i] << " " << particle_type[i] << " "
              << epsilon[i] << ' ' << neighbor_list_host(i, 0) << ' ';
 
@@ -1310,74 +1308,80 @@ void stokes_equation::build_rhs() {
   //   }
   // }
 
+  // if (dim == 3 && num_rigid_body != 0) {
+  //   vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
+  //   vector<vec3> &rigid_body_position = rb_mgr->get_position();
+
+  //   double u = 1.0;
+  //   double RR = rigid_body_size[0];
+
+  //   for (int i = 0; i < local_particle_num; i++) {
+  //     int current_particle_local_index = local_idx[i];
+  //     if (particle_type[i] != 0 && particle_type[i] < 4) {
+  //       double x = coord[i][0] - rigid_body_position[0][0];
+  //       double y = coord[i][1] - rigid_body_position[0][1];
+  //       double z = coord[i][2] - rigid_body_position[0][2];
+
+  //       const int neumann_index = neumann_map[i];
+  //       // const double bi =
+  //       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+  //       //     LaplacianOfScalarPointEvaluation, neumann_index,
+  //       //     neumannBoundaryNeighborLists(neumann_index, 0));
+
+  //       double r = sqrt(x * x + y * y + z * z);
+  //       double theta = acos(z / r);
+  //       double phi = atan2(y, x);
+
+  //       double vr = u * cos(theta) *
+  //                   (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
+  //       double vt = -u * sin(theta) *
+  //                   (1 - (3 * RR) / (4 * r) - pow(RR, 3) / (4 * pow(r, 3)));
+
+  //       double pr = 3 * RR / pow(r, 3) * u * cos(theta);
+  //       double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
+
+  //       rhs[field_dof * current_particle_local_index] =
+  //           sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
+  //       rhs[field_dof * current_particle_local_index + 1] =
+  //           sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
+  //       rhs[field_dof * current_particle_local_index + 2] =
+  //           cos(theta) * vr - sin(theta) * vt;
+
+  //       double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
+  //       double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
+  //       double p3 = cos(theta) * pr - sin(theta) * pt;
+  //     } else if (particle_type[i] >= 4) {
+  //       double x = coord[i][0] - rigid_body_position[0][0];
+  //       double y = coord[i][1] - rigid_body_position[0][1];
+  //       double z = coord[i][2] - rigid_body_position[0][2];
+
+  //       double r = sqrt(x * x + y * y + z * z);
+  //       double theta = acos(z / r);
+  //       double phi = atan2(y, x);
+
+  //       const int neumann_index = neumann_map[i];
+  //       // const double bi =
+  //       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+  //       //     LaplacianOfScalarPointEvaluation, neumann_index,
+  //       //     neumannBoundaryNeighborLists(neumann_index, 0));
+
+  //       double pr = 3 * RR / pow(r, 3) * u * cos(theta);
+  //       double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
+
+  //       double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
+  //       double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
+  //       double p3 = cos(theta) * pr - sin(theta) * pt;
+  //     }
+  //   }
+
+  //   if (rank == size - 1) {
+  //     rhs[local_rigid_body_offset + 2] = 6 * M_PI * RR * u;
+  //   }
+  // }
+
   if (dim == 3 && num_rigid_body != 0) {
-    vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
-    vector<vec3> &rigid_body_position = rb_mgr->get_position();
-
-    double u = 1.0;
-    double RR = rigid_body_size[0];
-
-    for (int i = 0; i < local_particle_num; i++) {
-      int current_particle_local_index = local_idx[i];
-      if (particle_type[i] != 0 && particle_type[i] < 4) {
-        double x = coord[i][0] - rigid_body_position[0][0];
-        double y = coord[i][1] - rigid_body_position[0][1];
-        double z = coord[i][2] - rigid_body_position[0][2];
-
-        const int neumann_index = neumann_map[i];
-        // const double bi =
-        // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-        //     LaplacianOfScalarPointEvaluation, neumann_index,
-        //     neumannBoundaryNeighborLists(neumann_index, 0));
-
-        double r = sqrt(x * x + y * y + z * z);
-        double theta = acos(z / r);
-        double phi = atan2(y, x);
-
-        double vr = u * cos(theta) *
-                    (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
-        double vt = -u * sin(theta) *
-                    (1 - (3 * RR) / (4 * r) - pow(RR, 3) / (4 * pow(r, 3)));
-
-        double pr = 3 * RR / pow(r, 3) * u * cos(theta);
-        double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
-
-        rhs[field_dof * current_particle_local_index] =
-            sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
-        rhs[field_dof * current_particle_local_index + 1] =
-            sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
-        rhs[field_dof * current_particle_local_index + 2] =
-            cos(theta) * vr - sin(theta) * vt;
-
-        double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
-        double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
-        double p3 = cos(theta) * pr - sin(theta) * pt;
-      } else if (particle_type[i] >= 4) {
-        double x = coord[i][0] - rigid_body_position[0][0];
-        double y = coord[i][1] - rigid_body_position[0][1];
-        double z = coord[i][2] - rigid_body_position[0][2];
-
-        double r = sqrt(x * x + y * y + z * z);
-        double theta = acos(z / r);
-        double phi = atan2(y, x);
-
-        const int neumann_index = neumann_map[i];
-        // const double bi =
-        // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-        //     LaplacianOfScalarPointEvaluation, neumann_index,
-        //     neumannBoundaryNeighborLists(neumann_index, 0));
-
-        double pr = 3 * RR / pow(r, 3) * u * cos(theta);
-        double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
-
-        double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
-        double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
-        double p3 = cos(theta) * pr - sin(theta) * pt;
-      }
-    }
-
     if (rank == size - 1) {
-      rhs[local_rigid_body_offset + 2] = 6 * M_PI * RR * u;
+      rhs[local_rigid_body_offset + 1] = 0.03;
     }
   }
 
@@ -1569,13 +1573,13 @@ void stokes_equation::check_solution() {
     local_velocity_dof += rigid_body_dof * num_rigid_body;
   }
 
-  vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
+  vector<vector<double>> &rigid_body_size = rb_mgr->get_rigid_body_size();
 
   double u, RR;
 
   if (num_rigid_body != 0) {
     u = 1.0;
-    RR = rigid_body_size[0];
+    RR = rigid_body_size[0][0];
   }
 
   int local_dof = local_velocity_dof + local_pressure_dof;
@@ -1802,7 +1806,6 @@ void stokes_equation::check_solution() {
           error_velocity_gradient +=
               pow(gradient[i][m * dim + n] - du[m][n], 2.0);
           norm_velocity_gradient += pow(du[m][n], 2.0);
-          gradient[i][m * dim + n] = du[m][n];
         }
       }
     }

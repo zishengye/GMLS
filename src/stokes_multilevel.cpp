@@ -1023,7 +1023,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
               residual_norm / rhs_norm);
   int counter = 0;
   double initial_residual = residual_norm / rhs_norm;
-  while (residual_norm / rhs_norm > 1e-4 && counter < 5) {
+  while (residual_norm / rhs_norm > 1e-3 && counter < 5) {
     KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
     KSPConvergedReason convergence_reason;
@@ -1043,8 +1043,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       KSPSetUp(_ksp);
     }
     if (convergence_reason == KSP_CONVERGED_RTOL &&
-        residual_norm / rhs_norm > 1e-4) {
-      KSPSetTolerances(_ksp, pow(10, -7 - counter), 1e-10, 1e50, 500);
+        residual_norm / rhs_norm > 1e-3) {
+      KSPSetTolerances(_ksp, pow(10, -7 - counter), 1e-50, 1e50, 500);
     }
   }
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");

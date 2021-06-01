@@ -19,7 +19,7 @@ private:
   std::vector<vec3> rigid_body_angular_acceleration;
 
   std::vector<int> rigid_body_type;
-  std::vector<double> rigid_body_size;
+  std::vector<std::vector<double>> rigid_body_size;
 
   std::shared_ptr<particle_geometry> geometry_mgr;
 
@@ -46,14 +46,12 @@ public:
     }
   }
 
-  std::vector<double> &get_rigid_body_size() { return rigid_body_size; }
+  std::vector<std::vector<double>> &get_rigid_body_size() {
+    return rigid_body_size;
+  }
 
-  const double get_rigid_body_size(const int _rigid_body_index) {
-    if (_rigid_body_index < rigid_body_position.size()) {
-      return rigid_body_size[_rigid_body_index];
-    } else {
-      return 0.0;
-    }
+  std::vector<double> &get_rigid_body_size(const int _rigid_body_index) {
+    return rigid_body_size[_rigid_body_index];
   }
 
   std::vector<vec3> &get_position() { return rigid_body_position; }
