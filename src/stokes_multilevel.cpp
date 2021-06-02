@@ -735,7 +735,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   Mat &ff = ff_list[refinement_step]->get_reference();
   Mat &nn = nn_list[refinement_step]->get_reference();
   Mat &nw = nw_list[refinement_step]->get_reference();
-  Mat &pp = pp_list[refinement_step]->get_reference();
+  // Mat &pp = pp_list[refinement_step]->get_reference();
 
   PetscLogDouble mem;
   PetscMemoryGetCurrentUsage(&mem);
@@ -750,12 +750,12 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   MatCreateSubMatrix(mat, isg_colloid->get_reference(), NULL,
                      MAT_INITIAL_MATRIX,
                      nw_list[refinement_step]->get_pointer());
-  MatCreateSubMatrix(mat, isg_pressure->get_reference(),
-                     isg_pressure->get_reference(), MAT_INITIAL_MATRIX,
-                     pp_list[refinement_step]->get_pointer());
-  MatCreateSubMatrix(mat, isg_pressure->get_reference(), NULL,
-                     MAT_INITIAL_MATRIX,
-                     pw_list[refinement_step]->get_pointer());
+  // MatCreateSubMatrix(mat, isg_pressure->get_reference(),
+  //                    isg_pressure->get_reference(), MAT_INITIAL_MATRIX,
+  //                    pp_list[refinement_step]->get_pointer());
+  // MatCreateSubMatrix(mat, isg_pressure->get_reference(), NULL,
+  //                    MAT_INITIAL_MATRIX,
+  //                    pw_list[refinement_step]->get_pointer());
 
   PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -782,7 +782,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   field_relaxation_list.push_back(make_shared<petsc_ksp>());
   colloid_relaxation_list.push_back(make_shared<petsc_ksp>());
-  pressure_relaxation_list.push_back(make_shared<petsc_ksp>());
+  // pressure_relaxation_list.push_back(make_shared<petsc_ksp>());
 
   MatCreateVecs(mat, NULL, &(x_list[refinement_step]->get_reference()));
   MatCreateVecs(mat, NULL, &(b_list[refinement_step]->get_reference()));
@@ -797,8 +797,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   MatCreateVecs(nn, NULL, &(x_colloid_list[refinement_step]->get_reference()));
   MatCreateVecs(nn, NULL, &(b_colloid_list[refinement_step]->get_reference()));
 
-  MatCreateVecs(pp, NULL, &x_pressure_list[refinement_step]->get_reference());
-  MatCreateVecs(pp, NULL, &y_pressure_list[refinement_step]->get_reference());
+  // MatCreateVecs(pp, NULL,
+  // &x_pressure_list[refinement_step]->get_reference()); MatCreateVecs(pp,
+  // NULL, &y_pressure_list[refinement_step]->get_reference());
 
   // field vector scatter
   field_scatter_list.push_back(make_shared<petsc_vecscatter>());
@@ -813,11 +814,11 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
                    x_colloid_list[refinement_step]->get_reference(), NULL,
                    colloid_scatter_list[refinement_step]->get_pointer());
 
-  pressure_scatter_list.push_back(make_shared<petsc_vecscatter>());
-  VecScatterCreate(x_list[refinement_step]->get_reference(),
-                   isg_pressure->get_reference(),
-                   x_pressure_list[refinement_step]->get_reference(), NULL,
-                   pressure_scatter_list[refinement_step]->get_pointer());
+  // pressure_scatter_list.push_back(make_shared<petsc_vecscatter>());
+  // VecScatterCreate(x_list[refinement_step]->get_reference(),
+  //                  isg_pressure->get_reference(),
+  //                  x_pressure_list[refinement_step]->get_reference(), NULL,
+  //                  pressure_scatter_list[refinement_step]->get_pointer());
 
   // neighbor vector scatter, only needed on base level
   if (refinement_step == 0) {
@@ -950,24 +951,25 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
       KSPSetUp(colloid_relaxation_list[refinement_step]->get_reference());
 
-      // setup relaxation on pressure for current level
-      KSPCreate(MPI_COMM_WORLD,
-                pressure_relaxation_list[refinement_step]->get_pointer());
+      // // setup relaxation on pressure for current level
+      // KSPCreate(MPI_COMM_WORLD,
+      //           pressure_relaxation_list[refinement_step]->get_pointer());
 
-      KSPSetType(pressure_relaxation_list[refinement_step]->get_reference(),
-                 KSPRICHARDSON);
-      KSPSetTolerances(
-          pressure_relaxation_list[refinement_step]->get_reference(), 1e-3,
-          1e-50, 1e10, 1);
-      KSPSetOperators(
-          pressure_relaxation_list[refinement_step]->get_reference(), pp, pp);
+      // KSPSetType(pressure_relaxation_list[refinement_step]->get_reference(),
+      //            KSPRICHARDSON);
+      // KSPSetTolerances(
+      //     pressure_relaxation_list[refinement_step]->get_reference(), 1e-3,
+      //     1e-50, 1e10, 1);
+      // KSPSetOperators(
+      //     pressure_relaxation_list[refinement_step]->get_reference(), pp,
+      //     pp);
 
-      PC pressure_relaxation_pc;
-      KSPGetPC(pressure_relaxation_list[refinement_step]->get_reference(),
-               &pressure_relaxation_pc);
-      PCSetType(pressure_relaxation_pc, PCSOR);
+      // PC pressure_relaxation_pc;
+      // KSPGetPC(pressure_relaxation_list[refinement_step]->get_reference(),
+      //          &pressure_relaxation_pc);
+      // PCSetType(pressure_relaxation_pc, PCSOR);
 
-      KSPSetUp(pressure_relaxation_list[refinement_step]->get_reference());
+      // KSPSetUp(pressure_relaxation_list[refinement_step]->get_reference());
     }
   }
 
