@@ -1424,25 +1424,23 @@ void stokes_equation::build_rhs() {
   //   }
   // }
 
-  if (dim == 3 && num_rigid_body != 0) {
-    if (rank == size - 1) {
-      for (int i = 0; i < num_rigid_body; i++) {
-        for (int axes = 0; axes < translation_dof; axes++) {
-          if (rigid_body_velocity_force_switch[i][axes])
-            rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
-                rigid_body_velocity[i][axes];
-          else
-            rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
-                rigid_body_force[i][axes];
-        }
-        for (int axes = 0; axes < rotation_dof; axes++) {
-          if (rigid_body_velocity_force_switch[i][axes])
-            rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-                axes] = rigid_body_angular_velocity[i][axes];
-          else
-            rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-                axes] = rigid_body_torque[i][axes];
-        }
+  if (rank == size - 1) {
+    for (int i = 0; i < num_rigid_body; i++) {
+      for (int axes = 0; axes < translation_dof; axes++) {
+        if (rigid_body_velocity_force_switch[i][axes])
+          rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
+              rigid_body_velocity[i][axes];
+        else
+          rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
+              rigid_body_force[i][axes];
+      }
+      for (int axes = 0; axes < rotation_dof; axes++) {
+        if (rigid_body_velocity_force_switch[i][axes])
+          rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
+              axes] = rigid_body_angular_velocity[i][axes];
+        else
+          rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
+              axes] = rigid_body_torque[i][axes];
       }
     }
   }
@@ -2412,6 +2410,13 @@ void stokes_equation::calculate_error() {
   for (int i = 0; i < local_particle_num; i++) {
     error[i] = sqrt(error[i]);
   }
+
+  PetscLogDouble mem;
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage after error estimation %.2f GB\n",
+              mem / 1e9);
 }
 
 void stokes_equation::collect_force() {
@@ -2421,6 +2426,9 @@ void stokes_equation::collect_force() {
   auto &particle_type = *(geo_mgr->get_current_work_particle_type());
   auto &attached_rigid_body =
       *(geo_mgr->get_current_work_particle_attached_rigid_body());
+  auto &rigid_body_velocity_force_switch = rb_mgr->get_velocity_force_switch();
+  auto &rigid_body_angvelocity_torque_switch =
+      rb_mgr->get_angvelocity_torque_switch();
 
   int local_particle_num = coord.size();
 
@@ -2490,10 +2498,12 @@ void stokes_equation::collect_force() {
 
   for (int i = 0; i < num_rigid_body; i++) {
     for (int j = 0; j < translation_dof; j++) {
-      rigid_body_force[i][j] = flattened_force[i * translation_dof + j];
+      if (rigid_body_velocity_force_switch[i][j])
+        rigid_body_force[i][j] = flattened_force[i * translation_dof + j];
     }
     for (int j = 0; j < rotation_dof; j++) {
-      rigid_body_torque[i][j] = flattened_torque[i * rotation_dof + j];
+      if (rigid_body_velocity_force_switch[i][j])
+        rigid_body_torque[i][j] = flattened_torque[i * rotation_dof + j];
     }
   }
 }
