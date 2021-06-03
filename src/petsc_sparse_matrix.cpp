@@ -647,18 +647,16 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
       __ctx.fluid_colloid_part_i.data(), __ctx.fluid_colloid_part_j.data(),
       __ctx.fluid_colloid_part_val.data(), &(__ctx.fluid_colloid_part));
 
-  is_assembled = true;
   is_shell_assembled = true;
   is_ctx_assembled = true;
 
   return __nnz;
 }
 
-int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
-                                                int dimension,
-                                                int num_rigid_body,
-                                                int local_rigid_body_offset,
-                                                int global_rigid_body_offset) {
+int petsc_sparse_matrix::extract_neighbor_index(
+    vector<int> &idx_colloid, int dimension, int num_rigid_body,
+    int local_rigid_body_offset, int global_rigid_body_offset,
+    petsc_sparse_matrix &nn, petsc_sparse_matrix &nw) {
 
   int MPIsize, myId;
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
@@ -818,6 +816,153 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
 
   MPI_Barrier(MPI_COMM_WORLD);
 
+  // // build nn & nw matrices
+  // PetscInt localN1, localN2;
+  // MatGetOwnershipRange(__shell_mat, &localN1, &localN2);
+
+  // vector<int> range;
+  // range.resize(MPIsize + 1);
+  // for (int i = 0; i < MPIsize; i++) {
+  //   range[i] = 0;
+  // }
+  // range[myId] = localN1;
+  // if (myId == MPIsize - 1)
+  //   range[MPIsize] = localN2;
+  // MPI_Allreduce(MPI_IN_PLACE, range.data(), MPIsize + 1, MPI_INT, MPI_SUM,
+  //               MPI_COMM_WORLD);
+
+  // vector<int> index;
+  // vector<vector<int>> out_index, in_index;
+  // vector<int> out_graph, in_graph;
+
+  // vector<int> in_num;
+  // in_num.resize(MPIsize);
+  // for (int i = 0; i < MPIsize; i++) {
+  //   in_num[i] = 0;
+  // }
+  // for (int i = 0; i < idx_colloid.size(); i++) {
+  //   auto it = lower_bound(range.begin(), range.end(), idx_colloid[i]);
+  //   int rank_index = (int)(it - range.begin());
+  //   if (rank_index != myId)
+  //     in_num[rank_index]++;
+  // }
+  // for (int i = 0; i < MPIsize; i++) {
+  //   if (in_num[i] != 0)
+  //     in_graph.push_back(i);
+  // }
+
+  // for (int i = 0; i < MPIsize; i++) {
+  //   int index_num;
+  //   if (i == myId) {
+  //     index = idx_colloid;
+  //     index_num = idx_colloid.size();
+  //   }
+  //   MPI_Bcast(&index_num, 1, MPI_INT, i, MPI_COMM_WORLD);
+  //   if (i != myId)
+  //     index.resize(index_num);
+  //   MPI_Bcast(index.data(), index_num, MPI_INT, i, MPI_COMM_WORLD);
+
+  //   if (i != myId) {
+  //     for (auto it = index.begin(); it != index.end(); it++) {
+  //       if (*it >= localN1 && *it < localN2) {
+  //         out_index[i].push_back(*it);
+  //       }
+  //     }
+
+  //     if (out_index[i].size() != 0)
+  //       out_graph.push_back(i);
+  //   }
+
+  //   MPI_Barrier(MPI_COMM_WORLD);
+  // }
+
+  // vector<vector<int>> out_matrix_i, out_matrix_j;
+  // vector<vector<double>> out_matrix_val;
+  // vector<vector<int>> in_matrix_i, in_matrix_j;
+  // vector<vector<double>> in_matrix_val;
+
+  // for (int i = 0; i < MPIsize; i++) {
+  //   out_matrix_i[i].resize(out_index[i].size() + 1);
+  //   out_matrix_i[i][0] = 0;
+  //   for (int j = 0; j < out_index[i].size(); j++) {
+  //     int local_row_index = out_index[i][j] - localN1;
+  //     out_matrix_i[i][j + 1] =
+  //         out_matrix_i[i][j] + __i[local_row_index + 1] -
+  //         __i[local_row_index];
+  //   }
+  //   out_matrix_j[i].resize(out_matrix_i[i][out_index[i].size()]);
+  //   out_matrix_val[i].resize(out_matrix_i[i][out_index[i].size()]);
+  //   for (int j = 0; j < out_index[i].size(); j++) {
+  //     int local_row_index = out_index[i][j] - localN1;
+  //     for (int k = __i[local_row_index]; k < __i[local_row_index + 1]; k++) {
+  //       out_matrix_j[i][out_matrix_i[i][j] + k - __i[local_row_index]] =
+  //       __j[k]; out_matrix_val[i][out_matrix_i[i][j] + k -
+  //       __i[local_row_index]] =
+  //           __val[k];
+  //     }
+  //   }
+  // }
+
+  // // collect from other processes
+  // vector<int> in_collector;
+  // in_collector.resize(MPIsize);
+  // for (int i = 0; i < MPIsize; i++) {
+  //   for (int j = 0; j < MPIsize; j++) {
+  //     in_collector[j] = 0;
+  //   }
+  //   if (out_matrix_i[i].size() != 0)
+  //     in_collector[i] = out_matrix_i[i].size();
+
+  //   MPI_Allreduce(MPI_IN_PLACE, in_collector.data(), 1, MPI_INT, MPI_SUM,
+  //                 MPI_COMM_WORLD);
+  //   if (i == myId) {
+  //     for (int j = 0; j < MPIsize; j++)
+  //       in_matrix_i[j].resize(in_collector[j]);
+  //   }
+
+  //   if (out_matrix_i[i].size() != 0)
+  //     in_collector[i] = out_matrix_i[i][out_matrix_i[i].size()];
+
+  //   MPI_Allreduce(MPI_IN_PLACE, in_collector.data(), 1, MPI_INT, MPI_SUM,
+  //                 MPI_COMM_WORLD);
+  //   if (i == myId) {
+  //     for (int j = 0; j < MPIsize; j++) {
+  //       in_matrix_j[j].resize(in_collector[j]);
+  //       in_matrix_val[j].resize(in_collector[j]);
+  //     }
+  //   }
+  // }
+
+  // // move data
+  // vector<MPI_Request> send_request;
+  // vector<MPI_Request> recv_request;
+
+  // vector<MPI_Status> send_status;
+  // vector<MPI_Status> recv_status;
+
+  // send_request.resize(out_graph.size());
+  // send_status.resize(out_graph.size());
+  // recv_request.resize(in_graph.size());
+  // recv_status.resize(in_graph.size());
+
+  // // move i
+  // for (int i = 0; i < out_graph.size(); i++) {
+  //   MPI_Isend(out_matrix_i[out_graph[i]].data(),
+  //             out_matrix_i[out_graph[i]].size(), MPI_INT, out_graph[i], 0,
+  //             MPI_COMM_WORLD, send_request.data() + i);
+  // }
+
+  // for (int i = 0; i < in_graph.size(); i++) {
+  //   MPI_Irecv(in_matrix_i[in_graph[i]].data(),
+  //   in_matrix_i[in_graph[i]].size(),
+  //             MPI_INT, in_graph[i], 0, MPI_COMM_WORLD, recv_request.data() +
+  //             i);
+  // }
+
+  // MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
+  // MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
+  // MPI_Barrier(MPI_COMM_WORLD);
+
   PetscLogDouble mem;
   PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -837,6 +982,17 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
 
   __matrix.shrink_to_fit();
   __out_process_matrix.shrink_to_fit();
+
+  petsc_is isg_colloid;
+  isg_colloid.create(idx_colloid);
+
+  MatCreateSubMatrix(__mat, isg_colloid.get_reference(),
+                     isg_colloid.get_reference(), MAT_INITIAL_MATRIX,
+                     nn.get_pointer());
+  MatCreateSubMatrix(__mat, isg_colloid.get_reference(), NULL,
+                     MAT_INITIAL_MATRIX, nw.get_pointer());
+
+  MatDestroy(&__mat);
 
   PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);

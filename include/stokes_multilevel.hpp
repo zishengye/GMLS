@@ -122,6 +122,7 @@ public:
   matrix_type get_colloid_whole_mat(int num_level) {
     return nw_list[num_level];
   }
+  matrix_type get_colloid_mat(int num_level) { return nn_list[num_level]; }
   matrix_type get_pressure_whole_mat(int num_level) {
     return pw_list[num_level];
   }

@@ -182,7 +182,8 @@ public:
 
   int extract_neighbor_index(std::vector<int> &idx_colloid, int dimension,
                              int num_rigid_body, int local_rigid_body_offset,
-                             int global_rigid_body_offset);
+                             int global_rigid_body_offset,
+                             petsc_sparse_matrix &nn, petsc_sparse_matrix &nw);
 
   // (*this) * x = rhs
   void solve(std::vector<double> &rhs,

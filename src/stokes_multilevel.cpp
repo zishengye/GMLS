@@ -652,8 +652,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   vector<int> idx_pressure;
 
   PetscInt local_n1, local_n2;
-  Mat &mat = getA(refinement_step)->get_reference();
-  MatGetOwnershipRange(mat, &local_n1, &local_n2);
+  Mat &shell_mat = getA(refinement_step)->get_shell_reference();
+  MatGetOwnershipRange(shell_mat, &local_n1, &local_n2);
 
   int local_particle_num;
   if (mpi_rank != mpi_size - 1) {
@@ -744,12 +744,12 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
               "Current memory usage before extract matrices %.2f GB\n",
               mem / 1e9);
 
-  MatCreateSubMatrix(mat, isg_colloid->get_reference(),
-                     isg_colloid->get_reference(), MAT_INITIAL_MATRIX,
-                     nn_list[refinement_step]->get_pointer());
-  MatCreateSubMatrix(mat, isg_colloid->get_reference(), NULL,
-                     MAT_INITIAL_MATRIX,
-                     nw_list[refinement_step]->get_pointer());
+  // MatCreateSubMatrix(mat, isg_colloid->get_reference(),
+  //                    isg_colloid->get_reference(), MAT_INITIAL_MATRIX,
+  //                    nn_list[refinement_step]->get_pointer());
+  // MatCreateSubMatrix(mat, isg_colloid->get_reference(), NULL,
+  //                    MAT_INITIAL_MATRIX,
+  //                    nw_list[refinement_step]->get_pointer());
   // MatCreateSubMatrix(mat, isg_pressure->get_reference(),
   //                    isg_pressure->get_reference(), MAT_INITIAL_MATRIX,
   //                    pp_list[refinement_step]->get_pointer());
@@ -784,10 +784,10 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   colloid_relaxation_list.push_back(make_shared<petsc_ksp>());
   // pressure_relaxation_list.push_back(make_shared<petsc_ksp>());
 
-  MatCreateVecs(mat, NULL, &(x_list[refinement_step]->get_reference()));
-  MatCreateVecs(mat, NULL, &(b_list[refinement_step]->get_reference()));
-  MatCreateVecs(mat, NULL, &(r_list[refinement_step]->get_reference()));
-  MatCreateVecs(mat, NULL, &(t_list[refinement_step]->get_reference()));
+  MatCreateVecs(shell_mat, NULL, &(x_list[refinement_step]->get_reference()));
+  MatCreateVecs(shell_mat, NULL, &(b_list[refinement_step]->get_reference()));
+  MatCreateVecs(shell_mat, NULL, &(r_list[refinement_step]->get_reference()));
+  MatCreateVecs(shell_mat, NULL, &(t_list[refinement_step]->get_reference()));
 
   MatCreateVecs(ff, NULL, &(x_field_list[refinement_step]->get_reference()));
   MatCreateVecs(ff, NULL, &(y_field_list[refinement_step]->get_reference()));
@@ -972,8 +972,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       // KSPSetUp(pressure_relaxation_list[refinement_step]->get_reference());
     }
   }
-
-  Mat &shell_mat = (*(A_list.end() - 1))->get_shell_reference();
 
   KSP _ksp;
   KSPCreate(PETSC_COMM_WORLD, &_ksp);
