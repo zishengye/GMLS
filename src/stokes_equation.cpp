@@ -799,7 +799,7 @@ void stokes_equation::build_coefficient_matrix() {
         }
       }
       for (int axes = 0; axes < rotation_dof; axes++) {
-        if (!rigid_body_angvelocity_torque_switch[rigid_body_idx][axes]) {
+        if (rigid_body_angvelocity_torque_switch[rigid_body_idx][axes]) {
           vector<PetscInt> &it =
               out_process_index[rigid_body_idx * rigid_body_dof +
                                 translation_dof + axes];
@@ -1252,177 +1252,177 @@ void stokes_equation::build_rhs() {
   //   }
   // }
 
-  for (int i = 0; i < local_particle_num; i++) {
-    int current_particle_local_index = local_idx[i];
-    if (particle_type[i] != 0 && particle_type[i] < 4) {
-      // 2-d Taylor-Green vortex-like flow
-      if (dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   int current_particle_local_index = local_idx[i];
+  //   if (particle_type[i] != 0 && particle_type[i] < 4) {
+  //     // 2-d Taylor-Green vortex-like flow
+  //     if (dim == 2) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
 
-        rhs[field_dof * current_particle_local_index] =
-            sin(M_PI * x) * cos(M_PI * y);
-        rhs[field_dof * current_particle_local_index + 1] =
-            -cos(M_PI * x) * sin(M_PI * y);
+  //       rhs[field_dof * current_particle_local_index] =
+  //           sin(M_PI * x) * cos(M_PI * y);
+  //       rhs[field_dof * current_particle_local_index + 1] =
+  //           -cos(M_PI * x) * sin(M_PI * y);
 
-        const int neumann_index = neumann_map[i];
-        const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumann_index,
-            neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
+  //       const int neumann_index = neumann_map[i];
+  //       const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
+  //           LaplacianOfScalarPointEvaluation, neumann_index,
+  //           neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
 
-        rhs[field_dof * current_particle_local_index + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) *
-                (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y) -
-                  normal[i][1] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
-      }
+  //       rhs[field_dof * current_particle_local_index + velocity_dof] =
+  //           -4.0 * pow(M_PI, 2.0) *
+  //               (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
+  //           bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+  //                     cos(M_PI * y) -
+  //                 normal[i][1] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+  //                     sin(M_PI * y)) +
+  //           bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+  //                 normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
+  //     }
 
-      // 3-d Taylor-Green vortex-like flow
-      if (dim == 3 && num_rigid_body == 0) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
+  //     // 3-d Taylor-Green vortex-like flow
+  //     if (dim == 3 && num_rigid_body == 0) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
+  //       double z = coord[i][2];
 
-        rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-        rhs[field_dof * i + 1] =
-            -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-        rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+  //       rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+  //       rhs[field_dof * i + 1] =
+  //           -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+  //       rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
+  //       z);
 
-        const int neumann_index = neumann_map[i];
-        const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
-            LaplacianOfScalarPointEvaluation, neumann_index,
-            neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
+  //       const int neumann_index = neumann_map[i];
+  //       const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
+  //           LaplacianOfScalarPointEvaluation, neumann_index,
+  //           neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
 
-        rhs[field_dof * i + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) *
-                (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
-                 cos(2.0 * M_PI * z)) +
-            bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y) * sin(M_PI * z) -
-                  normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y) * sin(M_PI * z) +
-                  normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      sin(M_PI * y) * cos(M_PI * z)) +
-            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
-                  normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
-      }
-    } else if (particle_type[i] == 0) {
-      if (dim == 2) {
-        double x = coord[i][0];
-        double y = coord[i][1];
+  //       rhs[field_dof * i + velocity_dof] =
+  //           -4.0 * pow(M_PI, 2.0) *
+  //               (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
+  //                cos(2.0 * M_PI * z)) +
+  //           bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+  //                     sin(M_PI * y) * sin(M_PI * z) -
+  //                 normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+  //                     cos(M_PI * y) * sin(M_PI * z) +
+  //                 normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+  //                     sin(M_PI * y) * cos(M_PI * z)) +
+  //           bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+  //                 normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
+  //                 normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
+  //     }
+  //   } else if (particle_type[i] == 0) {
+  //     if (dim == 2) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
 
-        rhs[field_dof * current_particle_local_index] =
-            2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
-            2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[field_dof * current_particle_local_index + 1] =
-            -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
-            2.0 * M_PI * sin(2.0 * M_PI * y);
+  //       rhs[field_dof * current_particle_local_index] =
+  //           2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
+  //           2.0 * M_PI * sin(2.0 * M_PI * x);
+  //       rhs[field_dof * current_particle_local_index + 1] =
+  //           -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
+  //           2.0 * M_PI * sin(2.0 * M_PI * y);
 
-        rhs[field_dof * current_particle_local_index + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
-      }
-      if (dim == 3 && num_rigid_body == 0) {
-        double x = coord[i][0];
-        double y = coord[i][1];
-        double z = coord[i][2];
+  //       rhs[field_dof * current_particle_local_index + velocity_dof] =
+  //           -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI *
+  //           y));
+  //     }
+  //     if (dim == 3 && num_rigid_body == 0) {
+  //       double x = coord[i][0];
+  //       double y = coord[i][1];
+  //       double z = coord[i][2];
 
-        rhs[field_dof * i] =
-            3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z) +
-            2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
-                                     cos(M_PI * y) * sin(M_PI * z) +
-                                 2.0 * M_PI * sin(2.0 * M_PI * y);
-        rhs[field_dof * i + 2] =
-            3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
-            2.0 * M_PI * sin(2.0 * M_PI * z);
+  //       rhs[field_dof * i] =
+  //           3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI *
+  //           z) + 2.0 * M_PI * sin(2.0 * M_PI * x);
+  //       rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
+  //                                    cos(M_PI * y) * sin(M_PI * z) +
+  //                                2.0 * M_PI * sin(2.0 * M_PI * y);
+  //       rhs[field_dof * i + 2] =
+  //           3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
+  //           z) + 2.0 * M_PI * sin(2.0 * M_PI * z);
 
-        rhs[field_dof * i + velocity_dof] =
-            -4.0 * pow(M_PI, 2.0) *
-            (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
-      }
-    }
-  }
+  //       rhs[field_dof * i + velocity_dof] =
+  //           -4.0 * pow(M_PI, 2.0) *
+  //           (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI *
+  //           z));
+  //     }
+  //   }
+  // }
   // if (rank == size - 1) {
   //   for (int i = 0; i < num_rigid_body; i++) {
   //     rhs[local_rigid_body_offset + i * rigid_body_dof + 1] = 1.0;
   //   }
   // }
 
-  // if (dim == 3 && num_rigid_body != 0) {
-  //   vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size();
-  //   vector<vec3> &rigid_body_position = rb_mgr->get_position();
+  if (dim == 3 && num_rigid_body != 0) {
+    auto &rigid_body_size = rb_mgr->get_rigid_body_size();
+    auto &rigid_body_velocity = rb_mgr->get_velocity();
+    vector<vec3> &rigid_body_position = rb_mgr->get_position();
 
-  //   double u = 1.0;
-  //   double RR = rigid_body_size[0];
+    double u = 1.0;
+    double RR = rigid_body_size[0][0];
 
-  //   for (int i = 0; i < local_particle_num; i++) {
-  //     int current_particle_local_index = local_idx[i];
-  //     if (particle_type[i] != 0 && particle_type[i] < 4) {
-  //       double x = coord[i][0] - rigid_body_position[0][0];
-  //       double y = coord[i][1] - rigid_body_position[0][1];
-  //       double z = coord[i][2] - rigid_body_position[0][2];
+    for (int i = 0; i < local_particle_num; i++) {
+      int current_particle_local_index = local_idx[i];
+      if (particle_type[i] != 0 && particle_type[i] < 4) {
+        double x = coord[i][0] - rigid_body_position[0][0];
+        double y = coord[i][1] - rigid_body_position[0][1];
+        double z = coord[i][2] - rigid_body_position[0][2];
 
-  //       const int neumann_index = neumann_map[i];
-  //       // const double bi =
-  //       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-  //       //     LaplacianOfScalarPointEvaluation, neumann_index,
-  //       //     neumannBoundaryNeighborLists(neumann_index, 0));
+        const int neumann_index = neumann_map[i];
+        // const double bi =
+        // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+        //     LaplacianOfScalarPointEvaluation, neumann_index,
+        //     neumannBoundaryNeighborLists(neumann_index, 0));
 
-  //       double r = sqrt(x * x + y * y + z * z);
-  //       double theta = acos(z / r);
-  //       double phi = atan2(y, x);
+        double r = sqrt(x * x + y * y + z * z);
+        double theta = acos(z / r);
+        double phi = atan2(y, x);
 
-  //       double vr = u * cos(theta) *
-  //                   (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
-  //       double vt = -u * sin(theta) *
-  //                   (1 - (3 * RR) / (4 * r) - pow(RR, 3) / (4 * pow(r, 3)));
+        double vr = u * cos(theta) *
+                    (1 - (3 * RR) / (2 * r) + pow(RR, 3) / (2 * pow(r, 3)));
+        double vt = -u * sin(theta) *
+                    (1 - (3 * RR) / (4 * r) - pow(RR, 3) / (4 * pow(r, 3)));
 
-  //       double pr = 3 * RR / pow(r, 3) * u * cos(theta);
-  //       double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
+        double pr = 3 * RR / pow(r, 3) * u * cos(theta);
+        double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
 
-  //       rhs[field_dof * current_particle_local_index] =
-  //           sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
-  //       rhs[field_dof * current_particle_local_index + 1] =
-  //           sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
-  //       rhs[field_dof * current_particle_local_index + 2] =
-  //           cos(theta) * vr - sin(theta) * vt;
+        rhs[field_dof * current_particle_local_index] =
+            sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
+        rhs[field_dof * current_particle_local_index + 1] =
+            sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
+        rhs[field_dof * current_particle_local_index + 2] =
+            cos(theta) * vr - sin(theta) * vt;
 
-  //       double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
-  //       double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
-  //       double p3 = cos(theta) * pr - sin(theta) * pt;
-  //     } else if (particle_type[i] >= 4) {
-  //       double x = coord[i][0] - rigid_body_position[0][0];
-  //       double y = coord[i][1] - rigid_body_position[0][1];
-  //       double z = coord[i][2] - rigid_body_position[0][2];
+        double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
+        double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
+        double p3 = cos(theta) * pr - sin(theta) * pt;
+      } else if (particle_type[i] >= 4) {
+        double x = coord[i][0] - rigid_body_position[0][0];
+        double y = coord[i][1] - rigid_body_position[0][1];
+        double z = coord[i][2] - rigid_body_position[0][2];
 
-  //       double r = sqrt(x * x + y * y + z * z);
-  //       double theta = acos(z / r);
-  //       double phi = atan2(y, x);
+        double r = sqrt(x * x + y * y + z * z);
+        double theta = acos(z / r);
+        double phi = atan2(y, x);
 
-  //       const int neumann_index = neumann_map[i];
-  //       // const double bi =
-  //       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-  //       //     LaplacianOfScalarPointEvaluation, neumann_index,
-  //       //     neumannBoundaryNeighborLists(neumann_index, 0));
+        const int neumann_index = neumann_map[i];
+        // const double bi =
+        // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
+        //     LaplacianOfScalarPointEvaluation, neumann_index,
+        //     neumannBoundaryNeighborLists(neumann_index, 0));
 
-  //       double pr = 3 * RR / pow(r, 3) * u * cos(theta);
-  //       double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
+        double pr = 3 * RR / pow(r, 3) * u * cos(theta);
+        double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
 
-  //       double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
-  //       double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
-  //       double p3 = cos(theta) * pr - sin(theta) * pt;
-  //     }
-  //   }
-
-  //   if (rank == size - 1) {
-  //     rhs[local_rigid_body_offset + 2] = 6 * M_PI * RR * u;
-  //   }
-  // }
+        double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
+        double p2 = sin(theta) * sin(phi) * pr + cos(theta) * sin(phi) * pt;
+        double p3 = cos(theta) * pr - sin(theta) * pt;
+      }
+    }
+  }
 
   if (rank == size - 1) {
     for (int i = 0; i < num_rigid_body; i++) {
@@ -1634,6 +1634,7 @@ void stokes_equation::check_solution() {
   }
 
   vector<vector<double>> &rigid_body_size = rb_mgr->get_rigid_body_size();
+  auto &rigid_body_velocity = rb_mgr->get_velocity();
 
   double u, RR;
 
@@ -1824,19 +1825,30 @@ void stokes_equation::check_solution() {
                   (3.0 * RR / 2.0 / pow(r, 2.0) -
                    3.0 * pow(RR, 3.0) / 2.0 / pow(r, 4.0));
       dvr[0][1] = -u * sin(theta) *
-                  (1.0 / r - 3.0 * RR / 2.0 / pow(r, 2.0) +
-                   pow(RR, 3.0) / 2.0 / pow(r, 4.0));
+                      (1.0 / r - 3.0 * RR / 2.0 / pow(r, 2.0) +
+                       pow(RR, 3.0) / 2.0 / pow(r, 4.0)) +
+                  u * sin(theta) *
+                      (1.0 / r - 3.0 * RR / 4.0 / pow(r, 2.0) -
+                       pow(RR, 3.0) / 4.0 / pow(r, 4.0));
       dvr[0][2] = 0.0;
       dvr[1][0] = -u * sin(theta) *
                   (3.0 * RR / 4.0 / pow(r, 2.0) +
                    3.0 * pow(RR, 3.0) / 4.0 / pow(r, 4.0));
       dvr[1][1] = -u * cos(theta) *
-                  (1.0 / r - 3.0 * RR / 4.0 / pow(r, 2.0) -
-                   pow(RR, 3.0) / 4.0 / pow(r, 4.0));
+                      (1.0 / r - 3.0 * RR / 4.0 / pow(r, 2.0) -
+                       pow(RR, 3.0) / 4.0 / pow(r, 4.0)) +
+                  u * cos(theta) *
+                      (1.0 / r - 3.0 * RR / 2.0 / pow(r, 2.0) +
+                       pow(RR, 3.0) / 2.0 / pow(r, 4.0));
       dvr[1][2] = 0.0;
       dvr[2][0] = 0.0;
       dvr[2][1] = 0.0;
-      dvr[2][2] = 0.0;
+      dvr[2][2] = -u * cos(theta) *
+                      (1.0 / r - 3.0 * RR / 4.0 / pow(r, 2.0) -
+                       pow(RR, 3.0) / 4.0 / pow(r, 4.0)) +
+                  u * cos(theta) *
+                      (1.0 / r - 3.0 * RR / 2.0 / pow(r, 2.0) +
+                       pow(RR, 3.0) / 2.0 / pow(r, 4.0));
 
       double R[3][3];
       R[0][0] = sin(theta) * cos(phi);
