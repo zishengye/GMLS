@@ -100,10 +100,6 @@ void stokes_equation::build_coefficient_matrix() {
   geo_mgr->ghost_forward(particle_type, ghost_particle_type);
 
   PetscLogDouble mem;
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "Current memory usage before reset %.2f GB\n",
-              mem / 1e9);
 
   // update basis
   pressure_basis.reset();
@@ -113,7 +109,8 @@ void stokes_equation::build_coefficient_matrix() {
 
   PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "Current memory usage after reset %.2f GB\n",
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage before GMLS estimation %.2f GB\n",
               mem / 1e9);
 
   pressure_basis = make_shared<GMLS>(
@@ -375,12 +372,6 @@ void stokes_equation::build_coefficient_matrix() {
     ite_counter++;
   }
 
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "Current memory usage after creation of neighbor list %.2f GB\n",
-              mem / 1e9);
-
   PetscPrintf(MPI_COMM_WORLD,
               "iteration counter: %d min neighbor: %d, max neighbor: %d , mean "
               "neighbor %f\n",
@@ -453,12 +444,6 @@ void stokes_equation::build_coefficient_matrix() {
   else
     number_of_batches = max(local_particle_num / 10, 1);
 
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "Current memory usage before pressure basis %.2f GB\n",
-              mem / 1e9);
-
   // pressure basis
   pressure_basis->setProblemData(neighbor_list_device, source_coord_device,
                                  target_coord_device, epsilon_device);
@@ -490,12 +475,6 @@ void stokes_equation::build_coefficient_matrix() {
     pressure_gradient_index.push_back(pressure_basis->getAlphaColumnOffset(
         pressure_operation[1], i, 0, 0, 0));
 
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "Current memory usage before velocity basis %.2f GB\n",
-              mem / 1e9);
-
   // velocity basis
   velocity_basis->setProblemData(neighbor_list_device, source_coord_device,
                                  target_coord_device, epsilon_device);
@@ -522,12 +501,6 @@ void stokes_equation::build_coefficient_matrix() {
     }
   }
 
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "Current memory usage before colloid velocity basis %.2f GB\n",
-              mem / 1e9);
-
   // velocity colloid boundary basis
   velocity_colloid_basis->setProblemData(
       colloid_neighbor_list_device, source_coord_device,
@@ -553,12 +526,6 @@ void stokes_equation::build_coefficient_matrix() {
   }
 
   auto velocity_colloid_alpha = velocity_colloid_basis->getAlphas();
-
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "Current memory usage before neumann pressure basis %.2f GB\n",
-              mem / 1e9);
 
   // pressure Neumann boundary basis
   pressure_neumann_basis->setProblemData(
@@ -644,6 +611,11 @@ void stokes_equation::build_coefficient_matrix() {
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
+
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD, "Current memory usage after resizing %.2f GB\n",
+              mem / 1e9);
 
   // compute matrix graph
   vector<vector<PetscInt>> out_process_index(out_process_row);
@@ -820,6 +792,13 @@ void stokes_equation::build_coefficient_matrix() {
     A.set_out_process_col_index(local_out_process_offset + i,
                                 out_process_index[i]);
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage after building the graph %.2f GB\n",
+              mem / 1e9);
 
   // insert matrix entity
   for (int i = 0; i < local_particle_num; i++) {
@@ -1104,6 +1083,9 @@ void stokes_equation::build_coefficient_matrix() {
       }
     }
   }
+
+  // reduce the amount of memory used
+  velocity_basis.reset();
 
   // stabilize the coefficient matrix
   // invert_row_index.clear();

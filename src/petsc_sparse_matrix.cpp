@@ -173,6 +173,14 @@ int petsc_sparse_matrix::assemble() {
 
   is_assembled = true;
 
+  {
+    decltype(__i)().swap(__i);
+    decltype(__j)().swap(__j);
+    decltype(__val)().swap(__val);
+
+    decltype(__matrix)().swap(__matrix);
+  }
+
   return __nnz;
 }
 
@@ -325,19 +333,13 @@ int petsc_sparse_matrix::assemble(int block_size) {
 
   is_assembled = true;
 
-  __i.clear();
-  __j.clear();
-  __val.clear();
+  {
+    decltype(__i)().swap(__i);
+    decltype(__j)().swap(__j);
+    decltype(__val)().swap(__val);
 
-  __matrix.clear();
-  __out_process_matrix.clear();
-
-  __i.shrink_to_fit();
-  __j.shrink_to_fit();
-  __val.shrink_to_fit();
-
-  __matrix.shrink_to_fit();
-  __out_process_matrix.shrink_to_fit();
+    decltype(__matrix)().swap(__matrix);
+  }
 
   return __nnz;
 }
@@ -486,11 +488,6 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
   Mat &mat = pmat.get_reference();
 
   PetscLogDouble mem;
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "Current memory usage before assembly of ff %.2f GB\n",
-              mem / 1e9);
 
   if (Col_block != 0) {
     MatCreate(MPI_COMM_WORLD, &mat);
@@ -550,12 +547,6 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
       __val[__i[i] + n] = __matrix[i][n].second;
     }
   }
-
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "Current memory usage before assembly of normal mat %.2f GB\n",
-              mem / 1e9);
 
   if (__Col != 0)
     MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
@@ -647,8 +638,28 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
       __ctx.fluid_colloid_part_i.data(), __ctx.fluid_colloid_part_j.data(),
       __ctx.fluid_colloid_part_val.data(), &(__ctx.fluid_colloid_part));
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage after assembly of shell mat %.2f GB\n",
+              mem / 1e9);
+
   is_shell_assembled = true;
   is_ctx_assembled = true;
+
+  {
+    vector<vector<entry>>().swap(__matrix);
+    vector<vector<entry>>().swap(__out_process_matrix);
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage after shrinking of matrix and out process "
+              "matrix %.2f GB\n",
+              mem / 1e9);
 
   return __nnz;
 }
@@ -667,51 +678,7 @@ int petsc_sparse_matrix::extract_neighbor_index(
 
   idx_colloid.clear();
 
-  for (int i = 0; i < __out_process_matrix.size(); i++) {
-    for (int j = 0; j < __out_process_matrix[i].size(); j++) {
-      if (__out_process_matrix[i][j].first < global_rigid_body_offset)
-        idx_colloid.push_back(__out_process_matrix[i][j].first / field_dof);
-    }
-  }
-
-  sort(idx_colloid.begin(), idx_colloid.end());
-
-  idx_colloid.erase(unique(idx_colloid.begin(), idx_colloid.end()),
-                    idx_colloid.end());
-
   vector<int> neighbor_inclusion;
-  {
-    int num_send_count = idx_colloid.size();
-
-    vector<int> recv_count;
-    recv_count.resize(MPIsize);
-
-    MPI_Gather(&num_send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
-               MPIsize - 1, MPI_COMM_WORLD);
-
-    vector<int> displs;
-    if (myId == MPIsize - 1) {
-      displs.resize(MPIsize + 1);
-      displs[0] = 0;
-      for (int i = 1; i <= MPIsize; i++) {
-        displs[i] = displs[i - 1] + recv_count[i - 1];
-      }
-    }
-
-    if (myId == MPIsize - 1) {
-      neighbor_inclusion.resize(displs[MPIsize]);
-    }
-
-    MPI_Gatherv(idx_colloid.data(), num_send_count, MPI_INT,
-                neighbor_inclusion.data(), recv_count.data(), displs.data(),
-                MPI_INT, MPIsize - 1, MPI_COMM_WORLD);
-
-    sort(neighbor_inclusion.begin(), neighbor_inclusion.end());
-
-    neighbor_inclusion.erase(
-        unique(neighbor_inclusion.begin(), neighbor_inclusion.end()),
-        neighbor_inclusion.end());
-  }
 
   MPI_Barrier(MPI_COMM_WORLD);
   idx_colloid.clear();
@@ -963,25 +930,11 @@ int petsc_sparse_matrix::extract_neighbor_index(
   // MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
   // MPI_Barrier(MPI_COMM_WORLD);
 
-  PetscLogDouble mem;
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "Current memory usage before shrink %.2f GB\n",
-              mem / 1e9);
-
-  __i.clear();
-  __j.clear();
-  __val.clear();
-
-  __matrix.clear();
-  __out_process_matrix.clear();
-
-  __i.shrink_to_fit();
-  __j.shrink_to_fit();
-  __val.shrink_to_fit();
-
-  __matrix.shrink_to_fit();
-  __out_process_matrix.shrink_to_fit();
+  {
+    decltype(__i)().swap(__i);
+    decltype(__j)().swap(__j);
+    decltype(__val)().swap(__val);
+  }
 
   petsc_is isg_colloid;
   isg_colloid.create(idx_colloid);
@@ -993,11 +946,6 @@ int petsc_sparse_matrix::extract_neighbor_index(
                      MAT_INITIAL_MATRIX, nw.get_pointer());
 
   MatDestroy(&__mat);
-
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "Current memory usage after shrink %.2f GB\n",
-              mem / 1e9);
 
   return 0;
 }
