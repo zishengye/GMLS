@@ -7,12 +7,14 @@
 
 #include "geometry.hpp"
 #include "particle_geometry.hpp"
+#include "quaternion.hpp"
 #include "vec3.hpp"
 
 class rigid_body_manager {
 private:
   std::vector<vec3> rigid_body_position;
   std::vector<vec3> rigid_body_orientation;
+  std::vector<quaternion> rigid_body_quaternion;
   std::vector<vec3> rigid_body_velocity;
   std::vector<vec3> rigid_body_angular_velocity;
   std::vector<vec3> rigid_body_acceleration;
@@ -76,6 +78,12 @@ public:
     } else {
       return vec3(0.0, 0.0, 0.0);
     }
+  }
+
+  std::vector<quaternion> &get_quaternion() { return rigid_body_quaternion; }
+
+  quaternion &get_quaternion(const int _rigid_body_index) {
+    return rigid_body_quaternion[_rigid_body_index];
   }
 
   std::vector<vec3> &get_velocity() { return rigid_body_velocity; }

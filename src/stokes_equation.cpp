@@ -1133,11 +1133,11 @@ void stokes_equation::build_coefficient_matrix() {
   auto nn = multi_mgr->get_colloid_mat(current_refinement_level);
   auto nw = multi_mgr->get_colloid_whole_mat(current_refinement_level);
 
-  A.assemble(*ff, field_dof, num_rigid_body, rigid_body_dof);
-
   // if (current_refinement_level == 0) {
   //   A.write(string("A" + to_string(current_refinement_level) + ".txt"));
   // }
+
+  A.assemble(*ff, field_dof, num_rigid_body, rigid_body_dof);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
@@ -1268,22 +1268,24 @@ void stokes_equation::build_rhs() {
       }
 
       // 3-d Taylor-Green vortex-like flow
-      if (dim == 3 && num_rigid_body == 0) {
+      if (dim == 3) {
         double x = coord[i][0];
         double y = coord[i][1];
         double z = coord[i][2];
 
-        rhs[field_dof * i] = cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-        rhs[field_dof * i + 1] =
+        rhs[field_dof * current_particle_local_index] =
+            cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+        rhs[field_dof * current_particle_local_index + 1] =
             -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-        rhs[field_dof * i + 2] = sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+        rhs[field_dof * current_particle_local_index + 2] =
+            sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
 
         const int neumann_index = neumann_map[i];
         const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
             LaplacianOfScalarPointEvaluation, neumann_index,
             neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
 
-        rhs[field_dof * i + velocity_dof] =
+        rhs[field_dof * current_particle_local_index + velocity_dof] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
                  cos(2.0 * M_PI * z)) +
@@ -1312,32 +1314,33 @@ void stokes_equation::build_rhs() {
         rhs[field_dof * current_particle_local_index + velocity_dof] =
             -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
       }
-      if (dim == 3 && num_rigid_body == 0) {
+      if (dim == 3) {
         double x = coord[i][0];
         double y = coord[i][1];
         double z = coord[i][2];
 
-        rhs[field_dof * i] =
+        rhs[field_dof * current_particle_local_index] =
             3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[field_dof * i + 1] = -6.0 * pow(M_PI, 2) * sin(M_PI * x) *
-                                     cos(M_PI * y) * sin(M_PI * z) +
-                                 2.0 * M_PI * sin(2.0 * M_PI * y);
-        rhs[field_dof * i + 2] =
+        rhs[field_dof * current_particle_local_index + 1] =
+            -6.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) *
+                sin(M_PI * z) +
+            2.0 * M_PI * sin(2.0 * M_PI * y);
+        rhs[field_dof * current_particle_local_index + 2] =
             3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * z);
 
-        rhs[field_dof * i + velocity_dof] =
+        rhs[field_dof * current_particle_local_index + velocity_dof] =
             -4.0 * pow(M_PI, 2.0) *
             (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
       }
     }
   }
-  // if (rank == size - 1) {
-  //   for (int i = 0; i < num_rigid_body; i++) {
-  //     rhs[local_rigid_body_offset + i * rigid_body_dof + 1] = 1.0;
-  //   }
-  // }
+  if (rank == size - 1) {
+    for (int i = 0; i < num_rigid_body; i++) {
+      rhs[local_rigid_body_offset + i * rigid_body_dof + 1] = 1.0;
+    }
+  }
 
   if (dim == 3 && num_rigid_body != 0) {
     auto &rigid_body_size = rb_mgr->get_rigid_body_size();

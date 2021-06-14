@@ -158,8 +158,10 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
   PetscReal *a;
   PetscInt local_size, global_size;
-  PetscReal pressure_sum;
+  PetscReal pressure_sum, average_pressure;
   PetscInt size;
+
+  PetscInt pressure_offset = shell->field_dof - 1;
 
   double timer1, timer2;
 
@@ -432,30 +434,21 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   // solve on coarest-level
   // stage 1
 
-  // // orthogonalize to constant vector
-  // VecScatterBegin(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-  //                 shell->multi->get_b_list()[0]->get_reference(),
-  //                 shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //                 INSERT_VALUES, SCATTER_FORWARD);
-  // VecScatterEnd(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-  //               shell->multi->get_b_list()[0]->get_reference(),
-  //               shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //               INSERT_VALUES, SCATTER_FORWARD);
+  // orthogonalize to constant vector
+  VecGetArray(shell->multi->get_b_list()[0]->get_reference(), &a);
 
-  // VecSum(shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //        &pressure_sum);
-  // VecGetSize(shell->multi->get_x_pressure_list()[0]->get_reference(), &size);
-  // VecSet(shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //        -pressure_sum / size);
+  pressure_sum = 0.0;
+  for (int i = 0; i < shell->multi->get_local_particle_num(0); i++) {
+    pressure_sum += a[i * shell->field_dof + pressure_offset];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+  for (int i = 0; i < shell->multi->get_local_particle_num(0); i++) {
+    a[i * shell->field_dof + pressure_offset] -= average_pressure;
+  }
 
-  // VecScatterBegin(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-  //                 shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //                 shell->multi->get_b_list()[0]->get_reference(), ADD_VALUES,
-  //                 SCATTER_REVERSE);
-  // VecScatterEnd(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-  //               shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //               shell->multi->get_b_list()[0]->get_reference(), ADD_VALUES,
-  //               SCATTER_REVERSE);
+  VecRestoreArray(shell->multi->get_b_list()[0]->get_reference(), &a);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
@@ -473,6 +466,15 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   KSPSolve(shell->multi->get_field_base()->get_reference(),
            shell->multi->get_b_field_list()[0]->get_reference(),
            shell->multi->get_x_field_list()[0]->get_reference());
+
+  KSPConvergedReason reason;
+  KSPGetConvergedReason(shell->multi->get_field_base()->get_reference(),
+                        &reason);
+  PetscInt its;
+  KSPGetIterationNumber(shell->multi->get_field_base()->get_reference(), &its);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "convergence reason: %d, number of iterations: %d\n", reason,
+              its);
 
   VecScatterBegin(shell->multi->get_field_scatter_list()[0]->get_reference(),
                   shell->multi->get_x_field_list()[0]->get_reference(),
@@ -537,6 +539,14 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     KSPSolve(shell->multi->get_colloid_base()->get_reference(),
              shell->multi->get_colloid_y()->get_reference(),
              shell->multi->get_colloid_x()->get_reference());
+
+    KSPGetConvergedReason(shell->multi->get_colloid_base()->get_reference(),
+                          &reason);
+    KSPGetIterationNumber(shell->multi->get_colloid_base()->get_reference(),
+                          &its);
+    PetscPrintf(PETSC_COMM_WORLD,
+                "convergence reason: %d, number of iterations: %d\n", reason,
+                its);
 
     VecScatterBegin(
         shell->multi->get_colloid_scatter_list()[0]->get_reference(),

@@ -44,6 +44,7 @@ struct fluid_colloid_matrix_context {
 };
 
 PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y);
+PetscErrorCode fluid_matrix_mult(Mat mat, Vec x, Vec y);
 
 class petsc_sparse_matrix {
 private:

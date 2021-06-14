@@ -21,13 +21,22 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
     input >> size;
     vector<double> size_list;
     size_list.push_back(size);
-    if (type == 5) {
+    switch (type) {
+    case 4:
+      // y
+      input >> size;
+      size_list.push_back(size);
+      input >> size;
+      size_list.push_back(size);
+      break;
+    case 5:
       // r2
       input >> size;
       size_list.push_back(size);
       // d
       input >> size;
       size_list.push_back(size);
+      break;
     }
     for (int i = 0; i < dim; i++) {
       input >> xyz[i];
@@ -71,6 +80,10 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
     rigid_body_size.push_back(size_list);
     rigid_body_position.push_back(xyz);
     rigid_body_orientation.push_back(rxyz);
+    if (dim == 3)
+      rigid_body_quaternion.push_back(quaternion(rxyz[0], rxyz[1], rxyz[2]));
+    else
+      rigid_body_quaternion.push_back(quaternion(vec3(0.0, 0.0, 1.0), rxyz[0]));
 
     rigid_body_velocity_force_switch.push_back(vf_switch);
     rigid_body_angvelocity_torque_switch.push_back(rt_switch);

@@ -33,6 +33,14 @@ void rigid_body_surface_particle_hierarchy::extend_hierarchy(
                          resolution);
     }
     break;
+  case 4:
+    if (dimension == 3) {
+      add_ellipsoid(rigid_body_size_list[compressed_rigid_body_index][0],
+                    rigid_body_size_list[compressed_rigid_body_index][1],
+                    rigid_body_size_list[compressed_rigid_body_index][2],
+                    resolution);
+    }
+    break;
   case 5:
     if (dimension == 3) {
       add_customized_shape(rigid_body_size_list[compressed_rigid_body_index][0],
@@ -205,6 +213,68 @@ void rigid_body_surface_particle_hierarchy::add_rounded_square(
     normal.push_back(norm);
     spacing.push_back(p_spacing);
   }
+}
+
+void rigid_body_surface_particle_hierarchy::add_ellipsoid(const double x,
+                                                          const double y,
+                                                          const double z,
+                                                          const double h) {
+  hierarchy_coord.push_back(vector<vec3>());
+  hierarchy_normal.push_back(vector<vec3>());
+  hierarchy_spacing.push_back(vector<vec3>());
+  hierarchy_element.push_back(vector<triple<int>>());
+
+  vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
+  vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
+  vector<vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
+  vector<triple<int>> &element =
+      hierarchy_element[hierarchy_element.size() - 1];
+
+  ifstream input("shape/ellipsoid.txt", ios::in);
+  if (!input.is_open()) {
+    PetscPrintf(PETSC_COMM_WORLD, "surface point input file does not exist\n");
+    return;
+  }
+
+  int adaptive_level;
+  input >> adaptive_level;
+  hierarchy_adaptive_level.push_back(adaptive_level);
+
+  while (!input.eof()) {
+    vec3 xyz;
+    for (int i = 0; i < 3; i++) {
+      input >> xyz[i];
+    }
+
+    coord.push_back(xyz);
+    vec3 norm =
+        vec3(xyz[0] / pow(x, 2.0), xyz[1] / pow(y, 2.0), xyz[2] / pow(z, 2.0));
+    double mag = 1.0 / norm.mag();
+    normal.push_back(norm * mag);
+    spacing.push_back(vec3(1.0, 0.0, 0.0));
+  }
+
+  input.close();
+
+  input.open("shape/ellipsoid_element.txt", ios::in);
+
+  if (!input.is_open()) {
+    PetscPrintf(PETSC_COMM_WORLD,
+                "surface element input file does not exist\n");
+    return;
+  }
+
+  while (!input.eof()) {
+    triple<int> idx;
+    for (int i = 0; i < 3; i++) {
+      input >> idx[i];
+      idx[i]--;
+    }
+
+    element.push_back(idx);
+  }
+
+  input.close();
 }
 
 void rigid_body_surface_particle_hierarchy::add_customized_shape(
@@ -480,6 +550,22 @@ void rigid_body_surface_particle_hierarchy::move_to_boundary(
   } break;
   case 2:
     break;
+  case 4: {
+    double x = rigid_body_size_list[rb_idx[rigid_body_index]][0];
+    double y = rigid_body_size_list[rb_idx[rigid_body_index]][1];
+    double z = rigid_body_size_list[rb_idx[rigid_body_index]][2];
+
+    pos[0] /= x;
+    pos[1] /= y;
+    pos[2] /= z;
+
+    double mag = pos.mag();
+    pos *= (1.0 / mag);
+
+    pos[0] *= x;
+    pos[1] *= y;
+    pos[2] *= z;
+  } break;
   case 5: {
     auto &rigid_body_size = rb_mgr->get_rigid_body_size(rigid_body_index);
     double r1 = rigid_body_size[0];
@@ -525,6 +611,16 @@ void rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
   } break;
   case 2:
     break;
+  case 4: {
+    double x = rigid_body_size_list[rb_idx[rigid_body_index]][0];
+    double y = rigid_body_size_list[rb_idx[rigid_body_index]][1];
+    double z = rigid_body_size_list[rb_idx[rigid_body_index]][2];
+
+    norm =
+        vec3(pos[0] / pow(x, 2.0), pos[1] / pow(y, 2.0), pos[2] / pow(z, 2.0));
+    double mag = 1.0 / norm.mag();
+    norm *= mag;
+  } break;
   case 5: {
     auto &rigid_body_size = rb_mgr->get_rigid_body_size(rigid_body_index);
     double r1 = rigid_body_size[0];

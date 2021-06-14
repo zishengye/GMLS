@@ -61,6 +61,9 @@ private:
   std::vector<ksp_type> colloid_relaxation_list;
   std::vector<ksp_type> pressure_relaxation_list;
 
+  std::vector<int> local_particle_num_list;
+  std::vector<int> global_particle_num_list;
+
   ksp_type ksp_field_base, ksp_colloid_base;
 
   int mpi_rank, mpi_size;
@@ -199,6 +202,14 @@ public:
 
   std::vector<vecscatter_type> &get_pressure_scatter_list() {
     return pressure_scatter_list;
+  }
+
+  int get_local_particle_num(int level_num) {
+    return local_particle_num_list[level_num];
+  }
+
+  int get_global_particle_num(int level_num) {
+    return global_particle_num_list[level_num];
   }
 
   int solve(std::vector<double> &rhs, std::vector<double> &x,

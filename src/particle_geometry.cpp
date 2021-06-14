@@ -2156,6 +2156,7 @@ void particle_geometry::generate_field_surface_particle() {
 bool particle_geometry::generate_rigid_body_surface_particle() {
   auto &rigid_body_coord = rb_mgr->get_position();
   auto &rigid_body_orientation = rb_mgr->get_orientation();
+  auto &rigid_body_quaternion = rb_mgr->get_quaternion();
   auto &rigid_body_size = rb_mgr->get_rigid_body_size();
   auto &rigid_body_type = rb_mgr->get_rigid_body_type();
 
@@ -2195,9 +2196,6 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
     surface_element_adaptive_level.clear();
 
     for (size_t n = start_idx; n < end_idx; n++) {
-      double theta = rigid_body_orientation[n][0];
-      double phi = rigid_body_orientation[n][1];
-
       hierarchy->get_coarse_level_coordinate(n, coord_ptr);
       hierarchy->get_coarse_level_normal(n, normal_ptr);
       hierarchy->get_coarse_level_spacing(n, spacing_ptr);
@@ -2221,8 +2219,9 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
       for (int i = 0; i < num_surface_particle; i++) {
         vec3 unrotated_pos = (*coord_ptr)[i];
         vec3 unrotated_norm = (*normal_ptr)[i];
-        vec3 pos = unrotated_pos + rigid_body_coord[n];
-        vec3 normal = unrotated_norm;
+        vec3 pos = rigid_body_quaternion[n].rotate(unrotated_pos) +
+                   rigid_body_coord[n];
+        vec3 normal = rigid_body_quaternion[n].rotate(unrotated_norm);
         vec3 p_spacing = vec3(0.0, 1.0, 0.0);
         vec3 p_coord = vec3(i, 0, 0);
 
@@ -2319,7 +2318,7 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
               rigid_body_coord[n][1] < domain[1][1]) {
             double vol = pow(h, 2);
 
-            double theta = rigid_body_orientation[n][0];
+            double theta = rigid_body_orientation[n][2];
 
             shared_ptr<vector<vec3>> coord_ptr;
             shared_ptr<vector<vec3>> normal_ptr;
@@ -2360,7 +2359,7 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
             rigid_body_coord[n][0] < domain[1][0] &&
             rigid_body_coord[n][1] >= domain[0][1] &&
             rigid_body_coord[n][1] < domain[1][1]) {
-          double theta = rigid_body_orientation[n][0];
+          double theta = rigid_body_orientation[n][2];
           double side_length = rigid_body_size[n][0];
           int side_step = side_length / uniform_spacing;
           double h = side_length / side_step;
@@ -3527,6 +3526,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
 
   auto &rigid_body_coord = rb_mgr->get_position();
   auto &rigid_body_orientation = rb_mgr->get_orientation();
+  auto &rigid_body_quaternion = rb_mgr->get_quaternion();
   auto &rigid_body_size = rb_mgr->get_rigid_body_size();
   auto &rigid_body_type = rb_mgr->get_rigid_body_type();
 
@@ -3634,17 +3634,18 @@ bool particle_geometry::split_rigid_body_surface_particle(
 
           // check if the midpoint has been inserted or not
           int idx_check1, idx_check2;
-          vec3 mid_point_original, mid_point_current;
+          vec3 mid_point_original, mid_point_current, mid_point_unrotated;
 
           idx_check1 = min(idx0, idx1);
           idx_check2 = max(idx0, idx1);
           mid_point_current = (coord[idx_check1] + coord[idx_check2]) * 0.5;
           mid_point_original = mid_point_current - rigid_body_coord[n];
-          hierarchy->move_to_boundary(n, mid_point_original);
-          if (isnan(mid_point_original.mag()))
-            cout << mid_point_current[0] << ' ' << mid_point_current[1] << ' '
-                 << mid_point_current[2] << endl;
-          mid_point_current = mid_point_original + rigid_body_coord[n];
+          mid_point_unrotated =
+              rigid_body_quaternion[n].rotate_back(mid_point_original);
+          hierarchy->move_to_boundary(n, mid_point_unrotated);
+          mid_point_current =
+              rigid_body_quaternion[n].rotate(mid_point_unrotated) +
+              rigid_body_coord[n];
           auto it1 = lower_bound(edge[idx_check1].begin(),
                                  edge[idx_check1].end(), idx_check2);
           for (auto it = it1 + 1; it != edge[idx_check1].end(); it++) {
@@ -3663,8 +3664,12 @@ bool particle_geometry::split_rigid_body_surface_particle(
           idx_check2 = max(idx1, idx2);
           mid_point_current = (coord[idx_check1] + coord[idx_check2]) * 0.5;
           mid_point_original = mid_point_current - rigid_body_coord[n];
-          hierarchy->move_to_boundary(n, mid_point_original);
-          mid_point_current = mid_point_original + rigid_body_coord[n];
+          mid_point_unrotated =
+              rigid_body_quaternion[n].rotate_back(mid_point_original);
+          hierarchy->move_to_boundary(n, mid_point_unrotated);
+          mid_point_current =
+              rigid_body_quaternion[n].rotate(mid_point_unrotated) +
+              rigid_body_coord[n];
           auto it2 = lower_bound(edge[idx_check1].begin(),
                                  edge[idx_check1].end(), idx_check2);
           for (auto it = it2 + 1; it != edge[idx_check1].end(); it++) {
@@ -3683,8 +3688,12 @@ bool particle_geometry::split_rigid_body_surface_particle(
           idx_check2 = max(idx2, idx0);
           mid_point_current = (coord[idx_check1] + coord[idx_check2]) * 0.5;
           mid_point_original = mid_point_current - rigid_body_coord[n];
-          hierarchy->move_to_boundary(n, mid_point_original);
-          mid_point_current = mid_point_original + rigid_body_coord[n];
+          mid_point_unrotated =
+              rigid_body_quaternion[n].rotate_back(mid_point_original);
+          hierarchy->move_to_boundary(n, mid_point_unrotated);
+          mid_point_current =
+              rigid_body_quaternion[n].rotate(mid_point_unrotated) +
+              rigid_body_coord[n];
           auto it3 = lower_bound(edge[idx_check1].begin(),
                                  edge[idx_check1].end(), idx_check2);
           for (auto it = it3 + 1; it != edge[idx_check1].end(); it++) {
@@ -3876,7 +3885,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
         // square
         {
           double theta =
-              rigid_body_orientation[attached_rigid_body_index[tag]][0];
+              rigid_body_orientation[attached_rigid_body_index[tag]][2];
           vector<int> refined_particle_idx;
           bool insert = false;
           int particle_idx = p_coord[tag][0];
@@ -4087,6 +4096,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
     int rigid_body_type = rb_mgr->get_rigid_body_type(idx);
     vec3 rigid_body_pos = rb_mgr->get_position(idx);
     vec3 rigid_body_ori = rb_mgr->get_orientation(idx);
+    quaternion rigid_body_quaternion = rb_mgr->get_quaternion(idx);
     vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size(idx);
     switch (rigid_body_type) {
     case 1:
@@ -4133,7 +4143,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           double start_point = -ratio * half_side_length;
           double end_point = ratio * half_side_length;
 
-          double theta = rigid_body_ori[0];
+          double theta = rigid_body_ori[2];
 
           vec3 abs_dis = _pos - rigid_body_pos;
           // rotate back
@@ -4194,7 +4204,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
       if (dim == 2) {
         double side_length = rigid_body_size[0];
         double height = (sqrt(3) / 2.0) * side_length;
-        double theta = rigid_body_ori[0];
+        double theta = rigid_body_ori[2];
 
         vec3 translation = vec3(0.0, sqrt(3) / 6.0 * side_length, 0.0);
         vec3 abs_dis = _pos - rigid_body_pos;
@@ -4257,6 +4267,44 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
         }
       }
       if (dim == 3) {
+      }
+      break;
+    case 4:
+      if (dim == 3) {
+        vec3 dis = _pos - rigid_body_pos;
+        vec3 unrotated_dis = rigid_body_quaternion.rotate_back(dis);
+
+        double ex = rigid_body_size[0];
+        double ey = rigid_body_size[1];
+        double ez = rigid_body_size[2];
+
+        double dist = sqrt(pow(unrotated_dis[0] / ex, 2.0) +
+                           pow(unrotated_dis[1] / ey, 2.0) +
+                           pow(unrotated_dis[2] / ez, 2.0)) -
+                      1.0;
+
+        if (_attached_rigid_body_index >= 0) {
+          // this is a particle on the rigid body surface
+          if (_attached_rigid_body_index != idx && dist < 0.0)
+            return idx;
+        } else {
+          if (dist < -1.5 * _spacing) {
+            return -1;
+          }
+          if (dist <= 0.5 * _spacing) {
+            return idx;
+          }
+
+          if (dist < 1.5 * _spacing) {
+            for (int i = 0; i < surface_particle_coord.size(); i++) {
+              vec3 rci = _pos - surface_particle_coord[i];
+              if (rci.mag() <
+                  0.5 * max(_spacing, surface_particle_spacing[i])) {
+                return idx;
+              }
+            }
+          }
+        }
       }
       break;
     case 5: {
@@ -5251,7 +5299,7 @@ void particle_geometry::find_closest_rigid_body(vec3 coord,
       // square in 2d, cubic in 3d
       {
         double half_side_length = rigid_body_size[0];
-        double theta = rigid_body_ori[0];
+        double theta = rigid_body_ori[2];
 
         double temp_dist;
 

@@ -207,34 +207,6 @@ gmls_solver::gmls_solver(int argc, char **argv) {
     geometry_input_file_name = "";
   }
 
-  // [summary of problem setup]
-
-  PetscPrintf(PETSC_COMM_WORLD, "===============================\n");
-  PetscPrintf(PETSC_COMM_WORLD, "==== Problem setup summary ====\n");
-  PetscPrintf(PETSC_COMM_WORLD, "===============================\n");
-  PetscPrintf(PETSC_COMM_WORLD, "==> Dimension: %d\n", dim);
-  PetscPrintf(PETSC_COMM_WORLD, "==> Governing equation: %s\n",
-              equation_type.c_str());
-  PetscPrintf(PETSC_COMM_WORLD, "==> Time integration scheme: %s\n",
-              time_integration_method.c_str());
-  PetscPrintf(PETSC_COMM_WORLD, "==> Time interval: %fs\n", max_dt);
-  PetscPrintf(PETSC_COMM_WORLD, "==> Final time: %fs\n", final_time);
-  PetscPrintf(PETSC_COMM_WORLD, "==> Polynomial order: %d\n", polynomial_order);
-  PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", eta);
-  if (refinement_method != 0) {
-    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement: on\n");
-    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement method:  %d\n",
-                refinement_method);
-    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement tolerance:  %f\n",
-                refinement_tolerance);
-    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement field: %s(%d)\n",
-                refinement_field_name.c_str(), refinement_field);
-    PetscPrintf(PETSC_COMM_WORLD, "==> Maximum refinement level: %d\n",
-                max_refinement_level);
-  } else {
-    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement: off\n");
-  }
-
   initialization_status = true;
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -267,4 +239,34 @@ gmls_solver::gmls_solver(int argc, char **argv) {
 
   if (use_viewer == 1)
     equation_mgr->set_viewer();
+
+  // [summary of problem setup]
+
+  PetscPrintf(PETSC_COMM_WORLD, "===============================\n");
+  PetscPrintf(PETSC_COMM_WORLD, "==== Problem setup summary ====\n");
+  PetscPrintf(PETSC_COMM_WORLD, "===============================\n");
+  PetscPrintf(PETSC_COMM_WORLD, "==> Dimension: %d\n", dim);
+  PetscPrintf(PETSC_COMM_WORLD, "==> Governing equation: %s\n",
+              equation_type.c_str());
+  PetscPrintf(PETSC_COMM_WORLD, "==> Time integration scheme: %s\n",
+              time_integration_method.c_str());
+  PetscPrintf(PETSC_COMM_WORLD, "==> Time interval: %fs\n", max_dt);
+  PetscPrintf(PETSC_COMM_WORLD, "==> Final time: %fs\n", final_time);
+  PetscPrintf(PETSC_COMM_WORLD, "==> Polynomial order: %d\n", polynomial_order);
+  PetscPrintf(PETSC_COMM_WORLD, "==> Kinetic viscosity: %f\n", eta);
+  if (refinement_method != 0) {
+    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement: on\n");
+    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement method:  %d\n",
+                refinement_method);
+    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement tolerance:  %f\n",
+                refinement_tolerance);
+    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement field: %s(%d)\n",
+                refinement_field_name.c_str(), refinement_field);
+    PetscPrintf(PETSC_COMM_WORLD, "==> Maximum refinement level: %d\n",
+                max_refinement_level);
+  } else {
+    PetscPrintf(PETSC_COMM_WORLD, "==> Refinement: off\n");
+  }
+  PetscPrintf(PETSC_COMM_WORLD, "==> Total number of rigid bodys: %d\n",
+              rb_mgr->get_rigid_body_num());
 }

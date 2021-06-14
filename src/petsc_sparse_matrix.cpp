@@ -499,6 +499,7 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
                                   __val.data());
 
     __ctx.fluid_part = &mat;
+    pmat.__ctx.fluid_part = &mat;
   } else {
     MatCreate(MPI_COMM_WORLD, &mat);
     MatSetSizes(mat, row_block, col_block, PETSC_DECIDE, PETSC_DECIDE);
@@ -509,9 +510,29 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
                                   __val.data());
 
     __ctx.fluid_part = &mat;
+    pmat.__ctx.fluid_part = &mat;
   }
 
   pmat.is_assembled = true;
+
+  Mat &shell_mat = pmat.get_shell_reference();
+  MatCreateShell(PETSC_COMM_WORLD, row_block, col_block, PETSC_DECIDE,
+                 Col_block, &pmat.__ctx, &shell_mat);
+  MatShellSetOperation(shell_mat, MATOP_MULT,
+                       (void (*)(void))fluid_matrix_mult);
+
+  pmat.__ctx.fluid_local_size = row_block;
+  pmat.__ctx.local_fluid_particle_num = block_row;
+  pmat.__ctx.field_dof = block_size;
+  MPI_Allreduce(&(pmat.__ctx.local_fluid_particle_num),
+                &(pmat.__ctx.global_fluid_particle_num), 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+  pmat.__ctx.pressure_offset = block_size - 1;
+
+  pmat.__ctx.myid = myid;
+  pmat.__ctx.mpisize = MPIsize;
+
+  pmat.is_shell_assembled = true;
 
   // non-block version
   __i.resize(__row + 1);
@@ -1729,6 +1750,50 @@ PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y) {
   VecRestoreArray(y, &a);
   VecRestoreArray(ctx->fluid_vec2, &c);
   VecRestoreArray(ctx->fluid_vec_local, &b);
+
+  return 0;
+}
+
+PetscErrorCode fluid_matrix_mult(Mat mat, Vec x, Vec y) {
+  fluid_colloid_matrix_context *ctx;
+  MatShellGetContext(mat, &ctx);
+
+  PetscReal *a;
+
+  PetscReal pressure_sum = 0.0;
+  PetscReal average_pressure;
+
+  // VecGetArray(x, &a);
+
+  // pressure_sum = 0.0;
+  // for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
+  //   pressure_sum += a[i * ctx->field_dof + ctx->pressure_offset];
+  // }
+  // MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+  //               MPI_COMM_WORLD);
+  // average_pressure = pressure_sum / ctx->global_fluid_particle_num;
+  // for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
+  //   a[i * ctx->field_dof + ctx->pressure_offset] -= average_pressure;
+  // }
+
+  // VecRestoreArray(x, &a);
+
+  MatMult(*(ctx->fluid_part), x, y);
+
+  VecGetArray(y, &a);
+
+  pressure_sum = 0.0;
+  for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
+    pressure_sum += a[i * ctx->field_dof + ctx->pressure_offset];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  average_pressure = pressure_sum / ctx->global_fluid_particle_num;
+  for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
+    a[i * ctx->field_dof + ctx->pressure_offset] -= average_pressure;
+  }
+
+  VecRestoreArray(y, &a);
 
   return 0;
 }

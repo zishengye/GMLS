@@ -1,6 +1,5 @@
 #include <limits>
 
-#include "DivergenceFree.hpp"
 #include "gmls_solver.hpp"
 
 using namespace std;

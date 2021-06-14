@@ -691,6 +691,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   MPI_Allreduce(&local_particle_num, &global_particle_num, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
+  local_particle_num_list.push_back(local_particle_num);
+  global_particle_num_list.push_back(global_particle_num);
+
   auto isg_field = isg_field_list[refinement_step];
   auto isg_colloid = isg_colloid_list[refinement_step];
   auto isg_pressure = isg_pressure_list[refinement_step];
@@ -732,6 +735,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   _rhs.create(rhs);
   _x.create(x);
 
+  Mat &ff_shell = ff_list[refinement_step]->get_shell_reference();
   Mat &ff = ff_list[refinement_step]->get_reference();
   Mat &nn = nn_list[refinement_step]->get_reference();
   Mat &nw = nw_list[refinement_step]->get_reference();
@@ -745,7 +749,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   // MatCreateSubMatrix(mat, isg_colloid->get_reference(), NULL,
   //                    MAT_INITIAL_MATRIX,
   //                    nw_list[refinement_step]->get_pointer());
-  // MatCreateSubMatrix(mat, isg_pressure->get_reference(),
+  // MatCreateSubMatrix(ff, isg_pressure->get_reference(),
   //                    isg_pressure->get_reference(), MAT_INITIAL_MATRIX,
   //                    pp_list[refinement_step]->get_pointer());
   // MatCreateSubMatrix(mat, isg_pressure->get_reference(), NULL,
@@ -783,12 +787,17 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   MatCreateVecs(ff, NULL, &(b_field_list[refinement_step]->get_reference()));
   MatCreateVecs(ff, NULL, &(r_field_list[refinement_step]->get_reference()));
 
-  MatCreateVecs(nn, NULL, &(x_colloid_list[refinement_step]->get_reference()));
-  MatCreateVecs(nn, NULL, &(b_colloid_list[refinement_step]->get_reference()));
+  if (num_rigid_body != 0) {
+    MatCreateVecs(nn, NULL,
+                  &(x_colloid_list[refinement_step]->get_reference()));
+    MatCreateVecs(nn, NULL,
+                  &(b_colloid_list[refinement_step]->get_reference()));
+  }
 
   // MatCreateVecs(pp, NULL,
-  // &x_pressure_list[refinement_step]->get_reference()); MatCreateVecs(pp,
-  // NULL, &y_pressure_list[refinement_step]->get_reference());
+  // &x_pressure_list[refinement_step]->get_reference());
+  // MatCreateVecs(pp, NULL,
+  // &y_pressure_list[refinement_step]->get_reference());
 
   // field vector scatter
   field_scatter_list.push_back(make_shared<petsc_vecscatter>());
@@ -797,11 +806,13 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
                    x_field_list[refinement_step]->get_reference(), NULL,
                    field_scatter_list[refinement_step]->get_pointer());
 
-  colloid_scatter_list.push_back(make_shared<petsc_vecscatter>());
-  VecScatterCreate(x_list[refinement_step]->get_reference(),
-                   isg_colloid->get_reference(),
-                   x_colloid_list[refinement_step]->get_reference(), NULL,
-                   colloid_scatter_list[refinement_step]->get_pointer());
+  if (num_rigid_body != 0) {
+    colloid_scatter_list.push_back(make_shared<petsc_vecscatter>());
+    VecScatterCreate(x_list[refinement_step]->get_reference(),
+                     isg_colloid->get_reference(),
+                     x_colloid_list[refinement_step]->get_reference(), NULL,
+                     colloid_scatter_list[refinement_step]->get_pointer());
+  }
 
   // pressure_scatter_list.push_back(make_shared<petsc_vecscatter>());
   // VecScatterCreate(x_list[refinement_step]->get_reference(),
@@ -810,44 +821,109 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   //                  pressure_scatter_list[refinement_step]->get_pointer());
 
   // neighbor vector scatter, only needed on base level
-  if (refinement_step == 0) {
+  if (refinement_step == 0 && num_rigid_body != 0) {
     MatCreateVecs(nn, NULL, x_colloid->get_pointer());
     MatCreateVecs(nn, NULL, y_colloid->get_pointer());
   }
 
   Mat sub_ff, sub_fc, sub_cf, sub_cc, fc_s;
 
+  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
+                  idx_colloid_sub_field.data(), PETSC_COPY_VALUES,
+                  &isg_colloid_sub_field);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_colloid.size(),
+                  idx_colloid_sub_colloid.data(), PETSC_COPY_VALUES,
+                  &isg_colloid_sub_colloid);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_field.size(),
+                  idx_colloid_field.data(), PETSC_COPY_VALUES,
+                  &isg_colloid_field);
+
+  MatCreateSubMatrix(ff, isg_colloid_field, isg_colloid_field,
+                     MAT_INITIAL_MATRIX, &sub_ff);
+  MatCreateSubMatrix(nn, isg_colloid_sub_field, isg_colloid_sub_colloid,
+                     MAT_INITIAL_MATRIX, &sub_fc);
+  MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_field,
+                     MAT_INITIAL_MATRIX, &sub_cf);
+  MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_colloid,
+                     MAT_INITIAL_MATRIX, &sub_cc);
+
+  Mat B, C;
+  MatCreate(MPI_COMM_WORLD, &B);
+  MatSetType(B, MATMPIAIJ);
+  MatInvertBlockDiagonalMat(sub_ff, B);
+
+  MatMatMult(B, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &C);
+  MatMatMult(sub_cf, C, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
+  MatScale(fc_s, -1.0);
+  MatAXPY(fc_s, 1.0, sub_cc, DIFFERENT_NONZERO_PATTERN);
+
+  MatDestroy(&B);
+  MatDestroy(&C);
+
   // setup preconditioner for base level
   if (refinement_step == 0) {
     KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
-    KSPSetOperators(ksp_field_base->get_reference(), ff, ff);
-    KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
-    // KSPSetType(ksp_field_base->get_reference(), KSPRICHARDSON);
-    // KSPSetTolerances(ksp_field_base->get_reference(), 1e-3, 1e-50, 1e10, 1);
+    KSPSetOperators(ksp_field_base->get_reference(), ff_shell, ff);
+    // KSPSetFromOptions(ksp_field_base->get_reference());
+    // KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
+    KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
+    KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
+    KSPSetTolerances(ksp_field_base->get_reference(), 1e-3, 1e-50, 1e10, 500);
 
     PC pc_field_base;
 
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
-    PCSetType(pc_field_base, PCLU);
-    PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
-    // PCSetType(pc_field_base, PCHYPRE);
+    // PCSetType(pc_field_base, PCLU);
+    // PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
+    PCSetType(pc_field_base, PCSOR);
     // PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
+    KSPSetUp(ksp_field_base->get_reference());
 
     if (num_rigid_body != 0) {
-      KSPCreate(PETSC_COMM_WORLD, &ksp_colloid_base->get_reference());
+      // KSPCreate(PETSC_COMM_WORLD, &ksp_colloid_base->get_reference());
+      // KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
+      // KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
+
+      // PC pc_neighbor_base;
+
+      // KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
+      // PCSetType(pc_neighbor_base, PCLU);
+      // PCFactorSetMatSolverType(pc_neighbor_base, MATSOLVERMUMPS);
+      // PCSetFromOptions(pc_neighbor_base);
+      // PCSetUp(pc_neighbor_base);
+
+      // KSPSetUp(ksp_colloid_base->get_reference());
+
+      KSPCreate(MPI_COMM_WORLD, &ksp_colloid_base->get_reference());
+
+      KSPSetType(ksp_colloid_base->get_reference(), KSPGMRES);
+      KSPGMRESSetRestart(ksp_colloid_base->get_reference(), 100);
+      KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-3, 1e-50, 1e10,
+                       500);
       KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
-      KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
 
       PC pc_neighbor_base;
-
       KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
-      PCSetType(pc_neighbor_base, PCLU);
-      PCFactorSetMatSolverType(pc_neighbor_base, MATSOLVERMUMPS);
-      PCSetFromOptions(pc_neighbor_base);
+      PCSetType(pc_neighbor_base, PCFIELDSPLIT);
+
+      PCFieldSplitSetIS(pc_neighbor_base, "0", isg_colloid_sub_field);
+      PCFieldSplitSetIS(pc_neighbor_base, "1", isg_colloid_sub_colloid);
+
+      PCFieldSplitSetSchurPre(pc_neighbor_base, PC_FIELDSPLIT_SCHUR_PRE_USER,
+                              fc_s);
       PCSetUp(pc_neighbor_base);
 
-      KSPSetUp(ksp_field_base->get_reference());
+      KSP *fieldsplit_sub_ksp;
+      PetscInt n;
+      PCFieldSplitGetSubKSP(pc_neighbor_base, &n, &fieldsplit_sub_ksp);
+      KSPSetOperators(fieldsplit_sub_ksp[1], fc_s, fc_s);
+      KSPSetOperators(fieldsplit_sub_ksp[0], sub_ff, sub_ff);
+      KSPSetFromOptions(fieldsplit_sub_ksp[0]);
+      KSPSetUp(fieldsplit_sub_ksp[0]);
+      KSPSetUp(fieldsplit_sub_ksp[1]);
+      PetscFree(fieldsplit_sub_ksp);
+
       KSPSetUp(ksp_colloid_base->get_reference());
     }
   } else {
@@ -857,8 +933,8 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
     KSPSetType(field_relaxation_list[refinement_step]->get_reference(),
                KSPRICHARDSON);
-    KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
-                    ff);
+    KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(),
+                    ff_shell, ff);
     KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
                      1e-3, 1e-50, 1e10, 1);
 
@@ -873,16 +949,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
     if (num_rigid_body != 0) {
       // setup relaxation on neighbor for current level
-      ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
-                      idx_colloid_sub_field.data(), PETSC_COPY_VALUES,
-                      &isg_colloid_sub_field);
-      ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_colloid.size(),
-                      idx_colloid_sub_colloid.data(), PETSC_COPY_VALUES,
-                      &isg_colloid_sub_colloid);
-      ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_field.size(),
-                      idx_colloid_field.data(), PETSC_COPY_VALUES,
-                      &isg_colloid_field);
-
       KSPCreate(MPI_COMM_WORLD,
                 colloid_relaxation_list[refinement_step]->get_pointer());
 
@@ -898,25 +964,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       KSPGetPC(colloid_relaxation_list[refinement_step]->get_reference(),
                &neighbor_relaxation_pc);
       PCSetType(neighbor_relaxation_pc, PCFIELDSPLIT);
-
-      MatCreateSubMatrix(ff, isg_colloid_field, isg_colloid_field,
-                         MAT_INITIAL_MATRIX, &sub_ff);
-      MatCreateSubMatrix(nn, isg_colloid_sub_field, isg_colloid_sub_colloid,
-                         MAT_INITIAL_MATRIX, &sub_fc);
-      MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_field,
-                         MAT_INITIAL_MATRIX, &sub_cf);
-      MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_colloid,
-                         MAT_INITIAL_MATRIX, &sub_cc);
-
-      Mat B, C;
-      MatCreate(MPI_COMM_WORLD, &B);
-      MatSetType(B, MATMPIAIJ);
-      MatInvertBlockDiagonalMat(sub_ff, B);
-
-      MatMatMult(B, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &C);
-      MatMatMult(sub_cf, C, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
-      MatScale(fc_s, -1.0);
-      MatAXPY(fc_s, 1.0, sub_cc, DIFFERENT_NONZERO_PATTERN);
 
       PCFieldSplitSetIS(neighbor_relaxation_pc, "0", isg_colloid_sub_field);
       PCFieldSplitSetIS(neighbor_relaxation_pc, "1", isg_colloid_sub_colloid);
@@ -934,9 +981,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       KSPSetUp(fieldsplit_sub_ksp[0]);
       KSPSetUp(fieldsplit_sub_ksp[1]);
       PetscFree(fieldsplit_sub_ksp);
-
-      MatDestroy(&B);
-      MatDestroy(&C);
 
       KSPSetUp(colloid_relaxation_list[refinement_step]->get_reference());
 
@@ -1045,7 +1089,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   VecDestroy(&residual);
   KSPDestroy(&_ksp);
 
-  if (refinement_step != 0 && num_rigid_body != 0) {
+  if (num_rigid_body != 0) {
     MatDestroy(&sub_ff);
     MatDestroy(&sub_fc);
     MatDestroy(&sub_cf);

@@ -44,6 +44,8 @@ protected:
 
   void add_sphere(const double radius, const double h);
   void add_rounded_square(const double half_side_length, const double h);
+  void add_ellipsoid(const double x, const double y, const double z,
+                     const double h);
   void add_customized_shape(const double size, const double h);
 
   void build_hierarchy_mapping(const int coarse_level_idx,
