@@ -472,9 +472,10 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                         &reason);
   PetscInt its;
   KSPGetIterationNumber(shell->multi->get_field_base()->get_reference(), &its);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "convergence reason: %d, number of iterations: %d\n", reason,
-              its);
+  if (reason != 2)
+    PetscPrintf(PETSC_COMM_WORLD,
+                "field convergence reason: %d, number of iterations: %d\n",
+                reason, its);
 
   VecScatterBegin(shell->multi->get_field_scatter_list()[0]->get_reference(),
                   shell->multi->get_x_field_list()[0]->get_reference(),
@@ -544,9 +545,10 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                           &reason);
     KSPGetIterationNumber(shell->multi->get_colloid_base()->get_reference(),
                           &its);
-    PetscPrintf(PETSC_COMM_WORLD,
-                "convergence reason: %d, number of iterations: %d\n", reason,
-                its);
+    if (reason != 2)
+      PetscPrintf(PETSC_COMM_WORLD,
+                  "colloid convergence reason: %d, number of iterations: %d\n",
+                  reason, its);
 
     VecScatterBegin(
         shell->multi->get_colloid_scatter_list()[0]->get_reference(),

@@ -669,10 +669,7 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
   is_shell_assembled = true;
   is_ctx_assembled = true;
 
-  {
-    vector<vector<entry>>().swap(__matrix);
-    vector<vector<entry>>().swap(__out_process_matrix);
-  }
+  { vector<vector<entry>>().swap(__out_process_matrix); }
 
   MPI_Barrier(MPI_COMM_WORLD);
   PetscMemoryGetCurrentUsage(&mem);
@@ -704,6 +701,72 @@ int petsc_sparse_matrix::extract_neighbor_index(
   MPI_Barrier(MPI_COMM_WORLD);
   idx_colloid.clear();
 
+  PetscInt local_N1;
+  MatGetOwnershipRange(__shell_mat, &local_N1, NULL);
+
+  neighbor_inclusion.clear();
+
+  PetscInt Col_block, row_block, col_block;
+  Col_block = __Col - num_rigid_body * rigid_body_dof;
+  if (myId == MPIsize - 1) {
+    row_block = __row - num_rigid_body * rigid_body_dof;
+    col_block = __col - num_rigid_body * rigid_body_dof;
+  } else {
+    row_block = __row;
+    col_block = __col;
+  }
+
+  for (int i = 0; i < row_block; i++) {
+    auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
+                          entry(global_rigid_body_offset, 0.0), compare_index);
+    if (it != __matrix[i].end()) {
+      neighbor_inclusion.push_back((local_N1 + i) / field_dof);
+    }
+  }
+
+  sort(neighbor_inclusion.begin(), neighbor_inclusion.end());
+  neighbor_inclusion.erase(
+      unique(neighbor_inclusion.begin(), neighbor_inclusion.end()),
+      neighbor_inclusion.end());
+
+  // move data
+  vector<int> local_neighbor_inclusion_num(MPIsize);
+  for (int i = 0; i < MPIsize; i++) {
+    local_neighbor_inclusion_num[i] = 0;
+  }
+  local_neighbor_inclusion_num[myId] = neighbor_inclusion.size();
+
+  MPI_Allreduce(MPI_IN_PLACE, local_neighbor_inclusion_num.data(), MPIsize,
+                MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+  int recv_num = 0;
+  vector<int> displs;
+  vector<int> recv_neighbor_inclusion;
+  if (myId == MPIsize - 1) {
+    displs.resize(MPIsize + 1);
+    displs[0] = 0;
+    for (int i = 0; i < MPIsize; i++) {
+      recv_num += local_neighbor_inclusion_num[i];
+      displs[i + 1] = displs[i] + local_neighbor_inclusion_num[i];
+    }
+
+    recv_neighbor_inclusion.resize(recv_num);
+  }
+
+  MPI_Gatherv(neighbor_inclusion.data(), neighbor_inclusion.size(), MPI_INT,
+              recv_neighbor_inclusion.data(),
+              local_neighbor_inclusion_num.data(), displs.data(), MPI_INT,
+              MPIsize - 1, MPI_COMM_WORLD);
+
+  if (myId == MPIsize - 1) {
+    sort(recv_neighbor_inclusion.begin(), recv_neighbor_inclusion.end());
+    recv_neighbor_inclusion.erase(
+        unique(recv_neighbor_inclusion.begin(), recv_neighbor_inclusion.end()),
+        recv_neighbor_inclusion.end());
+  }
+
+  vector<vector<entry>>().swap(__matrix);
+
   if (myId == MPIsize - 1) {
     neighbor_inclusion.clear();
     neighbor_inclusion.insert(
@@ -715,6 +778,10 @@ int petsc_sparse_matrix::extract_neighbor_index(
       if (neighbor_inclusion[i] < global_rigid_body_offset)
         neighbor_inclusion[i] /= field_dof;
     }
+
+    neighbor_inclusion.insert(neighbor_inclusion.end(),
+                              recv_neighbor_inclusion.begin(),
+                              recv_neighbor_inclusion.end());
 
     sort(neighbor_inclusion.begin(), neighbor_inclusion.end());
 

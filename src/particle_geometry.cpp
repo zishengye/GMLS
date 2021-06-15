@@ -3736,7 +3736,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
             double spacing = pow(0.5, adaptive_level) * uniform_spacing;
             double vol = pow(spacing, dim);
 
-            vec3 p2 = (p0 + p1) * 0.5;
+            vec3 p2 = rigid_body_quaternion[n].rotate_back((p0 + p1) * 0.5);
             vec3 n2;
 
             int idx2 = coord.size();
@@ -3745,7 +3745,8 @@ bool particle_geometry::split_rigid_body_surface_particle(
             hierarchy->move_to_boundary(n, p2);
             hierarchy->get_normal(n, p2, n2);
 
-            p2 = p2 + rigid_body_coord[n];
+            p2 = rigid_body_quaternion[n].rotate(p2) + rigid_body_coord[n];
+            n2 = rigid_body_quaternion[n].rotate(n2);
 
             vec3 p_spacing = vec3(0.0, 1.0, 0.0);
             vec3 p_coord = vec3(idx2, 0, 0);

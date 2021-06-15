@@ -551,20 +551,20 @@ void rigid_body_surface_particle_hierarchy::move_to_boundary(
   case 2:
     break;
   case 4: {
-    double x = rigid_body_size_list[rb_idx[rigid_body_index]][0];
-    double y = rigid_body_size_list[rb_idx[rigid_body_index]][1];
-    double z = rigid_body_size_list[rb_idx[rigid_body_index]][2];
+    double a = rigid_body_size_list[rb_idx[rigid_body_index]][0];
+    double b = rigid_body_size_list[rb_idx[rigid_body_index]][1];
+    double c = rigid_body_size_list[rb_idx[rigid_body_index]][2];
 
-    pos[0] /= x;
-    pos[1] /= y;
-    pos[2] /= z;
+    pos[0] /= a;
+    pos[1] /= b;
+    pos[2] /= c;
 
     double mag = pos.mag();
     pos *= (1.0 / mag);
 
-    pos[0] *= x;
-    pos[1] *= y;
-    pos[2] *= z;
+    pos[0] *= a;
+    pos[1] *= b;
+    pos[2] *= c;
   } break;
   case 5: {
     auto &rigid_body_size = rb_mgr->get_rigid_body_size(rigid_body_index);

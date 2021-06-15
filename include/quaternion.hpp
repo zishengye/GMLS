@@ -115,7 +115,7 @@ public:
     }
   }
 
-  vec3 rotate(vec3 &vec) {
+  vec3 rotate(const vec3 &vec) {
     double e0e0 = m_data[0] * m_data[0];
     double e1e1 = m_data[1] * m_data[1];
     double e2e2 = m_data[2] * m_data[2];
@@ -135,7 +135,7 @@ public:
             ((e0e0 + e3e3) * 2.0 - 1.0) * vec[2]);
   }
 
-  vec3 rotate_back(vec3 &vec) {
+  vec3 rotate_back(const vec3 &vec) {
     double e0e0 = +m_data[0] * m_data[0];
     double e1e1 = +m_data[1] * m_data[1];
     double e2e2 = +m_data[2] * m_data[2];
@@ -155,7 +155,11 @@ public:
             ((e0e0 + e3e3) * 2.0 - 1.0) * vec[2]);
   }
 
-  void rotate_by_Wabs(vec3 &omega, quaternion &q) {}
+  void rotate_by_Wabs(vec3 &omega, quaternion &q) {
+    double theta = omega.mag();
+    quaternion q_delta(omega * (1.0 / theta), theta);
+    this->Cross(q, q_delta);
+  }
 };
 
 #endif

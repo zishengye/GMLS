@@ -868,7 +868,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     // KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
     KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
     KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
-    KSPSetTolerances(ksp_field_base->get_reference(), 1e-3, 1e-50, 1e10, 500);
+    KSPSetTolerances(ksp_field_base->get_reference(), 1e-3, 1e-50, 1e10, 1000);
 
     PC pc_field_base;
 
@@ -876,7 +876,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     // PCSetType(pc_field_base, PCLU);
     // PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
     PCSetType(pc_field_base, PCSOR);
-    // PCSetFromOptions(pc_field_base);
+    PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
     KSPSetUp(ksp_field_base->get_reference());
 
@@ -1077,8 +1077,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     }
     if (convergence_reason == KSP_CONVERGED_RTOL &&
         residual_norm / rhs_norm > 1e-3) {
-      KSPSetTolerances(_ksp, pow(10, -7 - counter), 1e-50, 1e50, 500);
+      KSPSetTolerances(_ksp, pow(10, -6 - counter), 1e-50, 1e50, 500);
     }
+    KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
   }
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
