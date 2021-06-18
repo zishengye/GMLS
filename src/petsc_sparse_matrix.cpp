@@ -1830,20 +1830,20 @@ PetscErrorCode fluid_matrix_mult(Mat mat, Vec x, Vec y) {
   PetscReal pressure_sum = 0.0;
   PetscReal average_pressure;
 
-  // VecGetArray(x, &a);
+  VecGetArray(x, &a);
 
-  // pressure_sum = 0.0;
-  // for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
-  //   pressure_sum += a[i * ctx->field_dof + ctx->pressure_offset];
-  // }
-  // MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
-  //               MPI_COMM_WORLD);
-  // average_pressure = pressure_sum / ctx->global_fluid_particle_num;
-  // for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
-  //   a[i * ctx->field_dof + ctx->pressure_offset] -= average_pressure;
-  // }
+  pressure_sum = 0.0;
+  for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
+    pressure_sum += a[i * ctx->field_dof + ctx->pressure_offset];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  average_pressure = pressure_sum / ctx->global_fluid_particle_num;
+  for (int i = 0; i < ctx->local_fluid_particle_num; i++) {
+    a[i * ctx->field_dof + ctx->pressure_offset] -= average_pressure;
+  }
 
-  // VecRestoreArray(x, &a);
+  VecRestoreArray(x, &a);
 
   MatMult(*(ctx->fluid_part), x, y);
 

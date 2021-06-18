@@ -868,7 +868,10 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     // KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
     KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
     KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
-    KSPSetTolerances(ksp_field_base->get_reference(), 1e-3, 1e-50, 1e10, 1000);
+    KSPSetTolerances(ksp_field_base->get_reference(), 1e-3, 1e-50, 1e50, 1000);
+    KSPSetNormType(ksp_field_base->get_reference(), KSP_NORM_UNPRECONDITIONED);
+    KSPSetResidualHistory(ksp_field_base->get_reference(), NULL, 1000,
+                          PETSC_TRUE);
 
     PC pc_field_base;
 
@@ -899,7 +902,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
       KSPSetType(ksp_colloid_base->get_reference(), KSPGMRES);
       KSPGMRESSetRestart(ksp_colloid_base->get_reference(), 100);
-      KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-3, 1e-50, 1e10,
+      KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-3, 1e-50, 1e50,
                        500);
       KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
 
@@ -953,10 +956,10 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
                 colloid_relaxation_list[refinement_step]->get_pointer());
 
       KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
-                 KSPRICHARDSON);
+                 KSPGMRES);
       KSPSetTolerances(
           colloid_relaxation_list[refinement_step]->get_reference(), 1e-3,
-          1e-50, 1e10, 1);
+          1e-50, 1e10, 1000);
       KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
                       nn, nn);
 
@@ -1164,6 +1167,9 @@ void stokes_multilevel::clear() {
     ksp_field_base.reset();
     ksp_colloid_base.reset();
   }
+
+  local_particle_num_list.clear();
+  global_particle_num_list.clear();
 
   current_refinement_level = -1;
 }
