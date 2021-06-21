@@ -1,7 +1,12 @@
 #include "gmls_solver.hpp"
 
+#include <petscsnes.h>
+
 using namespace std;
 using namespace Compadre;
+
+PetscErrorCode implicit_midpoint_integration_sub_wrapper(SNES, Vec, Vec,
+                                                         void *);
 
 inline double correct_radius(double x) {
   while (x > 2.0 * M_PI)
@@ -19,6 +24,10 @@ void gmls_solver::time_integration() {
 
   if (time_integration_method == "RK4") {
     adaptive_runge_kutta_intagration();
+  }
+
+  if (time_integration_method == "ImplicitMidpoint") {
+    implicit_midpoint_integration();
   }
 }
 
@@ -67,8 +76,8 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
 
   int numRigidBody = rb_mgr->get_rigid_body_num();
 
-  vector<vec3> position0(numRigidBody);
-  vector<vec3> orientation0(numRigidBody);
+  position0.resize(numRigidBody);
+  orientation0.resize(numRigidBody);
 
   vector<vec3> velocity_k1(numRigidBody);
   vector<vec3> velocity_k2(numRigidBody);
@@ -653,4 +662,327 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
       write_time_step_data();
     }
   }
+}
+
+void gmls_solver::implicit_midpoint_integration() {
+  vector<vec3> &rigidBodyPosition = rb_mgr->get_position();
+  vector<vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
+  vector<vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
+  vector<vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
+  vector<vec3> &rigidBodyForce = rb_mgr->get_force();
+  vector<vec3> &rigidBodyTorque = rb_mgr->get_torque();
+
+  int numRigidBody = rb_mgr->get_rigid_body_num();
+
+  // setup snes
+  SNES snes;
+  SNESCreate(MPI_COMM_WORLD, &snes);
+  Vec x, y;
+  Mat J;
+
+  int local_vec_size;
+  if (rank == size - 1)
+    local_vec_size = numRigidBody * 2;
+  else
+    local_vec_size = 0;
+
+  VecCreate(PETSC_COMM_WORLD, &x);
+  VecSetSizes(x, local_vec_size, numRigidBody * 2);
+  VecSetFromOptions(x);
+  VecCreate(PETSC_COMM_WORLD, &y);
+  VecSetSizes(y, local_vec_size, numRigidBody * 2);
+  VecSetFromOptions(y);
+
+  MatCreate(PETSC_COMM_WORLD, &J);
+  MatSetSizes(J, local_vec_size, local_vec_size, numRigidBody * 2,
+              numRigidBody * 2);
+  MatSetUp(J);
+
+  SNESSetFunction(snes, y, implicit_midpoint_integration_sub_wrapper, this);
+  SNESSetJacobian(snes, J, J, SNESComputeJacobianDefault, this);
+  SNESSetConvergenceTest(snes, SNESConvergedDefault, NULL, NULL);
+
+  KSP ksp;
+  PC pc;
+  SNESGetKSP(snes, &ksp);
+  KSPGetPC(ksp, &pc);
+  KSPSetType(ksp, KSPGMRES);
+
+  SNESSetFromOptions(snes);
+  SNESSetUp(snes);
+
+  rtol = 1e-5;
+  atol = 1e-10;
+  dt = max_dt;
+  t = 0;
+  dtMin = 1e-10;
+
+  position0.resize(numRigidBody);
+  orientation0.resize(numRigidBody);
+
+  ofstream output;
+  if (rank == 0) {
+    output.open(trajectory_output_file_name, ios::trunc);
+    output << t << '\t';
+    for (int num = 0; num < numRigidBody; num++) {
+      for (int j = 0; j < 3; j++) {
+        output << rigidBodyPosition[num][j] << '\t';
+      }
+      for (int j = 0; j < 3; j++) {
+        output << rigidBodyOrientation[num][j] << '\t';
+      }
+    }
+    output << endl;
+    output.close();
+  }
+
+  int timeStepCounter = 0;
+  int totalNFunc = 0;
+  int totalIteration = 0;
+  while (t < final_time - 1e-5) {
+    PetscReal *a;
+
+    dt = min(dt, final_time - t);
+    timeStepCounter++;
+
+    PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
+    PetscPrintf(PETSC_COMM_WORLD, "==== Start of time integration ====\n");
+    PetscPrintf(PETSC_COMM_WORLD, "===================================\n");
+    PetscPrintf(PETSC_COMM_WORLD, "==> Current time: %f s\n", t);
+    PetscPrintf(PETSC_COMM_WORLD, "==> current test time step: %f s\n", dt);
+
+    for (int i = 0; i < numRigidBody; i++) {
+      position0[i] = rigidBodyPosition[i];
+    }
+
+    // get the velocity at the local step
+    geo_mgr->generate_uniform_particle();
+    current_refinement_step = 0;
+    equation_mgr->reset();
+    do {
+      if (write_data == 1 || write_data == 4)
+        write_refinement_data_geometry_only();
+      PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
+                  current_refinement_step);
+      equation_mgr->update();
+    } while (refinement());
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // move a half step
+    for (int num = 0; num < numRigidBody; num++) {
+      for (int j = 0; j < 3; j++) {
+        rigidBodyPosition[num][j] =
+            position0[num][j] + dt * rigidBodyVelocity[num][j] * 0.5;
+      }
+    }
+
+    // get an initial guess
+    geo_mgr->generate_uniform_particle();
+    current_refinement_step = 0;
+    equation_mgr->reset();
+    do {
+      if (write_data == 1 || write_data == 4)
+        write_refinement_data_geometry_only();
+      PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
+                  current_refinement_step);
+      equation_mgr->update();
+    } while (refinement());
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // set the initial guess
+    VecGetArray(x, &a);
+    if (rank == size - 1) {
+      for (int i = 0; i < numRigidBody; i++) {
+        for (int j = 0; j < 2; j++) {
+          a[i * 2 + j] = rigidBodyVelocity[i][j];
+        }
+      }
+    }
+    VecRestoreArray(x, &a);
+
+    SNESSolve(snes, NULL, x);
+    PetscInt iter, nfuncs;
+    SNESGetIterationNumber(snes, &iter);
+    SNESGetNumberFunctionEvals(snes, &nfuncs);
+
+    totalNFunc += nfuncs;
+    totalIteration += iter;
+
+    PetscPrintf(
+        PETSC_COMM_WORLD,
+        "snes iteration number: %d,  number of function evaluation %d\n", iter,
+        nfuncs);
+    PetscPrintf(PETSC_COMM_WORLD,
+                "snes average iteration number: %d,  average "
+                "number of function evaluation %d\n",
+                totalIteration / timeStepCounter, totalNFunc / timeStepCounter);
+
+    vector<double> sychronize_velocity(numRigidBody * 3);
+
+    // sychronize velocity
+    VecGetArray(x, &a);
+    if (rank == size - 1) {
+      for (int i = 0; i < numRigidBody; i++) {
+        for (int j = 0; j < 2; j++) {
+          sychronize_velocity[i * 3 + j] = a[i * 2 + j];
+        }
+      }
+    }
+    VecRestoreArray(x, &a);
+
+    MPI_Bcast(sychronize_velocity.data(), numRigidBody * 3, MPI_DOUBLE,
+              size - 1, MPI_COMM_WORLD);
+
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < 2; j++) {
+        rigidBodyVelocity[i][j] = sychronize_velocity[i * 3 + j];
+      }
+    }
+
+    for (int num = 0; num < numRigidBody; num++) {
+      for (int j = 0; j < 3; j++) {
+        rigidBodyPosition[num][j] =
+            position0[num][j] + dt * rigidBodyVelocity[num][j];
+      }
+    }
+
+    // output current time step result
+    if (rank == 0) {
+      output.open(trajectory_output_file_name, ios::app);
+
+      vector<vec3> refinedRigidBodyPosition(numRigidBody);
+
+      for (int num = 0; num < numRigidBody; num++) {
+        for (int j = 0; j < 3; j++) {
+          refinedRigidBodyPosition[num][j] =
+              position0[num][j] + 0.5 * dt * rigidBodyVelocity[num][j];
+        }
+      }
+
+      output << t + 0.5 * dt << '\t';
+      for (int num = 0; num < numRigidBody; num++) {
+        for (int j = 0; j < 3; j++) {
+          output << refinedRigidBodyPosition[num][j] << '\t';
+        }
+        for (int j = 0; j < 3; j++) {
+          output << rigidBodyOrientation[num][j] << '\t';
+        }
+      }
+      output << endl;
+
+      output << t + dt << '\t';
+      for (int num = 0; num < numRigidBody; num++) {
+        for (int j = 0; j < 3; j++) {
+          output << rigidBodyPosition[num][j] << '\t';
+        }
+        for (int j = 0; j < 3; j++) {
+          output << rigidBodyOrientation[num][j] << '\t';
+        }
+      }
+      output << endl;
+
+      output.close();
+    }
+
+    PetscPrintf(PETSC_COMM_WORLD, "\n=================================\n");
+    PetscPrintf(PETSC_COMM_WORLD, "==== End of time integration ====\n");
+    PetscPrintf(PETSC_COMM_WORLD, "=================================\n\n");
+    t += dt;
+  }
+
+  MatDestroy(&J);
+  VecDestroy(&x);
+  VecDestroy(&y);
+  SNESDestroy(&snes);
+}
+
+void gmls_solver::implicit_midpoint_integration_sub(Vec x, Vec y) {
+  vector<vec3> &rigidBodyPosition = rb_mgr->get_position();
+  vector<vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
+  vector<vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
+  vector<vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
+  vector<vec3> &rigidBodyForce = rb_mgr->get_force();
+  vector<vec3> &rigidBodyTorque = rb_mgr->get_torque();
+
+  PetscReal norm1, norm2;
+  VecNorm(x, NORM_2, &norm1);
+  PetscPrintf(PETSC_COMM_WORLD, "snes norm before refinement x: %.10e\n",
+              norm1);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  int numRigidBody = rb_mgr->get_rigid_body_num();
+
+  vector<double> sychronize_velocity(numRigidBody * 3);
+
+  const PetscReal *a;
+  PetscReal *b;
+  // sychronize velocity
+  VecGetArrayRead(x, &a);
+  if (rank == size - 1) {
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < 2; j++) {
+        sychronize_velocity[i * 3 + j] = a[i * 2 + j];
+      }
+    }
+  }
+  VecRestoreArrayRead(x, &a);
+
+  MPI_Bcast(sychronize_velocity.data(), numRigidBody * 3, MPI_DOUBLE, size - 1,
+            MPI_COMM_WORLD);
+
+  for (int i = 0; i < numRigidBody; i++) {
+    for (int j = 0; j < 2; j++) {
+      rigidBodyVelocity[i][j] = sychronize_velocity[i * 3 + j];
+    }
+  }
+
+  for (int num = 0; num < numRigidBody; num++) {
+    for (int j = 0; j < 3; j++) {
+      rigidBodyPosition[num][j] =
+          position0[num][j] + dt * rigidBodyVelocity[num][j] * 0.5;
+    }
+  }
+
+  geo_mgr->generate_uniform_particle();
+  current_refinement_step = 0;
+  equation_mgr->reset();
+  do {
+    if (write_data == 1 || write_data == 4)
+      write_refinement_data_geometry_only();
+    PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
+                current_refinement_step);
+    equation_mgr->update();
+  } while (refinement());
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  VecGetArray(y, &b);
+  if (rank == size - 1) {
+    for (int i = 0; i < numRigidBody; i++) {
+      for (int j = 0; j < 2; j++) {
+        b[i * 2 + j] = rigidBodyVelocity[i][j];
+      }
+    }
+  }
+  VecRestoreArray(y, &b);
+
+  PetscReal norm;
+  VecNorm(y, NORM_2, &norm);
+  VecAXPY(y, -1.0, x);
+  // VecScale(y, 1.0 / norm);
+}
+
+PetscErrorCode implicit_midpoint_integration_sub_wrapper(SNES snes, Vec x,
+                                                         Vec y, void *ctx) {
+  gmls_solver *solver = (gmls_solver *)ctx;
+
+  solver->implicit_midpoint_integration_sub(x, y);
+
+  PetscReal norm1, norm2;
+  VecNorm(x, NORM_2, &norm1);
+  VecNorm(y, NORM_2, &norm2);
+  PetscPrintf(PETSC_COMM_WORLD, "snes norm x: %.10e, norm y: %.10e\n", norm1,
+              norm2);
+
+  return 0;
 }

@@ -2746,7 +2746,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag, int &stage) {
     counter = 0;
     for (int i = 0; i < local_particle_num; i++) {
       if (particle_type[i] != 0) {
-        epsilon_host(counter) = 3.00005 * spacing[i];
+        epsilon_host(counter) = 4.50005 * spacing[i];
         counter++;
       }
     }
@@ -2885,7 +2885,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag, int &stage) {
           Kokkos::create_mirror_view(whole_epsilon_device);
 
       for (int i = 0; i < local_particle_num; i++) {
-        whole_epsilon_host(i) = 2.50005 * spacing[i];
+        whole_epsilon_host(i) = 4.00005 * spacing[i];
       }
 
       int actual_whole_max_neighbor_num =

@@ -90,6 +90,12 @@ private:
   // time integration scheme
   void foward_euler_integration();
   void adaptive_runge_kutta_intagration();
+  void implicit_midpoint_integration();
+
+  double t, dt, dtMin, rtol, atol, err, norm_y;
+
+  std::vector<vec3> position0;
+  std::vector<vec3> orientation0;
 
   // operator
   template <typename Func> void serial_operation(Func operation) {
@@ -125,6 +131,8 @@ public:
   void time_integration();
 
   bool is_initialized() { return initialization_status; }
+
+  void implicit_midpoint_integration_sub(Vec, Vec);
 };
 
 #endif
