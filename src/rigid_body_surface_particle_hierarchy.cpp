@@ -26,6 +26,10 @@ void rigid_body_surface_particle_hierarchy::extend_hierarchy(
       add_sphere(rigid_body_size_list[compressed_rigid_body_index][0],
                  resolution);
     }
+    if (dimension == 2) {
+      add_circle(rigid_body_size_list[compressed_rigid_body_index][0],
+                 resolution);
+    }
     break;
   case 2:
     if (dimension == 2) {
@@ -52,6 +56,32 @@ void rigid_body_surface_particle_hierarchy::extend_hierarchy(
   mapping[compressed_rigid_body_index].push_back(hierarchy_coord.size() - 1);
   hierarchy_index.push_back(vector<int>());
   hierarchy.push_back(vector<int>());
+}
+
+void rigid_body_surface_particle_hierarchy::add_circle(const double radius,
+                                                       const double h) {
+  hierarchy_coord.push_back(vector<vec3>());
+  hierarchy_normal.push_back(vector<vec3>());
+  hierarchy_spacing.push_back(vector<vec3>());
+  hierarchy_element.push_back(vector<triple<int>>());
+
+  vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
+  vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
+  vector<vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
+
+  int M_theta = round(2.0 * M_PI * radius / h);
+  double d_theta = 2.0 * M_PI * radius / M_theta;
+
+  vec3 p_spacing = vec3(d_theta, 0, 0);
+
+  for (int i = 0; i < M_theta; ++i) {
+    double theta = 2.0 * M_PI / M_theta * (i + 0.5);
+    vec3 norm = vec3(cos(theta), sin(theta), 0.0);
+
+    coord.push_back(norm * radius);
+    normal.push_back(norm);
+    spacing.push_back(p_spacing);
+  }
 }
 
 void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,

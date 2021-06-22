@@ -1,5 +1,6 @@
 #include "gmls_solver.hpp"
 
+#include <petscdmredundant.h>
 #include <petscsnes.h>
 
 using namespace std;
@@ -677,7 +678,7 @@ void gmls_solver::implicit_midpoint_integration() {
   // setup snes
   SNES snes;
   SNESCreate(MPI_COMM_WORLD, &snes);
-  Vec x, y;
+  Vec x, y, z;
   Mat J;
 
   int local_vec_size;
@@ -707,6 +708,11 @@ void gmls_solver::implicit_midpoint_integration() {
   SNESGetKSP(snes, &ksp);
   KSPGetPC(ksp, &pc);
   KSPSetType(ksp, KSPGMRES);
+
+  DM dm;
+  DMRedundantCreate(MPI_COMM_WORLD, size - 1, numRigidBody * 2, &dm);
+  DMSetUp(dm);
+  SNESSetDM(snes, dm);
 
   SNESSetFromOptions(snes);
   SNESSetUp(snes);
@@ -893,6 +899,7 @@ void gmls_solver::implicit_midpoint_integration() {
   MatDestroy(&J);
   VecDestroy(&x);
   VecDestroy(&y);
+  DMDestroy(&dm);
   SNESDestroy(&snes);
 }
 

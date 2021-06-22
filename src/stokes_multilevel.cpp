@@ -884,50 +884,51 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetUp(ksp_field_base->get_reference());
 
     if (num_rigid_body != 0) {
-      // KSPCreate(PETSC_COMM_WORLD, &ksp_colloid_base->get_reference());
+      KSPCreate(PETSC_COMM_WORLD, &ksp_colloid_base->get_reference());
+      KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
+      KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
+
+      PC pc_neighbor_base;
+
+      KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
+      PCSetType(pc_neighbor_base, PCLU);
+      PCFactorSetMatSolverType(pc_neighbor_base, MATSOLVERMUMPS);
+      PCSetFromOptions(pc_neighbor_base);
+      PCSetUp(pc_neighbor_base);
+
+      KSPSetUp(ksp_colloid_base->get_reference());
+
+      // KSPCreate(MPI_COMM_WORLD, &ksp_colloid_base->get_reference());
+
+      // KSPSetType(ksp_colloid_base->get_reference(), KSPGMRES);
+      // KSPGMRESSetRestart(ksp_colloid_base->get_reference(), 100);
+      // KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-2, 1e-50, 1e50,
+      //                  500);
       // KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
-      // KSPSetType(ksp_colloid_base->get_reference(), KSPPREONLY);
 
       // PC pc_neighbor_base;
-
       // KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
-      // PCSetType(pc_neighbor_base, PCLU);
-      // PCFactorSetMatSolverType(pc_neighbor_base, MATSOLVERMUMPS);
+      // PCSetType(pc_neighbor_base, PCFIELDSPLIT);
+
+      // PCFieldSplitSetIS(pc_neighbor_base, "0", isg_colloid_sub_field);
+      // PCFieldSplitSetIS(pc_neighbor_base, "1", isg_colloid_sub_colloid);
+
+      // PCFieldSplitSetSchurPre(pc_neighbor_base, PC_FIELDSPLIT_SCHUR_PRE_USER,
+      //                         fc_s);
       // PCSetFromOptions(pc_neighbor_base);
       // PCSetUp(pc_neighbor_base);
 
+      // KSP *fieldsplit_sub_ksp;
+      // PetscInt n;
+      // PCFieldSplitGetSubKSP(pc_neighbor_base, &n, &fieldsplit_sub_ksp);
+      // KSPSetOperators(fieldsplit_sub_ksp[1], fc_s, fc_s);
+      // KSPSetOperators(fieldsplit_sub_ksp[0], sub_ff, sub_ff);
+      // KSPSetFromOptions(fieldsplit_sub_ksp[0]);
+      // KSPSetUp(fieldsplit_sub_ksp[0]);
+      // KSPSetUp(fieldsplit_sub_ksp[1]);
+      // PetscFree(fieldsplit_sub_ksp);
+
       // KSPSetUp(ksp_colloid_base->get_reference());
-
-      KSPCreate(MPI_COMM_WORLD, &ksp_colloid_base->get_reference());
-
-      KSPSetType(ksp_colloid_base->get_reference(), KSPGMRES);
-      KSPGMRESSetRestart(ksp_colloid_base->get_reference(), 100);
-      KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-2, 1e-50, 1e50,
-                       500);
-      KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
-
-      PC pc_neighbor_base;
-      KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
-      PCSetType(pc_neighbor_base, PCFIELDSPLIT);
-
-      PCFieldSplitSetIS(pc_neighbor_base, "0", isg_colloid_sub_field);
-      PCFieldSplitSetIS(pc_neighbor_base, "1", isg_colloid_sub_colloid);
-
-      PCFieldSplitSetSchurPre(pc_neighbor_base, PC_FIELDSPLIT_SCHUR_PRE_USER,
-                              fc_s);
-      PCSetUp(pc_neighbor_base);
-
-      KSP *fieldsplit_sub_ksp;
-      PetscInt n;
-      PCFieldSplitGetSubKSP(pc_neighbor_base, &n, &fieldsplit_sub_ksp);
-      KSPSetOperators(fieldsplit_sub_ksp[1], fc_s, fc_s);
-      KSPSetOperators(fieldsplit_sub_ksp[0], sub_ff, sub_ff);
-      KSPSetFromOptions(fieldsplit_sub_ksp[0]);
-      KSPSetUp(fieldsplit_sub_ksp[0]);
-      KSPSetUp(fieldsplit_sub_ksp[1]);
-      PetscFree(fieldsplit_sub_ksp);
-
-      KSPSetUp(ksp_colloid_base->get_reference());
     }
   } else {
     // setup relaxation on field for current level
@@ -973,6 +974,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
       PCFieldSplitSetSchurPre(neighbor_relaxation_pc,
                               PC_FIELDSPLIT_SCHUR_PRE_USER, fc_s);
+      PCSetFromOptions(neighbor_relaxation_pc);
       PCSetUp(neighbor_relaxation_pc);
 
       KSP *fieldsplit_sub_ksp;

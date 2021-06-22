@@ -1035,6 +1035,69 @@ int petsc_sparse_matrix::extract_neighbor_index(
 
   MatDestroy(&__mat);
 
+  // int mpi_rank = myId;
+  // int mpi_size = MPIsize;
+
+  // vector<int> idx_colloid_sub_field;
+  // vector<int> idx_colloid_sub_colloid;
+  // vector<int> idx_colloid_field;
+
+  // vector<int> idx_colloid_offset, idx_colloid_global_size;
+  // idx_colloid_offset.resize(mpi_size + 1);
+  // idx_colloid_global_size.resize(mpi_size);
+
+  // int idx_colloid_local_size = idx_colloid.size();
+  // MPI_Allgather(&idx_colloid_local_size, 1, MPI_INT,
+  //               idx_colloid_global_size.data(), 1, MPI_INT, MPI_COMM_WORLD);
+
+  // idx_colloid_offset[0] = 0;
+  // for (int i = 0; i < mpi_size; i++) {
+  //   idx_colloid_offset[i + 1] =
+  //       idx_colloid_offset[i] + idx_colloid_global_size[i];
+  // }
+
+  // for (int i = 0; i < idx_colloid.size(); i++) {
+  //   if (idx_colloid[i] < Col_block) {
+  //     idx_colloid_sub_field.push_back(i + idx_colloid_offset[mpi_rank]);
+  //     idx_colloid_field.push_back(idx_colloid[i]);
+  //   } else {
+  //     idx_colloid_sub_colloid.push_back(i + idx_colloid_offset[mpi_rank]);
+  //   }
+  // }
+
+  // IS isg_colloid_sub_field, isg_colloid_sub_colloid, isg_colloid_field;
+
+  // Mat sub_ff, sub_fc, sub_cf, sub_cc;
+
+  // ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
+  //                 idx_colloid_sub_field.data(), PETSC_COPY_VALUES,
+  //                 &isg_colloid_sub_field);
+  // ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_colloid.size(),
+  //                 idx_colloid_sub_colloid.data(), PETSC_COPY_VALUES,
+  //                 &isg_colloid_sub_colloid);
+  // ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_field.size(),
+  //                 idx_colloid_field.data(), PETSC_COPY_VALUES,
+  //                 &isg_colloid_field);
+
+  // MatCreateSubMatrix(*(__ctx.fluid_part), isg_colloid_field,
+  // isg_colloid_field,
+  //                    MAT_INITIAL_MATRIX, &sub_ff);
+  // MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_field,
+  //                    isg_colloid_sub_colloid, MAT_INITIAL_MATRIX, &sub_fc);
+  // MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_colloid,
+  //                    isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_cf);
+  // MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_colloid,
+  //                    isg_colloid_sub_colloid, MAT_INITIAL_MATRIX, &sub_cc);
+
+  // ISDestroy(&isg_colloid_sub_field);
+  // ISDestroy(&isg_colloid_sub_colloid);
+  // ISDestroy(&isg_colloid_field);
+
+  // MatDestroy(&sub_ff);
+  // MatDestroy(&sub_fc);
+  // MatDestroy(&sub_cf);
+  // MatDestroy(&sub_cc);
+
   return 0;
 }
 

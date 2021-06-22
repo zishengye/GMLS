@@ -560,7 +560,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                           &reason);
     KSPGetIterationNumber(shell->multi->get_colloid_base()->get_reference(),
                           &its);
-    if (reason != 2)
+    if (reason < 0)
       PetscPrintf(PETSC_COMM_WORLD,
                   "colloid convergence reason: %d, number of iterations: %d\n",
                   reason, its);
@@ -882,24 +882,24 @@ PetscErrorCode HypreLUShellPCDestroy(PC pc) {
   PCShellGetContext(pc, (void **)&shell);
 
   PetscPrintf(PETSC_COMM_WORLD, "\nPreconditioner Log:\n");
-  PetscPrintf(PETSC_COMM_WORLD, "Base field smooth duraction %fs\n",
+  PetscPrintf(PETSC_COMM_WORLD, "Base field smooth duration %fs\n",
               shell->base_field_duration);
-  PetscPrintf(PETSC_COMM_WORLD, "Base colloid smooth duraction %fs\n",
+  PetscPrintf(PETSC_COMM_WORLD, "Base colloid smooth duration %fs\n",
               shell->base_colloid_duration);
 
   for (int i = 0; i < shell->refinement_level; i++) {
-    PetscPrintf(PETSC_COMM_WORLD, "Field smooth level: %d, duraction %fs\n",
+    PetscPrintf(PETSC_COMM_WORLD, "Field smooth level: %d, duration %fs\n",
                 i + 1, shell->field_smooth_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Colloid smooth level: %d, duraction %fs\n",
+    PetscPrintf(PETSC_COMM_WORLD, "Colloid smooth level: %d, duration %fs\n",
                 i + 1, shell->colloid_smooth_duration[i]);
     PetscPrintf(PETSC_COMM_WORLD,
-                "Colloid matmult smooth level: %d, duraction %fs\n", i + 1,
+                "Colloid matmult smooth level: %d, duration %fs\n", i + 1,
                 shell->colloid_smooth_matmult_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Restriction level: %d, duraction %fs\n",
+    PetscPrintf(PETSC_COMM_WORLD, "Restriction level: %d, duration %fs\n",
                 i + 1, shell->restriction_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Interpolation level: %d, duraction %fs\n",
+    PetscPrintf(PETSC_COMM_WORLD, "Interpolation level: %d, duration %fs\n",
                 i + 1, shell->interpolation_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Level iteration level: %d, duraction %fs\n ",
+    PetscPrintf(PETSC_COMM_WORLD, "Level iteration level: %d, duration %fs\n ",
                 i + 1, shell->level_iteration_duration[i]);
     PetscPrintf(PETSC_COMM_WORLD, "\n");
   }

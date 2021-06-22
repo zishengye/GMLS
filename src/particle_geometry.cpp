@@ -2288,18 +2288,21 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
               rigid_body_coord[n][1] < domain[1][1]) {
             double vol = pow(h, 2);
 
-            double r = rigid_body_size[n][0];
+            shared_ptr<vector<vec3>> coord_ptr;
+            shared_ptr<vector<vec3>> normal_ptr;
+            shared_ptr<vector<vec3>> spacing_ptr;
 
-            int M_theta = round(2 * M_PI * r / h);
-            double d_theta = 2 * M_PI * r / M_theta;
+            hierarchy->get_coarse_level_coordinate(n, coord_ptr);
+            hierarchy->get_coarse_level_normal(n, normal_ptr);
+            hierarchy->get_coarse_level_spacing(n, spacing_ptr);
 
-            vec3 p_spacing = vec3(d_theta, 0, 0);
+            int num_surface_particle = coord_ptr->size();
+            for (int i = 0; i < num_surface_particle; i++) {
+              vec3 pos = (*coord_ptr)[i] + rigid_body_coord[n];
+              vec3 normal = (*normal_ptr)[i];
+              vec3 p_spacing = (*spacing_ptr)[i];
+              vec3 p_coord = vec3(i, 0, 0);
 
-            for (int i = 0; i < M_theta; ++i) {
-              double theta = 2 * M_PI * (i + 0.5) / M_theta;
-              vec3 p_coord = vec3(theta, 0.0, 0.0);
-              vec3 normal = vec3(cos(theta), sin(theta), 0.0);
-              vec3 pos = normal * r + rigid_body_coord[n];
               insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
                               p_coord, p_spacing);
             }
@@ -3833,50 +3836,45 @@ bool particle_geometry::split_rigid_body_surface_particle(
       case 1:
         // cicle
         {
-          double old_h = spacing[tag];
-          double h = 0.5 * old_h;
-          double vol = pow(h, 2);
-
-          double r = rigid_body_size[attached_rigid_body_index[tag]][0];
-
-          int M_theta = round(2 * M_PI * r / h);
-          double d_theta = 2 * M_PI * r / M_theta;
-
-          int old_M_theta = round(2 * M_PI * r / old_h);
-          double old_delta_theta = 2 * M_PI / old_M_theta;
-
-          vec3 new_p_spacing = vec3(d_theta, 0, 0);
-
-          double old_theta = p_coord[tag][0];
-          double old_theta0, old_theta1;
-          old_theta0 = old_theta - 0.5 * old_delta_theta;
-          old_theta1 = old_theta + 0.5 * old_delta_theta;
-
+          vector<int> refined_particle_idx;
           bool insert = false;
-          for (int i = 0; i < M_theta; i++) {
-            double theta = 2 * M_PI * (i + 0.5) / M_theta;
-            if (theta >= old_theta0 && theta < old_theta1) {
-              vec3 new_normal = vec3(cos(theta), sin(theta), 0.0);
-              vec3 new_pos = new_normal * r +
-                             rigid_body_coord[attached_rigid_body_index[tag]];
-              vec3 new_p_coord = vec3(theta, 0.0, 0.0);
-              if (!insert) {
-                coord[tag] = new_pos;
-                spacing[tag] = h;
-                volume[tag] = vol;
-                normal[tag] = new_normal;
-                p_coord[tag] = new_p_coord;
-                p_spacing[tag] = new_p_spacing;
-                adaptive_level[tag]++;
-                new_added[tag] = -1;
+          int particle_idx = p_coord[tag][0];
+          hierarchy->find_refined_particle(attached_rigid_body_index[tag],
+                                           adaptive_level[tag], particle_idx,
+                                           refined_particle_idx);
+          int fine_adaptive_level = adaptive_level[tag] + 1;
+          for (int i = 0; i < refined_particle_idx.size(); i++) {
+            vec3 new_pos = hierarchy->get_coordinate(
+                attached_rigid_body_index[tag], fine_adaptive_level,
+                refined_particle_idx[i]);
+            vec3 new_normal = hierarchy->get_normal(
+                attached_rigid_body_index[tag], fine_adaptive_level,
+                refined_particle_idx[i]);
+            vec3 new_spacing = hierarchy->get_spacing(
+                attached_rigid_body_index[tag], fine_adaptive_level,
+                refined_particle_idx[i]);
 
-                insert = true;
-              } else {
-                insert_particle(new_pos, particle_type[tag], spacing[tag],
-                                new_normal, adaptive_level[tag], volume[tag],
-                                true, attached_rigid_body_index[tag],
-                                vec3(theta, 0.0, 0.0), p_spacing[tag]);
-              }
+            vec3 new_coord =
+                new_pos + rigid_body_coord[attached_rigid_body_index[tag]];
+            vec3 new_norm = new_normal;
+
+            if (!insert) {
+              coord[tag] = new_coord;
+              volume[tag] /= 4.0;
+              normal[tag] = new_norm;
+              spacing[tag] /= 2.0;
+              p_coord[tag] = vec3(refined_particle_idx[i], 0.0, 0.0);
+              p_spacing[tag] = new_spacing;
+              adaptive_level[tag]++;
+              new_added[tag] = -1;
+
+              insert = true;
+            } else {
+              insert_particle(new_coord, particle_type[tag], spacing[tag],
+                              new_norm, adaptive_level[tag], volume[tag], true,
+                              attached_rigid_body_index[tag],
+                              vec3(refined_particle_idx[i], 0.0, 0.0),
+                              new_spacing);
             }
           }
         }
@@ -3915,7 +3913,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
 
             if (!insert) {
               coord[tag] = new_coord;
-              volume[tag] /= 8.0;
+              volume[tag] /= 4.0;
               normal[tag] = new_norm;
               spacing[tag] /= 2.0;
               p_coord[tag] = vec3(refined_particle_idx[i], 0.0, 0.0);

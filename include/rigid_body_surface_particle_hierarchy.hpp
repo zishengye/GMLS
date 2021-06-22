@@ -42,6 +42,7 @@ protected:
 
   void extend_hierarchy(const int compressed_rigid_body_index);
 
+  void add_circle(const double radius, const double h);
   void add_sphere(const double radius, const double h);
   void add_rounded_square(const double half_side_length, const double h);
   void add_ellipsoid(const double x, const double y, const double z,
