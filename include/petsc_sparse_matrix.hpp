@@ -19,7 +19,9 @@ inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
 }
 
 struct fluid_colloid_matrix_context {
+  bool use_raw_fluid_part = false;
   Mat *fluid_part;
+  Mat fluid_raw_part;
   Mat colloid_part;
   Mat fluid_colloid_part;
   Vec fluid_vec1;
@@ -27,6 +29,11 @@ struct fluid_colloid_matrix_context {
   Vec fluid_vec_local;
   Vec colloid_vec;
   Vec colloid_vec_local;
+  bool use_local_vec = true;
+
+  bool use_vec_scatter = false;
+  VecScatter fluid_scatter;
+  VecScatter colloid_scatter;
 
   PetscInt fluid_local_size;
   PetscInt rigid_body_size;
@@ -41,6 +48,8 @@ struct fluid_colloid_matrix_context {
   std::vector<PetscReal> fluid_colloid_part_val;
 
   int myid, mpisize;
+
+  double matmult_duration = 0.0;
 };
 
 PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y);
@@ -48,9 +57,10 @@ PetscErrorCode fluid_colloid_matrix_mult2(Mat mat, Vec x, Vec y);
 PetscErrorCode fluid_matrix_mult(Mat mat, Vec x, Vec y);
 
 class petsc_sparse_matrix {
-private:
+public:
   fluid_colloid_matrix_context __ctx;
 
+private:
   bool is_assembled, is_shell_assembled, is_ctx_assembled;
 
   typedef std::pair<PetscInt, double> entry;
@@ -107,13 +117,21 @@ public:
       MatDestroy(&__shell_mat);
     }
     if (is_ctx_assembled) {
+      if (__ctx.use_raw_fluid_part)
+        MatDestroy(&__ctx.fluid_raw_part);
       MatDestroy(&__ctx.colloid_part);
       MatDestroy(&__ctx.fluid_colloid_part);
       VecDestroy(&__ctx.colloid_vec);
-      VecDestroy(&__ctx.colloid_vec_local);
       VecDestroy(&__ctx.fluid_vec1);
       VecDestroy(&__ctx.fluid_vec2);
-      VecDestroy(&__ctx.fluid_vec_local);
+      if (__ctx.use_local_vec) {
+        VecDestroy(&__ctx.fluid_vec_local);
+        VecDestroy(&__ctx.colloid_vec_local);
+      }
+      if (__ctx.use_vec_scatter) {
+        VecScatterDestroy(&__ctx.fluid_scatter);
+        VecScatterDestroy(&__ctx.colloid_scatter);
+      }
     }
   }
 

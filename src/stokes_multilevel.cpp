@@ -738,6 +738,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   Mat &ff_shell = ff_list[refinement_step]->get_shell_reference();
   Mat &ff = ff_list[refinement_step]->get_reference();
   Mat &nn = nn_list[refinement_step]->get_reference();
+  Mat &nn_shell = nn_list[refinement_step]->get_shell_reference();
   Mat &nw = nw_list[refinement_step]->get_reference();
   // Mat &pp = pp_list[refinement_step]->get_reference();
 
@@ -864,22 +865,21 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   if (refinement_step == 0) {
     KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
     KSPSetOperators(ksp_field_base->get_reference(), ff_shell, ff);
-    // KSPSetFromOptions(ksp_field_base->get_reference());
-    // KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
-    KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
-    KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
-    KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e50, 1000);
-    KSPSetNormType(ksp_field_base->get_reference(), KSP_NORM_UNPRECONDITIONED);
-    KSPSetResidualHistory(ksp_field_base->get_reference(), NULL, 1000,
-                          PETSC_TRUE);
+    KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
+    // KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
+    // KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
+    // KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e50,
+    // 500); KSPSetNormType(ksp_field_base->get_reference(),
+    // KSP_NORM_UNPRECONDITIONED);
+    // KSPSetResidualHistory(ksp_field_base->get_reference(), NULL, 500,
+    //                       PETSC_TRUE);
 
     PC pc_field_base;
 
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
-    // PCSetType(pc_field_base, PCLU);
-    // PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
-    PCSetType(pc_field_base, PCSOR);
-    PCSetFromOptions(pc_field_base);
+    PCSetType(pc_field_base, PCLU);
+    PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
+    // PCSetType(pc_field_base, PCSOR);
     PCSetUp(pc_field_base);
     KSPSetUp(ksp_field_base->get_reference());
 
@@ -902,9 +902,11 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
       // KSPSetType(ksp_colloid_base->get_reference(), KSPGMRES);
       // KSPGMRESSetRestart(ksp_colloid_base->get_reference(), 100);
-      // KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-2, 1e-50, 1e50,
+      // KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-1, 1e-50, 1e50,
       //                  500);
-      // KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
+      // KSPSetOperators(ksp_colloid_base->get_reference(), nn_shell, nn);
+
+      // KSPSetUp(ksp_colloid_base->get_reference());
 
       // PC pc_neighbor_base;
       // KSPGetPC(ksp_colloid_base->get_reference(), &pc_neighbor_base);
@@ -923,12 +925,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       // PCFieldSplitGetSubKSP(pc_neighbor_base, &n, &fieldsplit_sub_ksp);
       // KSPSetOperators(fieldsplit_sub_ksp[1], fc_s, fc_s);
       // KSPSetOperators(fieldsplit_sub_ksp[0], sub_ff, sub_ff);
-      // KSPSetFromOptions(fieldsplit_sub_ksp[0]);
       // KSPSetUp(fieldsplit_sub_ksp[0]);
       // KSPSetUp(fieldsplit_sub_ksp[1]);
       // PetscFree(fieldsplit_sub_ksp);
-
-      // KSPSetUp(ksp_colloid_base->get_reference());
     }
   } else {
     // setup relaxation on field for current level
@@ -938,7 +937,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetType(field_relaxation_list[refinement_step]->get_reference(),
                KSPRICHARDSON);
     KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(),
-                    ff_shell, ff);
+                    ff, ff);
     KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
                      1e-3, 1e-50, 1e10, 1);
 
@@ -946,7 +945,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
              &field_relaxation_pc);
     PCSetType(field_relaxation_pc, PCSOR);
-    PCSetFromOptions(field_relaxation_pc);
     PCSetUp(field_relaxation_pc);
 
     KSPSetUp(field_relaxation_list[refinement_step]->get_reference());
@@ -958,11 +956,15 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
       KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
                  KSPRICHARDSON);
+      // KSPGMRESSetRestart(
+      //     colloid_relaxation_list[refinement_step]->get_reference(), 100);
       KSPSetTolerances(
-          colloid_relaxation_list[refinement_step]->get_reference(), 1e-3,
+          colloid_relaxation_list[refinement_step]->get_reference(), 1e-1,
           1e-50, 1e10, 1);
       KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
                       nn, nn);
+
+      KSPSetUp(colloid_relaxation_list[refinement_step]->get_reference());
 
       PC neighbor_relaxation_pc;
       KSPGetPC(colloid_relaxation_list[refinement_step]->get_reference(),
@@ -986,28 +988,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       KSPSetUp(fieldsplit_sub_ksp[0]);
       KSPSetUp(fieldsplit_sub_ksp[1]);
       PetscFree(fieldsplit_sub_ksp);
-
-      KSPSetUp(colloid_relaxation_list[refinement_step]->get_reference());
-
-      // // setup relaxation on pressure for current level
-      // KSPCreate(MPI_COMM_WORLD,
-      //           pressure_relaxation_list[refinement_step]->get_pointer());
-
-      // KSPSetType(pressure_relaxation_list[refinement_step]->get_reference(),
-      //            KSPRICHARDSON);
-      // KSPSetTolerances(
-      //     pressure_relaxation_list[refinement_step]->get_reference(), 1e-3,
-      //     1e-50, 1e10, 1);
-      // KSPSetOperators(
-      //     pressure_relaxation_list[refinement_step]->get_reference(), pp,
-      //     pp);
-
-      // PC pressure_relaxation_pc;
-      // KSPGetPC(pressure_relaxation_list[refinement_step]->get_reference(),
-      //          &pressure_relaxation_pc);
-      // PCSetType(pressure_relaxation_pc, PCSOR);
-
-      // KSPSetUp(pressure_relaxation_list[refinement_step]->get_reference());
     }
   }
 
@@ -1091,6 +1071,11 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   if (residual_norm / rhs_norm < initial_residual || refinement_step == 0) {
     _x.copy(x);
   }
+
+  PetscPrintf(PETSC_COMM_WORLD, "nn matmult duration: %fs\n",
+              nn_list[refinement_step]->__ctx.matmult_duration);
+  PetscPrintf(PETSC_COMM_WORLD, "ff matmult duration: %fs\n",
+              ff_list[refinement_step]->__ctx.matmult_duration);
 
   VecDestroy(&residual);
   KSPDestroy(&_ksp);

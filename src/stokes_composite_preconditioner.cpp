@@ -165,38 +165,30 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
   double timer1, timer2;
 
+  KSPConvergedReason reason;
+  PetscInt its;
+
   VecCopy(x,
           shell->multi->get_b_list()[shell->refinement_level]->get_reference());
 
   // sweep down
   for (int i = shell->refinement_level; i > 0; i--) {
     // pre smooth
-    // // orthogonalize to constant vector
-    // VecScatterBegin(
-    //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //     shell->multi->get_b_list()[i]->get_reference(),
-    //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //     INSERT_VALUES, SCATTER_FORWARD);
-    // VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //               shell->multi->get_b_list()[i]->get_reference(),
-    //               shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //               INSERT_VALUES, SCATTER_FORWARD);
+    // orthogonalize to constant vector
+    VecGetArray(shell->multi->get_b_list()[i]->get_reference(), &a);
 
-    // VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //        &pressure_sum);
-    // VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    // &size); VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //        -pressure_sum / size);
+    pressure_sum = 0.0;
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      pressure_sum += a[idx * shell->field_dof + pressure_offset];
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      a[idx * shell->field_dof + pressure_offset] -= average_pressure;
+    }
 
-    // VecScatterBegin(
-    //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //     shell->multi->get_b_list()[i]->get_reference(), ADD_VALUES,
-    //     SCATTER_REVERSE);
-    // VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //               shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //               shell->multi->get_b_list()[i]->get_reference(), ADD_VALUES,
-    //               SCATTER_REVERSE);
+    VecRestoreArray(shell->multi->get_b_list()[i]->get_reference(), &a);
 
     // fluid part smoothing
     MPI_Barrier(MPI_COMM_WORLD);
@@ -230,32 +222,21 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     timer2 = MPI_Wtime();
     shell->field_smooth_duration[i - 1] += timer2 - timer1;
 
-    // // orthogonalize to constant vector
-    // VecScatterBegin(
-    //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //     shell->multi->get_x_list()[i]->get_reference(),
-    //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //     INSERT_VALUES, SCATTER_FORWARD);
-    // VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //               shell->multi->get_x_list()[i]->get_reference(),
-    //               shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //               INSERT_VALUES, SCATTER_FORWARD);
+    // orthogonalize to constant vector
+    VecGetArray(shell->multi->get_x_list()[i]->get_reference(), &a);
 
-    // VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //        &pressure_sum);
-    // VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    // &size); VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //        -pressure_sum / size);
+    pressure_sum = 0.0;
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      pressure_sum += a[idx * shell->field_dof + pressure_offset];
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      a[idx * shell->field_dof + pressure_offset] -= average_pressure;
+    }
 
-    // VecScatterBegin(
-    //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-    //     SCATTER_REVERSE);
-    // VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //               shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //               shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-    //               SCATTER_REVERSE);
+    VecRestoreArray(shell->multi->get_x_list()[i]->get_reference(), &a);
 
     if (shell->num_rigid_body != 0) {
       // neighbor part smoothing
@@ -305,101 +286,23 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       MPI_Barrier(MPI_COMM_WORLD);
       timer2 = MPI_Wtime();
       shell->colloid_smooth_duration[i - 1] += timer2 - timer1;
-
-      // // orthogonalize to constant vector
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-
-      // VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //        &pressure_sum);
-      // VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //            &size);
-      // VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //        -pressure_sum / size);
-
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
-
-      // // pressure part smoothing
-      // MatMult(shell->multi->get_pressure_whole_mat(i)->get_reference(),
-      //         shell->multi->get_x_list()[i]->get_reference(),
-      //         shell->multi->get_x_pressure_list()[i]->get_reference());
-
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_b_list()[i]->get_reference(),
-      //     shell->multi->get_y_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_b_list()[i]->get_reference(),
-      //     shell->multi->get_y_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-
-      // VecAXPY(shell->multi->get_y_pressure_list()[i]->get_reference(), -1.0,
-      //         shell->multi->get_x_pressure_list()[i]->get_reference());
-
-      // KSPSolve(shell->multi->get_pressure_relaxation(i)->get_reference(),
-      //          shell->multi->get_y_pressure_list()[i]->get_reference(),
-      //          shell->multi->get_x_pressure_list()[i]->get_reference());
-
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
-
-      // // orthogonalize to constant vector
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-
-      // VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //        &pressure_sum);
-      // VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //            &size);
-      // VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //        -pressure_sum / size);
-
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
     }
+
+    // orthogonalize to constant vector
+    VecGetArray(shell->multi->get_x_list()[i]->get_reference(), &a);
+
+    pressure_sum = 0.0;
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      pressure_sum += a[idx * shell->field_dof + pressure_offset];
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      a[idx * shell->field_dof + pressure_offset] -= average_pressure;
+    }
+
+    VecRestoreArray(shell->multi->get_x_list()[i]->get_reference(), &a);
 
     // restriction
     MPI_Barrier(MPI_COMM_WORLD);
@@ -467,12 +370,10 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
            shell->multi->get_b_field_list()[0]->get_reference(),
            shell->multi->get_x_field_list()[0]->get_reference());
 
-  KSPConvergedReason reason;
   KSPGetConvergedReason(shell->multi->get_field_base()->get_reference(),
                         &reason);
-  PetscInt its;
   KSPGetIterationNumber(shell->multi->get_field_base()->get_reference(), &its);
-  if (reason != 2) {
+  if (reason < 0) {
     PetscReal rnorm, bnorm;
     KSPGetResidualNorm(shell->multi->get_field_base()->get_reference(), &rnorm);
     VecNorm(shell->multi->get_b_field_list()[0]->get_reference(), NORM_2,
@@ -487,9 +388,10 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                 "field convergence reason: %d, number of iterations: %d, last "
                 "residual norm: %f, rhs norm: %f\n",
                 reason, its, rnorm, bnorm, na);
-    for (int i = 0; i < na; i++) {
-      PetscPrintf(PETSC_COMM_WORLD, "\t %d ksp residual norm: %f\n", i, a[i]);
-    }
+    // for (int i = 0; i < na; i++) {
+    //   PetscPrintf(PETSC_COMM_WORLD, "\t %d ksp residual norm: %f\n", i,
+    //   a[i]);
+    // }
   }
 
   VecScatterBegin(shell->multi->get_field_scatter_list()[0]->get_reference(),
@@ -505,30 +407,21 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   timer2 = MPI_Wtime();
   shell->base_field_duration += timer2 - timer1;
 
-  // // orthogonalize to constant vector
-  // VecScatterBegin(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-  //                 shell->multi->get_x_list()[0]->get_reference(),
-  //                 shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //                 INSERT_VALUES, SCATTER_FORWARD);
-  // VecScatterEnd(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-  //               shell->multi->get_x_list()[0]->get_reference(),
-  //               shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //               INSERT_VALUES, SCATTER_FORWARD);
+  // orthogonalize to constant vector
+  VecGetArray(shell->multi->get_x_list()[0]->get_reference(), &a);
 
-  // VecSum(shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //        &pressure_sum);
-  // VecGetSize(shell->multi->get_x_pressure_list()[0]->get_reference(), &size);
-  // VecSet(shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //        -pressure_sum / size);
+  pressure_sum = 0.0;
+  for (int idx = 0; idx < shell->multi->get_local_particle_num(0); idx++) {
+    pressure_sum += a[idx * shell->field_dof + pressure_offset];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+  for (int idx = 0; idx < shell->multi->get_local_particle_num(0); idx++) {
+    a[idx * shell->field_dof + pressure_offset] -= average_pressure;
+  }
 
-  // VecScatterBegin(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-  //                 shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //                 shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
-  //                 SCATTER_REVERSE);
-  // VecScatterEnd(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-  //               shell->multi->get_x_pressure_list()[0]->get_reference(),
-  //               shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
-  //               SCATTER_REVERSE);
+  VecRestoreArray(shell->multi->get_x_list()[0]->get_reference(), &a);
 
   if (shell->num_rigid_body != 0) {
     // stage 2
@@ -578,34 +471,23 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     MPI_Barrier(MPI_COMM_WORLD);
     timer2 = MPI_Wtime();
     shell->base_colloid_duration += timer2 - timer1;
-
-    // // orthogonalize to constant vector
-    // VecScatterBegin(
-    //     shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-    //     shell->multi->get_x_list()[0]->get_reference(),
-    //     shell->multi->get_x_pressure_list()[0]->get_reference(),
-    //     INSERT_VALUES, SCATTER_FORWARD);
-    // VecScatterEnd(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-    //               shell->multi->get_x_list()[0]->get_reference(),
-    //               shell->multi->get_x_pressure_list()[0]->get_reference(),
-    //               INSERT_VALUES, SCATTER_FORWARD);
-
-    // VecSum(shell->multi->get_x_pressure_list()[0]->get_reference(),
-    //        &pressure_sum);
-    // VecGetSize(shell->multi->get_x_pressure_list()[0]->get_reference(),
-    // &size); VecSet(shell->multi->get_x_pressure_list()[0]->get_reference(),
-    //        -pressure_sum / size);
-
-    // VecScatterBegin(
-    //     shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-    //     shell->multi->get_x_pressure_list()[0]->get_reference(),
-    //     shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
-    //     SCATTER_REVERSE);
-    // VecScatterEnd(shell->multi->get_pressure_scatter_list()[0]->get_reference(),
-    //               shell->multi->get_x_pressure_list()[0]->get_reference(),
-    //               shell->multi->get_x_list()[0]->get_reference(), ADD_VALUES,
-    //               SCATTER_REVERSE);
   }
+
+  // orthogonalize to constant vector
+  VecGetArray(shell->multi->get_x_list()[0]->get_reference(), &a);
+
+  pressure_sum = 0.0;
+  for (int idx = 0; idx < shell->multi->get_local_particle_num(0); idx++) {
+    pressure_sum += a[idx * shell->field_dof + pressure_offset];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+  for (int idx = 0; idx < shell->multi->get_local_particle_num(0); idx++) {
+    a[idx * shell->field_dof + pressure_offset] -= average_pressure;
+  }
+
+  VecRestoreArray(shell->multi->get_x_list()[0]->get_reference(), &a);
 
   // sweep up
   for (int i = 1; i <= shell->refinement_level; i++) {
@@ -623,39 +505,28 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     shell->interpolation_duration[i - 1] += timer2 - timer1;
 
     // post-smooth
-    // // orthogonalize to constant vector
-    // VecScatterBegin(
-    //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //     shell->multi->get_x_list()[i]->get_reference(),
-    //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //     INSERT_VALUES, SCATTER_FORWARD);
-    // VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //               shell->multi->get_x_list()[i]->get_reference(),
-    //               shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //               INSERT_VALUES, SCATTER_FORWARD);
-
-    // VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //        &pressure_sum);
-    // VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    // &size); VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //        -pressure_sum / size);
-
-    // VecScatterBegin(
-    //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-    //     SCATTER_REVERSE);
-    // VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //               shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //               shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-    //               SCATTER_REVERSE);
-
     // fluid part smoothing
     MPI_Barrier(MPI_COMM_WORLD);
     timer1 = MPI_Wtime();
 
     VecAXPY(shell->multi->get_x_list()[i]->get_reference(), 1.0,
             shell->multi->get_t_list()[i]->get_reference());
+
+    // orthogonalize to constant vector
+    VecGetArray(shell->multi->get_x_list()[i]->get_reference(), &a);
+
+    pressure_sum = 0.0;
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      pressure_sum += a[idx * shell->field_dof + pressure_offset];
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      a[idx * shell->field_dof + pressure_offset] -= average_pressure;
+    }
+
+    VecRestoreArray(shell->multi->get_x_list()[i]->get_reference(), &a);
 
     MatMult(shell->multi->getA(i)->get_shell_reference(),
             shell->multi->get_x_list()[i]->get_reference(),
@@ -672,6 +543,22 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     timer1 = MPI_Wtime();
+
+    // orthogonalize to constant vector
+    VecGetArray(shell->multi->get_r_list()[i]->get_reference(), &a);
+
+    pressure_sum = 0.0;
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      pressure_sum += a[idx * shell->field_dof + pressure_offset];
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      a[idx * shell->field_dof + pressure_offset] -= average_pressure;
+    }
+
+    VecRestoreArray(shell->multi->get_r_list()[i]->get_reference(), &a);
 
     VecScatterBegin(shell->multi->get_field_scatter_list()[i]->get_reference(),
                     shell->multi->get_r_list()[i]->get_reference(),
@@ -699,32 +586,21 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     timer2 = MPI_Wtime();
     shell->field_smooth_duration[i - 1] += timer2 - timer1;
 
-    // // orthogonalize to constant vector
-    // VecScatterBegin(
-    //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //     shell->multi->get_x_list()[i]->get_reference(),
-    //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //     INSERT_VALUES, SCATTER_FORWARD);
-    // VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //               shell->multi->get_x_list()[i]->get_reference(),
-    //               shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //               INSERT_VALUES, SCATTER_FORWARD);
+    // orthogonalize to constant vector
+    VecGetArray(shell->multi->get_x_list()[i]->get_reference(), &a);
 
-    // VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //        &pressure_sum);
-    // VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    // &size); VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //        -pressure_sum / size);
+    pressure_sum = 0.0;
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      pressure_sum += a[idx * shell->field_dof + pressure_offset];
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      a[idx * shell->field_dof + pressure_offset] -= average_pressure;
+    }
 
-    // VecScatterBegin(
-    //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-    //     SCATTER_REVERSE);
-    // VecScatterEnd(shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-    //               shell->multi->get_x_pressure_list()[i]->get_reference(),
-    //               shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-    //               SCATTER_REVERSE);
+    VecRestoreArray(shell->multi->get_x_list()[i]->get_reference(), &a);
 
     if (shell->num_rigid_body != 0) {
       // neighbor part smoothing
@@ -774,101 +650,23 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       MPI_Barrier(MPI_COMM_WORLD);
       timer2 = MPI_Wtime();
       shell->colloid_smooth_duration[i - 1] += timer2 - timer1;
-
-      // // orthogonalize to constant vector
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-
-      // VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //        &pressure_sum);
-      // VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //            &size);
-      // VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //        -pressure_sum / size);
-
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
-
-      // // pressure part smoothing
-      // MatMult(shell->multi->get_pressure_whole_mat(i)->get_reference(),
-      //         shell->multi->get_x_list()[i]->get_reference(),
-      //         shell->multi->get_x_pressure_list()[i]->get_reference());
-
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_b_list()[i]->get_reference(),
-      //     shell->multi->get_y_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_b_list()[i]->get_reference(),
-      //     shell->multi->get_y_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-
-      // VecAXPY(shell->multi->get_y_pressure_list()[i]->get_reference(), -1.0,
-      //         shell->multi->get_x_pressure_list()[i]->get_reference());
-
-      // KSPSolve(shell->multi->get_pressure_relaxation(i)->get_reference(),
-      //          shell->multi->get_y_pressure_list()[i]->get_reference(),
-      //          shell->multi->get_x_pressure_list()[i]->get_reference());
-
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
-
-      // // orthogonalize to constant vector
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     INSERT_VALUES, SCATTER_FORWARD);
-
-      // VecSum(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //        &pressure_sum);
-      // VecGetSize(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //            &size);
-      // VecSet(shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //        -pressure_sum / size);
-
-      // VecScatterBegin(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
-      // VecScatterEnd(
-      //     shell->multi->get_pressure_scatter_list()[i]->get_reference(),
-      //     shell->multi->get_x_pressure_list()[i]->get_reference(),
-      //     shell->multi->get_x_list()[i]->get_reference(), ADD_VALUES,
-      //     SCATTER_REVERSE);
     }
+
+    // orthogonalize to constant vector
+    VecGetArray(shell->multi->get_x_list()[i]->get_reference(), &a);
+
+    pressure_sum = 0.0;
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      pressure_sum += a[idx * shell->field_dof + pressure_offset];
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+      a[idx * shell->field_dof + pressure_offset] -= average_pressure;
+    }
+
+    VecRestoreArray(shell->multi->get_x_list()[i]->get_reference(), &a);
   }
 
   VecCopy(shell->multi->get_x_list()[shell->refinement_level]->get_reference(),

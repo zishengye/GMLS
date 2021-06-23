@@ -1035,68 +1035,100 @@ int petsc_sparse_matrix::extract_neighbor_index(
 
   MatDestroy(&__mat);
 
-  // int mpi_rank = myId;
-  // int mpi_size = MPIsize;
+  int mpi_rank = myId;
+  int mpi_size = MPIsize;
 
-  // vector<int> idx_colloid_sub_field;
-  // vector<int> idx_colloid_sub_colloid;
-  // vector<int> idx_colloid_field;
+  vector<int> idx_colloid_sub_field;
+  vector<int> idx_colloid_sub_colloid;
+  vector<int> idx_colloid_field;
 
-  // vector<int> idx_colloid_offset, idx_colloid_global_size;
-  // idx_colloid_offset.resize(mpi_size + 1);
-  // idx_colloid_global_size.resize(mpi_size);
+  vector<int> idx_colloid_offset, idx_colloid_global_size;
+  idx_colloid_offset.resize(mpi_size + 1);
+  idx_colloid_global_size.resize(mpi_size);
 
-  // int idx_colloid_local_size = idx_colloid.size();
-  // MPI_Allgather(&idx_colloid_local_size, 1, MPI_INT,
-  //               idx_colloid_global_size.data(), 1, MPI_INT, MPI_COMM_WORLD);
+  int idx_colloid_local_size = idx_colloid.size();
+  MPI_Allgather(&idx_colloid_local_size, 1, MPI_INT,
+                idx_colloid_global_size.data(), 1, MPI_INT, MPI_COMM_WORLD);
 
-  // idx_colloid_offset[0] = 0;
-  // for (int i = 0; i < mpi_size; i++) {
-  //   idx_colloid_offset[i + 1] =
-  //       idx_colloid_offset[i] + idx_colloid_global_size[i];
-  // }
+  idx_colloid_offset[0] = 0;
+  for (int i = 0; i < mpi_size; i++) {
+    idx_colloid_offset[i + 1] =
+        idx_colloid_offset[i] + idx_colloid_global_size[i];
+  }
 
-  // for (int i = 0; i < idx_colloid.size(); i++) {
-  //   if (idx_colloid[i] < Col_block) {
-  //     idx_colloid_sub_field.push_back(i + idx_colloid_offset[mpi_rank]);
-  //     idx_colloid_field.push_back(idx_colloid[i]);
-  //   } else {
-  //     idx_colloid_sub_colloid.push_back(i + idx_colloid_offset[mpi_rank]);
-  //   }
-  // }
+  for (int i = 0; i < idx_colloid.size(); i++) {
+    if (idx_colloid[i] < Col_block) {
+      idx_colloid_sub_field.push_back(i + idx_colloid_offset[mpi_rank]);
+      idx_colloid_field.push_back(idx_colloid[i]);
+    } else {
+      idx_colloid_sub_colloid.push_back(i + idx_colloid_offset[mpi_rank]);
+    }
+  }
 
-  // IS isg_colloid_sub_field, isg_colloid_sub_colloid, isg_colloid_field;
+  IS isg_colloid_sub_field, isg_colloid_sub_colloid, isg_colloid_field;
 
-  // Mat sub_ff, sub_fc, sub_cf, sub_cc;
+  Mat sub_ff, sub_fc, sub_cf;
 
-  // ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
-  //                 idx_colloid_sub_field.data(), PETSC_COPY_VALUES,
-  //                 &isg_colloid_sub_field);
-  // ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_colloid.size(),
-  //                 idx_colloid_sub_colloid.data(), PETSC_COPY_VALUES,
-  //                 &isg_colloid_sub_colloid);
-  // ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_field.size(),
-  //                 idx_colloid_field.data(), PETSC_COPY_VALUES,
-  //                 &isg_colloid_field);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
+                  idx_colloid_sub_field.data(), PETSC_COPY_VALUES,
+                  &isg_colloid_sub_field);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_colloid.size(),
+                  idx_colloid_sub_colloid.data(), PETSC_COPY_VALUES,
+                  &isg_colloid_sub_colloid);
+  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_field.size(),
+                  idx_colloid_field.data(), PETSC_COPY_VALUES,
+                  &isg_colloid_field);
 
-  // MatCreateSubMatrix(*(__ctx.fluid_part), isg_colloid_field,
-  // isg_colloid_field,
-  //                    MAT_INITIAL_MATRIX, &sub_ff);
+  MatCreateSubMatrix(*(__ctx.fluid_part), isg_colloid_field, isg_colloid_field,
+                     MAT_INITIAL_MATRIX, &sub_ff);
   // MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_field,
-  //                    isg_colloid_sub_colloid, MAT_INITIAL_MATRIX, &sub_fc);
-  // MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_colloid,
-  //                    isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_cf);
-  // MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_colloid,
-  //                    isg_colloid_sub_colloid, MAT_INITIAL_MATRIX, &sub_cc);
+  //                    isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_ff);
+  MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_field,
+                     isg_colloid_sub_colloid, MAT_INITIAL_MATRIX, &sub_fc);
+  MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_colloid, NULL,
+                     MAT_INITIAL_MATRIX, &sub_cf);
 
-  // ISDestroy(&isg_colloid_sub_field);
-  // ISDestroy(&isg_colloid_sub_colloid);
-  // ISDestroy(&isg_colloid_field);
+  MatConvert(sub_ff, MATSAME, MAT_INITIAL_MATRIX, &(nn.__ctx.fluid_raw_part));
+  MatConvert(sub_fc, MATSAME, MAT_INITIAL_MATRIX,
+             &(nn.__ctx.fluid_colloid_part));
+  MatTranspose(sub_cf, MAT_INITIAL_MATRIX, &(nn.__ctx.colloid_part));
 
-  // MatDestroy(&sub_ff);
-  // MatDestroy(&sub_fc);
-  // MatDestroy(&sub_cf);
-  // MatDestroy(&sub_cc);
+  VecCreateMPI(PETSC_COMM_WORLD, idx_colloid_sub_field.size(), PETSC_DECIDE,
+               &(nn.__ctx.fluid_vec1));
+  VecCreateMPI(PETSC_COMM_WORLD, idx_colloid_sub_field.size(), PETSC_DECIDE,
+               &(nn.__ctx.fluid_vec2));
+  VecCreateMPI(PETSC_COMM_WORLD, idx_colloid_sub_colloid.size(), PETSC_DECIDE,
+               &(nn.__ctx.colloid_vec));
+
+  Vec x;
+  MatCreateVecs(nn.get_reference(), &x, NULL);
+
+  VecScatterCreate(x, isg_colloid_sub_field, nn.__ctx.fluid_vec1, NULL,
+                   &(nn.__ctx.fluid_scatter));
+  VecScatterCreate(x, isg_colloid_sub_colloid, nn.__ctx.colloid_vec, NULL,
+                   &(nn.__ctx.colloid_scatter));
+
+  Mat &shell_mat = nn.get_shell_reference();
+  MatCreateShell(PETSC_COMM_WORLD, idx_colloid.size(), idx_colloid.size(),
+                 PETSC_DECIDE, PETSC_DECIDE, &nn.__ctx, &shell_mat);
+  MatShellSetOperation(shell_mat, MATOP_MULT,
+                       (void (*)(void))fluid_colloid_matrix_mult2);
+
+  nn.is_shell_assembled = true;
+  nn.is_ctx_assembled = true;
+  nn.__ctx.use_vec_scatter = true;
+  nn.__ctx.use_raw_fluid_part = true;
+  nn.__ctx.use_local_vec = false;
+
+  ISDestroy(&isg_colloid_sub_field);
+  ISDestroy(&isg_colloid_sub_colloid);
+  ISDestroy(&isg_colloid_field);
+
+  MatDestroy(&sub_ff);
+  MatDestroy(&sub_fc);
+  MatDestroy(&sub_cf);
+
+  VecDestroy(&x);
 
   return 0;
 }
@@ -1884,6 +1916,40 @@ PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y) {
   return 0;
 }
 
+PetscErrorCode fluid_colloid_matrix_mult2(Mat mat, Vec x, Vec y) {
+  fluid_colloid_matrix_context *ctx;
+  MatShellGetContext(mat, &ctx);
+
+  VecScatterBegin(ctx->fluid_scatter, x, ctx->fluid_vec1, INSERT_VALUES,
+                  SCATTER_FORWARD);
+  VecScatterEnd(ctx->fluid_scatter, x, ctx->fluid_vec1, INSERT_VALUES,
+                SCATTER_FORWARD);
+  VecScatterBegin(ctx->colloid_scatter, x, ctx->colloid_vec, INSERT_VALUES,
+                  SCATTER_FORWARD);
+  VecScatterEnd(ctx->colloid_scatter, x, ctx->colloid_vec, INSERT_VALUES,
+                SCATTER_FORWARD);
+
+  double timer1, timer2;
+  timer1 = MPI_Wtime();
+  MatMult(ctx->fluid_raw_part, ctx->fluid_vec1, ctx->fluid_vec2);
+  MatMult(ctx->fluid_colloid_part, ctx->colloid_vec, ctx->fluid_vec1);
+  timer2 = MPI_Wtime();
+  VecAXPY(ctx->fluid_vec2, 1.0, ctx->fluid_vec1);
+  MatMultTranspose(ctx->colloid_part, x, ctx->colloid_vec);
+  ctx->matmult_duration += timer2 - timer1;
+
+  VecScatterBegin(ctx->fluid_scatter, ctx->fluid_vec2, y, INSERT_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(ctx->fluid_scatter, ctx->fluid_vec2, y, INSERT_VALUES,
+                SCATTER_REVERSE);
+  VecScatterBegin(ctx->colloid_scatter, ctx->colloid_vec, y, INSERT_VALUES,
+                  SCATTER_REVERSE);
+  VecScatterEnd(ctx->colloid_scatter, ctx->colloid_vec, y, INSERT_VALUES,
+                SCATTER_REVERSE);
+
+  return 0;
+}
+
 PetscErrorCode fluid_matrix_mult(Mat mat, Vec x, Vec y) {
   fluid_colloid_matrix_context *ctx;
   MatShellGetContext(mat, &ctx);
@@ -1908,7 +1974,11 @@ PetscErrorCode fluid_matrix_mult(Mat mat, Vec x, Vec y) {
 
   VecRestoreArray(x, &a);
 
+  double timer1, timer2;
+  timer1 = MPI_Wtime();
   MatMult(*(ctx->fluid_part), x, y);
+  timer2 = MPI_Wtime();
+  ctx->matmult_duration += timer2 - timer1;
 
   VecGetArray(y, &a);
 
