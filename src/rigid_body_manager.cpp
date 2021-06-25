@@ -22,6 +22,10 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
     vector<double> size_list;
     size_list.push_back(size);
     switch (type) {
+    case 2:
+      input >> size;
+      size_list.push_back(size);
+      break;
     case 4:
       // y
       input >> size;

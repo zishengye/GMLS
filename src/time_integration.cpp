@@ -675,6 +675,10 @@ void gmls_solver::implicit_midpoint_integration() {
 
   int numRigidBody = rb_mgr->get_rigid_body_num();
 
+  int rigid_body_dof = (dim == 3) ? 6 : 3;
+  int translation_dof = dim;
+  int rotation_dof = (dim == 3) ? 3 : 1;
+
   // setup snes
   SNES snes;
   SNESCreate(MPI_COMM_WORLD, &snes);
@@ -683,20 +687,20 @@ void gmls_solver::implicit_midpoint_integration() {
 
   int local_vec_size;
   if (rank == size - 1)
-    local_vec_size = numRigidBody * 2;
+    local_vec_size = numRigidBody * rigid_body_dof;
   else
     local_vec_size = 0;
 
   VecCreate(PETSC_COMM_WORLD, &x);
-  VecSetSizes(x, local_vec_size, numRigidBody * 2);
+  VecSetSizes(x, local_vec_size, numRigidBody * rigid_body_dof);
   VecSetFromOptions(x);
   VecCreate(PETSC_COMM_WORLD, &y);
-  VecSetSizes(y, local_vec_size, numRigidBody * 2);
+  VecSetSizes(y, local_vec_size, numRigidBody * rigid_body_dof);
   VecSetFromOptions(y);
 
   MatCreate(PETSC_COMM_WORLD, &J);
-  MatSetSizes(J, local_vec_size, local_vec_size, numRigidBody * 2,
-              numRigidBody * 2);
+  MatSetSizes(J, local_vec_size, local_vec_size, numRigidBody * rigid_body_dof,
+              numRigidBody * rigid_body_dof);
   MatSetUp(J);
 
   SNESSetFunction(snes, y, implicit_midpoint_integration_sub_wrapper, this);
@@ -710,7 +714,8 @@ void gmls_solver::implicit_midpoint_integration() {
   KSPSetType(ksp, KSPGMRES);
 
   DM dm;
-  DMRedundantCreate(MPI_COMM_WORLD, size - 1, numRigidBody * 2, &dm);
+  DMRedundantCreate(MPI_COMM_WORLD, size - 1, numRigidBody * rigid_body_dof,
+                    &dm);
   DMSetUp(dm);
   SNESSetDM(snes, dm);
 
@@ -760,6 +765,9 @@ void gmls_solver::implicit_midpoint_integration() {
     for (int i = 0; i < numRigidBody; i++) {
       position0[i] = rigidBodyPosition[i];
     }
+    for (int i = 0; i < numRigidBody; i++) {
+      orientation0[i] = rigidBodyOrientation[i];
+    }
 
     // get the velocity at the local step
     geo_mgr->generate_uniform_particle();
@@ -780,6 +788,10 @@ void gmls_solver::implicit_midpoint_integration() {
         rigidBodyPosition[num][j] =
             position0[num][j] + dt * rigidBodyVelocity[num][j] * 0.5;
       }
+      if (dim == 2) {
+        rigidBodyOrientation[num][2] =
+            orientation0[num][2] + dt * rigidBodyAngularVelocity[num][0] * 0.5;
+      }
     }
 
     // get an initial guess
@@ -799,8 +811,12 @@ void gmls_solver::implicit_midpoint_integration() {
     VecGetArray(x, &a);
     if (rank == size - 1) {
       for (int i = 0; i < numRigidBody; i++) {
-        for (int j = 0; j < 2; j++) {
-          a[i * 2 + j] = rigidBodyVelocity[i][j];
+        for (int j = 0; j < translation_dof; j++) {
+          a[i * rigid_body_dof + j] = rigidBodyVelocity[i][j];
+        }
+        for (int j = 0; j < rotation_dof; j++) {
+          a[i * rigid_body_dof + translation_dof + j] =
+              rigidBodyAngularVelocity[i][j];
         }
       }
     }
@@ -824,13 +840,18 @@ void gmls_solver::implicit_midpoint_integration() {
                 totalIteration / timeStepCounter, totalNFunc / timeStepCounter);
 
     vector<double> sychronize_velocity(numRigidBody * 3);
+    vector<double> sychronize_angularVelocity(numRigidBody * 3);
 
     // sychronize velocity
     VecGetArray(x, &a);
     if (rank == size - 1) {
       for (int i = 0; i < numRigidBody; i++) {
-        for (int j = 0; j < 2; j++) {
-          sychronize_velocity[i * 3 + j] = a[i * 2 + j];
+        for (int j = 0; j < translation_dof; j++) {
+          sychronize_velocity[i * 3 + j] = a[i * rigid_body_dof + j];
+        }
+        for (int j = 0; j < rotation_dof; j++) {
+          sychronize_angularVelocity[i * 3 + j] =
+              a[i * rigid_body_dof + translation_dof + j];
         }
       }
     }
@@ -838,10 +859,15 @@ void gmls_solver::implicit_midpoint_integration() {
 
     MPI_Bcast(sychronize_velocity.data(), numRigidBody * 3, MPI_DOUBLE,
               size - 1, MPI_COMM_WORLD);
+    MPI_Bcast(sychronize_angularVelocity.data(), numRigidBody * 3, MPI_DOUBLE,
+              size - 1, MPI_COMM_WORLD);
 
     for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < 2; j++) {
+      for (int j = 0; j < translation_dof; j++) {
         rigidBodyVelocity[i][j] = sychronize_velocity[i * 3 + j];
+      }
+      for (int j = 0; j < rotation_dof; j++) {
+        rigidBodyAngularVelocity[i][j] = sychronize_angularVelocity[i * 3 + j];
       }
     }
 
@@ -850,6 +876,10 @@ void gmls_solver::implicit_midpoint_integration() {
         rigidBodyPosition[num][j] =
             position0[num][j] + dt * rigidBodyVelocity[num][j];
       }
+      if (dim == 2) {
+        rigidBodyOrientation[num][2] =
+            orientation0[num][2] + dt * rigidBodyAngularVelocity[num][0];
+      }
     }
 
     // output current time step result
@@ -857,11 +887,17 @@ void gmls_solver::implicit_midpoint_integration() {
       output.open(trajectory_output_file_name, ios::app);
 
       vector<vec3> refinedRigidBodyPosition(numRigidBody);
+      vector<vec3> refinedRigidBodyOrientation(numRigidBody);
 
       for (int num = 0; num < numRigidBody; num++) {
         for (int j = 0; j < 3; j++) {
           refinedRigidBodyPosition[num][j] =
               position0[num][j] + 0.5 * dt * rigidBodyVelocity[num][j];
+        }
+        if (dim == 2) {
+          refinedRigidBodyOrientation[num][2] =
+              orientation0[num][2] +
+              dt * rigidBodyAngularVelocity[num][0] * 0.5;
         }
       }
 
@@ -871,7 +907,7 @@ void gmls_solver::implicit_midpoint_integration() {
           output << refinedRigidBodyPosition[num][j] << '\t';
         }
         for (int j = 0; j < 3; j++) {
-          output << rigidBodyOrientation[num][j] << '\t';
+          output << refinedRigidBodyOrientation[num][j] << '\t';
         }
       }
       output << endl;
@@ -920,7 +956,12 @@ void gmls_solver::implicit_midpoint_integration_sub(Vec x, Vec y) {
 
   int numRigidBody = rb_mgr->get_rigid_body_num();
 
+  int rigid_body_dof = (dim == 3) ? 6 : 3;
+  int translation_dof = dim;
+  int rotation_dof = (dim == 3) ? 3 : 1;
+
   vector<double> sychronize_velocity(numRigidBody * 3);
+  vector<double> sychronize_angularVelocity(numRigidBody * 3);
 
   const PetscReal *a;
   PetscReal *b;
@@ -929,7 +970,11 @@ void gmls_solver::implicit_midpoint_integration_sub(Vec x, Vec y) {
   if (rank == size - 1) {
     for (int i = 0; i < numRigidBody; i++) {
       for (int j = 0; j < 2; j++) {
-        sychronize_velocity[i * 3 + j] = a[i * 2 + j];
+        sychronize_velocity[i * 3 + j] = a[i * rigid_body_dof + j];
+      }
+      for (int j = 0; j < rotation_dof; j++) {
+        sychronize_angularVelocity[i * 3 + j] =
+            a[i * rigid_body_dof + translation_dof + j];
       }
     }
   }
@@ -937,10 +982,15 @@ void gmls_solver::implicit_midpoint_integration_sub(Vec x, Vec y) {
 
   MPI_Bcast(sychronize_velocity.data(), numRigidBody * 3, MPI_DOUBLE, size - 1,
             MPI_COMM_WORLD);
+  MPI_Bcast(sychronize_angularVelocity.data(), numRigidBody * 3, MPI_DOUBLE,
+            size - 1, MPI_COMM_WORLD);
 
   for (int i = 0; i < numRigidBody; i++) {
-    for (int j = 0; j < 2; j++) {
+    for (int j = 0; j < translation_dof; j++) {
       rigidBodyVelocity[i][j] = sychronize_velocity[i * 3 + j];
+    }
+    for (int j = 0; j < rotation_dof; j++) {
+      rigidBodyAngularVelocity[i][j] = sychronize_angularVelocity[i * 3 + j];
     }
   }
 
@@ -948,6 +998,10 @@ void gmls_solver::implicit_midpoint_integration_sub(Vec x, Vec y) {
     for (int j = 0; j < 3; j++) {
       rigidBodyPosition[num][j] =
           position0[num][j] + dt * rigidBodyVelocity[num][j] * 0.5;
+    }
+    if (dim == 2) {
+      rigidBodyOrientation[num][2] =
+          orientation0[num][2] + dt * rigidBodyAngularVelocity[num][0] * 0.5;
     }
   }
 
@@ -966,8 +1020,12 @@ void gmls_solver::implicit_midpoint_integration_sub(Vec x, Vec y) {
   VecGetArray(y, &b);
   if (rank == size - 1) {
     for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < 2; j++) {
-        b[i * 2 + j] = rigidBodyVelocity[i][j];
+      for (int j = 0; j < translation_dof; j++) {
+        b[i * rigid_body_dof + j] = rigidBodyVelocity[i][j];
+      }
+      for (int j = 0; j < rotation_dof; j++) {
+        b[i * rigid_body_dof + translation_dof + j] =
+            rigidBodyAngularVelocity[i][j];
       }
     }
   }
