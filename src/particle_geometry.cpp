@@ -392,7 +392,6 @@ bool particle_geometry::generate_uniform_particle() {
   // check if enough fluid particles has been inserted in any gap
   bool pass_check = false;
   int trial_num = 0;
-  int stage = 1;
 
   while (!pass_check) {
     index_particle();
@@ -473,7 +472,7 @@ bool particle_geometry::generate_uniform_particle() {
                   current_local_work_ghost_attached_rigid_body);
 
     vector<int> split_tag;
-    if (automatic_refine(split_tag, stage)) {
+    if (automatic_refine(split_tag)) {
       if (!adaptive_refine(split_tag))
         return false;
     } else {
@@ -2195,6 +2194,7 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
     surface_element.clear();
     surface_element_adaptive_level.clear();
 
+    int element_num = 0;
     for (size_t n = start_idx; n < end_idx; n++) {
       hierarchy->get_coarse_level_coordinate(n, coord_ptr);
       hierarchy->get_coarse_level_normal(n, normal_ptr);
@@ -2202,12 +2202,14 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
       hierarchy->get_coarse_level_element(n, element_ptr);
 
       int adaptive_level = hierarchy->get_coarse_level_adaptive_level(n);
-      h *= pow(0.5, adaptive_level);
+      h = uniform_spacing0 * pow(0.5, adaptive_level);
       vol = pow(h, 3);
 
       surface_element.push_back(vector<triple<int>>());
       surface_element_adaptive_level.push_back(vector<int>());
       vector<int> idx_map;
+
+      idx_map.clear();
 
       vector<triple<int>> &current_element =
           surface_element[surface_element.size() - 1];
@@ -2270,6 +2272,8 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
           p_spacing[current_element[i][j]][0] += A / 3.0;
         }
       }
+
+      element_num += coord_ptr->size();
     }
   }
 
@@ -2572,7 +2576,7 @@ void particle_geometry::uniform_refine() {
   generate_field_particle();
 }
 
-bool particle_geometry::automatic_refine(vector<int> &split_tag, int &stage) {
+bool particle_geometry::automatic_refine(vector<int> &split_tag) {
   auto &particle_type = *current_local_work_particle_type;
   auto &spacing = *current_local_work_particle_spacing;
   auto &coord = *current_local_work_particle_coord;
@@ -2595,7 +2599,8 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag, int &stage) {
   */
 
   // first stage
-  if (stage == 1) {
+  bool pass_stage1 = false;
+  {
     int local_particle_num = coord.size();
     int num_source_coord = source_coord.size();
 
@@ -2688,11 +2693,11 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag, int &stage) {
     if (num_critical_particle != 0)
       return true;
 
-    stage = 2;
+    pass_stage1 = true;
   }
 
   // second stage
-  if (stage == 2) {
+  if (pass_stage1) {
     // check over all boundary particles
     int local_particle_num = coord.size();
     int num_source_coord = source_coord.size();
@@ -3523,6 +3528,8 @@ bool particle_geometry::split_rigid_body_surface_particle(
   auto &volume = *current_local_managing_particle_volume;
   auto &particle_type = *current_local_managing_particle_type;
   auto &adaptive_level = *current_local_managing_particle_adaptive_level;
+  auto &attached_rigid_body =
+      *current_local_managing_particle_attached_rigid_body;
   auto &new_added = *current_local_managing_particle_new_added;
   auto &attached_rigid_body_index =
       *current_local_managing_particle_attached_rigid_body;
@@ -3715,9 +3722,11 @@ bool particle_geometry::split_rigid_body_surface_particle(
 
       // increase the adaptive level of particles
       for (auto tag : split_tag) {
-        volume[tag] /= 8.0;
-        spacing[tag] /= 2.0;
-        adaptive_level[tag]++;
+        if (attached_rigid_body[tag] == n) {
+          volume[tag] /= 8.0;
+          spacing[tag] /= 2.0;
+          adaptive_level[tag]++;
+        }
       }
 
       // split edge
@@ -3735,8 +3744,9 @@ bool particle_geometry::split_rigid_body_surface_particle(
             vec3 p0 = coord[i] - rigid_body_coord[n];
             vec3 p1 = coord[edge[i][j]] - rigid_body_coord[n];
 
-            int adaptive_level = edge_adaptive_level[edge_offset[i] + j];
-            double spacing = pow(0.5, adaptive_level) * uniform_spacing;
+            int current_adaptive_level =
+                edge_adaptive_level[edge_offset[i] + j];
+            double spacing = pow(0.5, current_adaptive_level) * uniform_spacing;
             double vol = pow(spacing, dim);
 
             vec3 p2 = rigid_body_quaternion[n].rotate_back((p0 + p1) * 0.5);
@@ -3754,8 +3764,8 @@ bool particle_geometry::split_rigid_body_surface_particle(
             vec3 p_spacing = vec3(0.0, 1.0, 0.0);
             vec3 p_coord = vec3(idx2, 0, 0);
 
-            insert_particle(p2, 5, spacing, n2, adaptive_level, vol, true, n,
-                            p_coord, p_spacing);
+            insert_particle(p2, 5, spacing, n2, current_adaptive_level, vol,
+                            true, n, p_coord, p_spacing);
           }
         }
       }
@@ -3792,11 +3802,11 @@ bool particle_geometry::split_rigid_body_surface_particle(
           current_element.push_back(triple<int>(idx3, idx4, idx5));
           current_element.push_back(triple<int>(idx4, idx5, idx2));
 
-          int adaptive_level = current_element_adaptive_level[i];
+          int current_adaptive_level = current_element_adaptive_level[i];
 
-          current_element_adaptive_level.push_back(adaptive_level);
-          current_element_adaptive_level.push_back(adaptive_level);
-          current_element_adaptive_level.push_back(adaptive_level);
+          current_element_adaptive_level.push_back(current_adaptive_level);
+          current_element_adaptive_level.push_back(current_adaptive_level);
+          current_element_adaptive_level.push_back(current_adaptive_level);
         }
       }
 
@@ -3970,9 +3980,6 @@ bool particle_geometry::split_rigid_body_surface_particle(
   }
 
   // check if it is an acceptable trial of particle distribution
-  vector<int> &attached_rigid_body =
-      (*current_local_managing_particle_attached_rigid_body);
-
   int pass_test = 0;
 
   for (int i = 0; i < coord.size(); i++) {
@@ -4284,10 +4291,10 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
 
         if (_attached_rigid_body_index >= 0) {
           // this is a particle on the rigid body surface
-          if (_attached_rigid_body_index != idx && dist < 0.0)
+          if (_attached_rigid_body_index != idx && dist < 1e-3 * _spacing)
             return idx;
         } else {
-          if (dist < -1.5 * _spacing) {
+          if (dist < -2.0 * _spacing) {
             return -1;
           }
           if (dist <= 0.5 * _spacing) {

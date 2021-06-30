@@ -1,6 +1,7 @@
 #ifndef _QUATERNION_HPP_
 #define _QUATERNION_HPP_
 
+#include <iostream>
 #include <vec3.hpp>
 
 class quaternion {
@@ -9,7 +10,19 @@ private:
 
 public:
   // default constructor
-  quaternion() {}
+  quaternion() {
+    m_data[0] = 0.0;
+    m_data[1] = 0.0;
+    m_data[2] = 0.0;
+    m_data[3] = 0.0;
+  }
+
+  quaternion(const quaternion &q) {
+    m_data[0] = q.m_data[0];
+    m_data[1] = q.m_data[1];
+    m_data[2] = q.m_data[2];
+    m_data[3] = q.m_data[3];
+  }
 
   // constructor from a vector, means the scalar part would be zero
   quaternion(vec3 vec) {
@@ -21,10 +34,13 @@ public:
 
   // constructor from a rotation axis and rotation angle theta
   quaternion(vec3 omega, const double theta) {
-    m_data[0] = cos(theta / 2.0);
-    m_data[1] = sin(theta / 2.0) * omega[0];
-    m_data[2] = sin(theta / 2.0) * omega[1];
-    m_data[3] = sin(theta / 2.0) * omega[2];
+    double norm = omega.mag();
+    omega = omega * (1.0 / norm);
+    double h = theta * norm;
+    m_data[0] = cos(h / 2.0);
+    m_data[1] = sin(h / 2.0) * omega[0];
+    m_data[2] = sin(h / 2.0) * omega[1];
+    m_data[3] = sin(h / 2.0) * omega[2];
   }
 
   // constructor from euler angle, theta1, 2, 3, sequence - x, y, z
@@ -102,10 +118,13 @@ public:
     yaw = std::atan2(siny_cosp, cosy_cosp);
   }
 
-  quaternion &operator=(quaternion &q) {
-    for (int i = 0; i < 4; i++) {
-      m_data[i] = q.m_data[i];
-    }
+  quaternion &operator=(const quaternion &q) {
+    m_data[0] = q.m_data[0];
+    m_data[1] = q.m_data[1];
+    m_data[2] = q.m_data[2];
+    m_data[3] = q.m_data[3];
+
+    return *this;
   }
 
   void conjugate() {

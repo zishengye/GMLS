@@ -267,7 +267,9 @@ bool gmls_solver::refinement() {
           if (ghost_split_tag[neighbor_index] == 1 &&
               source_adaptive_level[neighbor_index] - adaptive_level[i] == 0 &&
               source_particle_type[neighbor_index] == 0) {
-            split_tag[i] = 1;
+            vec3 dist = coord[i] - source_coord[neighbor_index];
+            if (dist.mag() < spacing[i])
+              split_tag[i] = 1;
           }
         }
       }

@@ -96,6 +96,7 @@ private:
 
   std::vector<vec3> position0;
   std::vector<vec3> orientation0;
+  std::vector<quaternion> quaternion0;
 
   // operator
   template <typename Func> void serial_operation(Func operation) {

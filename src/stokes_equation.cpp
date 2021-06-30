@@ -863,17 +863,33 @@ void stokes_equation::build_coefficient_matrix() {
         }
 
         // rotation
-        for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
-          A.increment(field_dof * current_particle_local_index +
-                          (axes1 + 2) % translation_dof,
-                      current_rigid_body_global_offset + translation_dof +
-                          axes1,
-                      rci[(axes1 + 1) % translation_dof]);
-          A.increment(field_dof * current_particle_local_index +
-                          (axes1 + 1) % translation_dof,
-                      current_rigid_body_global_offset + translation_dof +
-                          axes1,
-                      -rci[(axes1 + 2) % translation_dof]);
+        if (dim == 2) {
+          for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
+            A.increment(field_dof * current_particle_local_index +
+                            (axes1 + 2) % translation_dof,
+                        current_rigid_body_global_offset + translation_dof +
+                            axes1,
+                        rci[(axes1 + 1) % translation_dof]);
+            A.increment(field_dof * current_particle_local_index +
+                            (axes1 + 1) % translation_dof,
+                        current_rigid_body_global_offset + translation_dof +
+                            axes1,
+                        -rci[(axes1 + 2) % translation_dof]);
+          }
+        }
+        if (dim == 3) {
+          for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
+            A.increment(field_dof * current_particle_local_index +
+                            (axes1 + 2) % translation_dof,
+                        current_rigid_body_global_offset + translation_dof +
+                            axes1,
+                        -rci[(axes1 + 1) % translation_dof]);
+            A.increment(field_dof * current_particle_local_index +
+                            (axes1 + 1) % translation_dof,
+                        current_rigid_body_global_offset + translation_dof +
+                            axes1,
+                        rci[(axes1 + 2) % translation_dof]);
+          }
         }
 
         vec3 dA;
@@ -955,16 +971,32 @@ void stokes_equation::build_coefficient_matrix() {
             }
 
             // torque balance
-            for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
-              if (!rigid_body_angvelocity_torque_switch
-                      [current_rigid_body_index][axes1]) {
-                A.out_process_increment(
-                    current_rigid_body_local_offset + translation_dof + axes1,
-                    velocity_global_index,
-                    rci[(axes1 + 1) % translation_dof] *
-                            f[(axes1 + 2) % translation_dof] -
-                        rci[(axes1 + 2) % translation_dof] *
-                            f[(axes1 + 1) % translation_dof]);
+            if (dim == 2) {
+              for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
+                if (!rigid_body_angvelocity_torque_switch
+                        [current_rigid_body_index][axes1]) {
+                  A.out_process_increment(
+                      current_rigid_body_local_offset + translation_dof + axes1,
+                      velocity_global_index,
+                      -rci[(axes1 + 1) % translation_dof] *
+                              f[(axes1 + 2) % translation_dof] +
+                          rci[(axes1 + 2) % translation_dof] *
+                              f[(axes1 + 1) % translation_dof]);
+                }
+              }
+            }
+            if (dim == 3) {
+              for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
+                if (!rigid_body_angvelocity_torque_switch
+                        [current_rigid_body_index][axes1]) {
+                  A.out_process_increment(
+                      current_rigid_body_local_offset + translation_dof + axes1,
+                      velocity_global_index,
+                      rci[(axes1 + 1) % translation_dof] *
+                              f[(axes1 + 2) % translation_dof] -
+                          rci[(axes1 + 2) % translation_dof] *
+                              f[(axes1 + 1) % translation_dof]);
+                }
               }
             }
             delete[] f;
@@ -1275,11 +1307,11 @@ void stokes_equation::build_rhs() {
         double z = coord[i][2];
 
         rhs[field_dof * current_particle_local_index] =
-            cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+            sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z);
         rhs[field_dof * current_particle_local_index + 1] =
-            -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+            -2 * cos(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
         rhs[field_dof * current_particle_local_index + 2] =
-            sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+            cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
 
         const int neumann_index = neumann_map[i];
         const double bi = pressure_neumann_basis->getAlpha0TensorTo0Tensor(
@@ -1290,12 +1322,12 @@ void stokes_equation::build_rhs() {
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
                  cos(2.0 * M_PI * z)) +
-            bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y) * sin(M_PI * z) -
-                  normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y) * sin(M_PI * z) +
-                  normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      sin(M_PI * y) * cos(M_PI * z)) +
+            bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                      cos(M_PI * y) * cos(M_PI * z) -
+                  normal[i][1] * 6.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                      sin(M_PI * y) * cos(M_PI * z) +
+                  normal[i][2] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                      cos(M_PI * y) * sin(M_PI * z)) +
             bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
                   normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
                   normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
@@ -1321,14 +1353,14 @@ void stokes_equation::build_rhs() {
         double z = coord[i][2];
 
         rhs[field_dof * current_particle_local_index] =
-            3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z) +
+            3.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * x);
         rhs[field_dof * current_particle_local_index + 1] =
-            -6.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) *
-                sin(M_PI * z) +
+            -6.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) *
+                cos(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
         rhs[field_dof * current_particle_local_index + 2] =
-            3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
+            3.0 * pow(M_PI, 2) * cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * z);
 
         rhs[field_dof * current_particle_local_index + velocity_dof] =
@@ -1414,7 +1446,7 @@ void stokes_equation::build_rhs() {
               rigid_body_velocity[i][axes];
         else
           rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
-              rigid_body_force[i][axes];
+              -rigid_body_force[i][axes];
       }
       for (int axes = 0; axes < rotation_dof; axes++) {
         if (rigid_body_velocity_force_switch[i][axes])
@@ -1422,7 +1454,7 @@ void stokes_equation::build_rhs() {
               axes] = rigid_body_angular_velocity[i][axes];
         else
           rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-              axes] = rigid_body_torque[i][axes];
+              axes] = -rigid_body_torque[i][axes];
       }
     }
   }

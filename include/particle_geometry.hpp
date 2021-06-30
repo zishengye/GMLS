@@ -365,7 +365,7 @@ public:
     return min_dis;
   }
 
-  bool automatic_refine(std::vector<int> &split_tag, int &stage);
+  bool automatic_refine(std::vector<int> &split_tag);
 
 protected:
   void init_domain_boundary();

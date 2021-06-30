@@ -668,6 +668,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
 void gmls_solver::implicit_midpoint_integration() {
   vector<vec3> &rigidBodyPosition = rb_mgr->get_position();
   vector<vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
+  vector<quaternion> &rigidBodyQuaternion = rb_mgr->get_quaternion();
   vector<vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
   vector<vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
   vector<vec3> &rigidBodyForce = rb_mgr->get_force();
@@ -730,6 +731,7 @@ void gmls_solver::implicit_midpoint_integration() {
 
   position0.resize(numRigidBody);
   orientation0.resize(numRigidBody);
+  quaternion0.resize(numRigidBody);
 
   ofstream output;
   if (rank == 0) {
@@ -768,6 +770,9 @@ void gmls_solver::implicit_midpoint_integration() {
     for (int i = 0; i < numRigidBody; i++) {
       orientation0[i] = rigidBodyOrientation[i];
     }
+    for (int i = 0; i < numRigidBody; i++) {
+      quaternion0[i] = rigidBodyQuaternion[i];
+    }
 
     // get the velocity at the local step
     geo_mgr->generate_uniform_particle();
@@ -792,7 +797,13 @@ void gmls_solver::implicit_midpoint_integration() {
         rigidBodyOrientation[num][2] =
             orientation0[num][2] + dt * rigidBodyAngularVelocity[num][0] * 0.5;
       }
+      if (dim == 3) {
+        rigidBodyQuaternion[num].Cross(
+            quaternion0[num],
+            quaternion(rigidBodyAngularVelocity[num], 0.5 * dt));
+      }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
 
     // get an initial guess
     geo_mgr->generate_uniform_particle();
@@ -880,6 +891,13 @@ void gmls_solver::implicit_midpoint_integration() {
         rigidBodyOrientation[num][2] =
             orientation0[num][2] + dt * rigidBodyAngularVelocity[num][0];
       }
+      if (dim == 3) {
+        rigidBodyQuaternion[num].Cross(
+            quaternion0[num], quaternion(rigidBodyAngularVelocity[num], dt));
+        rigidBodyQuaternion[num].to_euler_angles(rigidBodyOrientation[num][0],
+                                                 rigidBodyOrientation[num][1],
+                                                 rigidBodyOrientation[num][2]);
+      }
     }
 
     // output current time step result
@@ -888,6 +906,7 @@ void gmls_solver::implicit_midpoint_integration() {
 
       vector<vec3> refinedRigidBodyPosition(numRigidBody);
       vector<vec3> refinedRigidBodyOrientation(numRigidBody);
+      vector<quaternion> refinedRigidBodyQuaternion(numRigidBody);
 
       for (int num = 0; num < numRigidBody; num++) {
         for (int j = 0; j < 3; j++) {
@@ -898,6 +917,15 @@ void gmls_solver::implicit_midpoint_integration() {
           refinedRigidBodyOrientation[num][2] =
               orientation0[num][2] +
               dt * rigidBodyAngularVelocity[num][0] * 0.5;
+        }
+        if (dim == 3) {
+          refinedRigidBodyQuaternion[num].Cross(
+              quaternion0[num],
+              quaternion(rigidBodyAngularVelocity[num], 0.5 * dt));
+          refinedRigidBodyQuaternion[num].to_euler_angles(
+              refinedRigidBodyOrientation[num][0],
+              refinedRigidBodyOrientation[num][1],
+              refinedRigidBodyOrientation[num][2]);
         }
       }
 
@@ -942,6 +970,7 @@ void gmls_solver::implicit_midpoint_integration() {
 void gmls_solver::implicit_midpoint_integration_sub(Vec x, Vec y) {
   vector<vec3> &rigidBodyPosition = rb_mgr->get_position();
   vector<vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
+  vector<quaternion> &rigidBodyQuaternion = rb_mgr->get_quaternion();
   vector<vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
   vector<vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
   vector<vec3> &rigidBodyForce = rb_mgr->get_force();
@@ -1002,6 +1031,11 @@ void gmls_solver::implicit_midpoint_integration_sub(Vec x, Vec y) {
     if (dim == 2) {
       rigidBodyOrientation[num][2] =
           orientation0[num][2] + dt * rigidBodyAngularVelocity[num][0] * 0.5;
+    }
+    if (dim == 3) {
+      rigidBodyQuaternion[num].Cross(
+          quaternion0[num],
+          quaternion(rigidBodyAngularVelocity[num], 0.5 * dt));
     }
   }
 
