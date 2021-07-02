@@ -6,6 +6,31 @@
 using namespace std;
 using namespace Compadre;
 
+vec3 Cross(const vec3 &v1, const vec3 &v2) {
+  vec3 res(v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2],
+           v1[0] * v2[1] - v1[1] * v2[0]);
+  return res;
+}
+
+vec3 Bracket(const vec3 &v1, const vec3 &v2) { return Cross(v1, v2) * 2.0; }
+
+vec3 dexpinv(const vec3 &u, const vec3 &k) {
+  vec3 res;
+  vec3 bracket_res = Bracket(u, k);
+
+  res = k - bracket_res * 0.5;
+  bracket_res = Bracket(u, bracket_res);
+  res = res + bracket_res * static_cast<double>(1.0 / 12.0);
+  bracket_res = Bracket(u, Bracket(u, bracket_res));
+  res = res - bracket_res * static_cast<double>(1.0 / 720.0);
+  bracket_res = Bracket(u, Bracket(u, bracket_res));
+  res = res + bracket_res * static_cast<double>(1.0 / 30240.0);
+  bracket_res = Bracket(u, Bracket(u, bracket_res));
+  res = res - bracket_res * static_cast<double>(1.0 / 1209600.0);
+
+  return res;
+}
+
 PetscErrorCode implicit_midpoint_integration_sub_wrapper(SNES, Vec, Vec,
                                                          void *);
 
@@ -70,6 +95,7 @@ void gmls_solver::foward_euler_integration() {
 void gmls_solver::adaptive_runge_kutta_intagration() {
   vector<vec3> &rigidBodyPosition = rb_mgr->get_position();
   vector<vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
+  vector<quaternion> &rigidBodyQuaternion = rb_mgr->get_quaternion();
   vector<vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
   vector<vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
   vector<vec3> &rigidBodyForce = rb_mgr->get_force();
@@ -79,6 +105,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
 
   position0.resize(numRigidBody);
   orientation0.resize(numRigidBody);
+  quaternion0.resize(numRigidBody);
 
   vector<vec3> velocity_k1(numRigidBody);
   vector<vec3> velocity_k2(numRigidBody);
@@ -95,6 +122,17 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
   vector<vec3> angularVelocity_k5(numRigidBody);
   vector<vec3> angularVelocity_k6(numRigidBody);
   vector<vec3> angularVelocity_k7(numRigidBody);
+
+  vector<vec3> modified_angularVelocity_k1(numRigidBody);
+  vector<vec3> modified_angularVelocity_k2(numRigidBody);
+  vector<vec3> modified_angularVelocity_k3(numRigidBody);
+  vector<vec3> modified_angularVelocity_k4(numRigidBody);
+  vector<vec3> modified_angularVelocity_k5(numRigidBody);
+  vector<vec3> modified_angularVelocity_k6(numRigidBody);
+  vector<vec3> modified_angularVelocity_k7(numRigidBody);
+
+  vector<quaternion> intermediate_quaternion1(numRigidBody);
+  vector<quaternion> intermediate_quaternion2(numRigidBody);
 
   vector<double> sychronize_velocity(numRigidBody * 3);
   vector<double> sychronize_angularVelocity(numRigidBody * 3);
@@ -210,6 +248,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
       velocity_k1[num][j] = rigidBodyVelocity[num][j];
       angularVelocity_k1[num][j] = rigidBodyAngularVelocity[num][j];
     }
+    modified_angularVelocity_k1[num] = rigidBodyAngularVelocity[num];
   }
 
   // setup output file
@@ -272,8 +311,14 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
     for (int num = 0; num < numRigidBody; num++) {
       for (int j = 0; j < 3; j++) {
         position0[num][j] = rigidBodyPosition[num][j];
-        orientation0[num][j] = correct_radius(rigidBodyOrientation[num][j]);
+        if (dim == 2)
+          orientation0[num][j] = correct_radius(rigidBodyOrientation[num][j]);
       }
+      quaternion0[num] = rigidBodyQuaternion[num];
+      if (dim == 3)
+        rigidBodyQuaternion[num].to_euler_angles(rigidBodyOrientation[num][0],
+                                                 rigidBodyOrientation[num][1],
+                                                 rigidBodyOrientation[num][2]);
     }
 
     err = 100;
@@ -297,9 +342,18 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
             for (int j = 0; j < 3; j++) {
               rigidBodyPosition[num][j] =
                   position0[num][j] + dt * velocity_k1[num][j] * a21;
-              rigidBodyOrientation[num][j] = correct_radius(
-                  orientation0[num][j] + dt * angularVelocity_k1[num][j] * a21);
+              if (dim == 2)
+                rigidBodyOrientation[num][j] =
+                    correct_radius(orientation0[num][j] +
+                                   dt * angularVelocity_k1[num][j] * a21);
             }
+            rigidBodyQuaternion[num].Cross(
+                quaternion0[num],
+                quaternion(modified_angularVelocity_k1[num], a21 * dt));
+            if (dim == 3)
+              rigidBodyQuaternion[num].to_euler_angles(
+                  rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
+                  rigidBodyOrientation[num][2]);
           }
           break;
         case 2:
@@ -308,11 +362,21 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
               rigidBodyPosition[num][j] =
                   position0[num][j] +
                   dt * (velocity_k1[num][j] * a31 + velocity_k2[num][j] * a32);
-              rigidBodyOrientation[num][j] =
-                  correct_radius(orientation0[num][j] +
-                                 dt * (angularVelocity_k1[num][j] * a31 +
-                                       angularVelocity_k2[num][j] * a32));
+              if (dim == 2)
+                rigidBodyOrientation[num][j] =
+                    correct_radius(orientation0[num][j] +
+                                   dt * (angularVelocity_k1[num][j] * a31 +
+                                         angularVelocity_k2[num][j] * a32));
             }
+            rigidBodyQuaternion[num].Cross(
+                quaternion0[num],
+                quaternion((modified_angularVelocity_k1[num] * a31 +
+                            modified_angularVelocity_k2[num] * a32),
+                           dt));
+            if (dim == 3)
+              rigidBodyQuaternion[num].to_euler_angles(
+                  rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
+                  rigidBodyOrientation[num][2]);
           }
           break;
         case 3:
@@ -322,12 +386,23 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                   position0[num][j] +
                   dt * (velocity_k1[num][j] * a41 + velocity_k2[num][j] * a42 +
                         velocity_k3[num][j] * a43);
-              rigidBodyOrientation[num][j] =
-                  correct_radius(orientation0[num][j] +
-                                 dt * (angularVelocity_k1[num][j] * a41 +
-                                       angularVelocity_k2[num][j] * a42 +
-                                       angularVelocity_k3[num][j] * a43));
+              if (dim == 2)
+                rigidBodyOrientation[num][j] =
+                    correct_radius(orientation0[num][j] +
+                                   dt * (angularVelocity_k1[num][j] * a41 +
+                                         angularVelocity_k2[num][j] * a42 +
+                                         angularVelocity_k3[num][j] * a43));
             }
+            rigidBodyQuaternion[num].Cross(
+                quaternion0[num],
+                quaternion((modified_angularVelocity_k1[num] * a41 +
+                            modified_angularVelocity_k2[num] * a42 +
+                            modified_angularVelocity_k3[num] * a43),
+                           dt));
+            if (dim == 3)
+              rigidBodyQuaternion[num].to_euler_angles(
+                  rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
+                  rigidBodyOrientation[num][2]);
           }
           break;
         case 4:
@@ -337,13 +412,25 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                   position0[num][j] +
                   dt * (velocity_k1[num][j] * a51 + velocity_k2[num][j] * a52 +
                         velocity_k3[num][j] * a53 + velocity_k4[num][j] * a54);
-              rigidBodyOrientation[num][j] =
-                  correct_radius(orientation0[num][j] +
-                                 dt * (angularVelocity_k1[num][j] * a51 +
-                                       angularVelocity_k2[num][j] * a52 +
-                                       angularVelocity_k3[num][j] * a53 +
-                                       angularVelocity_k4[num][j] * a54));
+              if (dim == 2)
+                rigidBodyOrientation[num][j] =
+                    correct_radius(orientation0[num][j] +
+                                   dt * (angularVelocity_k1[num][j] * a51 +
+                                         angularVelocity_k2[num][j] * a52 +
+                                         angularVelocity_k3[num][j] * a53 +
+                                         angularVelocity_k4[num][j] * a54));
             }
+            rigidBodyQuaternion[num].Cross(
+                quaternion0[num],
+                quaternion((modified_angularVelocity_k1[num] * a51 +
+                            modified_angularVelocity_k2[num] * a52 +
+                            modified_angularVelocity_k3[num] * a53 +
+                            modified_angularVelocity_k4[num] * a54),
+                           dt));
+            if (dim == 3)
+              rigidBodyQuaternion[num].to_euler_angles(
+                  rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
+                  rigidBodyOrientation[num][2]);
           }
           break;
         case 5:
@@ -354,14 +441,27 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                   dt * (velocity_k1[num][j] * a61 + velocity_k2[num][j] * a62 +
                         velocity_k3[num][j] * a63 + velocity_k4[num][j] * a64 +
                         velocity_k5[num][j] * a65);
-              rigidBodyOrientation[num][j] =
-                  correct_radius(orientation0[num][j] +
-                                 dt * (angularVelocity_k1[num][j] * a61 +
-                                       angularVelocity_k2[num][j] * a62 +
-                                       angularVelocity_k3[num][j] * a63 +
-                                       angularVelocity_k4[num][j] * a64 +
-                                       angularVelocity_k5[num][j] * a65));
+              if (dim == 2)
+                rigidBodyOrientation[num][j] =
+                    correct_radius(orientation0[num][j] +
+                                   dt * (angularVelocity_k1[num][j] * a61 +
+                                         angularVelocity_k2[num][j] * a62 +
+                                         angularVelocity_k3[num][j] * a63 +
+                                         angularVelocity_k4[num][j] * a64 +
+                                         angularVelocity_k5[num][j] * a65));
             }
+            rigidBodyQuaternion[num].Cross(
+                quaternion0[num],
+                quaternion((modified_angularVelocity_k1[num] * a61 +
+                            modified_angularVelocity_k2[num] * a62 +
+                            modified_angularVelocity_k3[num] * a63 +
+                            modified_angularVelocity_k4[num] * a64 +
+                            modified_angularVelocity_k5[num] * a65),
+                           dt));
+            if (dim == 3)
+              rigidBodyQuaternion[num].to_euler_angles(
+                  rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
+                  rigidBodyOrientation[num][2]);
           }
           break;
         case 6:
@@ -372,14 +472,27 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                   dt * (velocity_k1[num][j] * b1 + velocity_k3[num][j] * b3 +
                         velocity_k4[num][j] * b4 + velocity_k5[num][j] * b5 +
                         velocity_k6[num][j] * b6);
-              rigidBodyOrientation[num][j] =
-                  correct_radius(orientation0[num][j] +
-                                 dt * (angularVelocity_k1[num][j] * b1 +
-                                       angularVelocity_k3[num][j] * b3 +
-                                       angularVelocity_k4[num][j] * b4 +
-                                       angularVelocity_k5[num][j] * b5 +
-                                       angularVelocity_k6[num][j] * b6));
+              if (dim == 2)
+                rigidBodyOrientation[num][j] =
+                    correct_radius(orientation0[num][j] +
+                                   dt * (angularVelocity_k1[num][j] * b1 +
+                                         angularVelocity_k3[num][j] * b3 +
+                                         angularVelocity_k4[num][j] * b4 +
+                                         angularVelocity_k5[num][j] * b5 +
+                                         angularVelocity_k6[num][j] * b6));
             }
+            rigidBodyQuaternion[num].Cross(
+                quaternion0[num],
+                quaternion((modified_angularVelocity_k1[num] * b1 +
+                            modified_angularVelocity_k3[num] * b3 +
+                            modified_angularVelocity_k4[num] * b4 +
+                            modified_angularVelocity_k5[num] * b5 +
+                            modified_angularVelocity_k6[num] * b6),
+                           dt));
+            if (dim == 3)
+              rigidBodyQuaternion[num].to_euler_angles(
+                  rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
+                  rigidBodyOrientation[num][2]);
           }
           break;
         }
@@ -450,6 +563,9 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
               velocity_k2[num][j] = rigidBodyVelocity[num][j];
               angularVelocity_k2[num][j] = rigidBodyAngularVelocity[num][j];
             }
+            modified_angularVelocity_k2[num] =
+                dexpinv(modified_angularVelocity_k1[num] * a21 * dt,
+                        rigidBodyAngularVelocity[num]);
           }
           break;
         case 2:
@@ -458,6 +574,11 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
               velocity_k3[num][j] = rigidBodyVelocity[num][j];
               angularVelocity_k3[num][j] = rigidBodyAngularVelocity[num][j];
             }
+            modified_angularVelocity_k3[num] =
+                dexpinv((modified_angularVelocity_k1[num] * a31 +
+                         modified_angularVelocity_k2[num] * a32) *
+                            dt,
+                        rigidBodyAngularVelocity[num]);
           }
           break;
         case 3:
@@ -466,6 +587,12 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
               velocity_k4[num][j] = rigidBodyVelocity[num][j];
               angularVelocity_k4[num][j] = rigidBodyAngularVelocity[num][j];
             }
+            modified_angularVelocity_k4[num] =
+                dexpinv((modified_angularVelocity_k1[num] * a41 +
+                         modified_angularVelocity_k2[num] * a42 +
+                         modified_angularVelocity_k3[num] * a43) *
+                            dt,
+                        rigidBodyAngularVelocity[num]);
           }
           break;
         case 4:
@@ -474,6 +601,13 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
               velocity_k5[num][j] = rigidBodyVelocity[num][j];
               angularVelocity_k5[num][j] = rigidBodyAngularVelocity[num][j];
             }
+            modified_angularVelocity_k5[num] =
+                dexpinv((modified_angularVelocity_k1[num] * a51 +
+                         modified_angularVelocity_k2[num] * a52 +
+                         modified_angularVelocity_k3[num] * a53 +
+                         modified_angularVelocity_k4[num] * a54) *
+                            dt,
+                        rigidBodyAngularVelocity[num]);
           }
           break;
         case 5:
@@ -482,6 +616,14 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
               velocity_k6[num][j] = rigidBodyVelocity[num][j];
               angularVelocity_k6[num][j] = rigidBodyAngularVelocity[num][j];
             }
+            modified_angularVelocity_k6[num] =
+                dexpinv((modified_angularVelocity_k1[num] * a61 +
+                         modified_angularVelocity_k2[num] * a62 +
+                         modified_angularVelocity_k3[num] * a63 +
+                         modified_angularVelocity_k4[num] * a64 +
+                         modified_angularVelocity_k5[num] * a65) *
+                            dt,
+                        rigidBodyAngularVelocity[num]);
           }
           break;
         case 6:
@@ -490,6 +632,14 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
               velocity_k7[num][j] = rigidBodyVelocity[num][j];
               angularVelocity_k7[num][j] = rigidBodyAngularVelocity[num][j];
             }
+            modified_angularVelocity_k7[num] =
+                dexpinv((modified_angularVelocity_k1[num] * b1 +
+                         modified_angularVelocity_k3[num] * b3 +
+                         modified_angularVelocity_k4[num] * b4 +
+                         modified_angularVelocity_k5[num] * b5 +
+                         modified_angularVelocity_k6[num] * b6) *
+                            dt,
+                        rigidBodyAngularVelocity[num]);
           }
           break;
         }
@@ -580,6 +730,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
 
         vector<vec3> refinedRigidBodyPosition(numRigidBody);
         vector<vec3> refinedRigidBodyOrientation(numRigidBody);
+        vector<quaternion> refinedRigidBodyQuaternion(numRigidBody);
 
         for (int num = 0; num < numRigidBody; num++) {
           for (int j = 0; j < 3; j++) {
@@ -588,14 +739,30 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                 dt * (velocity_k1[num][j] * bs1 + velocity_k3[num][j] * bs3 +
                       velocity_k4[num][j] * bs4 + velocity_k5[num][j] * bs5 +
                       velocity_k6[num][j] * bs6 + velocity_k7[num][j] * bs7);
-            refinedRigidBodyOrientation[num][j] = correct_radius(
-                orientation0[num][j] + dt * (angularVelocity_k1[num][j] * bs1 +
-                                             angularVelocity_k3[num][j] * bs3 +
-                                             angularVelocity_k4[num][j] * bs4 +
-                                             angularVelocity_k5[num][j] * bs5 +
-                                             angularVelocity_k6[num][j] * bs6 +
-                                             angularVelocity_k7[num][j] * bs7));
+            if (dim == 2)
+              refinedRigidBodyOrientation[num][j] =
+                  correct_radius(orientation0[num][j] +
+                                 dt * (angularVelocity_k1[num][j] * bs1 +
+                                       angularVelocity_k3[num][j] * bs3 +
+                                       angularVelocity_k4[num][j] * bs4 +
+                                       angularVelocity_k5[num][j] * bs5 +
+                                       angularVelocity_k6[num][j] * bs6 +
+                                       angularVelocity_k7[num][j] * bs7));
           }
+          refinedRigidBodyQuaternion[num].Cross(
+              quaternion0[num],
+              quaternion((modified_angularVelocity_k1[num] * bs1 +
+                          modified_angularVelocity_k3[num] * bs3 +
+                          modified_angularVelocity_k4[num] * bs4 +
+                          modified_angularVelocity_k5[num] * bs5 +
+                          modified_angularVelocity_k6[num] * bs6 +
+                          modified_angularVelocity_k7[num] * bs7),
+                         dt));
+          if (dim == 3)
+            refinedRigidBodyQuaternion[num].to_euler_angles(
+                refinedRigidBodyOrientation[num][0],
+                refinedRigidBodyOrientation[num][1],
+                refinedRigidBodyOrientation[num][2]);
         }
 
         output << t + dt * sj << '\t';
@@ -657,6 +824,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
         velocity_k1[num][j] = velocity_k7[num][j];
         angularVelocity_k1[num][j] = angularVelocity_k7[num][j];
       }
+      modified_angularVelocity_k1[num] = angularVelocity_k7[num];
     }
 
     if (write_data == 2 || write_data == 4) {

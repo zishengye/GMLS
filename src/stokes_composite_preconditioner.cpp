@@ -183,7 +183,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     }
     MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
-    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    average_pressure =
+        pressure_sum / (double)shell->multi->get_global_particle_num(i);
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
@@ -231,7 +232,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     }
     MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
-    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    average_pressure =
+        pressure_sum / (double)shell->multi->get_global_particle_num(i);
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
@@ -297,7 +299,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     }
     MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
-    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    average_pressure =
+        pressure_sum / (double)shell->multi->get_global_particle_num(i);
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
@@ -346,7 +349,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   }
   MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
-  average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+  average_pressure =
+      pressure_sum / (double)shell->multi->get_global_particle_num(0);
   for (int i = 0; i < shell->multi->get_local_particle_num(0); i++) {
     a[i * shell->field_dof + pressure_offset] -= average_pressure;
   }
@@ -416,7 +420,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   }
   MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
-  average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+  average_pressure =
+      pressure_sum / (double)shell->multi->get_global_particle_num(0);
   for (int idx = 0; idx < shell->multi->get_local_particle_num(0); idx++) {
     a[idx * shell->field_dof + pressure_offset] -= average_pressure;
   }
@@ -482,7 +487,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   }
   MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
-  average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+  average_pressure =
+      pressure_sum / (double)shell->multi->get_global_particle_num(0);
   for (int idx = 0; idx < shell->multi->get_local_particle_num(0); idx++) {
     a[idx * shell->field_dof + pressure_offset] -= average_pressure;
   }
@@ -521,7 +527,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     }
     MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
-    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    average_pressure =
+        pressure_sum / (double)shell->multi->get_global_particle_num(i);
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
@@ -553,7 +560,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     }
     MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
-    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    average_pressure =
+        pressure_sum / (double)shell->multi->get_global_particle_num(i);
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
@@ -595,7 +603,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     }
     MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
-    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    average_pressure =
+        pressure_sum / (double)shell->multi->get_global_particle_num(i);
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
@@ -661,7 +670,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     }
     MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
-    average_pressure = pressure_sum / shell->multi->get_global_particle_num(0);
+    average_pressure =
+        pressure_sum / (double)shell->multi->get_global_particle_num(i);
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }

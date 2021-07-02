@@ -868,7 +868,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     // KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
     KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
     KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
-    KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e50, 500);
+    KSPSetTolerances(ksp_field_base->get_reference(), 1e-3, 1e-50, 1e50, 500);
     KSPSetNormType(ksp_field_base->get_reference(), KSP_NORM_UNPRECONDITIONED);
     KSPSetResidualHistory(ksp_field_base->get_reference(), NULL, 500,
                           PETSC_TRUE);
@@ -934,13 +934,13 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
               field_relaxation_list[refinement_step]->get_pointer());
 
     KSPSetType(field_relaxation_list[refinement_step]->get_reference(),
-               KSPGMRES);
-    KSPGMRESSetRestart(field_relaxation_list[refinement_step]->get_reference(),
-                       100);
+               KSPRICHARDSON);
+    // KSPGMRESSetRestart(field_relaxation_list[refinement_step]->get_reference(),
+    //                    100);
     KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
                     ff);
     KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
-                     1e-1, 1e-50, 1e10, 1);
+                     5e-1, 1e-50, 1e10, 1);
 
     PC field_relaxation_pc;
     KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
@@ -1012,6 +1012,14 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   } else {
     KSPGMRESSetRestart(_ksp, restart);
   }
+
+  PetscReal rtol, atol, dtol;
+  PetscInt maxits;
+  KSPGetTolerances(_ksp, &rtol, &atol, &dtol, &maxits);
+  KSPSetTolerances(_ksp,
+                   rtol * (double)(global_particle_num_list[refinement_step]) /
+                       (double)(global_particle_num_list[0]),
+                   atol, dtol, maxits);
 
   KSPSetUp(_ksp);
 

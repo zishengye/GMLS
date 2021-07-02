@@ -21,6 +21,12 @@ public:
     data[2] = third;
   }
 
+  triple(const triple<T> &t) {
+    data[0] = t.data[0];
+    data[1] = t.data[1];
+    data[2] = t.data[2];
+  }
+
   T &operator[](int i) { return data[i]; }
 
   const T operator[](const int i) const { return data[i]; }
