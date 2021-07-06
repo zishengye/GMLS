@@ -4564,25 +4564,27 @@ void particle_geometry::build_ghost() {
 
   int local_particle_num = current_local_work_particle_coord->size();
   auto coord = *current_local_work_particle_coord;
+  auto spacing = *current_local_work_particle_spacing;
   for (int i = 0; i < local_particle_num; i++) {
-    if (work_domain_high[0] < coord[i][0]) {
-      work_domain_high[0] = coord[i][0];
+    double offset = cutoff_multiplier * spacing[i];
+    if (work_domain_high[0] < coord[i][0] + offset) {
+      work_domain_high[0] = coord[i][0] + offset;
     }
-    if (work_domain_high[1] < coord[i][1]) {
-      work_domain_high[1] = coord[i][1];
+    if (work_domain_high[1] < coord[i][1] + offset) {
+      work_domain_high[1] = coord[i][1] + offset;
     }
-    if (work_domain_high[2] < coord[i][2]) {
-      work_domain_high[2] = coord[i][2];
+    if (work_domain_high[2] < coord[i][2] + offset) {
+      work_domain_high[2] = coord[i][2] + offset;
     }
 
-    if (work_domain_low[0] > coord[i][0]) {
-      work_domain_low[0] = coord[i][0];
+    if (work_domain_low[0] > coord[i][0] - offset) {
+      work_domain_low[0] = coord[i][0] - offset;
     }
-    if (work_domain_low[1] > coord[i][1]) {
-      work_domain_low[1] = coord[i][1];
+    if (work_domain_low[1] > coord[i][1] - offset) {
+      work_domain_low[1] = coord[i][1] - offset;
     }
-    if (work_domain_low[2] > coord[i][2]) {
-      work_domain_low[2] = coord[i][2];
+    if (work_domain_low[2] > coord[i][2] - offset) {
+      work_domain_low[2] = coord[i][2] - offset;
     }
   }
 
@@ -4611,10 +4613,8 @@ void particle_geometry::build_ghost() {
   whole_ghost_domain_high.resize(size);
   for (int i = 0; i < size; i++) {
     for (int j = 0; j < 3; j++) {
-      whole_ghost_domain_low[i][j] =
-          whole_work_domain[i + j * size] - cutoff_distance;
-      whole_ghost_domain_high[i][j] =
-          whole_work_domain[i + (j + 3) * size] + cutoff_distance;
+      whole_ghost_domain_low[i][j] = whole_work_domain[i + j * size];
+      whole_ghost_domain_high[i][j] = whole_work_domain[i + (j + 3) * size];
     }
   }
 
@@ -4705,25 +4705,27 @@ void particle_geometry::build_ghost_from_last_level() {
   int source_local_particle_num = last_local_work_particle_coord->size();
   auto target_coord = *current_local_work_particle_coord;
   auto source_coord = *last_local_work_particle_coord;
+  auto spacing = *current_local_work_particle_spacing;
   for (int i = 0; i < target_local_particle_num; i++) {
-    if (work_domain_high[0] < target_coord[i][0]) {
-      work_domain_high[0] = target_coord[i][0];
+    double offset = 2.0 * cutoff_multiplier * spacing[i];
+    if (work_domain_high[0] < target_coord[i][0] + offset) {
+      work_domain_high[0] = target_coord[i][0] + offset;
     }
-    if (work_domain_high[1] < target_coord[i][1]) {
-      work_domain_high[1] = target_coord[i][1];
+    if (work_domain_high[1] < target_coord[i][1] + offset) {
+      work_domain_high[1] = target_coord[i][1] + offset;
     }
-    if (work_domain_high[2] < target_coord[i][2]) {
-      work_domain_high[2] = target_coord[i][2];
+    if (work_domain_high[2] < target_coord[i][2] + offset) {
+      work_domain_high[2] = target_coord[i][2] + offset;
     }
 
-    if (work_domain_low[0] > target_coord[i][0]) {
-      work_domain_low[0] = target_coord[i][0];
+    if (work_domain_low[0] > target_coord[i][0] - offset) {
+      work_domain_low[0] = target_coord[i][0] - offset;
     }
-    if (work_domain_low[1] > target_coord[i][1]) {
-      work_domain_low[1] = target_coord[i][1];
+    if (work_domain_low[1] > target_coord[i][1] - offset) {
+      work_domain_low[1] = target_coord[i][1] - offset;
     }
-    if (work_domain_low[2] > target_coord[i][2]) {
-      work_domain_low[2] = target_coord[i][2];
+    if (work_domain_low[2] > target_coord[i][2] - offset) {
+      work_domain_low[2] = target_coord[i][2] - offset;
     }
   }
 
@@ -4752,10 +4754,8 @@ void particle_geometry::build_ghost_from_last_level() {
   whole_ghost_domain_high.resize(size);
   for (int i = 0; i < size; i++) {
     for (int j = 0; j < 3; j++) {
-      whole_ghost_domain_low[i][j] =
-          whole_work_domain[i + j * size] - cutoff_distance;
-      whole_ghost_domain_high[i][j] =
-          whole_work_domain[i + (j + 3) * size] + cutoff_distance;
+      whole_ghost_domain_low[i][j] = whole_work_domain[i + j * size];
+      whole_ghost_domain_high[i][j] = whole_work_domain[i + (j + 3) * size];
     }
   }
 
@@ -4856,25 +4856,27 @@ void particle_geometry::build_ghost_for_last_level() {
   int source_local_particle_num = current_local_work_particle_coord->size();
   auto target_coord = *last_local_work_particle_coord;
   auto source_coord = *current_local_work_particle_coord;
+  auto spacing = *last_local_work_particle_spacing;
   for (int i = 0; i < target_local_particle_num; i++) {
-    if (work_domain_high[0] < target_coord[i][0]) {
-      work_domain_high[0] = target_coord[i][0];
+    double offset = cutoff_multiplier * spacing[i];
+    if (work_domain_high[0] < target_coord[i][0] + offset) {
+      work_domain_high[0] = target_coord[i][0] + offset;
     }
-    if (work_domain_high[1] < target_coord[i][1]) {
-      work_domain_high[1] = target_coord[i][1];
+    if (work_domain_high[1] < target_coord[i][1] + offset) {
+      work_domain_high[1] = target_coord[i][1] + offset;
     }
-    if (work_domain_high[2] < target_coord[i][2]) {
-      work_domain_high[2] = target_coord[i][2];
+    if (work_domain_high[2] < target_coord[i][2] + offset) {
+      work_domain_high[2] = target_coord[i][2] + offset;
     }
 
-    if (work_domain_low[0] > target_coord[i][0]) {
-      work_domain_low[0] = target_coord[i][0];
+    if (work_domain_low[0] > target_coord[i][0] - offset) {
+      work_domain_low[0] = target_coord[i][0] - offset;
     }
-    if (work_domain_low[1] > target_coord[i][1]) {
-      work_domain_low[1] = target_coord[i][1];
+    if (work_domain_low[1] > target_coord[i][1] - offset) {
+      work_domain_low[1] = target_coord[i][1] - offset;
     }
-    if (work_domain_low[2] > target_coord[i][2]) {
-      work_domain_low[2] = target_coord[i][2];
+    if (work_domain_low[2] > target_coord[i][2] - offset) {
+      work_domain_low[2] = target_coord[i][2] - offset;
     }
   }
 
@@ -4903,10 +4905,8 @@ void particle_geometry::build_ghost_for_last_level() {
   whole_ghost_domain_high.resize(size);
   for (int i = 0; i < size; i++) {
     for (int j = 0; j < 3; j++) {
-      whole_ghost_domain_low[i][j] =
-          whole_work_domain[i + j * size] - cutoff_distance;
-      whole_ghost_domain_high[i][j] =
-          whole_work_domain[i + (j + 3) * size] + cutoff_distance;
+      whole_ghost_domain_low[i][j] = whole_work_domain[i + j * size];
+      whole_ghost_domain_high[i][j] = whole_work_domain[i + (j + 3) * size];
     }
   }
 

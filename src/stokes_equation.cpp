@@ -320,6 +320,7 @@ void stokes_equation::build_coefficient_matrix() {
   }
   bool pass_neighbor_search = false;
   int ite_counter = 0;
+  double max_ratio;
   double mean_neighbor;
   // We have two layers of checking for neighbors. First, we ensure the number
   // of neighbors has satisfied the required number of neighbors by the GMLS
@@ -342,6 +343,7 @@ void stokes_equation::build_coefficient_matrix() {
         max_epsilon);
 
     bool pass_neighbor_num_check = true;
+    max_ratio = 0.0;
     min_neighbor = 1000;
     max_neighbor = 0;
     mean_neighbor = 0;
@@ -357,6 +359,10 @@ void stokes_equation::build_coefficient_matrix() {
       if (neighbor_list_host(i, 0) > max_neighbor)
         max_neighbor = neighbor_list_host(i, 0);
       mean_neighbor += neighbor_list_host(i, 0);
+
+      if (max_ratio < epsilon_host(i) / spacing[i]) {
+        max_ratio = epsilon_host(i) / spacing[i];
+      }
     }
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &min_neighbor, 1, MPI_INT, MPI_MIN,
@@ -364,6 +370,8 @@ void stokes_equation::build_coefficient_matrix() {
     MPI_Allreduce(MPI_IN_PLACE, &max_neighbor, 1, MPI_INT, MPI_MAX,
                   MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &mean_neighbor, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &max_ratio, 1, MPI_DOUBLE, MPI_MAX,
                   MPI_COMM_WORLD);
 
     int process_counter = 0;
@@ -596,10 +604,10 @@ void stokes_equation::build_coefficient_matrix() {
   }
 
   PetscPrintf(MPI_COMM_WORLD,
-              "iteration counter: %d min neighbor: %d, max neighbor: %d , mean "
-              "neighbor %f\n",
+              "iteration count: %d min neighbor: %d, max neighbor: %d , mean "
+              "neighbor %f, max ratio: %f\n",
               ite_counter, min_neighbor, max_neighbor,
-              mean_neighbor / (double)global_particle_num);
+              mean_neighbor / (double)global_particle_num, max_ratio);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
       neumann_neighbor_list_device("neumann boundary neighbor lists",
