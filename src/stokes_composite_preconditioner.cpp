@@ -450,18 +450,34 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     VecAXPY(shell->multi->get_colloid_y()->get_reference(), -1.0,
             shell->multi->get_colloid_x()->get_reference());
 
+    PetscReal rescale_norm;
+    VecNorm(shell->multi->get_colloid_y()->get_reference(), NORM_2,
+            &rescale_norm);
+    VecScale(shell->multi->get_colloid_y()->get_reference(),
+             1.0 / rescale_norm);
+
     KSPSolve(shell->multi->get_colloid_base()->get_reference(),
              shell->multi->get_colloid_y()->get_reference(),
              shell->multi->get_colloid_x()->get_reference());
+
+    VecScale(shell->multi->get_colloid_x()->get_reference(), rescale_norm);
 
     KSPGetConvergedReason(shell->multi->get_colloid_base()->get_reference(),
                           &reason);
     KSPGetIterationNumber(shell->multi->get_colloid_base()->get_reference(),
                           &its);
-    if (reason < 0)
-      PetscPrintf(PETSC_COMM_WORLD,
-                  "colloid convergence reason: %d, number of iterations: %d\n",
-                  reason, its);
+    if (reason < 0) {
+      PetscReal rnorm, bnorm;
+      KSPGetResidualNorm(shell->multi->get_colloid_base()->get_reference(),
+                         &rnorm);
+      VecNorm(shell->multi->get_colloid_y()->get_reference(), NORM_2, &bnorm);
+
+      PetscPrintf(
+          PETSC_COMM_WORLD,
+          "colloid convergence reason: %d, number of iterations: %d, last "
+          "residual norm: %f, rhs norm: %f\n",
+          reason, its, rnorm, bnorm);
+    }
 
     VecScatterBegin(
         shell->multi->get_colloid_scatter_list()[0]->get_reference(),

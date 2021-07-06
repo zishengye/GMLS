@@ -392,6 +392,7 @@ bool particle_geometry::generate_uniform_particle() {
   // check if enough fluid particles has been inserted in any gap
   bool pass_check = false;
   int trial_num = 0;
+  bool pass_stage1 = false;
 
   while (!pass_check) {
     index_particle();
@@ -472,7 +473,7 @@ bool particle_geometry::generate_uniform_particle() {
                   current_local_work_ghost_attached_rigid_body);
 
     vector<int> split_tag;
-    if (automatic_refine(split_tag)) {
+    if (automatic_refine(split_tag, pass_stage1)) {
       if (!adaptive_refine(split_tag))
         return false;
     } else {
@@ -2576,7 +2577,8 @@ void particle_geometry::uniform_refine() {
   generate_field_particle();
 }
 
-bool particle_geometry::automatic_refine(vector<int> &split_tag) {
+bool particle_geometry::automatic_refine(vector<int> &split_tag,
+                                         bool &pass_stage1) {
   auto &particle_type = *current_local_work_particle_type;
   auto &spacing = *current_local_work_particle_spacing;
   auto &coord = *current_local_work_particle_coord;
@@ -2599,8 +2601,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag) {
   */
 
   // first stage
-  bool pass_stage1 = false;
-  {
+  if (!pass_stage1) {
     int local_particle_num = coord.size();
     int num_source_coord = source_coord.size();
 

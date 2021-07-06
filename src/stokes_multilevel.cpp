@@ -868,7 +868,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     // KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
     KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
     KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
-    KSPSetTolerances(ksp_field_base->get_reference(), 1e-3, 1e-50, 1e50, 500);
+    KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e50, 500);
     KSPSetNormType(ksp_field_base->get_reference(), KSP_NORM_UNPRECONDITIONED);
     KSPSetResidualHistory(ksp_field_base->get_reference(), NULL, 500,
                           PETSC_TRUE);
@@ -901,7 +901,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
       KSPSetType(ksp_colloid_base->get_reference(), KSPGMRES);
       KSPGMRESSetRestart(ksp_colloid_base->get_reference(), 100);
-      KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-1, 1e-50, 1e50,
+      KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-3, 1e-50, 1e50,
                        500);
       KSPSetOperators(ksp_colloid_base->get_reference(), nn_shell, nn);
 
@@ -1101,9 +1101,13 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     ISDestroy(&isg_colloid_field);
   }
 
+  PetscLogDouble maxMem;
   PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(&mem, &maxMem, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "Current memory usage %.2f GB\n", mem / 1e9);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage %.2f GB, maximum memory usage: %.2f GB\n",
+              mem / 1e9, maxMem / 1e9);
 
   return 0;
 }
