@@ -8,345 +8,210 @@
 #include <fstream>
 #include <iostream>
 #include <list>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "petsc_vector.hpp"
 
-inline bool compare_index(std::pair<int, double> i, std::pair<int, double> j) {
-  return (i.first < j.first);
-}
-
-struct fluid_colloid_matrix_context {
-  bool use_raw_fluid_part = false;
-  Mat *fluid_part;
-  Mat fluid_raw_part;
-  Mat colloid_part;
-  Mat fluid_colloid_part;
-  Vec fluid_vec1;
-  Vec fluid_vec2;
-  Vec fluid_vec_local;
-  Vec colloid_vec;
-  Vec colloid_vec_local;
-  bool use_local_vec = true;
-
-  bool use_vec_scatter = false;
-  VecScatter fluid_scatter;
-  VecScatter colloid_scatter;
-
-  PetscInt fluid_local_size;
-  PetscInt rigid_body_size;
-
-  PetscInt local_fluid_particle_num;
-  PetscInt global_fluid_particle_num;
-  PetscInt field_dof;
-  PetscInt pressure_offset;
-
-  std::vector<PetscInt> fluid_colloid_part_i;
-  std::vector<PetscInt> fluid_colloid_part_j;
-  std::vector<PetscReal> fluid_colloid_part_val;
-
-  int myid, mpisize;
-
-  double matmult_duration = 0.0;
-};
-
-PetscErrorCode fluid_colloid_matrix_mult(Mat mat, Vec x, Vec y);
-PetscErrorCode fluid_colloid_matrix_mult2(Mat mat, Vec x, Vec y);
-PetscErrorCode fluid_matrix_mult(Mat mat, Vec x, Vec y);
+PetscErrorCode null_space_matrix_mult(Mat mat, Vec x, Vec y);
 
 class petsc_sparse_matrix {
-public:
-  fluid_colloid_matrix_context __ctx;
-
 private:
-  bool is_assembled, is_shell_assembled, is_ctx_assembled;
+  bool is_assembled;
+  bool is_self_contained;
+  bool is_set_null_space;
+  bool is_transpose;
 
-  typedef std::pair<PetscInt, double> entry;
-  std::vector<std::vector<entry>> __matrix;
-  std::vector<std::vector<entry>> __out_process_matrix;
+  PetscInt row, col, Row, Col;
+  PetscInt range_row1, range_row2;
+  PetscInt block_size, block_row, block_col, block_Row, block_Col,
+      block_range_row1, block_range_row2;
 
-  PetscInt __row, __col, __nnz, __Col, __out_process_row,
-      __out_process_reduction;
+  std::vector<PetscInt> mat_i;
+  std::vector<PetscInt> mat_j;
+  std::vector<PetscReal> mat_a;
 
-  std::vector<PetscInt> __i;
-  std::vector<PetscInt> __j;
-  std::vector<PetscReal> __val;
+  std::vector<PetscInt> mat_oi;
+  std::vector<PetscInt> mat_oj;
+  std::vector<PetscReal> mat_oa;
 
-  Mat __mat, __shell_mat;
+  std::shared_ptr<std::vector<int>> null_space_ptr;
+  PetscReal null_space_size;
+
+  Mat *mat;
+  Mat shell_mat;
+
+  int rank, size;
+
+  friend PetscErrorCode null_space_matrix_mult(Mat mat, Vec x, Vec y);
 
 public:
   petsc_sparse_matrix()
-      : is_ctx_assembled(false), is_shell_assembled(false), is_assembled(false),
-        __row(0), __col(0), __Col(0), __out_process_row(0),
-        __out_process_reduction(0), __mat(PETSC_NULL), __shell_mat(PETSC_NULL) {
-  }
-
-  // only for square matrix
-  petsc_sparse_matrix(PetscInt m /* local # of rows */,
-                      PetscInt N /* global # of cols */,
-                      PetscInt out_process_row = 0,
-                      PetscInt out_process_row_reduction = 0)
-      : is_ctx_assembled(false), is_shell_assembled(false), is_assembled(false),
-        __row(m), __col(m), __Col(N), __out_process_row(out_process_row),
-        __out_process_reduction(out_process_row_reduction) {
-    __matrix.resize(m);
-    __out_process_matrix.resize(out_process_row);
+      : is_assembled(false), is_self_contained(true), is_set_null_space(false),
+        is_transpose(false), row(0), col(0), Col(0), mat(PETSC_NULL) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
   }
 
   petsc_sparse_matrix(PetscInt m /* local # of rows */,
                       PetscInt n /* local # of cols */,
-                      PetscInt N /* global # of cols */,
-                      PetscInt out_process_row = 0,
-                      PetscInt out_process_row_reduction = 0)
-      : is_ctx_assembled(false), is_shell_assembled(false), is_assembled(false),
-        __row(m), __col(n), __Col(N), __out_process_row(out_process_row),
-        __out_process_reduction(out_process_row_reduction) {
-    __matrix.resize(m);
-    __out_process_matrix.resize(out_process_row);
+                      PetscInt N /* global # of cols */, PetscInt bs = 1)
+      : is_assembled(false), is_self_contained(true), is_set_null_space(false),
+        is_transpose(false), row(m), col(n), Col(N), block_size(bs),
+        mat(PETSC_NULL) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int send_count = row;
+    std::vector<int> recv_count;
+    recv_count.resize(size);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    MPI_Allgather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
+                  MPI_COMM_WORLD);
+
+    std::vector<int> displs;
+    displs.resize(size + 1);
+    displs[0] = 0;
+    for (int i = 1; i <= size; i++) {
+      displs[i] = displs[i - 1] + recv_count[i - 1];
+    }
+
+    range_row1 = displs[rank];
+    range_row2 = displs[rank + 1];
+
+    Row = displs[size];
+
+    block_row = row / block_size;
+    block_col = col / block_size;
+    block_range_row1 = range_row1 / block_size;
+    block_range_row2 = range_row2 / block_size;
+
+    block_Row = Row / block_size;
+    block_Col = Col / block_size;
+
+    mat_i.resize(block_row + 1);
+    mat_oi.resize(block_row + 1);
+
+    std::fill(mat_i.begin(), mat_i.end(), 0);
+    std::fill(mat_oi.begin(), mat_oi.end(), 0);
   }
 
   ~petsc_sparse_matrix() {
-    if (is_assembled || __mat != PETSC_NULL) {
-      MatSetNearNullSpace(__mat, NULL);
-      MatDestroy(&__mat);
+    if (is_assembled && is_self_contained) {
+      MatDestroy(mat);
+      delete mat;
     }
-    if (is_shell_assembled || __shell_mat != PETSC_NULL) {
-      MatSetNearNullSpace(__shell_mat, NULL);
-      MatDestroy(&__shell_mat);
-    }
-    if (is_ctx_assembled) {
-      if (__ctx.use_raw_fluid_part)
-        MatDestroy(&__ctx.fluid_raw_part);
-      MatDestroy(&__ctx.colloid_part);
-      MatDestroy(&__ctx.fluid_colloid_part);
-      VecDestroy(&__ctx.colloid_vec);
-      VecDestroy(&__ctx.fluid_vec1);
-      VecDestroy(&__ctx.fluid_vec2);
-      if (__ctx.use_local_vec) {
-        VecDestroy(&__ctx.fluid_vec_local);
-        VecDestroy(&__ctx.colloid_vec_local);
-      }
-      if (__ctx.use_vec_scatter) {
-        VecScatterDestroy(&__ctx.fluid_scatter);
-        VecScatterDestroy(&__ctx.colloid_scatter);
-      }
-    }
+    if (is_set_null_space)
+      MatDestroy(&shell_mat);
   }
 
-  void resize(PetscInt m, PetscInt n) {
-    __row = m;
-    __col = n;
-    __Col = 0;
-    __matrix.resize(m);
+  void resize(PetscInt m, PetscInt n, PetscInt N, PetscInt bs = 1) {
+    row = m;
+    col = n;
+    Col = N;
 
-    __out_process_row = 0;
-    __out_process_reduction = 0;
+    block_size = bs;
+
+    int send_count = row;
+    std::vector<int> recv_count;
+    recv_count.resize(size);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    MPI_Allgather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
+                  MPI_COMM_WORLD);
+
+    std::vector<int> displs;
+    displs.resize(size + 1);
+    displs[0] = 0;
+    for (int i = 1; i <= size; i++) {
+      displs[i] = displs[i - 1] + recv_count[i - 1];
+    }
+
+    range_row1 = displs[rank];
+    range_row2 = displs[rank + 1];
+
+    Row = displs[size];
+
+    block_row = row / block_size;
+    block_range_row1 = range_row1 / block_size;
+    block_range_row2 = range_row2 / block_size;
+
+    block_Row = Row / block_size;
+    block_Col = Col / block_size;
+
+    mat_i.resize(block_row + 1);
+    mat_oi.resize(block_row + 1);
+
+    mat_j.clear();
+    mat_a.clear();
+    mat_oj.clear();
+    mat_oa.clear();
+
+    std::fill(mat_i.begin(), mat_i.end(), 0);
+    std::fill(mat_oi.begin(), mat_oi.end(), 0);
   }
 
-  void resize(PetscInt m, PetscInt n, PetscInt N, PetscInt out_process_row = 0,
-              PetscInt out_process_row_reduction = 0) {
-    __row = m;
-    __col = n;
-    __Col = N;
-    __matrix.resize(m);
+  void set_null_space(std::vector<int> &null_space) {
+    null_space_ptr = std::make_shared<std::vector<int>>(null_space);
+    is_set_null_space = true;
 
-    __out_process_row = out_process_row;
-    __out_process_reduction = out_process_row_reduction;
-    __out_process_matrix.resize(out_process_row);
+    MatCreateShell(PETSC_COMM_WORLD, block_row, block_col, PETSC_DECIDE,
+                   block_Col, this, &shell_mat);
+    MatShellSetOperation(shell_mat, MATOP_MULT,
+                         (void (*)(void))null_space_matrix_mult);
+
+    null_space_size = null_space_ptr->size();
+    MPI_Allreduce(MPI_IN_PLACE, &null_space_size, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
   }
 
-  Mat &get_reference() { return __mat; }
+  void set_transpose() {
+    is_transpose = true;
 
-  Mat *get_pointer() { return &__mat; }
+    mat_i.resize(Row + 1);
+    std::fill(mat_i.begin(), mat_i.end(), 0);
+  }
 
-  Mat &get_shell_reference() { return __shell_mat; }
+  Mat &get_reference() { return *mat; }
 
-  Mat *get_shell_pointer() { return &__shell_mat; }
-
-  Mat &get_operator_reference() {
-    if (is_shell_assembled)
-      return __shell_mat;
+  Mat &get_operator() {
+    if (is_set_null_space)
+      return shell_mat;
     else
-      return __mat;
+      return *mat;
   }
 
-  Mat *get_operator_pointer() {
-    if (is_shell_assembled)
-      return &__shell_mat;
-    else
-      return &__mat;
+  void link(Mat *A) {
+    mat = A;
+    is_self_contained = false;
   }
 
-  inline void set_col_index(const PetscInt row, std::vector<PetscInt> &index);
-  inline void set_out_process_col_index(const PetscInt row,
-                                        std::vector<PetscInt> &index);
-  inline void zero_row(const PetscInt i);
-  inline void increment(const PetscInt i, const PetscInt j, double daij);
-  inline void set(const PetscInt i, const PetscInt j, double daij);
-  inline void out_process_increment(const PetscInt i, const PetscInt j,
-                                    double daij);
+  void set_col_index(const PetscInt i, std::vector<PetscInt> &idx);
+  void set_block_col_index(const PetscInt i, std::vector<PetscInt> &idx);
+  void increment(const PetscInt i, const PetscInt j, double a);
+  void increment_row(const PetscInt i, std::vector<PetscInt> &j,
+                     std::vector<PetscReal> &a);
+  void increment_row_block(const PetscInt i, std::vector<PetscInt> &j,
+                           std::vector<PetscReal> &a);
 
-  inline double get_entity(const PetscInt i, const PetscInt j);
-
-  inline void invert_row(const PetscInt i);
+  double get_entity(const PetscInt i, const PetscInt j);
 
   int write(std::string filename);
 
+  int graph_assemble();
+  int graph_assemble(Mat *A);
   int assemble();
-  int assemble(int blockSize);
-  int assemble(int blockSize, int num_rigid_body, int rigid_body_dof);
-  int assemble(petsc_sparse_matrix &mat, int blockSize, int num_rigid_body,
-               int rigid_body_dof);
+  int transpose_assemble();
 
   int extract_neighbor_index(std::vector<int> &idx_colloid, int dimension,
                              int num_rigid_body, int local_rigid_body_offset,
                              int global_rigid_body_offset,
                              petsc_sparse_matrix &nn, petsc_sparse_matrix &nw);
-
-  // (*this) * x = rhs
-  void solve(std::vector<double> &rhs,
-             std::vector<double> &x); // simple solver
-  void solve(std::vector<double> &rhs, std::vector<double> &x,
-             PetscInt blockSize); // simple solver
-  void solve(std::vector<double> &rhs, std::vector<double> &x, int dimension,
-             int numRigidBody);
-  void solve(std::vector<double> &rhs, std::vector<double> &x,
-             std::vector<int> &idx_colloid, int dimension, int numRigidBody,
-             int adaptive_step, petsc_sparse_matrix &I, petsc_sparse_matrix &R);
-  // two field solver with rigid body inclusion
-
-  // [A Bt; B C] * [x; y] = [f; g]
-  friend void solve(petsc_sparse_matrix &A, petsc_sparse_matrix &Bt,
-                    petsc_sparse_matrix &B, petsc_sparse_matrix &C,
-                    std::vector<double> &f, std::vector<double> &g,
-                    std::vector<double> &x, std::vector<double> &y,
-                    int numRigidBody, int rigidBodyDof);
 };
-
-void petsc_sparse_matrix::set_col_index(const PetscInt row,
-                                        std::vector<PetscInt> &index) {
-  sort(index.begin(), index.end());
-  __matrix[row].resize(index.size());
-  size_t counter = 0;
-  for (std::vector<entry>::iterator it = __matrix[row].begin();
-       it != __matrix[row].end(); it++) {
-    if (index[counter] > __Col) {
-      std::cout << row << ' ' << index[counter]
-                << " index setting with wrong column index" << std::endl;
-      counter++;
-      continue;
-    }
-
-    it->first = index[counter++];
-    it->second = 0.0;
-  }
-}
-
-void petsc_sparse_matrix::set_out_process_col_index(
-    const PetscInt row, std::vector<PetscInt> &index) {
-  sort(index.begin(), index.end());
-  __out_process_matrix[row - __out_process_reduction].resize(index.size());
-  size_t counter = 0;
-  for (std::vector<entry>::iterator it =
-           __out_process_matrix[row - __out_process_reduction].begin();
-       it != __out_process_matrix[row - __out_process_reduction].end(); it++) {
-    if (index[counter] > __Col) {
-      std::cout << row << ' ' << index[counter]
-                << " out process index setting with wrong column index"
-                << std::endl;
-      counter++;
-      continue;
-    }
-
-    it->first = index[counter++];
-    it->second = 0.0;
-  }
-}
-
-void petsc_sparse_matrix::zero_row(const PetscInt i) {
-  for (auto it = __matrix[i].begin(); it != __matrix[i].end(); it++) {
-    it->second = 0.0;
-  }
-}
-
-void petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
-                                    const double daij) {
-  if (std::abs(daij) > 1e-15) {
-    auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
-                          entry(j, daij), compare_index);
-    if (j > __Col) {
-      std::cout << i << ' ' << j << " increment wrong column index"
-                << std::endl;
-      return;
-    }
-
-    if (it->first == j)
-      it->second += daij;
-    else
-      std::cout << i << ' ' << j << " increment misplacement" << std::endl;
-  }
-}
-
-void petsc_sparse_matrix::set(const PetscInt i, const PetscInt j,
-                              const double daij) {
-  if (std::abs(daij) > 1e-15) {
-    auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
-                          entry(j, daij), compare_index);
-    if (j > __Col) {
-      std::cout << i << ' ' << j << " increment wrong column index"
-                << std::endl;
-      return;
-    }
-
-    if (it->first == j)
-      it->second = daij;
-    else
-      std::cout << i << ' ' << j << " increment misplacement" << std::endl;
-  }
-}
-
-void petsc_sparse_matrix::out_process_increment(const PetscInt i,
-                                                const PetscInt j,
-                                                const double daij) {
-  if (std::abs(daij) > 1e-15) {
-    PetscInt in = i - __out_process_reduction;
-    auto it = lower_bound(__out_process_matrix[in].begin(),
-                          __out_process_matrix[in].end(), entry(j, daij),
-                          compare_index);
-    if (j > __Col) {
-      std::cout << i << ' ' << j << " out process wrong column index"
-                << std::endl;
-      return;
-    }
-
-    if (it != __out_process_matrix[in].end() && it->first == j)
-      it->second += daij;
-    else
-      std::cout << in << ' ' << j << " out process increament misplacement"
-                << std::endl;
-  }
-}
-
-double petsc_sparse_matrix::get_entity(const PetscInt i, const PetscInt j) {
-  auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(), entry(j, 0.0),
-                        compare_index);
-  if (j > __Col) {
-    std::cout << i << ' ' << j << " wrong matrix index access" << std::endl;
-    return 0.0;
-  }
-
-  if (it->first == j)
-    return it->second;
-  else
-    return 0.0;
-}
-
-void petsc_sparse_matrix::invert_row(const PetscInt i) {
-  for (auto it = __matrix[i].begin(); it != __matrix[i].end(); it++) {
-    it->second = -it->second;
-  }
-}
 
 #endif

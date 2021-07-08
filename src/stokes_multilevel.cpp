@@ -652,7 +652,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   vector<int> idx_pressure;
 
   PetscInt local_n1, local_n2;
-  Mat &shell_mat = getA(refinement_step)->get_shell_reference();
+  Mat &shell_mat = getA(refinement_step)->get_operator();
   MatGetOwnershipRange(shell_mat, &local_n1, &local_n2);
 
   int local_particle_num;
@@ -735,10 +735,10 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   _rhs.create(rhs);
   _x.create(x);
 
-  Mat &ff_shell = ff_list[refinement_step]->get_shell_reference();
+  Mat &ff_shell = ff_list[refinement_step]->get_operator();
   Mat &ff = ff_list[refinement_step]->get_reference();
   Mat &nn = nn_list[refinement_step]->get_reference();
-  Mat &nn_shell = nn_list[refinement_step]->get_shell_reference();
+  Mat &nn_shell = nn_list[refinement_step]->get_operator();
   Mat &nw = nw_list[refinement_step]->get_reference();
   // Mat &pp = pp_list[refinement_step]->get_reference();
 
@@ -960,7 +960,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       KSPGMRESSetRestart(
           colloid_relaxation_list[refinement_step]->get_reference(), 100);
       KSPSetTolerances(
-          colloid_relaxation_list[refinement_step]->get_reference(), 1e-1,
+          colloid_relaxation_list[refinement_step]->get_reference(), 1e-3,
           1e-50, 1e10, 500);
       KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
                       nn, nn);
@@ -1080,11 +1080,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   if (residual_norm / rhs_norm < initial_residual || refinement_step == 0) {
     _x.copy(x);
   }
-
-  PetscPrintf(PETSC_COMM_WORLD, "nn matmult duration: %fs\n",
-              nn_list[refinement_step]->__ctx.matmult_duration);
-  PetscPrintf(PETSC_COMM_WORLD, "ff matmult duration: %fs\n",
-              ff_list[refinement_step]->__ctx.matmult_duration);
 
   VecDestroy(&residual);
   KSPDestroy(&_ksp);

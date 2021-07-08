@@ -58,9 +58,14 @@ link_libraries(${Trilinos_TPL_LIBRARIES})
 link_libraries(${MPI_CXX_LIBRARIES})
 
 file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE petsc_sources ${PROJECT_SOURCE_DIR}/src/petsc_*.cpp)
 
 add_compile_options(-O3 -w -fopenmp -fPIC)
 
 add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
 
 add_executable(test_particle_hierarchy ${sources} ${PROJECT_SOURCE_DIR}/test/test_particle_hierarchy.cpp)
+add_executable(test_block_matrix ${petsc_sources} ${PROJECT_SOURCE_DIR}/test/test_block_matrix.cpp)
+
+set_target_properties(test_particle_hierarchy PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/test/bin/)
+set_target_properties(test_block_matrix PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/test/bin/)
