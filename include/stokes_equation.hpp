@@ -38,8 +38,8 @@ private:
   std::vector<double> epsilon;
   std::vector<double> ghost_epsilon;
 
-  std::vector<double> rhs;
-  std::vector<double> res;
+  std::vector<double> rhs, rhs_rb;
+  std::vector<double> res, res_rb;
   std::vector<double> error;
   std::vector<int> idx_colloid;
 

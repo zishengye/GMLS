@@ -67,8 +67,8 @@ void stokes_equation::update() {
   multi_mgr->add_new_level();
 
   build_coefficient_matrix();
-  // build_rhs();
-  // solve_step();
+  build_rhs();
+  solve_step();
   // calculate_error();
   // check_solution();
   // collect_force();
@@ -1304,29 +1304,28 @@ void stokes_equation::build_coefficient_matrix() {
   velocity_colloid_basis.reset();
 
   // stabilize the coefficient matrix
-  // for (int i = 0; i < local_particle_num; i++) {
-  //   const int current_particle_local_index = local_idx[i];
-  //   const int current_particle_global_index = source_index[i];
+  for (int i = 0; i < local_particle_num; i++) {
+    const int current_particle_local_index = local_idx[i];
+    const int current_particle_global_index = source_index[i];
 
-  //   for (int k = 0; k < field_dof; k++) {
-  //     const int local_index = current_particle_local_index * field_dof + k;
-  //     const int global_index = current_particle_global_index * field_dof + k;
+    for (int k = 0; k < field_dof; k++) {
+      const int local_index = current_particle_local_index * field_dof + k;
+      const int global_index = current_particle_global_index * field_dof + k;
 
-  //     if (A.get_entity(local_index, global_index) < 0.0) {
-  //       cout << fixed << setprecision(10) << source_index[i] << " " << k << '
-  //       '
-  //            << adaptive_level[i] << " " << particle_type[i] << " "
-  //            << epsilon[i] << ' ' << neighbor_list_host(i, 0) << ' ';
+      if (A.get_entity(local_index, global_index) < 0.0) {
+        cout << fixed << setprecision(10) << source_index[i] << " " << k << ' '
+             << adaptive_level[i] << " " << particle_type[i] << " "
+             << epsilon[i] << ' ' << neighbor_list_host(i, 0) << ' ';
 
-  //       cout << "(";
-  //       for (int k = 0; k < dim; k++) {
-  //         cout << " " << coord[i][k];
-  //       }
-  //       cout << ") "
-  //            << "Discretization error" << endl;
-  //     }
-  //   }
-  // }
+        cout << "(";
+        for (int k = 0; k < dim; k++) {
+          cout << " " << coord[i][k];
+        }
+        cout << ") "
+             << "Discretization error" << endl;
+      }
+    }
+  }
 
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Allreduce(MPI_IN_PLACE, &area, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -1409,8 +1408,7 @@ void stokes_equation::build_rhs() {
   int velocity_dof = dim;
 
   int local_velocity_dof = local_particle_num * dim;
-  int global_velocity_dof =
-      global_particle_num * dim + rigid_body_dof * num_rigid_body;
+  int global_velocity_dof = global_particle_num * dim;
   int local_pressure_dof = local_particle_num;
   int global_pressure_dof = global_particle_num;
 
@@ -1427,28 +1425,21 @@ void stokes_equation::build_rhs() {
   }
   end_rigid_body_idx = start_rigid_body_idx + local_num_rigid_body;
 
-  if (rank == size - 1) {
-    local_velocity_dof += rigid_body_dof * num_rigid_body;
-  }
-
-  vector<int> particle_num_per_process;
-  particle_num_per_process.resize(size);
-
-  MPI_Allgather(&local_particle_num, 1, MPI_INT,
-                particle_num_per_process.data(), 1, MPI_INT, MPI_COMM_WORLD);
-
-  int local_rigid_body_offset = particle_num_per_process[size - 1] * field_dof;
-  int global_rigid_body_offset = global_particle_num * field_dof;
-  int local_out_process_offset = particle_num_per_process[size - 1] * field_dof;
-
   int local_dof = local_velocity_dof + local_pressure_dof;
+  int local_rigid_body_dof = local_num_rigid_body * rigid_body_dof;
 
   rhs.resize(local_dof);
   res.resize(local_dof);
+  rhs_rb.resize(local_rigid_body_dof);
+  res_rb.resize(local_rigid_body_dof);
 
   for (int i = 0; i < local_dof; i++) {
     rhs[i] = 0.0;
     res[i] = 0.0;
+  }
+  for (int i = 0; i < local_rigid_body_dof; i++) {
+    rhs_rb[i] = 0.0;
+    res_rb[i] = 0.0;
   }
 
   auto neumann_neighbor_list = pressure_neumann_basis->getNeighborLists();
@@ -1635,24 +1626,22 @@ void stokes_equation::build_rhs() {
   //   }
   // }
 
-  if (rank == size - 1) {
-    for (int i = 0; i < num_rigid_body; i++) {
-      for (int axes = 0; axes < translation_dof; axes++) {
-        if (rigid_body_velocity_force_switch[i][axes])
-          rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
-              rigid_body_velocity[i][axes];
-        else
-          rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
-              -rigid_body_force[i][axes];
-      }
-      for (int axes = 0; axes < rotation_dof; axes++) {
-        if (rigid_body_angvelocity_torque_switch[i][axes])
-          rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-              axes] = rigid_body_angular_velocity[i][axes];
-        else
-          rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-              axes] = -rigid_body_torque[i][axes];
-      }
+  for (int i = 0; i < local_num_rigid_body; i++) {
+    for (int axes = 0; axes < translation_dof; axes++) {
+      if (rigid_body_velocity_force_switch[i][axes])
+        rhs_rb[i * rigid_body_dof + axes] =
+            rigid_body_velocity[(start_rigid_body_idx + i)][axes];
+      else
+        rhs_rb[i * rigid_body_dof + axes] =
+            -rigid_body_force[(start_rigid_body_idx + i)][axes];
+    }
+    for (int axes = 0; axes < rotation_dof; axes++) {
+      if (rigid_body_angvelocity_torque_switch[i][axes])
+        rhs_rb[i * rigid_body_dof + translation_dof + axes] =
+            rigid_body_angular_velocity[(start_rigid_body_idx + i)][axes];
+      else
+        rhs_rb[i * rigid_body_dof + translation_dof + axes] =
+            -rigid_body_torque[(start_rigid_body_idx + i)][axes];
     }
   }
 
@@ -1701,7 +1690,7 @@ void stokes_equation::solve_step() {
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
   // if (current_refinement_level < 4)
-  multi_mgr->solve(rhs, res, idx_colloid);
+  multi_mgr->solve(rhs, res, rhs_rb, res_rb);
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
@@ -1736,10 +1725,6 @@ void stokes_equation::solve_step() {
   MPI_Allgather(&local_particle_num, 1, MPI_INT,
                 particle_num_per_process.data(), 1, MPI_INT, MPI_COMM_WORLD);
 
-  int local_rigid_body_offset = particle_num_per_process[size - 1] * field_dof;
-  int global_rigid_body_offset = global_particle_num * field_dof;
-  int local_out_process_offset = particle_num_per_process[size - 1] * field_dof;
-
   pressure.resize(local_particle_num);
   velocity.resize(local_particle_num);
 
@@ -1763,17 +1748,27 @@ void stokes_equation::solve_step() {
   vector<vec3> &rigid_body_velocity = rb_mgr->get_velocity();
   vector<vec3> &rigid_body_angular_velocity = rb_mgr->get_angular_velocity();
 
-  if (rank == size - 1) {
-    for (int i = 0; i < num_rigid_body; i++) {
-      for (int j = 0; j < translation_dof; j++) {
-        rigid_body_velocity[i][j] =
-            res[local_rigid_body_offset + i * rigid_body_dof + j];
-      }
-      for (int j = 0; j < rotation_dof; j++) {
-        rigid_body_angular_velocity[i][j] =
-            res[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-                j];
-      }
+  int local_num_rigid_body = num_rigid_body / size;
+  if (rank < num_rigid_body % size)
+    local_num_rigid_body++;
+
+  int start_rigid_body_idx, end_rigid_body_idx;
+  start_rigid_body_idx = 0;
+  for (int i = 0; i < rank; i++) {
+    start_rigid_body_idx += num_rigid_body / size;
+    if (i < num_rigid_body % size)
+      start_rigid_body_idx++;
+  }
+  end_rigid_body_idx = start_rigid_body_idx + local_num_rigid_body;
+
+  for (int i = 0; i < local_num_rigid_body; i++) {
+    for (int j = 0; j < translation_dof; j++) {
+      rigid_body_velocity[i + start_rigid_body_idx][j] =
+          res[i * rigid_body_dof + j];
+    }
+    for (int j = 0; j < rotation_dof; j++) {
+      rigid_body_angular_velocity[i + start_rigid_body_idx][j] =
+          res[i * rigid_body_dof + translation_dof + j];
     }
   }
 
@@ -1781,34 +1776,39 @@ void stokes_equation::solve_step() {
   vector<double> translation_velocity(num_rigid_body * translation_dof);
   vector<double> angular_velocity(num_rigid_body * rotation_dof);
 
-  if (rank == size - 1) {
-    for (int i = 0; i < num_rigid_body; i++) {
-      for (int j = 0; j < translation_dof; j++) {
-        translation_velocity[i * translation_dof + j] =
-            rigid_body_velocity[i][j];
-      }
-      for (int j = 0; j < rotation_dof; j++) {
-        angular_velocity[i * rotation_dof + j] =
-            rigid_body_angular_velocity[i][j];
-      }
+  for (int i = 0; i < num_rigid_body; i++) {
+    for (int j = 0; j < translation_dof; j++) {
+      translation_velocity[i * translation_dof + j] = 0.0;
+    }
+    for (int j = 0; j < rotation_dof; j++) {
+      angular_velocity[i * rotation_dof + j] = 0.0;
     }
   }
 
-  MPI_Bcast(translation_velocity.data(), num_rigid_body * translation_dof,
-            MPI_DOUBLE, size - 1, MPI_COMM_WORLD);
-  MPI_Bcast(angular_velocity.data(), num_rigid_body * rotation_dof, MPI_DOUBLE,
-            size - 1, MPI_COMM_WORLD);
+  for (int i = start_rigid_body_idx; i < end_rigid_body_idx; i++) {
+    for (int j = 0; j < translation_dof; j++) {
+      translation_velocity[i * translation_dof + j] = rigid_body_velocity[i][j];
+    }
+    for (int j = 0; j < rotation_dof; j++) {
+      angular_velocity[i * rotation_dof + j] =
+          rigid_body_angular_velocity[i][j];
+    }
+  }
 
-  if (rank != size - 1) {
-    for (int i = 0; i < num_rigid_body; i++) {
-      for (int j = 0; j < translation_dof; j++) {
-        rigid_body_velocity[i][j] =
-            translation_velocity[i * translation_dof + j];
-      }
-      for (int j = 0; j < rotation_dof; j++) {
-        rigid_body_angular_velocity[i][j] =
-            angular_velocity[i * rotation_dof + j];
-      }
+  MPI_Allreduce(MPI_IN_PLACE, translation_velocity.data(),
+                num_rigid_body * translation_dof, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, angular_velocity.data(),
+                num_rigid_body * rotation_dof, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  for (int i = 0; i < num_rigid_body; i++) {
+    for (int j = 0; j < translation_dof; j++) {
+      rigid_body_velocity[i][j] = translation_velocity[i * translation_dof + j];
+    }
+    for (int j = 0; j < rotation_dof; j++) {
+      rigid_body_angular_velocity[i][j] =
+          angular_velocity[i * rotation_dof + j];
     }
   }
 }

@@ -217,17 +217,21 @@ int petsc_sparse_matrix::graph_assemble() {
 
       mat_a.resize(nnz);
       mat_oa.resize(o_nnz);
+      fill(mat_a.begin(), mat_a.end(), 0.0);
+      fill(mat_oa.begin(), mat_oa.end(), 0.0);
     } else {
       nnz = mat_i[Row];
       o_nnz = 0;
 
       mat_a.resize(nnz);
+      fill(mat_a.begin(), mat_a.end(), 0.0);
     }
   } else {
     nnz = mat_i[block_row] * block_size * block_size;
     o_nnz = 0;
 
     mat_a.resize(nnz);
+    fill(mat_a.begin(), mat_a.end(), 0.0);
   }
 
   return nnz + o_nnz;
@@ -267,9 +271,6 @@ int petsc_sparse_matrix::assemble() {
 }
 
 int petsc_sparse_matrix::transpose_assemble() {
-  vector<int> newmat_i, newmat_j;
-  vector<double> newmat_a;
-
   int send_count = col;
   std::vector<int> recv_count;
   recv_count.resize(size);
@@ -341,6 +342,81 @@ int petsc_sparse_matrix::transpose_assemble() {
   }
 
   // merge matrix
+  int col_range1 = col_range[rank];
+  vector<PetscInt> old_local_mat_i, old_local_mat_j;
+  vector<PetscReal> old_local_mat_a;
+  old_local_mat_i.resize(Row + 1);
+  old_local_mat_i[0] = 0;
+  for (int row_it = 0; row_it < Row; row_it++) {
+    vector<PetscInt> index;
+    vector<PetscReal> row_a;
+    for (int j = mat_i[row_it]; j < mat_i[row_it + 1]; j++) {
+      if (mat_j[j] >= col_range[rank] && mat_j[j] < col_range[rank + 1]) {
+        index.push_back(mat_j[j]);
+        row_a.push_back(mat_a[j]);
+      }
+    }
+    old_local_mat_i[row_it + 1] = old_local_mat_i[row_it] + index.size();
+    old_local_mat_j.insert(old_local_mat_j.end(), index.begin(), index.end());
+    old_local_mat_a.insert(old_local_mat_a.end(), row_a.begin(), row_a.end());
+  }
+
+  vector<vector<PetscInt>> new_mat;
+  new_mat.resize(col);
+  for (int i = 0; i < recvmat_i.size(); i++) {
+    new_mat[recvmat_j[i] - col_range1].push_back(recvmat_i[i]);
+  }
+  for (int row_it = 0; row_it < Row; row_it++) {
+    for (int j = old_local_mat_i[row_it]; j < old_local_mat_i[row_it + 1];
+         j++) {
+      new_mat[old_local_mat_j[j] - col_range1].push_back(row_it);
+    }
+  }
+
+  for (int i = 0; i < col; i++) {
+    sort(new_mat[i].begin(), new_mat[i].end());
+    new_mat[i].erase(unique(new_mat[i].begin(), new_mat[i].end()),
+                     new_mat[i].end());
+  }
+
+  mat_i.resize(col + 1);
+  mat_j.clear();
+  mat_i[0] = 0;
+  for (int i = 0; i < col; i++) {
+    mat_i[i + 1] = mat_i[i] + new_mat[i].size();
+    mat_j.insert(mat_j.end(), new_mat[i].begin(), new_mat[i].end());
+  }
+  mat_a.resize(mat_j.size());
+  fill(mat_a.begin(), mat_a.end(), 0.0);
+  for (int i = 0; i < recvmat_i.size(); i++) {
+    auto it = lower_bound(mat_j.begin() + mat_i[recvmat_j[i] - col_range1],
+                          mat_j.begin() + mat_i[recvmat_j[i] - col_range1 + 1],
+                          recvmat_i[i]);
+    if (*it == recvmat_i[i]) {
+      mat_a[it - mat_j.begin()] += recvmat_a[i];
+    }
+  }
+  for (int row_it = 0; row_it < Row; row_it++) {
+    for (int j = old_local_mat_i[row_it]; j < old_local_mat_i[row_it + 1];
+         j++) {
+      auto it = lower_bound(
+          mat_j.begin() + mat_i[old_local_mat_j[j] - col_range1],
+          mat_j.begin() + mat_i[old_local_mat_j[j] - col_range1 + 1], row_it);
+      if (*it == row_it) {
+        mat_a[it - mat_j.begin()] += old_local_mat_a[j];
+      }
+    }
+  }
+
+  MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, col, row, PETSC_DECIDE, Row,
+                            mat_i.data(), mat_j.data(), mat_a.data(), mat);
+  {
+    decltype(mat_i)().swap(mat_i);
+    decltype(mat_j)().swap(mat_j);
+    decltype(mat_a)().swap(mat_a);
+  }
+
+  is_assembled = true;
 
   return 0;
 }
