@@ -1013,13 +1013,14 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPGMRESSetRestart(_ksp, restart);
   }
 
-  PetscReal rtol, atol, dtol;
-  PetscInt maxits;
-  KSPGetTolerances(_ksp, &rtol, &atol, &dtol, &maxits);
-  KSPSetTolerances(_ksp,
-                   rtol * (double)(global_particle_num_list[refinement_step]) /
-                       (double)(global_particle_num_list[0]),
-                   atol, dtol, maxits);
+  // PetscReal rtol, atol, dtol;
+  // PetscInt maxits;
+  // KSPGetTolerances(_ksp, &rtol, &atol, &dtol, &maxits);
+  // KSPSetTolerances(_ksp,
+  //                  rtol * (double)(global_particle_num_list[refinement_step])
+  //                  /
+  //                      (double)(global_particle_num_list[0]),
+  //                  atol, dtol, maxits);
 
   KSPSetUp(_ksp);
 
@@ -1050,7 +1051,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
               residual_norm / rhs_norm);
   int counter = 0;
   double initial_residual = residual_norm / rhs_norm;
-  while (residual_norm / rhs_norm > 1e-3 && counter < 5) {
+  while (residual_norm / rhs_norm > 1e-5 && counter < 5) {
     KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
     KSPConvergedReason convergence_reason;
@@ -1070,7 +1071,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       KSPSetUp(_ksp);
     }
     if (convergence_reason == KSP_CONVERGED_RTOL &&
-        residual_norm / rhs_norm > 1e-3) {
+        residual_norm / rhs_norm > 1e-5) {
       KSPSetTolerances(_ksp, pow(10, -6 - counter), 1e-50, 1e50, 500);
     }
     KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
