@@ -36,7 +36,7 @@ bool gmls_solver::refinement() {
   auto &local_spacing = *(geo_mgr->get_current_work_particle_spacing());
 
   // mark stage
-  double alpha = 0.6;
+  double alpha = 0.8;
 
   PetscPrintf(PETSC_COMM_WORLD, "alpha: %f\n", alpha);
 
@@ -121,9 +121,6 @@ bool gmls_solver::refinement() {
   for (int i = 0; i < split_max_index; i++) {
     split_tag[chopper[i].first] = 1;
   }
-
-  if (write_data == 1 || write_data == 4)
-    write_refinement_data(split_tag);
 
   // prevent over splitting
   vector<int> candidate_split_tag, ghost_split_tag;
@@ -237,6 +234,7 @@ bool gmls_solver::refinement() {
                                                              Kokkos::HostSpace>(
           source_spacing_host, GradientOfScalarPointEvaluation);
 
+  vector<double> h_gradient_norm(num_target_coord);
   double max_h_gradient = 0.0;
   for (int i = 0; i < num_target_coord; i++) {
     double gradient_value = 0.0;
@@ -246,6 +244,7 @@ bool gmls_solver::refinement() {
     if (max_h_gradient < gradient_value) {
       max_h_gradient = gradient_value;
     }
+    h_gradient_norm[i] = gradient_value;
   }
   MPI_Allreduce(MPI_IN_PLACE, &max_h_gradient, 1, MPI_DOUBLE, MPI_MAX,
                 MPI_COMM_WORLD);
@@ -265,6 +264,9 @@ bool gmls_solver::refinement() {
       }
     }
   }
+
+  if (write_data == 1 || write_data == 4)
+    write_refinement_data(split_tag, h_gradient_norm);
 
   int iteration_finished = 1;
   while (iteration_finished != 0) {
@@ -306,7 +308,9 @@ bool gmls_solver::refinement() {
   }
 
   iteration_finished = 1;
+  int counter = 0;
   while (iteration_finished != 0) {
+    counter++;
     geo_mgr->ghost_forward(split_tag, ghost_split_tag);
     for (int i = 0; i < num_source_coord; i++) {
       if (ghost_split_tag[i] == 0)
@@ -349,28 +353,28 @@ bool gmls_solver::refinement() {
         for (int j = 0; j < dim; j++)
           gradient_value += pow(h_gradient(i, j), 2.0);
         gradient_value = sqrt(gradient_value);
-        if (max_h_gradient < gradient_value) {
+        if (0.5 < gradient_value) {
           split_tag[i] = 1;
           local_change++;
         }
       }
 
-      if (candidate_split_tag[i] == 1) {
-        double gradient_value = 0.0;
-        for (int j = 0; j < dim; j++)
-          gradient_value += pow(h_gradient(i, j), 2.0);
-        gradient_value = sqrt(gradient_value);
-        if (max_h_gradient < gradient_value) {
-          split_tag[i] = 0;
-          local_change++;
-        }
-      }
+      // if (candidate_split_tag[i] == 1) {
+      //   double gradient_value = 0.0;
+      //   for (int j = 0; j < dim; j++)
+      //     gradient_value += pow(h_gradient(i, j), 2.0);
+      //   gradient_value = sqrt(gradient_value);
+      //   if (max_h_gradient < gradient_value) {
+      //     split_tag[i] = 0;
+      //     local_change++;
+      //   }
+      // }
       if (candidate_split_tag[i] == 0) {
         double gradient_value = 0.0;
         for (int j = 0; j < dim; j++)
           gradient_value += pow(h_gradient(i, j), 2.0);
         gradient_value = sqrt(gradient_value);
-        if (max_h_gradient < gradient_value) {
+        if (0.5 < gradient_value) {
           split_tag[i] = 1;
           local_change++;
         }
@@ -379,6 +383,13 @@ bool gmls_solver::refinement() {
 
     MPI_Allreduce(&local_change, &iteration_finished, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
+  }
+  geo_mgr->ghost_forward(split_tag, ghost_split_tag);
+  for (int i = 0; i < num_source_coord; i++) {
+    if (ghost_split_tag[i] == 0)
+      source_spacing_host(i) = source_spacing[i];
+    else
+      source_spacing_host(i) = 0.5 * source_spacing[i];
   }
 
   h_gradient =

@@ -116,7 +116,8 @@ private:
   }
 
   void write_time_step_data();
-  void write_refinement_data(std::vector<int> &split_tag);
+  void write_refinement_data(std::vector<int> &split_tag,
+                             std::vector<double> &h_gradient);
   void write_refinement_data_geometry_only();
   void write_geometry_ghost();
 

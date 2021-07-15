@@ -960,7 +960,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       KSPGMRESSetRestart(
           colloid_relaxation_list[refinement_step]->get_reference(), 100);
       KSPSetTolerances(
-          colloid_relaxation_list[refinement_step]->get_reference(), 1e-1,
+          colloid_relaxation_list[refinement_step]->get_reference(), 1e-2,
           1e-50, 1e10, 500);
       KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
                       nn, nn);
@@ -1051,7 +1051,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
               residual_norm / rhs_norm);
   int counter = 0;
   double initial_residual = residual_norm / rhs_norm;
-  while (residual_norm / rhs_norm > 1e-5 && counter < 5) {
+  while (residual_norm / rhs_norm > 1e-4 && counter < 5) {
     KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
     KSPConvergedReason convergence_reason;
@@ -1071,7 +1071,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
       KSPSetUp(_ksp);
     }
     if (convergence_reason == KSP_CONVERGED_RTOL &&
-        residual_norm / rhs_norm > 1e-5) {
+        residual_norm / rhs_norm > 1e-4) {
       KSPSetTolerances(_ksp, pow(10, -6 - counter), 1e-50, 1e50, 500);
     }
     KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
