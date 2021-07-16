@@ -353,7 +353,7 @@ bool gmls_solver::refinement() {
         for (int j = 0; j < dim; j++)
           gradient_value += pow(h_gradient(i, j), 2.0);
         gradient_value = sqrt(gradient_value);
-        if (0.5 < gradient_value) {
+        if (2.0 < gradient_value) {
           split_tag[i] = 1;
           local_change++;
         }
@@ -369,12 +369,12 @@ bool gmls_solver::refinement() {
       //     local_change++;
       //   }
       // }
-      if (candidate_split_tag[i] == 0) {
+      if (split_tag[i] == 0 && particle_type[i] != 0) {
         double gradient_value = 0.0;
         for (int j = 0; j < dim; j++)
           gradient_value += pow(h_gradient(i, j), 2.0);
         gradient_value = sqrt(gradient_value);
-        if (0.5 < gradient_value) {
+        if (2.0 < gradient_value) {
           split_tag[i] = 1;
           local_change++;
         }
@@ -400,11 +400,13 @@ bool gmls_solver::refinement() {
   max_h_gradient = 0.0;
   for (int i = 0; i < num_target_coord; i++) {
     double gradient_value = 0.0;
-    for (int j = 0; j < dim; j++)
-      gradient_value += pow(h_gradient(i, j), 2.0);
-    gradient_value = sqrt(gradient_value);
-    if (max_h_gradient < gradient_value) {
-      max_h_gradient = gradient_value;
+    if (particle_type[i] == 0) {
+      for (int j = 0; j < dim; j++)
+        gradient_value += pow(h_gradient(i, j), 2.0);
+      gradient_value = sqrt(gradient_value);
+      if (max_h_gradient < gradient_value) {
+        max_h_gradient = gradient_value;
+      }
     }
   }
   MPI_Allreduce(MPI_IN_PLACE, &max_h_gradient, 1, MPI_DOUBLE, MPI_MAX,

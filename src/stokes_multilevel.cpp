@@ -879,6 +879,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     // PCSetType(pc_field_base, PCLU);
     // PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
     PCSetType(pc_field_base, PCSOR);
+    PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
     KSPSetUp(ksp_field_base->get_reference());
 
@@ -946,6 +947,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
              &field_relaxation_pc);
     PCSetType(field_relaxation_pc, PCSOR);
+    PCSetFromOptions(field_relaxation_pc);
     PCSetUp(field_relaxation_pc);
 
     KSPSetUp(field_relaxation_list[refinement_step]->get_reference());

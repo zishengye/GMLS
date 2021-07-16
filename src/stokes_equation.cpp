@@ -670,6 +670,57 @@ void stokes_equation::build_coefficient_matrix() {
   Kokkos::deep_copy(colloid_neighbor_list_device, colloid_neighbor_list_host);
   Kokkos::deep_copy(colloid_epsilon_device, colloid_epsilon_host);
 
+  {
+    auto basis =
+        GMLS(ScalarTaylorPolynomial, PointSample, 2, dim, "LU", "STANDARD");
+
+    basis.setProblemData(neighbor_list_device, source_coord_device,
+                         target_coord_device, epsilon_device);
+    basis.addTargets(GradientOfScalarPointEvaluation);
+
+    basis.setWeightingType(WeightingFunctionType::Power);
+    basis.setWeightingPower(4);
+    basis.setOrderOfQuadraturePoints(2);
+    basis.setDimensionOfQuadraturePoints(1);
+    basis.setQuadratureType("LINE");
+
+    basis.generateAlphas(max(1, local_particle_num / 100), false);
+
+    vector<double> source_spacing;
+    geo_mgr->ghost_forward(spacing, source_spacing);
+
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> source_spacing_device(
+        "source spacing", num_source_coord);
+    Kokkos::View<double *>::HostMirror source_spacing_host =
+        Kokkos::create_mirror_view(source_spacing_device);
+
+    for (int i = 0; i < num_source_coord; i++) {
+      source_spacing_host(i) = source_spacing[i];
+    }
+    Kokkos::deep_copy(source_spacing_device, source_spacing_host);
+
+    Evaluator evaluator(&basis);
+    auto h_gradient = evaluator.applyAlphasToDataAllComponentsAllTargetSites<
+        double **, Kokkos::HostSpace>(source_spacing_host,
+                                      GradientOfScalarPointEvaluation);
+
+    vector<double> h_gradient_norm(num_target_coord);
+    double max_h_gradient = 0.0;
+    for (int i = 0; i < num_target_coord; i++) {
+      double gradient_value = 0.0;
+      for (int j = 0; j < dim; j++)
+        gradient_value += pow(h_gradient(i, j), 2.0);
+      gradient_value = sqrt(gradient_value);
+      if (max_h_gradient < gradient_value) {
+        max_h_gradient = gradient_value;
+      }
+      h_gradient_norm[i] = gradient_value;
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &max_h_gradient, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "max h gradient: %f\n", max_h_gradient);
+  }
+
   // pressure basis
   pressure_basis->setProblemData(neighbor_list_device, source_coord_device,
                                  target_coord_device, epsilon_device);

@@ -3617,6 +3617,8 @@ bool particle_geometry::split_rigid_body_surface_particle(
       // mark edge to split
       vector<int> edge_split_tag;
       edge_split_tag.resize(num_edge);
+      vector<int> edge_adaptive_level;
+      edge_adaptive_level.resize(num_edge);
       for (int i = 0; i < edge_split_tag.size(); i++) {
         edge_split_tag[i] = 0;
       }
@@ -3642,6 +3644,12 @@ bool particle_geometry::split_rigid_body_surface_particle(
           edge_split_tag[edge_offset[min(idx0, idx1)] + edge1] = 1;
           edge_split_tag[edge_offset[min(idx1, idx2)] + edge2] = 1;
           edge_split_tag[edge_offset[min(idx2, idx0)] + edge3] = 1;
+          edge_adaptive_level[edge_offset[min(idx0, idx1)] + edge1] =
+              current_element_adaptive_level[i] + 1;
+          edge_adaptive_level[edge_offset[min(idx1, idx2)] + edge2] =
+              current_element_adaptive_level[i] + 1;
+          edge_adaptive_level[edge_offset[min(idx2, idx0)] + edge3] =
+              current_element_adaptive_level[i] + 1;
 
           // check if the midpoint has been inserted or not
           int idx_check1, idx_check2;
@@ -3731,14 +3739,14 @@ bool particle_geometry::split_rigid_body_surface_particle(
       }
 
       // split edge
-      vector<int> edge_adaptive_level;
-      edge_adaptive_level.resize(num_edge);
-      for (int i = 0; i < edge.size(); i++) {
-        for (int j = 0; j < edge[i].size(); j++) {
-          edge_adaptive_level[edge_offset[i] + j] =
-              max(adaptive_level[i], adaptive_level[edge[i][j]]);
-        }
-      }
+      // vector<int> edge_adaptive_level;
+      // edge_adaptive_level.resize(num_edge);
+      // for (int i = 0; i < edge.size(); i++) {
+      //   for (int j = 0; j < edge[i].size(); j++) {
+      //     edge_adaptive_level[edge_offset[i] + j] =
+      //         max(adaptive_level[i], adaptive_level[edge[i][j]]);
+      //   }
+      // }
       for (int i = 0; i < edge.size(); i++) {
         for (int j = 0; j < edge[i].size(); j++) {
           if (edge_split_tag[edge_offset[i] + j] == 1) {
