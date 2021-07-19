@@ -353,6 +353,29 @@ bool gmls_solver::refinement() {
             split_tag[i] = 1;
             local_change++;
           }
+        } else {
+          for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+            int neighbor_idx = neighbor_list_host(i, j + 1);
+            if (source_particle_type[neighbor_idx] != 0) {
+              if (adaptive_level[i] + 1 > source_adaptive_level[neighbor_idx] +
+                                              ghost_split_tag[neighbor_idx]) {
+                vec3 dX = coord[i] - source_coord[neighbor_idx];
+                if (ghost_split_tag[neighbor_idx] == 1) {
+                  if (dX.mag() < 0.5 * source_spacing[neighbor_idx]) {
+                    split_tag[i] = 0;
+                    local_change++;
+                    break;
+                  }
+                } else {
+                  if (dX.mag() < source_spacing[neighbor_idx]) {
+                    split_tag[i] = 0;
+                    local_change++;
+                    break;
+                  }
+                }
+              }
+            }
+          }
         }
 
         double gradient_value = 0.0;
