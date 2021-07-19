@@ -3572,17 +3572,18 @@ bool particle_geometry::split_rigid_body_surface_particle(
       }
 
       for (int i = 0; i < current_element.size(); i++) {
+        bool split_flag = true;
         for (int j = 0; j < 3; j++) {
           auto it = lower_bound(split_tag.begin(), split_tag.end(),
                                 current_element[i][j]);
 
-          if (it != split_tag.end() && *it == current_element[i][j]) {
-            if (adaptive_level[*it] == current_element_adaptive_level[i]) {
-              element_split_tag[i] = 1;
-              break;
-            }
+          if (it == split_tag.end() || *it != current_element[i][j]) {
+            if (adaptive_level[current_element[i][j]] ==
+                current_element_adaptive_level[i])
+              split_flag = false;
           }
         }
+        element_split_tag[i] = split_flag;
       }
 
       // build edge info

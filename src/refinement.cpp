@@ -309,6 +309,8 @@ bool gmls_solver::refinement() {
 
   iteration_finished = 1;
   int counter = 0;
+  vector<int> neighbor_refine(num_target_coord);
+  vector<int> ghost_neighbor_refine;
   while (iteration_finished != 0) {
     counter++;
     geo_mgr->ghost_forward(split_tag, ghost_split_tag);
@@ -322,6 +324,10 @@ bool gmls_solver::refinement() {
     h_gradient = evaluator.applyAlphasToDataAllComponentsAllTargetSites<
         double **, Kokkos::HostSpace>(source_spacing_host,
                                       GradientOfScalarPointEvaluation);
+
+    for (int i = 0; i < num_target_coord; i++) {
+      neighbor_refine[i] = 0;
+    }
 
     candidate_split_tag = split_tag;
     int local_change = 0;
@@ -353,7 +359,7 @@ bool gmls_solver::refinement() {
         for (int j = 0; j < dim; j++)
           gradient_value += pow(h_gradient(i, j), 2.0);
         gradient_value = sqrt(gradient_value);
-        if (2.0 < gradient_value) {
+        if (1.0 < gradient_value) {
           split_tag[i] = 1;
           local_change++;
         }
@@ -374,15 +380,44 @@ bool gmls_solver::refinement() {
         for (int j = 0; j < dim; j++)
           gradient_value += pow(h_gradient(i, j), 2.0);
         gradient_value = sqrt(gradient_value);
-        if (2.0 < gradient_value) {
+        if (1.0 < gradient_value) {
           split_tag[i] = 1;
           local_change++;
+        }
+      }
+
+      if (split_tag[i] != 0) {
+        double gradient_value = 0.0;
+        for (int j = 0; j < dim; j++)
+          gradient_value += pow(h_gradient(i, j), 2.0);
+        gradient_value = sqrt(gradient_value);
+        if (1.0 < gradient_value) {
+          neighbor_refine[i] = 1;
+        }
+      }
+    }
+
+    geo_mgr->ghost_forward(neighbor_refine, ghost_neighbor_refine);
+    for (int i = 0; i < num_target_coord; i++) {
+      if (split_tag[i] == 0) {
+        for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+          int neighbor_idx = neighbor_list_host(i, j + 1);
+          vec3 dX = coord[i] - source_coord[neighbor_idx];
+          if (ghost_neighbor_refine[neighbor_idx] == 1 &&
+              dX.mag() < 0.75 * source_spacing[neighbor_idx] &&
+              adaptive_level[i] < source_adaptive_level[neighbor_idx]) {
+            split_tag[i] = 1;
+            local_change++;
+            break;
+          }
         }
       }
     }
 
     MPI_Allreduce(&local_change, &iteration_finished, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD, "ite count: %d, local change: %d\n", counter,
+                iteration_finished);
   }
   geo_mgr->ghost_forward(split_tag, ghost_split_tag);
   for (int i = 0; i < num_source_coord; i++) {
@@ -400,13 +435,11 @@ bool gmls_solver::refinement() {
   max_h_gradient = 0.0;
   for (int i = 0; i < num_target_coord; i++) {
     double gradient_value = 0.0;
-    if (particle_type[i] == 0) {
-      for (int j = 0; j < dim; j++)
-        gradient_value += pow(h_gradient(i, j), 2.0);
-      gradient_value = sqrt(gradient_value);
-      if (max_h_gradient < gradient_value) {
-        max_h_gradient = gradient_value;
-      }
+    for (int j = 0; j < dim; j++)
+      gradient_value += pow(h_gradient(i, j), 2.0);
+    gradient_value = sqrt(gradient_value);
+    if (max_h_gradient < gradient_value) {
+      max_h_gradient = gradient_value;
     }
   }
   MPI_Allreduce(MPI_IN_PLACE, &max_h_gradient, 1, MPI_DOUBLE, MPI_MAX,
