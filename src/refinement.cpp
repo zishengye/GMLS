@@ -269,7 +269,9 @@ bool gmls_solver::refinement() {
     write_refinement_data(split_tag, h_gradient_norm);
 
   int iteration_finished = 1;
-  while (iteration_finished != 0) {
+  ite_counter = 0;
+  while (iteration_finished != 0 && ite_counter < 100) {
+    ite_counter++;
     geo_mgr->ghost_forward(split_tag, ghost_split_tag);
     candidate_split_tag = split_tag;
     int local_change = 0;
@@ -311,7 +313,7 @@ bool gmls_solver::refinement() {
   int counter = 0;
   vector<int> neighbor_refine(num_target_coord);
   vector<int> ghost_neighbor_refine;
-  while (iteration_finished != 0) {
+  while (iteration_finished != 0 && counter < 100) {
     counter++;
     geo_mgr->ghost_forward(split_tag, ghost_split_tag);
     for (int i = 0; i < num_source_coord; i++) {
