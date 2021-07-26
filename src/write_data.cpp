@@ -410,7 +410,8 @@ void gmls_solver::write_time_step_data() {
   write_step++;
 }
 
-void gmls_solver::write_refinement_data(vector<int> &split_tag) {
+void gmls_solver::write_refinement_data(vector<int> &split_tag,
+                                        vector<double> &h_gradient) {
   vector<vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
   vector<vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
   vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
@@ -657,6 +658,27 @@ void gmls_solver::write_refinement_data(vector<int> &split_tag) {
               ios::app);
     for (size_t i = 0; i < split_tag.size(); i++) {
       file << split_tag[i] << endl;
+    }
+    file.close();
+  });
+
+  master_operation(0, [this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    file << "SCALARS h_gradient float 1" << endl;
+    file << "LOOKUP_TABLE default" << endl;
+    file.close();
+  });
+
+  serial_operation([h_gradient, this]() {
+    ofstream file;
+    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+                  ".vtk",
+              ios::app);
+    for (size_t i = 0; i < h_gradient.size(); i++) {
+      file << h_gradient[i] << endl;
     }
     file.close();
   });

@@ -2642,7 +2642,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag,
         Kokkos::create_mirror_view(whole_epsilon_device);
 
     for (int i = 0; i < local_particle_num; i++) {
-      whole_epsilon_host(i) = 2.50005 * spacing[i];
+      whole_epsilon_host(i) = 3.50005 * spacing[i];
     }
 
     int actual_whole_max_neighbor_num =
@@ -3572,17 +3572,18 @@ bool particle_geometry::split_rigid_body_surface_particle(
       }
 
       for (int i = 0; i < current_element.size(); i++) {
+        bool split_flag = true;
         for (int j = 0; j < 3; j++) {
           auto it = lower_bound(split_tag.begin(), split_tag.end(),
                                 current_element[i][j]);
 
-          if (it != split_tag.end() && *it == current_element[i][j]) {
-            if (adaptive_level[*it] == current_element_adaptive_level[i]) {
-              element_split_tag[i] = 1;
-              break;
-            }
+          if (it == split_tag.end() || *it != current_element[i][j]) {
+            if (adaptive_level[current_element[i][j]] ==
+                current_element_adaptive_level[i])
+              split_flag = false;
           }
         }
+        element_split_tag[i] = split_flag;
       }
 
       // build edge info
@@ -3617,6 +3618,8 @@ bool particle_geometry::split_rigid_body_surface_particle(
       // mark edge to split
       vector<int> edge_split_tag;
       edge_split_tag.resize(num_edge);
+      vector<int> edge_adaptive_level;
+      edge_adaptive_level.resize(num_edge);
       for (int i = 0; i < edge_split_tag.size(); i++) {
         edge_split_tag[i] = 0;
       }
@@ -3642,6 +3645,12 @@ bool particle_geometry::split_rigid_body_surface_particle(
           edge_split_tag[edge_offset[min(idx0, idx1)] + edge1] = 1;
           edge_split_tag[edge_offset[min(idx1, idx2)] + edge2] = 1;
           edge_split_tag[edge_offset[min(idx2, idx0)] + edge3] = 1;
+          edge_adaptive_level[edge_offset[min(idx0, idx1)] + edge1] =
+              current_element_adaptive_level[i] + 1;
+          edge_adaptive_level[edge_offset[min(idx1, idx2)] + edge2] =
+              current_element_adaptive_level[i] + 1;
+          edge_adaptive_level[edge_offset[min(idx2, idx0)] + edge3] =
+              current_element_adaptive_level[i] + 1;
 
           // check if the midpoint has been inserted or not
           int idx_check1, idx_check2;
@@ -3731,14 +3740,14 @@ bool particle_geometry::split_rigid_body_surface_particle(
       }
 
       // split edge
-      vector<int> edge_adaptive_level;
-      edge_adaptive_level.resize(num_edge);
-      for (int i = 0; i < edge.size(); i++) {
-        for (int j = 0; j < edge[i].size(); j++) {
-          edge_adaptive_level[edge_offset[i] + j] =
-              max(adaptive_level[i], adaptive_level[edge[i][j]]);
-        }
-      }
+      // vector<int> edge_adaptive_level;
+      // edge_adaptive_level.resize(num_edge);
+      // for (int i = 0; i < edge.size(); i++) {
+      //   for (int j = 0; j < edge[i].size(); j++) {
+      //     edge_adaptive_level[edge_offset[i] + j] =
+      //         max(adaptive_level[i], adaptive_level[edge[i][j]]);
+      //   }
+      // }
       for (int i = 0; i < edge.size(); i++) {
         for (int j = 0; j < edge[i].size(); j++) {
           if (edge_split_tag[edge_offset[i] + j] == 1) {
@@ -3818,9 +3827,9 @@ bool particle_geometry::split_rigid_body_surface_particle(
         }
       }
       for (int i = 0; i < current_element.size(); i++) {
-        vec3 p0 = coord[current_element[i][0]];
-        vec3 p1 = coord[current_element[i][1]];
-        vec3 p2 = coord[current_element[i][2]];
+        vec3 p0 = coord[current_element[i][0]] - rigid_body_coord[n];
+        vec3 p1 = coord[current_element[i][1]] - rigid_body_coord[n];
+        vec3 p2 = coord[current_element[i][2]] - rigid_body_coord[n];
 
         vec3 dX1 = p0 - p1;
         vec3 dX2 = p1 - p2;
@@ -3834,8 +3843,21 @@ bool particle_geometry::split_rigid_body_surface_particle(
 
         double A = sqrt(s * (s - a) * (s - b) * (s - c));
 
+        vec3 n_surface = vec3(dX1[1] * dX2[2] - dX1[2] * dX2[1],
+                              dX1[2] * dX2[0] - dX1[0] * dX2[2],
+                              dX1[0] * dX2[1] - dX1[1] * dX2[0]);
+        vec3 n0, n1, n2;
+        hierarchy->get_normal(n, p0, n0);
+        hierarchy->get_normal(n, p1, n1);
+        hierarchy->get_normal(n, p2, n2);
+
+        double dS = (abs(n_surface.cdot(n0) / n_surface.mag() / n0.mag()) +
+                     abs(n_surface.cdot(n1) / n_surface.mag() / n1.mag()) +
+                     abs(n_surface.cdot(n2) / n_surface.mag() / n2.mag())) /
+                    3.0;
+
         for (int j = 0; j < 3; j++) {
-          p_spacing[current_element[i][j]][0] += A / 3.0;
+          p_spacing[current_element[i][j]][0] += dS * A / 3.0;
         }
       }
     }

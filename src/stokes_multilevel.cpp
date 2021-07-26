@@ -880,6 +880,7 @@ int stokes_multilevel::solve(vector<double> &rhs, vector<double> &x,
     // PCSetType(pc_field_base, PCLU);
     // PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
     PCSetType(pc_field_base, PCSOR);
+    PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
     KSPSetUp(ksp_field_base->get_reference());
 
@@ -947,6 +948,7 @@ int stokes_multilevel::solve(vector<double> &rhs, vector<double> &x,
     KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
              &field_relaxation_pc);
     PCSetType(field_relaxation_pc, PCSOR);
+    PCSetFromOptions(field_relaxation_pc);
     PCSetUp(field_relaxation_pc);
 
     KSPSetUp(field_relaxation_list[refinement_step]->get_reference());
@@ -960,12 +962,7 @@ int stokes_multilevel::solve(vector<double> &rhs, vector<double> &x,
                  KSPGMRES);
       KSPGMRESSetRestart(
           colloid_relaxation_list[refinement_step]->get_reference(), 100);
-      KSPSetTolerances(
-          colloid_relaxation_list[refinement_step]->get_reference(), 1e-3,
-          1e-50, 1e10, 500);
-      KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
-                      nn, nn);
-
+      KSPSetTolerances(nn, nn);
       KSPSetUp(colloid_relaxation_list[refinement_step]->get_reference());
 
       PC neighbor_relaxation_pc;
@@ -1014,13 +1011,14 @@ int stokes_multilevel::solve(vector<double> &rhs, vector<double> &x,
     KSPGMRESSetRestart(_ksp, restart);
   }
 
-  PetscReal rtol, atol, dtol;
-  PetscInt maxits;
-  KSPGetTolerances(_ksp, &rtol, &atol, &dtol, &maxits);
-  KSPSetTolerances(_ksp,
-                   rtol * (double)(global_particle_num_list[refinement_step]) /
-                       (double)(global_particle_num_list[0]),
-                   atol, dtol, maxits);
+  // PetscReal rtol, atol, dtol;
+  // PetscInt maxits;
+  // KSPGetTolerances(_ksp, &rtol, &atol, &dtol, &maxits);
+  // KSPSetTolerances(_ksp,
+  //                  rtol * (double)(global_particle_num_list[refinement_step])
+  //                  /
+  //                      (double)(global_particle_num_list[0]),
+  //                  atol, dtol, maxits);
 
   KSPSetUp(_ksp);
 

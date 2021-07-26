@@ -274,6 +274,25 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                shell->multi->get_x_colloid_list()[i]->get_reference(),
                shell->multi->get_b_colloid_list()[i]->get_reference());
 
+      KSPGetConvergedReason(
+          shell->multi->get_colloid_relaxation(i)->get_reference(), &reason);
+      KSPGetIterationNumber(
+          shell->multi->get_colloid_relaxation(i)->get_reference(), &its);
+      if (reason < 0) {
+        PetscReal rnorm, bnorm;
+        KSPGetResidualNorm(
+            shell->multi->get_colloid_relaxation(i)->get_reference(), &rnorm);
+        VecNorm(shell->multi->get_x_colloid_list()[i]->get_reference(), NORM_2,
+                &bnorm);
+
+        PetscPrintf(
+            PETSC_COMM_WORLD,
+            "colloid smooth sweep down convergence reason: %d, number of "
+            "iterations: %d, last "
+            "residual norm: %f, rhs norm: %f\n",
+            reason, its, rnorm, bnorm);
+      }
+
       VecScatterBegin(
           shell->multi->get_colloid_scatter_list()[i]->get_reference(),
           shell->multi->get_b_colloid_list()[i]->get_reference(),
@@ -660,6 +679,24 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       KSPSolve(shell->multi->get_colloid_relaxation(i)->get_reference(),
                shell->multi->get_x_colloid_list()[i]->get_reference(),
                shell->multi->get_b_colloid_list()[i]->get_reference());
+
+      KSPGetConvergedReason(
+          shell->multi->get_colloid_relaxation(i)->get_reference(), &reason);
+      KSPGetIterationNumber(
+          shell->multi->get_colloid_relaxation(i)->get_reference(), &its);
+      if (reason < 0) {
+        PetscReal rnorm, bnorm;
+        KSPGetResidualNorm(
+            shell->multi->get_colloid_relaxation(i)->get_reference(), &rnorm);
+        VecNorm(shell->multi->get_x_colloid_list()[i]->get_reference(), NORM_2,
+                &bnorm);
+
+        PetscPrintf(PETSC_COMM_WORLD,
+                    "colloid smooth sweep up convergence reason: %d, number of "
+                    "iterations: %d, last "
+                    "residual norm: %f, rhs norm: %f\n",
+                    reason, its, rnorm, bnorm);
+      }
 
       VecScatterBegin(
           shell->multi->get_colloid_scatter_list()[i]->get_reference(),
