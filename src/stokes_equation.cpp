@@ -1690,7 +1690,7 @@ void stokes_equation::solve_step() {
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
   // if (current_refinement_level < 4)
-  multi_mgr->solve(rhs, res, rhs_rb, res_rb);
+  multi_mgr->solve(rhs, res, rhs_rb, res_rb, idx_colloid);
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",

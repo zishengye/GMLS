@@ -214,6 +214,7 @@ public:
   }
 
   int solve(std::vector<double> &rhs, std::vector<double> &x,
+            std::vector<double> &rhs_rb, std::vector<double> &x_rb,
             std::vector<int> &idx_colloid);
 };
 

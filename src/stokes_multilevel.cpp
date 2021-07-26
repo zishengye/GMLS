@@ -558,9 +558,9 @@ void stokes_multilevel::build_interpolation_restriction(
 }
 
 void stokes_multilevel::initial_guess_from_previous_adaptive_step(
-    std::vector<double> &initial_guess, std::vector<vec3> &velocity,
-    std::vector<double> &pressure, std::vector<vec3> &rb_velocity,
-    std::vector<vec3> &rb_angular_velocity) {
+    vector<double> &initial_guess, vector<vec3> &velocity,
+    vector<double> &pressure, vector<vec3> &rb_velocity,
+    vector<vec3> &rb_angular_velocity) {
   auto &local_idx = *(geo_mgr->get_last_work_particle_local_index());
 
   petsc_sparse_matrix &I = *(getI(current_refinement_level - 1));
@@ -636,8 +636,9 @@ void stokes_multilevel::initial_guess_from_previous_adaptive_step(
   VecDestroy(&x2);
 }
 
-int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
-                             std::vector<int> &idx_colloid) {
+int stokes_multilevel::solve(vector<double> &rhs, vector<double> &x,
+                             vector<double> &rhs_rb, vector<double> &x_rb,
+                             vector<int> &idx_colloid) {
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nstart of linear system solving setup\n");
 
