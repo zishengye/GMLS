@@ -15,7 +15,18 @@
 
 #include "petsc_vector.hpp"
 
+class petsc_sparse_matrix;
+
 PetscErrorCode null_space_matrix_mult(Mat mat, Vec x, Vec y);
+
+void extract_neighbor_index(
+    petsc_sparse_matrix &A, petsc_sparse_matrix &B, petsc_sparse_matrix &C,
+    petsc_sparse_matrix &D, petsc_sparse_matrix &nn_A,
+    petsc_sparse_matrix &nn_B, petsc_sparse_matrix &nn_C,
+    petsc_sparse_matrix &nn_D, petsc_sparse_matrix &nw_A,
+    petsc_sparse_matrix &nw_B, petsc_sparse_matrix &nw_C,
+    petsc_sparse_matrix &nw_D, std::vector<int> &idx_colloid,
+    const int field_dof);
 
 class petsc_sparse_matrix {
 private:
@@ -25,7 +36,7 @@ private:
   bool is_transpose;
 
   PetscInt row, col, Row, Col;
-  PetscInt range_row1, range_row2;
+  PetscInt range_col1, range_col2, range_row1, range_row2;
   PetscInt block_size, block_row, block_col, block_Row, block_Col,
       block_range_row1, block_range_row2;
 
@@ -45,26 +56,29 @@ private:
 
   int rank, size;
 
-  friend PetscErrorCode null_space_matrix_mult(Mat mat, Vec x, Vec y);
+  friend PetscErrorCode null_space_matrix_mult(Mat m, Vec x, Vec y);
 
 public:
   petsc_sparse_matrix()
       : is_assembled(false), is_self_contained(true), is_set_null_space(false),
-        is_transpose(false), row(0), col(0), Col(0), mat(PETSC_NULL) {
+        is_transpose(false), row(0), col(0), Col(0), Row(0) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    mat = new Mat;
   }
 
   petsc_sparse_matrix(PetscInt m /* local # of rows */,
                       PetscInt n /* local # of cols */,
                       PetscInt N /* global # of cols */, PetscInt bs = 1)
       : is_assembled(false), is_self_contained(true), is_set_null_space(false),
-        is_transpose(false), row(m), col(n), Col(N), block_size(bs),
-        mat(PETSC_NULL) {
+        is_transpose(false), row(m), col(n), Col(N), block_size(bs) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    int send_count = row;
+    mat = new Mat;
+
+    int send_count = col;
     std::vector<int> recv_count;
     recv_count.resize(size);
 
@@ -80,15 +94,31 @@ public:
       displs[i] = displs[i - 1] + recv_count[i - 1];
     }
 
+    range_col1 = displs[rank];
+    range_col2 = displs[rank + 1];
+
+    send_count = row;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    MPI_Allgather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
+                  MPI_COMM_WORLD);
+
+    displs.resize(size + 1);
+    displs[0] = 0;
+    for (int i = 1; i <= size; i++) {
+      displs[i] = displs[i - 1] + recv_count[i - 1];
+    }
+
     range_row1 = displs[rank];
     range_row2 = displs[rank + 1];
 
-    Row = displs[size];
+    MPI_Allreduce(&row, &Row, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     block_row = row / block_size;
     block_col = col / block_size;
-    block_range_row1 = range_row1 / block_size;
-    block_range_row2 = range_row2 / block_size;
+    block_range_row1 = range_col1 / block_size;
+    block_range_row2 = range_col2 / block_size;
 
     block_Row = Row / block_size;
     block_Col = Col / block_size;
@@ -103,9 +133,11 @@ public:
   ~petsc_sparse_matrix() {
     if (is_assembled && is_self_contained) {
       MatDestroy(mat);
+    }
+    if (is_self_contained) {
       delete mat;
     }
-    if (is_set_null_space)
+    if (is_set_null_space || shell_mat != PETSC_NULL)
       MatDestroy(&shell_mat);
   }
 
@@ -116,7 +148,7 @@ public:
 
     block_size = bs;
 
-    int send_count = row;
+    int send_count = col;
     std::vector<int> recv_count;
     recv_count.resize(size);
 
@@ -132,14 +164,31 @@ public:
       displs[i] = displs[i - 1] + recv_count[i - 1];
     }
 
+    range_col1 = displs[rank];
+    range_col2 = displs[rank + 1];
+
+    send_count = row;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    MPI_Allgather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
+                  MPI_COMM_WORLD);
+
+    displs.resize(size + 1);
+    displs[0] = 0;
+    for (int i = 1; i <= size; i++) {
+      displs[i] = displs[i - 1] + recv_count[i - 1];
+    }
+
     range_row1 = displs[rank];
     range_row2 = displs[rank + 1];
 
-    Row = displs[size];
+    MPI_Allreduce(&row, &Row, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     block_row = row / block_size;
-    block_range_row1 = range_row1 / block_size;
-    block_range_row2 = range_row2 / block_size;
+    block_col = col / block_size;
+    block_range_row1 = range_col1 / block_size;
+    block_range_row2 = range_col2 / block_size;
 
     block_Row = Row / block_size;
     block_Col = Col / block_size;
@@ -160,8 +209,8 @@ public:
     null_space_ptr = std::make_shared<std::vector<int>>(null_space);
     is_set_null_space = true;
 
-    MatCreateShell(PETSC_COMM_WORLD, block_row, block_col, PETSC_DECIDE,
-                   block_Col, this, &shell_mat);
+    MatCreateShell(PETSC_COMM_WORLD, row, col, PETSC_DECIDE, Col, this,
+                   &shell_mat);
     MatShellSetOperation(shell_mat, MATOP_MULT,
                          (void (*)(void))null_space_matrix_mult);
 
@@ -179,14 +228,19 @@ public:
 
   Mat &get_reference() { return *mat; }
 
+  Mat &get_shell_reference() { return shell_mat; }
+
   Mat &get_operator() {
-    if (is_set_null_space)
+    if (is_set_null_space || is_transpose || shell_mat != PETSC_NULL)
       return shell_mat;
     else
       return *mat;
   }
 
   void link(Mat *A) {
+    if (!is_self_contained)
+      delete mat;
+
     mat = A;
     is_self_contained = false;
   }
@@ -208,10 +262,14 @@ public:
   int assemble();
   int transpose_assemble();
 
-  int extract_neighbor_index(std::vector<int> &idx_colloid, int dimension,
-                             int num_rigid_body, int local_rigid_body_offset,
-                             int global_rigid_body_offset,
-                             petsc_sparse_matrix &nn, petsc_sparse_matrix &nw);
+  friend void
+  extract_neighbor_index(petsc_sparse_matrix &A, petsc_sparse_matrix &B,
+                         petsc_sparse_matrix &C, petsc_sparse_matrix &D,
+                         petsc_sparse_matrix &nn_A, petsc_sparse_matrix &nn_B,
+                         petsc_sparse_matrix &nn_C, petsc_sparse_matrix &nn_D,
+                         petsc_sparse_matrix &nw_A, petsc_sparse_matrix &nw_B,
+                         petsc_sparse_matrix &nw_C, petsc_sparse_matrix &nw_D,
+                         std::vector<int> &idx_colloid, const int field_dof);
 };
 
 #endif

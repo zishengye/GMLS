@@ -1,6 +1,8 @@
 #ifndef _PETSC_BLOCK_MATRIX_HPP_
 #define _PETSC_BLOCK_MATRIX_HPP_
 
+#include <vector>
+
 #include "petsc_sparse_matrix.hpp"
 
 class petsc_block_matrix {

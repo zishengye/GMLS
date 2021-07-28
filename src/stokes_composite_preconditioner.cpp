@@ -110,10 +110,7 @@ PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y) {
   VecRestoreArray(y, &a);
 
   // stage 2
-
-  shell->multi->get_colloid_whole_mat(0)->get_reference();
-  shell->multi->get_colloid_x()->get_reference();
-  MatMult(shell->multi->get_colloid_whole_mat(0)->get_reference(), y,
+  MatMult(shell->multi->get_colloid_whole_mat(0)->get_operator(), y,
           shell->multi->get_colloid_x()->get_reference());
 
   VecScatterBegin(shell->multi->get_colloid_scatter_list()[0]->get_reference(),
@@ -245,7 +242,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       MPI_Barrier(MPI_COMM_WORLD);
       timer1 = MPI_Wtime();
 
-      MatMult(shell->multi->get_colloid_whole_mat(i)->get_reference(),
+      MatMult(shell->multi->get_colloid_whole_mat(i)->get_operator(),
               shell->multi->get_x_list()[i]->get_reference(),
               shell->multi->get_b_colloid_list()[i]->get_reference());
 
@@ -452,7 +449,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     MPI_Barrier(MPI_COMM_WORLD);
     timer1 = MPI_Wtime();
 
-    MatMult(shell->multi->get_colloid_whole_mat(0)->get_reference(),
+    MatMult(shell->multi->get_colloid_whole_mat(0)->get_operator(),
             shell->multi->get_x_list()[0]->get_reference(),
             shell->multi->get_colloid_x()->get_reference());
 
@@ -651,7 +648,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       MPI_Barrier(MPI_COMM_WORLD);
       timer1 = MPI_Wtime();
 
-      MatMult(shell->multi->get_colloid_whole_mat(i)->get_reference(),
+      MatMult(shell->multi->get_colloid_whole_mat(i)->get_operator(),
               shell->multi->get_x_list()[i]->get_reference(),
               shell->multi->get_b_colloid_list()[i]->get_reference());
 

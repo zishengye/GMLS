@@ -12,29 +12,27 @@ public:
   typedef std::shared_ptr<petsc_sparse_matrix> matrix_type;
   typedef std::shared_ptr<petsc_block_matrix> block_matrix_type;
   typedef std::shared_ptr<petsc_vector> vector_type;
+  typedef std::shared_ptr<petsc_nest_vector> nest_vector_type;
   typedef std::shared_ptr<petsc_is> is_type;
   typedef std::shared_ptr<petsc_ksp> ksp_type;
   typedef std::shared_ptr<petsc_vecscatter> vecscatter_type;
 
 private:
-  std::vector<block_matrix_type> A_list; // coefficient matrix list
-  std::vector<matrix_type> I_list;       // interpolation matrix list
-  std::vector<matrix_type> R_list;       // restriction matrix list
-  std::vector<matrix_type> ff_list;      // field sub-matrix list
-  std::vector<matrix_type> nn_list;      // nearfield sub-matrix list
-  std::vector<matrix_type> nw_list;      // nearfield-whole sub-matrix list
-  std::vector<matrix_type> pp_list;      // pressure sub-matrix list
-  std::vector<matrix_type> pw_list;      // pressure-whole sub-matrix list
+  std::vector<block_matrix_type> A_list;  // coefficient matrix list
+  std::vector<block_matrix_type> nn_list; // colloid-colloid matrix list
+  std::vector<block_matrix_type> nw_list; // colloid-whole matrix list
+  std::vector<matrix_type> I_list;        // interpolation matrix list
+  std::vector<matrix_type> R_list;        // restriction matrix list
   std::vector<is_type> isg_field_list;
   std::vector<is_type> isg_colloid_list;
   std::vector<is_type> isg_pressure_list;
 
   // vector list
-  std::vector<vector_type> x_list;
-  std::vector<vector_type> y_list;
-  std::vector<vector_type> b_list;
-  std::vector<vector_type> r_list;
-  std::vector<vector_type> t_list;
+  std::vector<nest_vector_type> x_list;
+  std::vector<nest_vector_type> y_list;
+  std::vector<nest_vector_type> b_list;
+  std::vector<nest_vector_type> r_list;
+  std::vector<nest_vector_type> t_list;
 
   std::vector<vector_type> x_field_list;
   std::vector<vector_type> y_field_list;
@@ -122,13 +120,11 @@ public:
   ksp_type get_field_base() { return ksp_field_base; }
   ksp_type get_colloid_base() { return ksp_colloid_base; }
 
-  matrix_type get_field_mat(int num_level) { return ff_list[num_level]; }
-  matrix_type get_colloid_whole_mat(int num_level) {
+  block_matrix_type get_colloid_whole_mat(int num_level) {
     return nw_list[num_level];
   }
-  matrix_type get_colloid_mat(int num_level) { return nn_list[num_level]; }
-  matrix_type get_pressure_whole_mat(int num_level) {
-    return pw_list[num_level];
+  block_matrix_type get_colloid_mat(int num_level) {
+    return nn_list[num_level];
   }
 
   vector_type get_colloid_x() { return x_colloid; }
@@ -153,11 +149,8 @@ public:
     isg_colloid_list.push_back(std::make_shared<petsc_is>());
     isg_pressure_list.push_back(std::make_shared<petsc_is>());
 
-    ff_list.push_back(std::make_shared<petsc_sparse_matrix>());
-    nn_list.push_back(std::make_shared<petsc_sparse_matrix>());
-    nw_list.push_back(std::make_shared<petsc_sparse_matrix>());
-    pp_list.push_back(std::make_shared<petsc_sparse_matrix>());
-    pw_list.push_back(std::make_shared<petsc_sparse_matrix>());
+    nn_list.push_back(std::make_shared<petsc_block_matrix>(2, 2));
+    nw_list.push_back(std::make_shared<petsc_block_matrix>(2, 2));
   }
 
   void clear();
@@ -172,11 +165,11 @@ public:
   std::vector<matrix_type> &get_interpolation_list() { return I_list; }
   std::vector<matrix_type> &get_restriction_list() { return R_list; }
 
-  std::vector<vector_type> &get_x_list() { return x_list; }
-  std::vector<vector_type> &get_y_list() { return y_list; }
-  std::vector<vector_type> &get_b_list() { return b_list; }
-  std::vector<vector_type> &get_r_list() { return r_list; }
-  std::vector<vector_type> &get_t_list() { return t_list; }
+  std::vector<nest_vector_type> &get_x_list() { return x_list; }
+  std::vector<nest_vector_type> &get_y_list() { return y_list; }
+  std::vector<nest_vector_type> &get_b_list() { return b_list; }
+  std::vector<nest_vector_type> &get_r_list() { return r_list; }
+  std::vector<nest_vector_type> &get_t_list() { return t_list; }
 
   std::vector<vector_type> &get_x_field_list() { return x_field_list; }
   std::vector<vector_type> &get_y_field_list() { return y_field_list; }

@@ -462,7 +462,7 @@ void stokes_equation::build_coefficient_matrix() {
                 i, temp_pressure_laplacian_index);
             Aij -= temp_pressure_alpha(alpha_index + j);
           }
-          if (Aij > 0.0)
+          if (!isnan(Aij) && Aij > 0.0)
             staggered_check[normal_check_point[i]] = true;
         }
       }
@@ -579,7 +579,7 @@ void stokes_equation::build_coefficient_matrix() {
                 i, temp_pressure_laplacian_index);
             Aij -= temp_pressure_alpha(alpha_index + j);
           }
-          if (Aij > 0.0)
+          if (!isnan(Aij) && Aij > 0.0)
             staggered_check[neumann_check_point[i]] = true;
         }
       }
@@ -862,10 +862,6 @@ void stokes_equation::build_coefficient_matrix() {
   int local_pressure_dof = local_particle_num;
   int global_pressure_dof = global_particle_num;
 
-  if (rank == size - 1) {
-    local_velocity_dof += rigid_body_dof * num_rigid_body;
-  }
-
   vector<int> particle_num_per_process;
   particle_num_per_process.resize(size);
 
@@ -878,8 +874,6 @@ void stokes_equation::build_coefficient_matrix() {
 
   int local_dof = local_velocity_dof + local_pressure_dof;
   int global_dof = global_velocity_dof + global_pressure_dof;
-
-  int out_process_row = rigid_body_dof * num_rigid_body;
 
   // split rigid body dof among cores
   int local_num_rigid_body = num_rigid_body / size;
@@ -1407,12 +1401,45 @@ void stokes_equation::build_coefficient_matrix() {
 
   idx_colloid.clear();
 
-  if (num_rigid_body != 0)
-    // A.extract_neighbor_index(idx_colloid, dim, num_rigid_body,
-    //                          local_rigid_body_offset,
-    //                          global_rigid_body_offset, *nn, *nw);
+  petsc_sparse_matrix &nn_A =
+      (multi_mgr->get_colloid_mat(current_refinement_level))
+          ->get_reference(0, 0);
+  petsc_sparse_matrix &nn_B =
+      (multi_mgr->get_colloid_mat(current_refinement_level))
+          ->get_reference(0, 1);
+  petsc_sparse_matrix &nn_C =
+      (multi_mgr->get_colloid_mat(current_refinement_level))
+          ->get_reference(1, 0);
+  petsc_sparse_matrix &nn_D =
+      (multi_mgr->get_colloid_mat(current_refinement_level))
+          ->get_reference(1, 1);
 
-    PetscMemoryGetCurrentUsage(&mem);
+  petsc_sparse_matrix &nw_A =
+      (multi_mgr->get_colloid_whole_mat(current_refinement_level))
+          ->get_reference(0, 0);
+  petsc_sparse_matrix &nw_B =
+      (multi_mgr->get_colloid_whole_mat(current_refinement_level))
+          ->get_reference(0, 1);
+  petsc_sparse_matrix &nw_C =
+      (multi_mgr->get_colloid_whole_mat(current_refinement_level))
+          ->get_reference(1, 0);
+  petsc_sparse_matrix &nw_D =
+      (multi_mgr->get_colloid_whole_mat(current_refinement_level))
+          ->get_reference(1, 1);
+
+  extract_neighbor_index(A, B, C, D, nn_A, nn_B, nn_C, nn_D, nw_A, nw_B, nw_C,
+                         nw_D, idx_colloid, field_dof);
+
+  multi_mgr->get_colloid_mat(current_refinement_level)->assemble();
+  multi_mgr->get_colloid_whole_mat(current_refinement_level)->assemble();
+
+  vector<int> null_space(local_particle_num);
+  for (int i = 0; i < local_particle_num; i++) {
+    null_space[i] = i * field_dof + velocity_dof;
+  }
+  A.set_null_space(null_space);
+
+  PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "Current memory usage after assembly %.2f GB\n",
               mem / 1e9);

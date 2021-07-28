@@ -40,13 +40,13 @@ set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/build)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/)
 
 include_directories("${PROJECT_SOURCE_DIR}/include/")
-include_directories("/opt/petsc/include/")
+include_directories("/opt/petsc-debug/include/")
 include_directories("/opt/compadre/include")
 include_directories(${Trilinos_INCLUDE_DIRS})
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
-link_directories("/opt/petsc/lib/")
+link_directories("/opt/petsc-debug/lib/")
 link_directories("/opt/compadre/lib/")
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
@@ -60,7 +60,7 @@ link_libraries(${MPI_CXX_LIBRARIES})
 file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 file(GLOB_RECURSE petsc_sources ${PROJECT_SOURCE_DIR}/src/petsc_*.cpp)
 
-add_compile_options(-O3 -w -fopenmp -fPIC)
+add_compile_options(-g -w -fopenmp -fPIC)
 
 add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
 
