@@ -69,7 +69,7 @@ void stokes_equation::update() {
   build_coefficient_matrix();
   build_rhs();
   solve_step();
-  // calculate_error();
+  calculate_error();
   // check_solution();
   // collect_force();
 
