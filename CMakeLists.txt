@@ -60,7 +60,7 @@ link_libraries(${MPI_CXX_LIBRARIES})
 file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 file(GLOB_RECURSE petsc_sources ${PROJECT_SOURCE_DIR}/src/petsc_*.cpp)
 
-add_compile_options(-g -w -fopenmp -fPIC)
+add_compile_options(-O3 -w -fopenmp -fPIC)
 
 add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
 
