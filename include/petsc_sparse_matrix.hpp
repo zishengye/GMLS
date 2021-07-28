@@ -209,11 +209,6 @@ public:
     null_space_ptr = std::make_shared<std::vector<int>>(null_space);
     is_set_null_space = true;
 
-    MatCreateShell(PETSC_COMM_WORLD, row, col, PETSC_DECIDE, Col, this,
-                   &shell_mat);
-    MatShellSetOperation(shell_mat, MATOP_MULT,
-                         (void (*)(void))null_space_matrix_mult);
-
     null_space_size = null_space_ptr->size();
     MPI_Allreduce(MPI_IN_PLACE, &null_space_size, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);

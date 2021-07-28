@@ -1387,6 +1387,12 @@ void stokes_equation::build_coefficient_matrix() {
   //   A.write(string("A" + to_string(current_refinement_level) + ".txt"));
   // }
 
+  vector<int> null_space(local_particle_num);
+  for (int i = 0; i < local_particle_num; i++) {
+    null_space[i] = i * field_dof + velocity_dof;
+  }
+  A.set_null_space(null_space);
+
   A.assemble();
   B.assemble();
   C.transpose_assemble();
@@ -1432,12 +1438,6 @@ void stokes_equation::build_coefficient_matrix() {
 
   multi_mgr->get_colloid_mat(current_refinement_level)->assemble();
   multi_mgr->get_colloid_whole_mat(current_refinement_level)->assemble();
-
-  vector<int> null_space(local_particle_num);
-  for (int i = 0; i < local_particle_num; i++) {
-    null_space[i] = i * field_dof + velocity_dof;
-  }
-  A.set_null_space(null_space);
 
   PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);

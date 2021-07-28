@@ -255,18 +255,38 @@ int petsc_sparse_matrix::assemble() {
 
     is_assembled = true;
   } else {
-    MatCreate(MPI_COMM_WORLD, mat);
-    MatSetSizes(*mat, row, row, PETSC_DECIDE, Col);
-    MatSetType(*mat, MATMPIBAIJ);
-    MatSetBlockSize(*mat, block_size);
-    MatSetUp(*mat);
-    MatMPIBAIJSetPreallocationCSR(*mat, block_size, mat_i.data(), mat_j.data(),
-                                  mat_a.data());
-    is_assembled = true;
-    {
-      decltype(mat_i)().swap(mat_i);
-      decltype(mat_j)().swap(mat_j);
-      decltype(mat_a)().swap(mat_a);
+    if (is_set_null_space) {
+      MatCreateShell(PETSC_COMM_WORLD, row, col, PETSC_DECIDE, Col, this, mat);
+      MatShellSetOperation(*mat, MATOP_MULT,
+                           (void (*)(void))null_space_matrix_mult);
+
+      MatCreate(MPI_COMM_WORLD, &shell_mat);
+      MatSetSizes(shell_mat, row, row, PETSC_DECIDE, Col);
+      MatSetType(shell_mat, MATMPIBAIJ);
+      MatSetBlockSize(shell_mat, block_size);
+      MatSetUp(shell_mat);
+      MatMPIBAIJSetPreallocationCSR(shell_mat, block_size, mat_i.data(),
+                                    mat_j.data(), mat_a.data());
+      is_assembled = true;
+      {
+        decltype(mat_i)().swap(mat_i);
+        decltype(mat_j)().swap(mat_j);
+        decltype(mat_a)().swap(mat_a);
+      }
+    } else {
+      MatCreate(MPI_COMM_WORLD, mat);
+      MatSetSizes(*mat, row, row, PETSC_DECIDE, Col);
+      MatSetType(*mat, MATMPIBAIJ);
+      MatSetBlockSize(*mat, block_size);
+      MatSetUp(*mat);
+      MatMPIBAIJSetPreallocationCSR(*mat, block_size, mat_i.data(),
+                                    mat_j.data(), mat_a.data());
+      is_assembled = true;
+      {
+        decltype(mat_i)().swap(mat_i);
+        decltype(mat_j)().swap(mat_j);
+        decltype(mat_a)().swap(mat_a);
+      }
     }
   }
 
@@ -524,7 +544,7 @@ void extract_neighbor_index(
                   idx_colloid_global.data(), PETSC_COPY_VALUES, &isg_colloid);
 
   // build nn
-  MatCreateSubMatrix(A.get_reference(), isg_colloid, isg_colloid,
+  MatCreateSubMatrix(A.get_shell_reference(), isg_colloid, isg_colloid,
                      MAT_INITIAL_MATRIX, &(nn_A.get_reference()));
   MatCreateSubMatrix(B.get_reference(), isg_colloid, NULL, MAT_INITIAL_MATRIX,
                      &(nn_B.get_reference()));
@@ -548,8 +568,8 @@ void extract_neighbor_index(
   MPI_Barrier(MPI_COMM_WORLD);
 
   // build nw
-  MatCreateSubMatrix(A.get_reference(), isg_colloid, NULL, MAT_INITIAL_MATRIX,
-                     &(nw_A.get_reference()));
+  MatCreateSubMatrix(A.get_shell_reference(), isg_colloid, NULL,
+                     MAT_INITIAL_MATRIX, &(nw_A.get_reference()));
   MatCreateSubMatrix(B.get_reference(), isg_colloid, NULL, MAT_INITIAL_MATRIX,
                      &(nw_B.get_reference()));
   MatDuplicate(C.get_shell_reference(), MAT_COPY_VALUES,
@@ -607,7 +627,7 @@ PetscErrorCode null_space_matrix_mult(Mat mat, Vec x, Vec y) {
   }
   VecRestoreArray(z, &a);
 
-  MatMult(*(ctx->mat), z, y);
+  MatMult(ctx->shell_mat, z, y);
 
   VecGetArray(y, &a);
   sum = 0.0;

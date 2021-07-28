@@ -661,9 +661,8 @@ int stokes_multilevel::solve(vector<double> &rhs, vector<double> &res,
   Mat &mat = A_list[refinement_step]->get_operator();
   MatNestSetVecType(mat, VECNEST);
 
-  Mat &ff_shell =
-      A_list[refinement_step]->get_reference(0, 0).get_shell_reference();
-  Mat &ff = A_list[refinement_step]->get_reference(0, 0).get_reference();
+  Mat &ff = A_list[refinement_step]->get_reference(0, 0).get_shell_reference();
+  Mat &ff_shell = A_list[refinement_step]->get_reference(0, 0).get_reference();
   Mat &nn = nn_list[refinement_step]->get_operator();
   Mat &nw = nw_list[refinement_step]->get_operator();
 
