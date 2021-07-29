@@ -889,10 +889,10 @@ int stokes_multilevel::solve(vector<double> &rhs, vector<double> &res,
 
     KSPSetType(field_relaxation_list[refinement_step]->get_reference(),
                KSPRICHARDSON);
-    KSPGMRESSetRestart(field_relaxation_list[refinement_step]->get_reference(),
-                       100);
-    KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(), ff,
-                    ff);
+    // KSPGMRESSetRestart(field_relaxation_list[refinement_step]->get_reference(),
+    //                    100);
+    KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(),
+                    ff_shell, ff);
     KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
                      5e-1, 1e-50, 1e10, 1);
 
