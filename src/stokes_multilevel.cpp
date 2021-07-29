@@ -843,10 +843,10 @@ int stokes_multilevel::solve(vector<double> &rhs, vector<double> &res,
     PC pc_field_base;
 
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
-    PCSetType(pc_field_base, PCLU);
-    PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
-    // PCSetType(pc_field_base, PCSOR);
-    // PCSetFromOptions(pc_field_base);
+    // PCSetType(pc_field_base, PCLU);
+    // PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
+    PCSetType(pc_field_base, PCSOR);
+    PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
     KSPSetUp(ksp_field_base->get_reference());
 
@@ -855,7 +855,7 @@ int stokes_multilevel::solve(vector<double> &rhs, vector<double> &res,
 
       KSPSetType(ksp_colloid_base->get_reference(), KSPGMRES);
       KSPGMRESSetRestart(ksp_colloid_base->get_reference(), 100);
-      KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-6, 1e-50, 1e50,
+      KSPSetTolerances(ksp_colloid_base->get_reference(), 1e-3, 1e-50, 1e50,
                        500);
       KSPSetOperators(ksp_colloid_base->get_reference(), nn, nn);
 
@@ -915,7 +915,7 @@ int stokes_multilevel::solve(vector<double> &rhs, vector<double> &res,
       KSPGMRESSetRestart(
           colloid_relaxation_list[refinement_step]->get_reference(), 100);
       KSPSetTolerances(
-          colloid_relaxation_list[refinement_step]->get_reference(), 1e-3,
+          colloid_relaxation_list[refinement_step]->get_reference(), 1e-2,
           1e-50, 1e50, 500);
       KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
                       nn, nn);
