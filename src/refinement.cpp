@@ -448,6 +448,25 @@ bool gmls_solver::refinement() {
     PetscPrintf(PETSC_COMM_WORLD, "ite count: %d, local change: %d\n", counter,
                 iteration_finished);
   }
+
+  for (int i = 0; i < num_target_coord; i++) {
+    if (particle_type[i] == 0) {
+      if (candidate_split_tag[i] == 0) {
+        //
+        for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+          int neighbor_index = neighbor_list_host(i, j + 1);
+          if (ghost_split_tag[neighbor_index] == 1 &&
+              source_adaptive_level[neighbor_index] - adaptive_level[i] >= 0 &&
+              source_particle_type[neighbor_index] >= 4) {
+            vec3 dX = coord[i] - source_coord[neighbor_index];
+            if (dX.mag() < spacing[i])
+              split_tag[i] = 1;
+          }
+        }
+      }
+    }
+  }
+
   geo_mgr->ghost_forward(split_tag, ghost_split_tag);
   for (int i = 0; i < num_source_coord; i++) {
     if (ghost_split_tag[i] == 0)
