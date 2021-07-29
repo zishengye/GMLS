@@ -48,6 +48,9 @@ private:
   std::vector<PetscInt> mat_oj;
   std::vector<PetscReal> mat_oa;
 
+  std::vector<std::vector<PetscInt>> mat_ij;
+  std::vector<std::vector<PetscInt>> mat_oij;
+
   std::shared_ptr<std::vector<int>> null_space_ptr;
   PetscReal null_space_size;
 
@@ -128,6 +131,9 @@ public:
     mat_i.resize(block_row + 1);
     mat_oi.resize(block_row + 1);
 
+    mat_ij.resize(block_row);
+    mat_oij.resize(block_row);
+
     std::fill(mat_i.begin(), mat_i.end(), 0);
     std::fill(mat_oi.begin(), mat_oi.end(), 0);
   }
@@ -189,6 +195,9 @@ public:
     mat_i.resize(block_row + 1);
     mat_oi.resize(block_row + 1);
 
+    mat_ij.resize(block_row);
+    mat_oij.resize(block_row);
+
     mat_j.clear();
     mat_a.clear();
     mat_oj.clear();
@@ -211,6 +220,9 @@ public:
     is_transpose = true;
 
     mat_i.resize(Row + 1);
+
+    mat_ij.resize(Row);
+
     std::fill(mat_i.begin(), mat_i.end(), 0);
   }
 
@@ -245,8 +257,8 @@ public:
 
   int write(std::string filename);
 
+  int col_assemble();
   int graph_assemble();
-  int graph_assemble(Mat *A);
   int assemble();
   int transpose_assemble();
 

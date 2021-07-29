@@ -70,9 +70,6 @@ void petsc_sparse_matrix::set_col_index(const PetscInt i,
                                         vector<PetscInt> &idx) {
   sort(idx.begin(), idx.end());
 
-  if (mat_i[i + 1] - mat_i[i] > 0)
-    cout << i << " index has been set" << endl;
-
   for (auto it = idx.begin(); it != idx.end(); it++) {
     if (*it > Col) {
       cout << i << ' ' << *it << " index setting with wrong column index"
@@ -83,6 +80,8 @@ void petsc_sparse_matrix::set_col_index(const PetscInt i,
   }
 
   vector<PetscInt> index, o_index;
+  index.reserve(idx.size());
+  index.reserve(idx.size());
   if (!is_transpose)
     for (auto it = idx.begin(); it != idx.end(); it++) {
       if (*it >= range_col1 && *it < range_col2) {
@@ -95,36 +94,19 @@ void petsc_sparse_matrix::set_col_index(const PetscInt i,
     index = idx;
 
   if (!is_transpose) {
-    for (int it = i; it < row; it++) {
-      mat_i[it + 1] += index.size();
-    }
-    for (int it = i; it < row; it++) {
-      mat_oi[it + 1] += o_index.size();
-    }
+    mat_i[i] = index.size();
+    mat_oi[i] = o_index.size();
+    mat_ij[i] = index;
+    mat_oij[i] = o_index;
   } else {
-    for (int it = i; it < Row; it++) {
-      mat_i[it + 1] += index.size();
-    }
-  }
-
-  if (!is_transpose) {
-    mat_j.insert(mat_j.begin() + mat_i[i], index.begin(), index.end());
-    mat_oj.insert(mat_oj.begin() + mat_oi[i], o_index.begin(), o_index.end());
-  } else {
-    mat_j.insert(mat_j.begin() + mat_i[i], index.begin(), index.end());
+    mat_i[i] = index.size();
+    mat_ij[i] = index;
   }
 }
 
 void petsc_sparse_matrix::set_block_col_index(const PetscInt i,
                                               vector<PetscInt> &idx) {
   sort(idx.begin(), idx.end());
-
-  if (mat_i[i + 1] - mat_i[i] > 0)
-    cout << i << " block index has been set" << endl;
-
-  for (int it = i; it < block_row; it++) {
-    mat_i[it + 1] += idx.size();
-  }
 
   for (auto it = idx.begin(); it != idx.end(); it++) {
     if (*it > block_Col) {
@@ -135,7 +117,8 @@ void petsc_sparse_matrix::set_block_col_index(const PetscInt i,
     }
   }
 
-  mat_j.insert(mat_j.begin() + mat_i[i], idx.begin(), idx.end());
+  mat_i[i] = idx.size();
+  mat_ij[i] = idx;
 }
 
 void petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
@@ -152,12 +135,8 @@ void petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
           auto it = lower_bound(mat_j.begin() + mat_i[i],
                                 mat_j.begin() + mat_i[i + 1], j - range_col1);
 
-          if (*it == j - range_col1) {
-            int offset = it - mat_j.begin();
-            if (offset > mat_a.size())
-              cout << " diagonal exceed value array size" << endl;
-            else
-              mat_a[it - mat_j.begin()] += daij;
+          if (it != mat_j.begin() + mat_i[i + 1] && *it == j - range_col1) {
+            mat_a[it - mat_j.begin()] += daij;
           } else
             cout << rank << ' ' << i << ' ' << j
                  << " diagonal increment misplacement" << endl;
@@ -165,12 +144,8 @@ void petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
           auto it = lower_bound(mat_oj.begin() + mat_oi[i],
                                 mat_oj.begin() + mat_oi[i + 1], j);
 
-          if (*it == j) {
-            int offset = it - mat_oj.begin();
-            if (offset > mat_oa.size())
-              cout << " off-diagonal exceed value array size" << endl;
-            else
-              mat_oa[it - mat_oj.begin()] += daij;
+          if (it != mat_oj.begin() + mat_oi[i + 1] && *it == j) {
+            mat_oa[it - mat_oj.begin()] += daij;
           } else
             cout << rank << ' ' << i << ' ' << j
                  << " off-diagonal increment misplacement" << endl;
@@ -255,23 +230,93 @@ int petsc_sparse_matrix::graph_assemble() {
 
   if (block_size == 1) {
     if (!is_transpose) {
+      for (int i = row; i > 0; i--) {
+        mat_i[i] = mat_i[i - 1];
+      }
+      mat_i[0] = 0;
+      for (int i = 0; i < row; i++) {
+        mat_i[i + 1] += mat_i[i];
+      }
+      for (int i = row; i > 0; i--) {
+        mat_oi[i] = mat_oi[i - 1];
+      }
+      mat_oi[0] = 0;
+      for (int i = 0; i < row; i++) {
+        mat_oi[i + 1] += mat_oi[i];
+      }
       nnz = mat_i[row];
       o_nnz = mat_oi[row];
+
+      mat_j.resize(nnz);
+      mat_oj.resize(o_nnz);
+
+      for (int i = 0; i < row; i++) {
+        for (int j = 0; j < mat_ij[i].size(); j++) {
+          mat_j[mat_i[i] + j] = mat_ij[i][j];
+        }
+      }
+      for (int i = 0; i < row; i++) {
+        for (int j = 0; j < mat_oij[i].size(); j++) {
+          mat_oj[mat_oi[i] + j] = mat_oij[i][j];
+        }
+      }
+
+      {
+        decltype(mat_ij)().swap(mat_ij);
+        decltype(mat_oij)().swap(mat_oij);
+      }
 
       mat_a.resize(nnz);
       mat_oa.resize(o_nnz);
       fill(mat_a.begin(), mat_a.end(), 0.0);
       fill(mat_oa.begin(), mat_oa.end(), 0.0);
     } else {
+      for (int i = Row; i > 0; i--) {
+        mat_i[i] = mat_i[i - 1];
+      }
+      mat_i[0] = 0;
+      for (int i = 0; i < Row; i++) {
+        mat_i[i + 1] += mat_i[i];
+      }
       nnz = mat_i[Row];
       o_nnz = 0;
+
+      mat_j.resize(nnz);
+      for (int i = 0; i < Row; i++) {
+        for (int j = 0; j < mat_ij[i].size(); j++) {
+          mat_j[mat_i[i] + j] = mat_ij[i][j];
+        }
+      }
+
+      {
+        decltype(mat_ij)().swap(mat_ij);
+        decltype(mat_oij)().swap(mat_oij);
+      }
 
       mat_a.resize(nnz);
       fill(mat_a.begin(), mat_a.end(), 0.0);
     }
   } else {
-    nnz = mat_i[block_row] * block_size * block_size;
+    for (int i = block_row; i > 0; i--) {
+      mat_i[i] = mat_i[i - 1];
+    }
+    mat_i[0] = 0;
+    for (int i = 0; i < block_row; i++) {
+      mat_i[i + 1] += mat_i[i];
+    }
+    nnz = mat_i[block_row];
     o_nnz = 0;
+
+    mat_j.resize(nnz);
+    mat_oj.resize(o_nnz);
+
+    for (int i = 0; i < block_row; i++) {
+      for (int j = 0; j < mat_ij[i].size(); j++) {
+        mat_j[mat_i[i] + j] = mat_ij[i][j];
+      }
+    }
+
+    nnz *= block_size * block_size;
 
     mat_a.resize(nnz);
     fill(mat_a.begin(), mat_a.end(), 0.0);
