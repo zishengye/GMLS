@@ -21,15 +21,14 @@ private:
   std::vector<block_matrix_type> A_list;  // coefficient matrix list
   std::vector<block_matrix_type> nn_list; // colloid-colloid matrix list
   std::vector<block_matrix_type> nw_list; // colloid-whole matrix list
-  std::vector<matrix_type> I_list;        // interpolation matrix list
-  std::vector<matrix_type> R_list;        // restriction matrix list
+  std::vector<block_matrix_type> I_list;  // interpolation matrix list
+  std::vector<block_matrix_type> R_list;  // restriction matrix list
   std::vector<is_type> isg_field_list;
   std::vector<is_type> isg_colloid_list;
   std::vector<is_type> isg_pressure_list;
 
   // vector list
   std::vector<nest_vector_type> x_list;
-  std::vector<nest_vector_type> y_list;
   std::vector<nest_vector_type> b_list;
   std::vector<nest_vector_type> r_list;
   std::vector<nest_vector_type> t_list;
@@ -106,8 +105,8 @@ public:
   inline int get_num_rigid_body() { return num_rigid_body; }
 
   block_matrix_type getA(int num_level) { return A_list[num_level]; }
-  matrix_type getI(int num_level) { return I_list[num_level]; }
-  matrix_type getR(int num_level) { return R_list[num_level]; }
+  block_matrix_type getI(int num_level) { return I_list[num_level]; }
+  block_matrix_type getR(int num_level) { return R_list[num_level]; }
   ksp_type get_field_relaxation(int num_level) {
     return field_relaxation_list[num_level];
   }
@@ -138,8 +137,8 @@ public:
 
     A_list.push_back(std::make_shared<petsc_block_matrix>(2, 2));
     if (base_level_initialized) {
-      I_list.push_back(std::make_shared<petsc_sparse_matrix>());
-      R_list.push_back(std::make_shared<petsc_sparse_matrix>());
+      I_list.push_back(std::make_shared<petsc_block_matrix>(2, 2));
+      R_list.push_back(std::make_shared<petsc_block_matrix>(2, 2));
     }
 
     base_level_initialized = true;
@@ -156,17 +155,16 @@ public:
   void clear();
 
   void initial_guess_from_previous_adaptive_step(
-      std::vector<double> &initial_guess, std::vector<vec3> &velocity,
-      std::vector<double> &pressure, std::vector<vec3> &rb_velocity,
-      std::vector<vec3> &rb_angular_velocity);
+      std::vector<double> &initial_guess, std::vector<double> &initial_guess_rb,
+      std::vector<vec3> &velocity, std::vector<double> &pressure,
+      std::vector<vec3> &rb_velocity, std::vector<vec3> &rb_angular_velocity);
   void build_interpolation_restriction(const int _num_rigid_body,
                                        const int _dim, const int _poly_order);
 
-  std::vector<matrix_type> &get_interpolation_list() { return I_list; }
-  std::vector<matrix_type> &get_restriction_list() { return R_list; }
+  std::vector<block_matrix_type> &get_interpolation_list() { return I_list; }
+  std::vector<block_matrix_type> &get_restriction_list() { return R_list; }
 
   std::vector<nest_vector_type> &get_x_list() { return x_list; }
-  std::vector<nest_vector_type> &get_y_list() { return y_list; }
   std::vector<nest_vector_type> &get_b_list() { return b_list; }
   std::vector<nest_vector_type> &get_r_list() { return r_list; }
   std::vector<nest_vector_type> &get_t_list() { return t_list; }

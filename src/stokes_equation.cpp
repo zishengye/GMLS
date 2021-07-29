@@ -1012,19 +1012,19 @@ void stokes_equation::build_coefficient_matrix() {
     }
   }
 
-  for (int i = start_rigid_body_idx; i < end_rigid_body_idx; i++) {
+  for (int i = 0; i < local_num_rigid_body; i++) {
     vector<PetscInt> index;
     for (int axes = 0; axes < translation_dof; axes++) {
       if (rigid_body_velocity_force_switch[i][axes]) {
         index.clear();
-        index.push_back(start_rigid_body_idx * rigid_body_dof + axes);
+        index.push_back((start_rigid_body_idx + i) * rigid_body_dof + axes);
         D.set_col_index(i * rigid_body_dof + axes, index);
       }
     }
     for (int axes = 0; axes < rotation_dof; axes++) {
       if (rigid_body_angvelocity_torque_switch[i][axes]) {
         index.clear();
-        index.push_back(start_rigid_body_idx * rigid_body_dof +
+        index.push_back((start_rigid_body_idx + i) * rigid_body_dof +
                         translation_dof + axes);
         D.set_col_index(i * rigid_body_dof + translation_dof + axes, index);
       }
@@ -1321,7 +1321,7 @@ void stokes_equation::build_coefficient_matrix() {
     }
 
     if (current_refinement_level == 0) {
-      // A.increment(pressure_local_index, pressure_global_index, 1e-6);
+      A.increment(pressure_local_index, pressure_global_index, 1e-6);
     }
 
     // end of pressure block
@@ -1330,16 +1330,16 @@ void stokes_equation::build_coefficient_matrix() {
   for (int i = start_rigid_body_idx; i < end_rigid_body_idx; i++) {
     for (int axes = 0; axes < translation_dof; axes++) {
       if (rigid_body_velocity_force_switch[i][axes]) {
-        D.increment(start_rigid_body_idx * rigid_body_dof + axes,
+        D.increment(i * rigid_body_dof + axes,
                     start_rigid_body_idx * rigid_body_dof + axes, 1.0);
       }
     }
     for (int axes = 0; axes < rotation_dof; axes++) {
       if (rigid_body_angvelocity_torque_switch[i][axes]) {
-        D.increment(
-            start_rigid_body_idx * rigid_body_dof + translation_dof + axes,
-            start_rigid_body_idx * rigid_body_dof + translation_dof + axes,
-            1.0);
+        D.increment(i * rigid_body_dof + translation_dof + axes,
+                    start_rigid_body_idx * rigid_body_dof + translation_dof +
+                        axes,
+                    1.0);
       }
     }
   }
@@ -1435,6 +1435,21 @@ void stokes_equation::build_coefficient_matrix() {
 
   extract_neighbor_index(A, B, C, D, nn_A, nn_B, nn_C, nn_D, nw_A, nw_B, nw_C,
                          nw_D, idx_colloid, field_dof);
+
+  for (int i = 0; i < idx_colloid.size(); i++) {
+    idx_colloid[i] += start_rigid_body_idx * rigid_body_dof;
+  }
+
+  PetscInt local_n1, local_n2;
+  MatGetOwnershipRange(
+      multi_mgr->getA(current_refinement_level)->get_operator(), &local_n1,
+      &local_n2);
+  for (int i = 0; i < local_num_rigid_body; i++) {
+    for (int j = 0; j < rigid_body_dof; j++) {
+      idx_colloid.push_back(local_n1 + local_particle_num * field_dof +
+                            i * rigid_body_dof + j);
+    }
+  }
 
   multi_mgr->get_colloid_mat(current_refinement_level)->assemble();
   multi_mgr->get_colloid_whole_mat(current_refinement_level)->assemble();
@@ -1750,7 +1765,7 @@ void stokes_equation::solve_step() {
 
     multi_mgr->build_interpolation_restriction(num_rigid_body, dim, poly_order);
     multi_mgr->initial_guess_from_previous_adaptive_step(
-        res, velocity, pressure, rb_mgr->get_velocity(),
+        res, res_rb, velocity, pressure, rb_mgr->get_velocity(),
         rb_mgr->get_angular_velocity());
 
     timer2 = MPI_Wtime();

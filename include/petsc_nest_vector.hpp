@@ -12,15 +12,12 @@ private:
   Vec vec;
 
 public:
-  petsc_nest_vector() : vec(PETSC_NULL) {}
-
-  ~petsc_nest_vector() {
-    if (vec != PETSC_NULL) {
-      VecDestroy(&vec);
-      VecDestroy(&vec_list[0]);
-      VecDestroy(&vec_list[1]);
-    }
+  petsc_nest_vector() : vec(PETSC_NULL) {
+    vec_list[0] = PETSC_NULL;
+    vec_list[1] = PETSC_NULL;
   }
+
+  ~petsc_nest_vector();
 
   void create(std::vector<double> &_vec1, std::vector<double> &_vec2);
 

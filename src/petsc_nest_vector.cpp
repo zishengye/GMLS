@@ -2,6 +2,18 @@
 
 using namespace std;
 
+petsc_nest_vector::~petsc_nest_vector() {
+  if (vec != PETSC_NULL) {
+    VecDestroy(&vec);
+  }
+  if (vec_list[0] != PETSC_NULL) {
+    VecDestroy(&vec_list[0]);
+  }
+  if (vec_list[1] != PETSC_NULL) {
+    VecDestroy(&vec_list[1]);
+  }
+}
+
 void petsc_nest_vector::create(vector<double> &_vec1, vector<double> &_vec2) {
   VecCreateMPIWithArray(MPI_COMM_WORLD, 1, _vec1.size(), PETSC_DECIDE,
                         _vec1.data(), &vec_list[0]);

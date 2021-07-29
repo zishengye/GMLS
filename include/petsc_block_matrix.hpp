@@ -26,13 +26,7 @@ public:
     }
   }
 
-  ~petsc_block_matrix() {
-    for (int i = 0; i < mat_list.size(); i++) {
-      MatDestroy(&mat_list[i]);
-    }
-    if (is_assembled)
-      MatDestroy(&mat);
-  }
+  ~petsc_block_matrix();
 
   void resize(const PetscInt M, const PetscInt N) {
     Row = M;

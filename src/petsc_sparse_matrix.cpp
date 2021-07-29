@@ -12,6 +12,17 @@ PetscErrorCode MultTranspose(Mat mat, Vec x, Vec y);
 
 PetscErrorCode MultTransposeAdd(Mat mat, Vec x, Vec y, Vec z);
 
+petsc_sparse_matrix::~petsc_sparse_matrix() {
+  if (is_assembled && is_self_contained) {
+    MatDestroy(mat);
+  }
+  if (is_self_contained) {
+    delete mat;
+  }
+  if (shell_mat != PETSC_NULL)
+    MatDestroy(&shell_mat);
+}
+
 int petsc_sparse_matrix::write(string fileName) {
   ofstream output;
 
@@ -23,14 +34,27 @@ int petsc_sparse_matrix::write(string fileName) {
   for (int process = 0; process < size; process++) {
     if (process == rank) {
       output.open(fileName, ios::app);
-      for (int i = 0; i < mat_i.size(); i++) {
-        for (int j = mat_i[i]; j < mat_i[i + 1]; j++) {
-          output << (i + 1) + range_col1 << '\t' << mat_j[j] << '\t' << mat_a[j]
-                 << endl;
+      if (!is_transpose) {
+        for (int i = 0; i < row; i++) {
+          for (int j = mat_i[i]; j < mat_i[i + 1]; j++) {
+            output << (i + 1) + range_row1 << '\t' << mat_j[j] << '\t'
+                   << mat_a[j] << endl;
+          }
+          for (int j = mat_oi[i]; j < mat_oi[i + 1]; j++) {
+            output << (i + 1) + range_row1 << '\t' << mat_oj[j] << '\t'
+                   << mat_oa[j] << endl;
+          }
         }
-        for (int j = mat_oi[i]; j < mat_oi[i + 1]; j++) {
-          output << (i + 1) + range_col1 << '\t' << mat_oj[j] << '\t'
-                 << mat_oa[j] << endl;
+      } else {
+        for (int i = 0; i < col; i++) {
+          for (int j = mat_i[i]; j < mat_i[i + 1]; j++) {
+            output << (i + 1) + range_col1 << '\t' << mat_j[j] << '\t'
+                   << mat_a[j] << endl;
+          }
+          for (int j = mat_oi[i]; j < mat_oi[i + 1]; j++) {
+            output << (i + 1) + range_col1 << '\t' << mat_oj[j] << '\t'
+                   << mat_oa[j] << endl;
+          }
         }
       }
       output.close();
@@ -61,8 +85,8 @@ void petsc_sparse_matrix::set_col_index(const PetscInt i,
   vector<PetscInt> index, o_index;
   if (!is_transpose)
     for (auto it = idx.begin(); it != idx.end(); it++) {
-      if (*it >= range_row1 && *it < range_row2) {
-        index.push_back(*it);
+      if (*it >= range_col1 && *it < range_col2) {
+        index.push_back(*it - range_col1);
       } else {
         o_index.push_back(*it);
       }
@@ -116,61 +140,71 @@ void petsc_sparse_matrix::set_block_col_index(const PetscInt i,
 
 void petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
                                     const double daij) {
-  if (j > Col) {
-    cout << rank << ' ' << i << ' ' << j << " increment wrong column index"
-         << endl;
-    return;
-  }
-  if (!is_transpose) {
-    if (block_size == 1) {
-      if (j >= range_row1 && j < range_row2) {
-        auto it = lower_bound(mat_j.begin() + mat_i[i],
-                              mat_j.begin() + mat_i[i + 1], j);
+  if (abs(daij) > 1e-30) {
+    if (j > Col) {
+      cout << rank << ' ' << i << ' ' << j << " increment wrong column index"
+           << endl;
+      return;
+    }
+    if (!is_transpose) {
+      if (block_size == 1) {
+        if (j >= range_col1 && j < range_col2) {
+          auto it = lower_bound(mat_j.begin() + mat_i[i],
+                                mat_j.begin() + mat_i[i + 1], j - range_col1);
 
-        if (*it == j) {
-          int offset = it - mat_j.begin();
-          if (offset > mat_a.size())
-            cout << " diagonal exceed value array size" << endl;
-          else
-            mat_a[it - mat_j.begin()] += daij;
-        } else
-          cout << rank << ' ' << i << ' ' << j
-               << " diagonal increment misplacement" << endl;
+          if (*it == j - range_col1) {
+            int offset = it - mat_j.begin();
+            if (offset > mat_a.size())
+              cout << " diagonal exceed value array size" << endl;
+            else
+              mat_a[it - mat_j.begin()] += daij;
+          } else
+            cout << rank << ' ' << i << ' ' << j
+                 << " diagonal increment misplacement" << endl;
+        } else {
+          auto it = lower_bound(mat_oj.begin() + mat_oi[i],
+                                mat_oj.begin() + mat_oi[i + 1], j);
+
+          if (*it == j) {
+            int offset = it - mat_oj.begin();
+            if (offset > mat_oa.size())
+              cout << " off-diagonal exceed value array size" << endl;
+            else
+              mat_oa[it - mat_oj.begin()] += daij;
+          } else
+            cout << rank << ' ' << i << ' ' << j
+                 << " off-diagonal increment misplacement" << endl;
+        }
       } else {
-        auto it = lower_bound(mat_oj.begin() + mat_oi[i],
-                              mat_oj.begin() + mat_oi[i + 1], j);
+        int block_i = i / block_size;
+        int block_j = j / block_size;
+        int block_row_idx = i % block_size;
+        int block_col_idx = j % block_size;
 
-        if (*it == j)
-          mat_oa[it - mat_oj.begin()] += daij;
+        auto it = lower_bound(mat_j.begin() + mat_i[block_i],
+                              mat_j.begin() + mat_i[block_i + 1], block_j);
+
+        if (*it == block_j)
+          mat_a[(it - mat_j.begin()) * block_size * block_size +
+                block_row_idx * block_size + block_col_idx] += daij;
         else
-          cout << rank << ' ' << i << ' ' << j
-               << " off-diagonal increment misplacement" << endl;
+          cout << rank << ' ' << block_i << ' ' << block_j << ' '
+               << " block single increment misplacement" << endl;
       }
     } else {
-      int block_i = i / block_size;
-      int block_j = j / block_size;
-      int block_row_idx = i % block_size;
-      int block_col_idx = j % block_size;
+      auto it = lower_bound(mat_j.begin() + mat_i[i],
+                            mat_j.begin() + mat_i[i + 1], j);
 
-      auto it = lower_bound(mat_j.begin() + mat_i[block_i],
-                            mat_j.begin() + mat_i[block_i + 1], block_j);
-
-      if (*it == block_j)
-        mat_a[(it - mat_j.begin()) * block_size * block_size +
-              block_row_idx * block_size + block_col_idx] += daij;
-      else
-        cout << rank << ' ' << block_i << ' ' << block_j << ' '
-             << " block single increment misplacement" << endl;
+      if (*it == j) {
+        int offset = it - mat_j.begin();
+        if (offset > mat_a.size())
+          cout << " transpose exceed value array size" << endl;
+        else
+          mat_a[it - mat_j.begin()] += daij;
+      } else
+        cout << rank << ' ' << i << ' ' << j
+             << " transpose increment misplacement" << endl;
     }
-  } else {
-    auto it =
-        lower_bound(mat_j.begin() + mat_i[i], mat_j.begin() + mat_i[i + 1], j);
-
-    if (*it == j)
-      mat_a[it - mat_j.begin()] += daij;
-    else
-      cout << rank << ' ' << i << ' ' << j
-           << " transpose increment misplacement" << endl;
   }
 }
 
@@ -426,8 +460,8 @@ int petsc_sparse_matrix::transpose_assemble() {
     int diag_count = 0;
     int offdiag_count = 0;
     for (auto it = new_mat[i].begin(); it != new_mat[i].end(); it++) {
-      if (*it >= range_col1 && *it < range_col2) {
-        mat_j.push_back(*it);
+      if (*it >= range_row1 && *it < range_row2) {
+        mat_j.push_back(*it - range_row1);
         diag_count++;
       } else {
         mat_oj.push_back(*it);
@@ -442,11 +476,12 @@ int petsc_sparse_matrix::transpose_assemble() {
   fill(mat_a.begin(), mat_a.end(), 0.0);
   fill(mat_oa.begin(), mat_oa.end(), 0.0);
   for (int i = 0; i < recvmat_i.size(); i++) {
-    if (recvmat_i[i] >= range_col1 && recvmat_i[i] < range_col2) {
-      auto it = lower_bound(
-          mat_j.begin() + mat_i[recvmat_j[i] - col_range1],
-          mat_j.begin() + mat_i[recvmat_j[i] - col_range1 + 1], recvmat_i[i]);
-      if (*it == recvmat_i[i]) {
+    if (recvmat_i[i] >= range_row1 && recvmat_i[i] < range_row2) {
+      auto it =
+          lower_bound(mat_j.begin() + mat_i[recvmat_j[i] - col_range1],
+                      mat_j.begin() + mat_i[recvmat_j[i] - col_range1 + 1],
+                      recvmat_i[i] - range_row1);
+      if (*it == recvmat_i[i] - range_row1) {
         mat_a[it - mat_j.begin()] += recvmat_a[i];
       } else {
         cout << rank << ' ' << recvmat_j[i] - col_range1 << ' ' << recvmat_i[i]
@@ -467,11 +502,12 @@ int petsc_sparse_matrix::transpose_assemble() {
   for (int row_it = 0; row_it < Row; row_it++) {
     for (int j = old_local_mat_i[row_it]; j < old_local_mat_i[row_it + 1];
          j++) {
-      if (row_it >= range_col1 && row_it < range_col2) {
+      if (row_it >= range_row1 && row_it < range_row2) {
         auto it = lower_bound(
             mat_j.begin() + mat_i[old_local_mat_j[j] - col_range1],
-            mat_j.begin() + mat_i[old_local_mat_j[j] - col_range1 + 1], row_it);
-        if (*it == row_it) {
+            mat_j.begin() + mat_i[old_local_mat_j[j] - col_range1 + 1],
+            row_it - range_row1);
+        if (*it == row_it - range_row1) {
           mat_a[it - mat_j.begin()] += old_local_mat_a[j];
         } else {
           cout << "transpose matrix assembly error" << endl;
@@ -491,7 +527,7 @@ int petsc_sparse_matrix::transpose_assemble() {
   }
 
   MatCreateMPIAIJWithSplitArrays(
-      PETSC_COMM_WORLD, col, row, PETSC_DECIDE, Row, mat_i.data(), mat_j.data(),
+      PETSC_COMM_WORLD, col, row, Col, Row, mat_i.data(), mat_j.data(),
       mat_a.data(), mat_oi.data(), mat_oj.data(), mat_oa.data(), &shell_mat);
 
   MatCreateShell(PETSC_COMM_WORLD, row, col, Row, Col, &shell_mat, mat);
@@ -502,7 +538,9 @@ int petsc_sparse_matrix::transpose_assemble() {
   is_assembled = true;
   is_transpose = true;
 
-  return 0;
+  int nnz = mat_i[col] + mat_oi[col];
+
+  return nnz;
 }
 
 void extract_neighbor_index(
@@ -590,13 +628,6 @@ void extract_neighbor_index(
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  PetscInt Row_offset, local_n1, local_n2;
-  MatGetOwnershipRange(D.get_reference(), &local_n1, &local_n2);
-  MatGetSize(A.get_reference(), &Row_offset, NULL);
-
-  for (int i = local_n1; i < local_n2; i++) {
-    idx_colloid_global.push_back(i + Row_offset);
-  }
   idx_colloid = move(idx_colloid_global);
 
   ISDestroy(&isg_colloid);
@@ -620,7 +651,7 @@ PetscErrorCode null_space_matrix_mult(Mat mat, Vec x, Vec y) {
     sum += a[*it];
   }
   MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  average = sum / (double)ctx->null_space_size;
+  average = sum / ctx->null_space_size;
   for (auto it = ctx->null_space_ptr->begin(); it != ctx->null_space_ptr->end();
        it++) {
     a[*it] -= average;

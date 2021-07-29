@@ -22,6 +22,10 @@ bool gmls_solver::refinement() {
               "Total error for gradient: %f, with tolerance: %f\n",
               estimated_global_error, refinement_tolerance);
 
+  if (isnan(estimated_global_error)) {
+    return false;
+  }
+
   static vector<vec3> old_rigid_body_velocity;
   static vector<vec3> old_rigid_body_angular_velocity;
 
@@ -523,8 +527,7 @@ bool gmls_solver::refinement() {
   //   // if (coord[i].mag() < 0.22)
   //   //   split_tag[i] = 1;
   // }
-  if (isnan(estimated_global_error) ||
-      estimated_global_error < refinement_tolerance) {
+  if (estimated_global_error < refinement_tolerance) {
     return false;
   }
 

@@ -343,7 +343,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
     VecScale(shell->multi->get_r_list()[i]->get_reference(), -1.0);
 
-    Mat &R = shell->multi->get_restriction_list()[i - 1]->get_reference();
+    Mat &R = shell->multi->get_restriction_list()[i - 1]->get_operator();
     Vec &v1 = shell->multi->get_r_list()[i]->get_reference();
     Vec &v2 = shell->multi->get_b_list()[i - 1]->get_reference();
     MatMult(R, v1, v2);
@@ -533,7 +533,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     MPI_Barrier(MPI_COMM_WORLD);
     timer1 = MPI_Wtime();
 
-    Mat &I = shell->multi->get_interpolation_list()[i - 1]->get_reference();
+    Mat &I = shell->multi->get_interpolation_list()[i - 1]->get_operator();
     Vec &v1 = shell->multi->get_t_list()[i]->get_reference();
     Vec &v2 = shell->multi->get_x_list()[i - 1]->get_reference();
     MatMult(I, v2, v1);

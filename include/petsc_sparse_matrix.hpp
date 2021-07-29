@@ -61,7 +61,8 @@ private:
 public:
   petsc_sparse_matrix()
       : is_assembled(false), is_self_contained(true), is_set_null_space(false),
-        is_transpose(false), row(0), col(0), Col(0), Row(0) {
+        is_transpose(false), row(0), col(0), Col(0), Row(0),
+        shell_mat(PETSC_NULL) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -72,7 +73,8 @@ public:
                       PetscInt n /* local # of cols */,
                       PetscInt N /* global # of cols */, PetscInt bs = 1)
       : is_assembled(false), is_self_contained(true), is_set_null_space(false),
-        is_transpose(false), row(m), col(n), Col(N), block_size(bs) {
+        is_transpose(false), row(m), col(n), Col(N), block_size(bs),
+        shell_mat(PETSC_NULL) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -130,16 +132,7 @@ public:
     std::fill(mat_oi.begin(), mat_oi.end(), 0);
   }
 
-  ~petsc_sparse_matrix() {
-    if (is_assembled && is_self_contained) {
-      MatDestroy(mat);
-    }
-    if (is_self_contained) {
-      delete mat;
-    }
-    if (is_set_null_space || shell_mat != PETSC_NULL)
-      MatDestroy(&shell_mat);
-  }
+  ~petsc_sparse_matrix();
 
   void resize(PetscInt m, PetscInt n, PetscInt N, PetscInt bs = 1) {
     row = m;
