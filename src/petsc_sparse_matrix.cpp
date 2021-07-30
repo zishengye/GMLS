@@ -37,22 +37,22 @@ int petsc_sparse_matrix::write(string fileName) {
       if (!is_transpose) {
         for (int i = 0; i < row; i++) {
           for (int j = mat_i[i]; j < mat_i[i + 1]; j++) {
-            output << (i + 1) + range_row1 << '\t' << mat_j[j] << '\t'
+            output << (i + 1) + range_row1 << '\t' << mat_j[j] + 1 << '\t'
                    << mat_a[j] << endl;
           }
           for (int j = mat_oi[i]; j < mat_oi[i + 1]; j++) {
-            output << (i + 1) + range_row1 << '\t' << mat_oj[j] << '\t'
+            output << (i + 1) + range_row1 << '\t' << mat_oj[j] + 1 << '\t'
                    << mat_oa[j] << endl;
           }
         }
       } else {
         for (int i = 0; i < col; i++) {
           for (int j = mat_i[i]; j < mat_i[i + 1]; j++) {
-            output << (i + 1) + range_col1 << '\t' << mat_j[j] << '\t'
+            output << (i + 1) + range_col1 << '\t' << mat_j[j] + 1 << '\t'
                    << mat_a[j] << endl;
           }
           for (int j = mat_oi[i]; j < mat_oi[i + 1]; j++) {
-            output << (i + 1) + range_col1 << '\t' << mat_oj[j] << '\t'
+            output << (i + 1) + range_col1 << '\t' << mat_oj[j] + 1 << '\t'
                    << mat_oa[j] << endl;
           }
         }
