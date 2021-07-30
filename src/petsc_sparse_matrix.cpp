@@ -35,14 +35,28 @@ int petsc_sparse_matrix::write(string fileName) {
     if (process == rank) {
       output.open(fileName, ios::app);
       if (!is_transpose) {
-        for (int i = 0; i < row; i++) {
-          for (int j = mat_i[i]; j < mat_i[i + 1]; j++) {
-            output << (i + 1) + range_row1 << '\t' << mat_j[j] + 1 << '\t'
-                   << mat_a[j] << endl;
+        if (block_size == 1) {
+          for (int i = 0; i < row; i++) {
+            for (int j = mat_i[i]; j < mat_i[i + 1]; j++) {
+              output << (i + 1) + range_row1 << '\t' << mat_j[j] + 1 << '\t'
+                     << mat_a[j] << endl;
+            }
+            for (int j = mat_oi[i]; j < mat_oi[i + 1]; j++) {
+              output << (i + 1) + range_row1 << '\t' << mat_oj[j] + 1 << '\t'
+                     << mat_oa[j] << endl;
+            }
           }
-          for (int j = mat_oi[i]; j < mat_oi[i + 1]; j++) {
-            output << (i + 1) + range_row1 << '\t' << mat_oj[j] + 1 << '\t'
-                   << mat_oa[j] << endl;
+        } else {
+          for (int i = 0; i < block_row; i++) {
+            for (int j = mat_i[i]; j < mat_i[i + 1]; j++) {
+              for (int m = 0; m < block_size; m++)
+                for (int n = 0; n < block_size; n++)
+                  output
+                      << (i + 1) * block_size + m + range_row1 << '\t'
+                      << mat_j[j] * block_size + n + 1 << '\t'
+                      << mat_a[j * block_size * block_size + m * block_size + n]
+                      << endl;
+            }
           }
         }
       } else {
