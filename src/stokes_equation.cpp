@@ -1396,12 +1396,9 @@ void stokes_equation::build_coefficient_matrix() {
   }
   A.set_null_space(null_space);
 
-  A.write("A.txt");
   A.assemble();
   B.assemble();
-  B.write("B.txt");
   C.transpose_assemble();
-  C.write("C.txt");
   D.assemble();
 
   multi_mgr->getA(current_refinement_level)->assemble();
