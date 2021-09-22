@@ -125,8 +125,8 @@ static int bounding_box_split(vec3 &bounding_box_size,
 
 static int bounding_box_split(vec3 &bounding_box_size,
                               triple<int> &bounding_box_count,
-                              vec3 &bounding_box_low, double _spacing,
-                              vec3 &domain_bounding_box_low,
+                              vec3 &bounding_box_low, vec3 &bounding_box_high,
+                              double _spacing, vec3 &domain_bounding_box_low,
                               vec3 &domain_bounding_box_high, vec3 &domain_low,
                               vec3 &domain_high, triple<int> &domain_count,
                               const int x, const int y, const int z,
@@ -211,6 +211,26 @@ static int bounding_box_split(vec3 &bounding_box_size,
       bounding_box_size[1] / y * (j + 1) + bounding_box_low[1];
   domain_bounding_box_high[2] =
       bounding_box_size[2] / z * (k + 1) + bounding_box_low[2];
+
+  if (i == 0) {
+    domain_bounding_box_low[0] = bounding_box_low[0];
+  }
+  if (j == 0) {
+    domain_bounding_box_low[1] = bounding_box_low[1];
+  }
+  if (k == 0) {
+    domain_bounding_box_low[2] = bounding_box_low[2];
+  }
+
+  if (i == x - 1) {
+    domain_bounding_box_high[0] = bounding_box_high[0];
+  }
+  if (j == y - 1) {
+    domain_bounding_box_high[1] = bounding_box_high[1];
+  }
+  if (k == z - 1) {
+    domain_bounding_box_high[2] = bounding_box_high[2];
+  }
 
   return 0;
 }
@@ -309,14 +329,14 @@ void particle_geometry::init(const int _dim, const int _problem_type,
                   process_k, size, rank);
   }
 
-  if (domain_type == 1) {
-    process_x = size;
-    process_y = 1;
-    process_z = 1;
-    process_i = rank;
-    process_j = 0;
-    process_k = 0;
-  }
+  // if (domain_type == 1) {
+  //   process_x = size;
+  //   process_y = 1;
+  //   process_z = 1;
+  //   process_i = rank;
+  //   process_j = 0;
+  //   process_k = 0;
+  // }
 
   if (refinement_type == UNIFORM_REFINE) {
     min_count = _min_count;
@@ -339,7 +359,7 @@ void particle_geometry::init(const int _dim, const int _problem_type,
   }
   if (dim == 3) {
     bounding_box_split(bounding_box_size, bounding_box_count, bounding_box[0],
-                       uniform_spacing, domain_bounding_box[0],
+                       bounding_box[1], uniform_spacing, domain_bounding_box[0],
                        domain_bounding_box[1], domain[0], domain[1],
                        domain_count, process_x, process_y, process_z, process_i,
                        process_j, process_k);
@@ -2087,10 +2107,11 @@ void particle_geometry::generate_field_surface_particle() {
           vec3 pos = vec3(pos_x, pos_y, pos_z);
           normal = vec3(0.0, 0.0, 1.0);
           if (pos.mag() < cap_radius - 0.5 * uniform_spacing)
-            if (pos[0] > domain[0][0] - 1e-10 * h &&
-                pos[0] < domain[1][0] + 1e-10 * h &&
-                pos[1] > domain[0][1] - 1e-10 * h &&
-                pos[1] < domain[1][1] + 1e-10 * h && domain[0][2] < 1e-5)
+            if (pos[0] > domain_bounding_box[0][0] - 1e-10 * h &&
+                pos[0] < domain_bounding_box[1][0] + 1e-10 * h &&
+                pos[1] > domain_bounding_box[0][1] - 1e-10 * h &&
+                pos[1] < domain_bounding_box[1][1] + 1e-10 * h &&
+                domain_bounding_box[0][2] < 1e-5)
               insert_particle(pos, 3, uniform_spacing, normal, 0, vol);
 
           pos_y += uniform_spacing;
@@ -2139,12 +2160,13 @@ void particle_geometry::generate_field_surface_particle() {
             double norm = dist.mag();
             normal = dist * (-1.0 / norm);
             if (dist.mag() < R + 1e-5 * uniform_spacing)
-              if (pos[0] > domain[0][0] - 1e-10 * h &&
-                  pos[0] < domain[1][0] + 1e-10 * h &&
-                  pos[1] > domain[0][1] - 1e-10 * h &&
-                  pos[1] < domain[1][1] + 1e-10 * h &&
-                  pos[2] > domain[0][2] - 1e-10 * h &&
-                  pos[2] < domain[1][2] + 1e-10 * h && pos[2] > 0.25 * h)
+              if (pos[0] > domain_bounding_box[0][0] - 1e-10 * h &&
+                  pos[0] < domain_bounding_box[1][0] + 1e-10 * h &&
+                  pos[1] > domain_bounding_box[0][1] - 1e-10 * h &&
+                  pos[1] < domain_bounding_box[1][1] + 1e-10 * h &&
+                  pos[2] > domain_bounding_box[0][2] - 1e-10 * h &&
+                  pos[2] < domain_bounding_box[1][2] + 1e-10 * h &&
+                  pos[2] > 0.25 * h)
                 insert_particle(pos, 1, uniform_spacing, normal, 0, vol);
           }
         }
@@ -2551,7 +2573,7 @@ void particle_geometry::uniform_refine() {
   }
   if (dim == 3) {
     bounding_box_split(bounding_box_size, bounding_box_count, bounding_box[0],
-                       uniform_spacing, domain_bounding_box[0],
+                       bounding_box[1], uniform_spacing, domain_bounding_box[0],
                        domain_bounding_box[1], domain[0], domain[1],
                        domain_count, process_x, process_y, process_z, process_i,
                        process_j, process_k);
