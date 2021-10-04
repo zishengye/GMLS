@@ -343,6 +343,8 @@ void particle_geometry::init(const int _dim, const int _problem_type,
     max_count = _max_count;
     stride = _stride;
 
+    PetscPrintf(PETSC_COMM_WORLD, "min count: %d\n", min_count);
+
     if (min_count != 0) {
       current_count = min_count;
       uniform_spacing = bounding_box_size[0] / current_count;

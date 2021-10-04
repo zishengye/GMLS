@@ -829,37 +829,39 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
 
   Mat sub_ff, sub_fc, sub_cf, sub_cc, fc_s;
 
-  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
-                  idx_colloid_sub_field.data(), PETSC_COPY_VALUES,
-                  &isg_colloid_sub_field);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_colloid.size(),
-                  idx_colloid_sub_colloid.data(), PETSC_COPY_VALUES,
-                  &isg_colloid_sub_colloid);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_field.size(),
-                  idx_colloid_field.data(), PETSC_COPY_VALUES,
-                  &isg_colloid_field);
+  if (num_rigid_body != 0) {
+    ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
+                    idx_colloid_sub_field.data(), PETSC_COPY_VALUES,
+                    &isg_colloid_sub_field);
+    ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_colloid.size(),
+                    idx_colloid_sub_colloid.data(), PETSC_COPY_VALUES,
+                    &isg_colloid_sub_colloid);
+    ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_field.size(),
+                    idx_colloid_field.data(), PETSC_COPY_VALUES,
+                    &isg_colloid_field);
 
-  MatCreateSubMatrix(ff, isg_colloid_field, isg_colloid_field,
-                     MAT_INITIAL_MATRIX, &sub_ff);
-  MatCreateSubMatrix(nn, isg_colloid_sub_field, isg_colloid_sub_colloid,
-                     MAT_INITIAL_MATRIX, &sub_fc);
-  MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_field,
-                     MAT_INITIAL_MATRIX, &sub_cf);
-  MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_colloid,
-                     MAT_INITIAL_MATRIX, &sub_cc);
+    MatCreateSubMatrix(ff, isg_colloid_field, isg_colloid_field,
+                       MAT_INITIAL_MATRIX, &sub_ff);
+    MatCreateSubMatrix(nn, isg_colloid_sub_field, isg_colloid_sub_colloid,
+                       MAT_INITIAL_MATRIX, &sub_fc);
+    MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_field,
+                       MAT_INITIAL_MATRIX, &sub_cf);
+    MatCreateSubMatrix(nn, isg_colloid_sub_colloid, isg_colloid_sub_colloid,
+                       MAT_INITIAL_MATRIX, &sub_cc);
 
-  Mat B, C;
-  MatCreate(MPI_COMM_WORLD, &B);
-  MatSetType(B, MATMPIAIJ);
-  MatInvertBlockDiagonalMat(sub_ff, B);
+    Mat B, C;
+    MatCreate(MPI_COMM_WORLD, &B);
+    MatSetType(B, MATMPIAIJ);
+    MatInvertBlockDiagonalMat(sub_ff, B);
 
-  MatMatMult(B, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &C);
-  MatMatMult(sub_cf, C, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
-  MatScale(fc_s, -1.0);
-  MatAXPY(fc_s, 1.0, sub_cc, DIFFERENT_NONZERO_PATTERN);
+    MatMatMult(B, sub_fc, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &C);
+    MatMatMult(sub_cf, C, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &fc_s);
+    MatScale(fc_s, -1.0);
+    MatAXPY(fc_s, 1.0, sub_cc, DIFFERENT_NONZERO_PATTERN);
 
-  MatDestroy(&B);
-  MatDestroy(&C);
+    MatDestroy(&B);
+    MatDestroy(&C);
+  }
 
   // setup preconditioner for base level
   if (refinement_step == 0) {
