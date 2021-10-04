@@ -17,10 +17,12 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
     vec3 rxyz;
     double size;
     int type;
+    type = -1;
     input >> type;
     input >> size;
     vector<double> size_list;
     size_list.push_back(size);
+    int end_of_input = 0;
     switch (type) {
     case 2:
       input >> size;
@@ -41,7 +43,12 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
       input >> size;
       size_list.push_back(size);
       break;
+    case -1:
+      end_of_input = 1;
+      break;
     }
+    if (end_of_input == 1)
+      break;
     for (int i = 0; i < dim; i++) {
       input >> xyz[i];
     }
