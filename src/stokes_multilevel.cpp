@@ -880,7 +880,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
     // PCSetType(pc_field_base, PCLU);
     // PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
-    PCSetType(pc_field_base, PCHYPRE);
+    PCSetType(pc_field_base, PCSOR);
     PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
     KSPSetUp(ksp_field_base->get_reference());
