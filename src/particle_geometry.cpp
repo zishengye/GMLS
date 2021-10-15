@@ -2350,7 +2350,7 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
               rigid_body_coord[n][1] < domain[1][1]) {
             double vol = pow(h, 2);
 
-            double theta = rigid_body_orientation[n][2];
+            double theta = rigid_body_orientation[n][0];
 
             shared_ptr<vector<vec3>> coord_ptr;
             shared_ptr<vector<vec3>> normal_ptr;
@@ -2391,7 +2391,7 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
             rigid_body_coord[n][0] < domain[1][0] &&
             rigid_body_coord[n][1] >= domain[0][1] &&
             rigid_body_coord[n][1] < domain[1][1]) {
-          double theta = rigid_body_orientation[n][2];
+          double theta = rigid_body_orientation[n][0];
           double side_length = rigid_body_size[n][0];
           int side_step = side_length / uniform_spacing;
           double h = side_length / side_step;
@@ -3941,7 +3941,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
         // square
         {
           double theta =
-              rigid_body_orientation[attached_rigid_body_index[tag]][2];
+              rigid_body_orientation[attached_rigid_body_index[tag]][0];
           vector<int> refined_particle_idx;
           bool insert = false;
           int particle_idx = p_coord[tag][0];
@@ -4196,7 +4196,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           double start_point = -ratio * half_side_length;
           double end_point = ratio * half_side_length;
 
-          double theta = rigid_body_ori[2];
+          double theta = rigid_body_ori[0];
 
           vec3 abs_dis = _pos - rigid_body_pos;
           // rotate back
@@ -4257,7 +4257,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
       if (dim == 2) {
         double side_length = rigid_body_size[0];
         double height = (sqrt(3) / 2.0) * side_length;
-        double theta = rigid_body_ori[2];
+        double theta = rigid_body_ori[0];
 
         vec3 translation = vec3(0.0, sqrt(3) / 6.0 * side_length, 0.0);
         vec3 abs_dis = _pos - rigid_body_pos;
@@ -5352,7 +5352,7 @@ void particle_geometry::find_closest_rigid_body(vec3 coord,
       // square in 2d, cubic in 3d
       {
         double half_side_length = rigid_body_size[0];
-        double theta = rigid_body_ori[2];
+        double theta = rigid_body_ori[0];
 
         double temp_dist;
 
