@@ -868,10 +868,11 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
     KSPSetOperators(ksp_field_base->get_reference(), ff_shell, ff);
     // KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
-    KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
+    KSPSetType(ksp_field_base->get_reference(), KSPFGMRES);
+    KSPGMRESSetOrthogonalization(ksp_field_base->get_reference(),
+                                 KSPGMRESModifiedGramSchmidtOrthogonalization);
     KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
     KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e50, 500);
-    KSPSetNormType(ksp_field_base->get_reference(), KSP_NORM_UNPRECONDITIONED);
     KSPSetResidualHistory(ksp_field_base->get_reference(), NULL, 500,
                           PETSC_TRUE);
 
