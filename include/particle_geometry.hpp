@@ -25,6 +25,7 @@ public:
   typedef std::shared_ptr<std::vector<double>> real_type;
 
 private:
+  std::string triangle_filename, vertex_filename;
   int refinement_type;
   int problem_type;
   int dim;

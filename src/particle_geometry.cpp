@@ -282,6 +282,15 @@ void particle_geometry::init(const int _dim, const int _problem_type,
       domain_type = 1;
     }
 
+    if ((SearchCommand<string>(inputCommandCount, inputCommand, "-VertexFile",
+                               vertex_filename)) == 0) {
+      domain_type = 2;
+    }
+    if ((SearchCommand<string>(inputCommandCount, inputCommand,
+                               "-TriangularFile", triangular_filename)) == 0) {
+      domain_type = 2;
+    }
+
     if (domain_type == 0)
       for (int i = 0; i < 3; i++) {
         bounding_box[0][i] = -bounding_box_size[i] / 2.0;
@@ -317,26 +326,15 @@ void particle_geometry::init(const int _dim, const int _problem_type,
     bounding_box[1][2] = 1.0;
   }
 
-  // for (int i = 0; i < 3; i++) {
-  //   bounding_box[0][i] += 1e-10 * bounding_box_size[i];
-  //   bounding_box[1][i] -= 1e-10 * bounding_box_size[i];
-  // }
+  if (domain_type == 2) {
+    bounding_box_size[0] = 2.5;
+    bounding_box_size[1] = 2.5;
 
-  if (dim == 2) {
-    process_split(process_x, process_y, process_i, process_j, size, rank);
-  } else if (dim == 3) {
-    process_split(process_x, process_y, process_z, process_i, process_j,
-                  process_k, size, rank);
+    bounding_box[0][0] = -1.25;
+    bounding_box[1][0] = 1.25;
+    bounding_box[0][1] = -1.25;
+    bounding_box[1][1] = 1.25;
   }
-
-  // if (domain_type == 1) {
-  //   process_x = size;
-  //   process_y = 1;
-  //   process_z = 1;
-  //   process_i = rank;
-  //   process_j = 0;
-  //   process_k = 0;
-  // }
 
   if (refinement_type == UNIFORM_REFINE) {
     min_count = _min_count;
@@ -351,20 +349,6 @@ void particle_geometry::init(const int _dim, const int _problem_type,
       cutoff_multiplier = cutoff_multiplier;
       cutoff_distance = uniform_spacing * (cutoff_multiplier + 0.5);
     }
-  }
-
-  if (dim == 2) {
-    bounding_box_split(
-        bounding_box_size, bounding_box_count, bounding_box[0], uniform_spacing,
-        domain_bounding_box[0], domain_bounding_box[1], domain[0], domain[1],
-        domain_count, process_x, process_y, process_i, process_j);
-  }
-  if (dim == 3) {
-    bounding_box_split(bounding_box_size, bounding_box_count, bounding_box[0],
-                       bounding_box[1], uniform_spacing, domain_bounding_box[0],
-                       domain_bounding_box[1], domain[0], domain[1],
-                       domain_count, process_x, process_y, process_z, process_i,
-                       process_j, process_k);
   }
 
   init_domain_boundary();
@@ -1735,88 +1719,92 @@ void particle_geometry::generate_field_particle() {
   vec3 boundary_normal;
 
   if (dim == 2) {
-    pos_z = 0.0;
-    double vol = uniform_spacing * uniform_spacing;
+    if (domain_type == 0) {
+      pos_z = 0.0;
+      double vol = uniform_spacing * uniform_spacing;
 
-    // down
-    if (domain_boundary_type[0] != 0) {
-      pos_x = domain[0][0];
-      pos_y = domain[0][1];
-      if (domain_boundary_type[3] != 0) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
-        insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
-      }
-      pos_x += 0.5 * uniform_spacing;
-
-      while (pos_x < domain[1][0] - 1e-5) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(0.0, 1.0, 0.0);
-        insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
-        pos_x += uniform_spacing;
-      }
-
-      if (domain_boundary_type[1] != 0) {
-        pos_x = domain[1][0];
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
-        insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
-      }
-    }
-
-    // fluid particle
-    pos_y = domain[0][1] + uniform_spacing / 2.0;
-    while (pos_y < domain[1][1] - 1e-5) {
-      // left
-      if (domain_boundary_type[3] != 0) {
+      // down
+      if (domain_boundary_type[0] != 0) {
         pos_x = domain[0][0];
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(1.0, 0.0, 0.0);
-        insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
+        pos_y = domain[0][1];
+        if (domain_boundary_type[3] != 0) {
+          vec3 _pos = vec3(pos_x, pos_y, pos_z);
+          boundary_normal = vec3(sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
+          insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
+        }
+        pos_x += 0.5 * uniform_spacing;
+
+        while (pos_x < domain[1][0] - 1e-5) {
+          vec3 _pos = vec3(pos_x, pos_y, pos_z);
+          boundary_normal = vec3(0.0, 1.0, 0.0);
+          insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
+          pos_x += uniform_spacing;
+        }
+
+        if (domain_boundary_type[1] != 0) {
+          pos_x = domain[1][0];
+          vec3 _pos = vec3(pos_x, pos_y, pos_z);
+          boundary_normal = vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
+          insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
+        }
       }
 
-      pos_x = domain[0][0] + uniform_spacing / 2.0;
-      while (pos_x < domain[1][0] - 1e-5) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        insert_particle(_pos, 0, uniform_spacing, normal, 0, vol);
-        pos_x += uniform_spacing;
+      // fluid particle
+      pos_y = domain[0][1] + uniform_spacing / 2.0;
+      while (pos_y < domain[1][1] - 1e-5) {
+        // left
+        if (domain_boundary_type[3] != 0) {
+          pos_x = domain[0][0];
+          vec3 _pos = vec3(pos_x, pos_y, pos_z);
+          boundary_normal = vec3(1.0, 0.0, 0.0);
+          insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
+        }
+
+        pos_x = domain[0][0] + uniform_spacing / 2.0;
+        while (pos_x < domain[1][0] - 1e-5) {
+          vec3 _pos = vec3(pos_x, pos_y, pos_z);
+          insert_particle(_pos, 0, uniform_spacing, normal, 0, vol);
+          pos_x += uniform_spacing;
+        }
+
+        // right
+        if (domain_boundary_type[1] != 0) {
+          pos_x = domain[1][0];
+          vec3 _pos = vec3(pos_x, pos_y, pos_z);
+          boundary_normal = vec3(-1.0, 0.0, 0.0);
+          insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
+        }
+
+        pos_y += uniform_spacing;
       }
 
-      // right
-      if (domain_boundary_type[1] != 0) {
+      // up
+      if (domain_boundary_type[2] != 0) {
+        pos_x = domain[0][0];
+        pos_y = domain[1][1];
+        if (domain_boundary_type[3] != 0) {
+          vec3 _pos = vec3(pos_x, pos_y, pos_z);
+          boundary_normal = vec3(sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
+          insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
+        }
+        pos_x += 0.5 * uniform_spacing;
+
+        while (pos_x < domain[1][0] - 1e-5) {
+          vec3 _pos = vec3(pos_x, pos_y, pos_z);
+          boundary_normal = vec3(0.0, -1.0, 0.0);
+          insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
+          pos_x += uniform_spacing;
+        }
+
         pos_x = domain[1][0];
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(-1.0, 0.0, 0.0);
-        insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
+        if (domain_boundary_type[1] != 0) {
+          vec3 _pos = vec3(pos_x, pos_y, pos_z);
+          boundary_normal = vec3(-sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
+          insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
+        }
       }
-
-      pos_y += uniform_spacing;
     }
-
-    // up
-    if (domain_boundary_type[2] != 0) {
-      pos_x = domain[0][0];
-      pos_y = domain[1][1];
-      if (domain_boundary_type[3] != 0) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
-        insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
-      }
-      pos_x += 0.5 * uniform_spacing;
-
-      while (pos_x < domain[1][0] - 1e-5) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(0.0, -1.0, 0.0);
-        insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
-        pos_x += uniform_spacing;
-      }
-
-      pos_x = domain[1][0];
-      if (domain_boundary_type[1] != 0) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(-sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
-        insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
-      }
+    if (domain_type == 2) {
     }
   }
   if (dim == 3) {
