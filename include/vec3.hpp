@@ -71,7 +71,7 @@ public:
     return triple<T>(a * data[0], a * data[1], a * data[2]);
   }
 
-  double mag() {
+  double mag() const {
     return sqrt(data[0] * data[0] + data[1] * data[1] + data[2] * data[2]);
   }
 

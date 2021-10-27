@@ -10,6 +10,8 @@
 #include <memory>
 #include <vector>
 
+#include <Compadre_PointCloudSearch.hpp>
+
 #include "geometry.hpp"
 #include "kd_tree.hpp"
 #include "rigid_body_manager.hpp"
@@ -25,7 +27,7 @@ public:
   typedef std::shared_ptr<std::vector<double>> real_type;
 
 private:
-  std::string triangle_filename, vertex_filename;
+  std::string triangle_filename, vertex_filename, segment_filename;
   int refinement_type;
   int problem_type;
   int dim;
@@ -107,6 +109,7 @@ private:
   int_type local_managing_gap_particle_adaptive_level;
 
   std::vector<vec3> surface_particle_coord;
+  std::vector<vec3> surface_particle_normal;
   std::vector<double> surface_particle_spacing;
   std::vector<int> surface_particle_adaptive_level;
   std::vector<int> surface_particle_split_tag;
@@ -163,6 +166,16 @@ private:
   int rank, size;
 
   int min_count, max_count, current_count, stride;
+
+  // segments
+  typedef Compadre::PointCloudSearch<Kokkos::View<double **, Kokkos::HostSpace>>
+      point_cloud_search_type;
+  Kokkos::View<double **, Kokkos::HostSpace> segment_coord;
+  Kokkos::View<double **, Kokkos::HostSpace> segment_normal;
+  std::shared_ptr<point_cloud_search_type> segment_point_search;
+  Kokkos::View<double *, Kokkos::HostSpace> segment_epsilon;
+  Kokkos::View<double **, Kokkos::HostSpace> segment_target_coord;
+  Kokkos::View<int **, Kokkos::HostSpace> segment_neighbor_lists;
 
 public:
   particle_geometry()

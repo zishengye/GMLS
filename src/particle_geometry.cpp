@@ -2,8 +2,6 @@
 #include "get_input_file.hpp"
 #include "search_command.hpp"
 
-#include <Compadre_PointCloudSearch.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -287,7 +285,11 @@ void particle_geometry::init(const int _dim, const int _problem_type,
       domain_type = 2;
     }
     if ((SearchCommand<string>(inputCommandCount, inputCommand,
-                               "-TriangularFile", triangular_filename)) == 0) {
+                               "-TriangularFile", triangle_filename)) == 0) {
+      domain_type = 2;
+    }
+    if ((SearchCommand<string>(inputCommandCount, inputCommand, "-SegmentFile",
+                               segment_filename)) == 0) {
       domain_type = 2;
     }
 
@@ -327,13 +329,13 @@ void particle_geometry::init(const int _dim, const int _problem_type,
   }
 
   if (domain_type == 2) {
-    bounding_box_size[0] = 2.5;
-    bounding_box_size[1] = 2.5;
+    bounding_box_size[0] = 5.4;
+    bounding_box_size[1] = 5.4;
 
-    bounding_box[0][0] = -1.25;
-    bounding_box[1][0] = 1.25;
-    bounding_box[0][1] = -1.25;
-    bounding_box[1][1] = 1.25;
+    bounding_box[0][0] = -2.7;
+    bounding_box[1][0] = 2.7;
+    bounding_box[0][1] = -2.7;
+    bounding_box[1][1] = 2.7;
   }
 
   if (refinement_type == UNIFORM_REFINE) {
@@ -1805,6 +1807,272 @@ void particle_geometry::generate_field_particle() {
       }
     }
     if (domain_type == 2) {
+      vector<double> temp_coord;
+      vector<double> temp_normal;
+      vector<double> temp_spacing;
+      vector<int> temp_particle_type;
+
+      vector<double> local_coord;
+      vector<double> local_normal;
+      vector<double> local_spacing;
+      vector<int> local_particle_type;
+
+      vector<int> particle_num, particle_offset;
+
+      if (rank == 0) {
+        ifstream input(segment_filename, ios::in);
+        if (!input.is_open()) {
+          PetscPrintf(PETSC_COMM_WORLD, "segment input file does not exist\n");
+          return;
+        }
+
+        // line particles
+        while (!input.eof()) {
+          double x1, x2, y1, y2, n1, n2;
+          input >> x1 >> x2 >> y1 >> y2 >> n1 >> n2;
+
+          vec3 segment = vec3(x2 - x1, y2 - y1, 0.0);
+          double distance = segment.mag();
+
+          int n = max(1, int(distance / uniform_spacing));
+          double spacing = distance / n;
+
+          vec3 tangent = segment * (1.0 / distance);
+          vec3 normal = vec3(-n1, -n2, 0.0);
+
+          for (int i = 0; i < n; i++) {
+            vec3 new_point = vec3(x1, y1, 0.0) + tangent * (i + 0.5) * spacing;
+            temp_coord.push_back(new_point[0]);
+            temp_coord.push_back(new_point[1]);
+            temp_normal.push_back(normal[0]);
+            temp_normal.push_back(normal[1]);
+            temp_spacing.push_back(spacing);
+            temp_particle_type.push_back(3);
+          }
+        }
+
+        input.close();
+
+        // circle particles
+        double R1 = 0.2;
+        double R2 = 2.6;
+
+        int R1_particle_num = 2 * M_PI * R1 / uniform_spacing;
+        int R2_particle_num = 2 * M_PI * R2 / uniform_spacing;
+
+        double R1_delta_theta = 2.0 * M_PI / R1_particle_num;
+        double R2_delta_theta = 2.0 * M_PI / R2_particle_num;
+
+        double R1_spacing = 2 * M_PI * R1 / R1_particle_num;
+        double R2_spacing = 2 * M_PI * R2 / R2_particle_num;
+        for (int i = 0; i < R1_particle_num; i++) {
+          double theta = i * R1_delta_theta;
+          temp_coord.push_back(R1 * cos(theta));
+          temp_coord.push_back(R1 * sin(theta));
+          temp_normal.push_back(cos(theta));
+          temp_normal.push_back(sin(theta));
+          temp_spacing.push_back(R1_spacing);
+          temp_particle_type.push_back(1);
+        }
+
+        for (int i = 0; i < R2_particle_num; i++) {
+          double theta = i * R2_delta_theta;
+          temp_coord.push_back(R2 * cos(theta));
+          temp_coord.push_back(R2 * sin(theta));
+          temp_normal.push_back(-cos(theta));
+          temp_normal.push_back(-sin(theta));
+          temp_spacing.push_back(R2_spacing);
+          temp_particle_type.push_back(2);
+        }
+
+        // build neighbor search tree
+        segment_coord = Kokkos::View<double **, Kokkos::HostSpace>(
+            "segment coordinates", temp_spacing.size(), 3);
+        segment_normal = Kokkos::View<double **, Kokkos::HostSpace>(
+            "segment normal", temp_spacing.size(), 3);
+
+        for (int i = 0; i < temp_spacing.size(); i++) {
+          segment_coord(i, 0) = temp_coord[2 * i];
+          segment_coord(i, 1) = temp_coord[2 * i + 1];
+          segment_coord(i, 2) = 0.0;
+          segment_normal(i, 0) = temp_normal[2 * i];
+          segment_normal(i, 1) = temp_normal[2 * i + 1];
+          segment_normal(i, 2) = 0.0;
+        }
+
+        segment_point_search = make_shared<point_cloud_search_type>(
+            CreatePointCloudSearch(segment_coord, 2));
+
+        segment_epsilon =
+            Kokkos::View<double *, Kokkos::HostSpace>("epsilon", 1);
+        segment_target_coord = Kokkos::View<double **, Kokkos::HostSpace>(
+            "target coordinates", 1, 3);
+        segment_neighbor_lists =
+            Kokkos::View<int **, Kokkos::HostSpace>("neighbor lists", 1, 2);
+
+        // assign normal fluid particles
+        // fluid particle
+        pos_y = bounding_box[0][1] + uniform_spacing / 2.0;
+        while (pos_y < bounding_box[1][1] - 1e-5) {
+          pos_x = bounding_box[0][0] + uniform_spacing / 2.0;
+          while (pos_x < bounding_box[1][0] - 1e-5) {
+            bool pass_test = true;
+
+            vec3 new_point = vec3(pos_x, pos_y, 0.0);
+            if (new_point.mag() > R2 + uniform_spacing)
+              pass_test = false;
+            if (new_point.mag() < R1 - uniform_spacing)
+              pass_test = false;
+
+            segment_target_coord(0, 0) = pos_x;
+            segment_target_coord(0, 1) = pos_y;
+
+            int max_number =
+                segment_point_search->generate2DNeighborListsFromKNNSearch(
+                    true, segment_target_coord, segment_neighbor_lists,
+                    segment_epsilon, 1, 1.1) +
+                2;
+
+            segment_neighbor_lists = Kokkos::View<int **, Kokkos::HostSpace>(
+                "neighbor lists", 1, max_number);
+
+            segment_point_search->generate2DNeighborListsFromKNNSearch(
+                false, segment_target_coord, segment_neighbor_lists,
+                segment_epsilon, 1, 1.1);
+
+            int index = segment_neighbor_lists(0, 1);
+            vec3 n1 = vec3(pos_x - segment_coord(index, 0),
+                           pos_y - segment_coord(index, 1), 0.0);
+            vec3 n2 =
+                vec3(segment_normal(index, 0), segment_normal(index, 1), 0.0);
+
+            vec3 p =
+                vec3(segment_coord(index, 0), segment_coord(index, 1), 0.0);
+            double distance = abs(n2[0] * pos_x + n2[1] * pos_y - n2[0] * p[0] -
+                                  n2[1] * p[1]) /
+                              n2.mag();
+            if (n1.cdot(n2) < 0.0 && distance > uniform_spacing)
+              pass_test = false;
+
+            if (pass_test) {
+              temp_coord.push_back(pos_x);
+              temp_coord.push_back(pos_y);
+              temp_normal.push_back(1.0);
+              temp_normal.push_back(0.0);
+              temp_spacing.push_back(uniform_spacing);
+              temp_particle_type.push_back(0);
+            }
+            pos_x += uniform_spacing;
+          }
+
+          pos_y += uniform_spacing;
+        }
+
+        int total_particle_num = temp_spacing.size();
+        int average_particle_num = total_particle_num / size;
+        int residual_particle_num = total_particle_num % size;
+        int offset = 0;
+        for (int i = 0; i < size; i++) {
+          particle_offset.push_back(offset);
+          if (i < residual_particle_num) {
+            particle_num.push_back(average_particle_num + 1);
+            offset += average_particle_num + 1;
+          } else {
+            particle_num.push_back(average_particle_num);
+            offset += average_particle_num;
+          }
+        }
+
+        for (int i = 0; i < particle_num[0]; i++) {
+          local_coord.push_back(temp_coord[2 * i]);
+          local_coord.push_back(temp_coord[2 * i + 1]);
+          local_normal.push_back(temp_normal[2 * i]);
+          local_normal.push_back(temp_normal[2 * i + 1]);
+          local_spacing.push_back(temp_spacing[i]);
+          local_particle_type.push_back(temp_particle_type[i]);
+        }
+      }
+
+      // assign particles to other cores
+      for (int i = 1; i < size; i++) {
+        if (rank == i) {
+          int recv_count;
+          MPI_Status status;
+          MPI_Recv(&recv_count, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+
+          local_coord.resize(2 * recv_count);
+          local_normal.resize(2 * recv_count);
+          local_spacing.resize(recv_count);
+          local_particle_type.resize(recv_count);
+
+          MPI_Recv(local_coord.data(), 2 * recv_count, MPI_DOUBLE, 0, 0,
+                   MPI_COMM_WORLD, &status);
+          MPI_Recv(local_normal.data(), 2 * recv_count, MPI_DOUBLE, 0, 0,
+                   MPI_COMM_WORLD, &status);
+          MPI_Recv(local_spacing.data(), recv_count, MPI_DOUBLE, 0, 0,
+                   MPI_COMM_WORLD, &status);
+          MPI_Recv(local_particle_type.data(), recv_count, MPI_INT, 0, 0,
+                   MPI_COMM_WORLD, &status);
+        }
+
+        if (rank == 0) {
+          int send_count = particle_num[i];
+          MPI_Send(&send_count, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+
+          MPI_Send(temp_coord.data() + particle_offset[i] * 2,
+                   particle_num[i] * 2, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+          MPI_Send(temp_normal.data() + particle_offset[i] * 2,
+                   particle_num[i] * 2, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+          MPI_Send(temp_spacing.data() + particle_offset[i], particle_num[i],
+                   MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+          MPI_Send(temp_particle_type.data() + particle_offset[i],
+                   particle_num[i], MPI_INT, i, 0, MPI_COMM_WORLD);
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
+      }
+
+      // broadcast segment particles
+      int num_segment;
+      if (rank == 0)
+        num_segment = segment_coord.extent(0);
+      MPI_Bcast(&num_segment, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+      if (rank != 0) {
+        segment_coord = Kokkos::View<double **, Kokkos::HostSpace>(
+            "segment coordinates", num_segment, 3);
+        segment_normal = Kokkos::View<double **, Kokkos::HostSpace>(
+            "segment normal", num_segment, 3);
+      }
+
+      MPI_Barrier(MPI_COMM_WORLD);
+
+      MPI_Bcast(segment_coord.data(), num_segment * 3, MPI_DOUBLE, 0,
+                MPI_COMM_WORLD);
+      MPI_Bcast(segment_normal.data(), num_segment * 3, MPI_DOUBLE, 0,
+                MPI_COMM_WORLD);
+
+      if (rank != 0) {
+        segment_point_search = make_shared<point_cloud_search_type>(
+            CreatePointCloudSearch(segment_coord, 2));
+
+        segment_epsilon =
+            Kokkos::View<double *, Kokkos::HostSpace>("epsilon", 1);
+        segment_target_coord = Kokkos::View<double **, Kokkos::HostSpace>(
+            "target coordinates", 1, 3);
+        segment_neighbor_lists =
+            Kokkos::View<int **, Kokkos::HostSpace>("neighbor lists", 1, 200);
+      }
+
+      MPI_Barrier(MPI_COMM_WORLD);
+
+      double vol = uniform_spacing * uniform_spacing;
+      for (int i = 0; i < local_spacing.size(); i++) {
+        insert_particle(vec3(local_coord[2 * i], local_coord[2 * i + 1], 0.0),
+                        local_particle_type[i], local_spacing[i],
+                        vec3(local_normal[2 * i], local_normal[2 * i + 1], 0.0),
+                        0, vol);
+      }
     }
   }
   if (dim == 3) {
@@ -3034,11 +3302,13 @@ bool particle_geometry::adaptive_refine(vector<int> &split_tag) {
     epsilon_host[i] = 2.0 * gap_spacing[i];
   }
 
-  size_t max_num_neighbor =
+  int max_num_neighbor =
       point_cloud_search.generate2DNeighborListsFromRadiusSearch(
           true, target_coord_host, temp_neighbor_list_host, epsilon_host, 0.0,
           0.0) +
       2;
+
+  max_num_neighbor = max(estimated_num_neighbor_max, max_num_neighbor);
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
       "neighbor lists", num_target_coord, max_num_neighbor);
@@ -3263,11 +3533,12 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
             vec3 new_pos = origin + vec3(i * x_delta, j * y_delta, 0.0);
             if (!insert) {
               int idx = is_gap_particle(new_pos, x_delta, -1);
-              if (idx == -2) {
+              int field_idx = is_field_particle(new_pos, spacing[tag]);
+              if (idx == -2 && field_idx == -2) {
                 coord[tag] = new_pos;
 
                 insert = true;
-              } else if (idx > -1) {
+              } else if (idx > -1 || field_idx > -1) {
                 local_managing_gap_particle_coord->push_back(new_pos);
                 local_managing_gap_particle_normal->push_back(normal[tag]);
                 local_managing_gap_particle_p_coord->push_back(p_coord[tag]);
@@ -3348,32 +3619,96 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
     if (particle_type[tag] > 0) {
       // boundary particle
       if (dim == 2) {
-        if (particle_type[tag] == 1) {
-          // corner particle
-          spacing[tag] /= 2.0;
-          volume[tag] /= 4.0;
-          adaptive_level[tag]++;
-        } else {
-          spacing[tag] /= 2.0;
-          volume[tag] /= 4.0;
-          adaptive_level[tag]++;
-          new_added[tag] = -1;
+        if (domain_type == 0) {
+          if (particle_type[tag] == 1) {
+            // corner particle
+            spacing[tag] /= 2.0;
+            volume[tag] /= 4.0;
+            adaptive_level[tag]++;
+          } else {
+            spacing[tag] /= 2.0;
+            volume[tag] /= 4.0;
+            adaptive_level[tag]++;
+            new_added[tag] = -1;
 
-          vec3 origin = coord[tag];
+            vec3 origin = coord[tag];
 
-          bool insert = false;
-          for (int i = -1; i < 2; i += 2) {
-            vec3 new_pos = origin + vec3(normal[tag][1], -normal[tag][0], 0.0) *
-                                        i * spacing[tag] * 0.5;
+            bool insert = false;
+            for (int i = -1; i < 2; i += 2) {
+              vec3 new_pos =
+                  origin + vec3(normal[tag][1], -normal[tag][0], 0.0) * i *
+                               spacing[tag] * 0.5;
 
-            if (!insert) {
-              coord[tag] = new_pos;
+              if (!insert) {
+                coord[tag] = new_pos;
 
-              insert = true;
-            } else {
-              double vol = volume[tag];
-              insert_particle(new_pos, particle_type[tag], spacing[tag],
-                              normal[tag], adaptive_level[tag], vol);
+                insert = true;
+              } else {
+                double vol = volume[tag];
+                insert_particle(new_pos, particle_type[tag], spacing[tag],
+                                normal[tag], adaptive_level[tag], vol);
+              }
+            }
+          }
+        }
+        if (domain_type == 2) {
+          double R1 = 0.2, R2 = 2.6;
+          // inner circle particles
+          if (particle_type[tag] == 1) {
+            double delta_theta = 0.5 * (spacing[tag] / R1);
+
+            spacing[tag] /= 2.0;
+            volume[tag] /= 4.0;
+            adaptive_level[tag]++;
+
+            double old_theta = atan2(normal[tag][1], normal[tag][0]);
+            double new_theta = old_theta + delta_theta;
+
+            insert_particle(vec3(R1 * cos(new_theta), R1 * sin(new_theta), 0.0),
+                            particle_type[tag], spacing[tag],
+                            vec3(cos(new_theta), sin(new_theta), 0.0),
+                            adaptive_level[tag], volume[tag]);
+          }
+          // outer circle particles
+          if (particle_type[tag] == 2) {
+            double delta_theta = 0.5 * (spacing[tag] / R2);
+
+            spacing[tag] /= 2.0;
+            volume[tag] /= 4.0;
+            adaptive_level[tag]++;
+
+            double old_theta = atan2(-normal[tag][1], -normal[tag][0]);
+            double new_theta = old_theta + delta_theta;
+
+            insert_particle(vec3(R2 * cos(new_theta), R2 * sin(new_theta), 0.0),
+                            particle_type[tag], spacing[tag],
+                            vec3(-cos(new_theta), -sin(new_theta), 0.0),
+                            adaptive_level[tag], volume[tag]);
+          }
+          // segment particles
+          if (particle_type[tag] == 3) {
+            spacing[tag] /= 2.0;
+            volume[tag] /= 4.0;
+            adaptive_level[tag]++;
+            new_added[tag] = -1;
+
+            vec3 origin = coord[tag];
+
+            bool insert = false;
+            for (int i = -1; i < 2; i += 2) {
+              vec3 new_pos =
+                  origin + vec3(normal[tag][1], -normal[tag][0], 0.0) * i *
+                               spacing[tag] * 0.5;
+
+              if (!insert) {
+                coord[tag] = new_pos;
+
+                insert = true;
+              } else {
+                double vol = volume[tag];
+                insert_particle(new_pos, particle_type[tag], spacing[tag],
+                                normal[tag], adaptive_level[tag], vol);
+              }
             }
           }
         }
@@ -4383,10 +4718,6 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           rr = d / cos(M_PI - theta);
         }
 
-        vec3 dist = _pos - vec3(-0.0031250001, -0.0031250001, -0.0093750001);
-        if (dist.mag() < 1e-5)
-          cout << theta2 << ' ' << theta << ' ' << rr << endl;
-
         double min_dis = r - rr;
 
         if (min_dis < -1.5 * _spacing) {
@@ -4426,6 +4757,7 @@ int particle_geometry::is_field_particle(const vec3 &_pos, double _spacing) {
         return 0;
     }
   }
+
   if (domain_type == 1) {
     double cap_radius, cap_height;
     cap_radius = auxiliary_size[0];
@@ -4444,6 +4776,105 @@ int particle_geometry::is_field_particle(const vec3 &_pos, double _spacing) {
       return -1;
     else if (dist.mag() > R - 0.5 * _spacing)
       return 0;
+  }
+
+  if (domain_type == 2) {
+    double R1 = 0.2;
+    double R2 = 2.6;
+
+    if (_pos.mag() > R2 + _spacing) {
+      return -1;
+    }
+    if (_pos.mag() < R1 - _spacing) {
+      return -1;
+    }
+
+    if (_pos.mag() > R2 - 0.5 * _spacing) {
+      return 0;
+    }
+    if (_pos.mag() < R1 + 0.5 * _spacing) {
+      return 0;
+    }
+
+    segment_target_coord(0, 0) = _pos[0];
+    segment_target_coord(0, 1) = _pos[1];
+
+    int max_number = segment_point_search->generate2DNeighborListsFromKNNSearch(
+                         true, segment_target_coord, segment_neighbor_lists,
+                         segment_epsilon, 1, 1.1) +
+                     2;
+
+    segment_neighbor_lists = Kokkos::View<int **, Kokkos::HostSpace>(
+        "neighbor lists", 1, max_number);
+
+    segment_point_search->generate2DNeighborListsFromKNNSearch(
+        false, segment_target_coord, segment_neighbor_lists, segment_epsilon, 1,
+        1.1);
+
+    int index1 = segment_neighbor_lists(0, 1);
+    int index2 = segment_neighbor_lists(0, 1);
+    double min_dis = 2.0;
+    for (int i = 1; i < segment_neighbor_lists(0, 0); i++) {
+      int index = segment_neighbor_lists(0, i + 1);
+      vec3 p = vec3(_pos[0] - segment_coord(index, 0),
+                    _pos[1] - segment_coord(index, 1), 0.0);
+      if (p.mag() < min_dis) {
+        min_dis = p.mag();
+        index2 = index;
+      }
+    }
+    vec3 n1 = vec3(_pos[0] - segment_coord(index1, 0),
+                   _pos[1] - segment_coord(index1, 1), 0.0);
+    vec3 n2 = vec3(segment_normal(index1, 0), segment_normal(index1, 1), 0.0);
+
+    vec3 n3 = vec3(_pos[0] - segment_coord(index2, 0),
+                   _pos[1] - segment_coord(index2, 1), 0.0);
+    vec3 n4 = vec3(segment_normal(index2, 0), segment_normal(index2, 1), 0.0);
+
+    int num_check_point = 1;
+    int scenario = 1;
+    if (n2.cdot(n4) < 1.0 - 1e-3)
+      num_check_point = 2;
+    if (n2.cdot(n4) > 0.0)
+      scenario = 2;
+
+    vec3 p1 = vec3(segment_coord(index1, 0), segment_coord(index1, 1), 0.0);
+    double distance1 =
+        abs(n2[0] * _pos[0] + n2[1] * _pos[1] - n2[0] * p1[0] - n2[1] * p1[1]);
+    vec3 p2 = vec3(segment_coord(index2, 0), segment_coord(index2, 1), 0.0);
+    double distance2 =
+        abs(n4[0] * _pos[0] + n4[1] * _pos[1] - n4[0] * p2[0] - n4[1] * p2[1]);
+
+    if (num_check_point == 1) {
+      if (n1.cdot(n2) < 0.0) {
+        if (distance1 > _spacing)
+          return -1;
+        else
+          return 0;
+      }
+      if (distance1 < 0.5 * _spacing)
+        return 0;
+    }
+    if (num_check_point == 2) {
+      if (scenario == 1) {
+        if (n1.cdot(n2) < 0.0 && n3.cdot(n4) < 0.0) {
+          if (distance1 > _spacing || distance2 > _spacing)
+            return -1;
+          else
+            return 0;
+        }
+      }
+      if (scenario == 2) {
+        if (n1.cdot(n2) < 0.0 || n3.cdot(n4) < 0.0) {
+          if (distance1 > _spacing || distance2 > _spacing)
+            return -1;
+          else
+            return 0;
+        }
+        if (distance1 < 0.5 * _spacing && distance2 < 0.5 * _spacing)
+          return 0;
+      }
+    }
   }
   return -2;
 }
@@ -5035,11 +5466,13 @@ void particle_geometry::build_ghost_for_last_level() {
 void particle_geometry::collect_surface_particle() {
   // collect local surface particle
   surface_particle_coord.clear();
+  surface_particle_normal.clear();
   surface_particle_spacing.clear();
   surface_particle_adaptive_level.clear();
   surface_particle_split_tag.clear();
 
   std::vector<vec3> &coord = *current_local_managing_particle_coord;
+  std::vector<vec3> &normal = *current_local_managing_particle_normal;
   std::vector<double> &spacing = *current_local_managing_particle_spacing;
   std::vector<int> &particle_type = *current_local_managing_particle_type;
   std::vector<int> &adaptive_level =
@@ -5053,6 +5486,7 @@ void particle_geometry::collect_surface_particle() {
   for (int i = 0; i < coord.size(); i++) {
     if (particle_type[i] != 0) {
       surface_particle_coord.push_back(coord[i]);
+      surface_particle_normal.push_back(normal[i]);
       surface_particle_spacing.push_back(spacing[i]);
       surface_particle_adaptive_level.push_back(adaptive_level[i]);
       surface_particle_split_tag.push_back(split_tag[i]);
@@ -5060,12 +5494,37 @@ void particle_geometry::collect_surface_particle() {
   }
 
   // collect surface particle from other core
+  auto &gap_coord = *local_managing_gap_particle_coord;
+  auto &gap_spacing = *local_managing_gap_particle_spacing;
+
   vec3 work_domain_low, work_domain_high;
   for (int i = 0; i < 3; i++) {
-    work_domain_low[i] =
-        max(bounding_box[0][i], domain_bounding_box[0][i] - cutoff_distance);
-    work_domain_high[i] =
-        min(bounding_box[1][i], domain_bounding_box[1][i] + cutoff_distance);
+    work_domain_low[i] = bounding_box[1][i];
+    work_domain_high[i] = bounding_box[0][i];
+  }
+
+  for (int i = 0; i < gap_coord.size(); i++) {
+    for (int j = 0; j < 3; j++) {
+      if (work_domain_low[j] >
+          gap_coord[i][j] - cutoff_multiplier * gap_spacing[i])
+        work_domain_low[j] =
+            gap_coord[i][j] - cutoff_multiplier * gap_spacing[i];
+
+      if (work_domain_high[j] <
+          gap_coord[i][j] + cutoff_multiplier * gap_spacing[i])
+        work_domain_high[j] =
+            gap_coord[i][j] + cutoff_multiplier * gap_spacing[i];
+    }
+  }
+
+  for (int i = 0; i < coord.size(); i++) {
+    for (int j = 0; j < 3; j++) {
+      if (work_domain_low[j] > coord[i][j] - cutoff_multiplier * spacing[i])
+        work_domain_low[j] = coord[i][j] - cutoff_multiplier * spacing[i];
+
+      if (work_domain_high[j] < coord[i][j] + cutoff_multiplier * spacing[i])
+        work_domain_high[j] = coord[i][j] + cutoff_multiplier * spacing[i];
+    }
   }
 
   vector<double> whole_work_domain;
@@ -5101,25 +5560,23 @@ void particle_geometry::collect_surface_particle() {
   vector<vector<int>> whole_out_map;
   whole_out_map.resize(size);
   for (int i = 0; i < coord.size(); i++) {
-    if (particle_type[i] != 0) {
-      for (int j = 0; j < size; j++) {
-        if (j != rank) {
-          if (dim == 2) {
-            if (coord[i][0] > whole_domain_low[j][0] &&
-                coord[i][1] > whole_domain_low[j][1] &&
-                coord[i][0] < whole_domain_high[j][0] &&
-                coord[i][1] < whole_domain_high[j][1]) {
-              whole_out_map[j].push_back(i);
-            }
-          } else if (dim == 3) {
-            if (coord[i][0] > whole_domain_low[j][0] &&
-                coord[i][1] > whole_domain_low[j][1] &&
-                coord[i][2] > whole_domain_low[j][2] &&
-                coord[i][0] < whole_domain_high[j][0] &&
-                coord[i][1] < whole_domain_high[j][1] &&
-                coord[i][2] < whole_domain_high[j][2]) {
-              whole_out_map[j].push_back(i);
-            }
+    for (int j = 0; j < size; j++) {
+      if (j != rank) {
+        if (dim == 2) {
+          if (particle_type[i] != 0 && coord[i][0] > whole_domain_low[j][0] &&
+              coord[i][1] > whole_domain_low[j][1] &&
+              coord[i][0] < whole_domain_high[j][0] &&
+              coord[i][1] < whole_domain_high[j][1]) {
+            whole_out_map[j].push_back(i);
+          }
+        } else if (dim == 3) {
+          if (coord[i][0] > whole_domain_low[j][0] &&
+              coord[i][1] > whole_domain_low[j][1] &&
+              coord[i][2] > whole_domain_low[j][2] &&
+              coord[i][0] < whole_domain_high[j][0] &&
+              coord[i][1] < whole_domain_high[j][1] &&
+              coord[i][2] < whole_domain_high[j][2]) {
+            whole_out_map[j].push_back(i);
           }
         }
       }
@@ -5222,6 +5679,42 @@ void particle_geometry::collect_surface_particle() {
     }
   }
 
+  // move particle normal
+  {
+    vector<double> send_buffer, recv_buffer;
+    send_buffer.resize(3 * total_out_num);
+    recv_buffer.resize(3 * total_in_num);
+
+    for (int i = 0; i < flatted_out_map.size(); i++) {
+      for (int j = 0; j < 3; j++) {
+        send_buffer[i * 3 + j] = normal[flatted_out_map[i]][j];
+      }
+    }
+
+    // send and recv data buffer
+    int unit_length = 3;
+    for (int i = 0; i < out_graph.size(); i++) {
+      MPI_Isend(send_buffer.data() + out_offset[i] * unit_length,
+                out_num[i] * unit_length, MPI_DOUBLE, out_graph[i], 0,
+                MPI_COMM_WORLD, send_request.data() + i);
+    }
+
+    for (int i = 0; i < in_graph.size(); i++) {
+      MPI_Irecv(recv_buffer.data() + in_offset[i] * unit_length,
+                in_num[i] * unit_length, MPI_DOUBLE, in_graph[i], 0,
+                MPI_COMM_WORLD, recv_request.data() + i);
+    }
+
+    MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
+    MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    for (int i = 0; i < total_in_num; i++) {
+      surface_particle_normal.push_back(vec3(
+          recv_buffer[i * 3], recv_buffer[i * 3 + 1], recv_buffer[i * 3 + 2]));
+    }
+  }
+
   // move particle spacing
   {
     vector<double> send_buffer, recv_buffer;
@@ -5311,6 +5804,25 @@ void particle_geometry::collect_surface_particle() {
       surface_particle_split_tag.push_back(recv_buffer[i]);
     }
   }
+
+  int num_segment = surface_particle_coord.size();
+  segment_coord = Kokkos::View<double **, Kokkos::HostSpace>(
+      "segment coordinates", num_segment, 3);
+  segment_normal = Kokkos::View<double **, Kokkos::HostSpace>("segment normal",
+                                                              num_segment, 3);
+
+  for (int i = 0; i < num_segment; i++) {
+    segment_coord(i, 0) = surface_particle_coord[i][0];
+    segment_coord(i, 1) = surface_particle_coord[i][1];
+    segment_coord(i, 2) = 0.0;
+    segment_normal(i, 0) = surface_particle_normal[i][0];
+    segment_normal(i, 1) = surface_particle_normal[i][1];
+    segment_normal(i, 2) = 0.0;
+  }
+
+  segment_point_search.reset();
+  segment_point_search = make_shared<point_cloud_search_type>(
+      CreatePointCloudSearch(segment_coord, 2));
 }
 
 void particle_geometry::find_closest_rigid_body(vec3 coord,
