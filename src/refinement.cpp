@@ -207,10 +207,12 @@ bool gmls_solver::refinement() {
     int local_change = 0;
 
     for (int i = 0; i < num_target_coord; i++) {
+      // ensure boundary particles at least have the same level of refinement
+      // compared to their nearest interior particles
       if (particle_type[i] != 0) {
         double distance = 1.0;
         int nearest_index = 0;
-        for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        for (int j = 1; j < neighbor_list_host(i, 0); j++) {
           int neighbor_index = neighbor_list_host(i, j + 1);
           vec3 difference = coord[i] - source_coord[neighbor_index];
           if (particle_type[neighbor_index] == 0 && difference.mag() < distance)
@@ -218,10 +220,25 @@ bool gmls_solver::refinement() {
           nearest_index = neighbor_index;
         }
         if (ghost_split_tag[nearest_index] == 1 &&
-            source_adaptive_level[nearest_index] - adaptive_level[i] > 0) {
+            source_adaptive_level[nearest_index] - adaptive_level[i] >= 0) {
           split_tag[i] = 1;
           local_change++;
         }
+      }
+
+      int min_refinement_level = 100;
+      int max_refinement_level = 0;
+      for (int j = 1; j < neighbor_list_host(i, 0); j++) {
+        int neighbor_index = neighbor_list_host(i, j + 1);
+        if (source_adaptive_level[neighbor_index] < min_refinement_level) {
+          min_refinement_level = source_adaptive_level[neighbor_index];
+        }
+        if (source_adaptive_level[neighbor_index] > min_refinement_level) {
+          max_refinement_level = source_adaptive_level[neighbor_index];
+        }
+      }
+
+      if (max_finement_level - min_refinement_level > 1) {
       }
     }
   }
