@@ -200,11 +200,17 @@ bool gmls_solver::refinement() {
 
   int iteration_finished = 1;
   ite_counter = 0;
-  while (iteration_finished != 0 && ite_counter < 5) {
+  while (iteration_finished != 0) {
     ite_counter++;
     geo_mgr->ghost_forward(split_tag, ghost_split_tag);
     candidate_split_tag = split_tag;
     int local_change = 0;
+
+    vector<int> cross_refinement_level, ghost_cross_refinement_level;
+    cross_refinement_level.resize(num_target_coord);
+    for (int i = 0; i < num_target_coord; i++) {
+      cross_refinement_level[i] = -1;
+    }
 
     for (int i = 0; i < num_target_coord; i++) {
       // ensure boundary particles at least have the same level of refinement
@@ -215,12 +221,15 @@ bool gmls_solver::refinement() {
         for (int j = 1; j < neighbor_list_host(i, 0); j++) {
           int neighbor_index = neighbor_list_host(i, j + 1);
           vec3 difference = coord[i] - source_coord[neighbor_index];
-          if (particle_type[neighbor_index] == 0 && difference.mag() < distance)
+          if (particle_type[neighbor_index] == 0 &&
+              difference.mag() < distance) {
             distance = difference.mag();
-          nearest_index = neighbor_index;
+            nearest_index = neighbor_index;
+          }
         }
         if (ghost_split_tag[nearest_index] == 1 &&
-            source_adaptive_level[nearest_index] - adaptive_level[i] >= 0) {
+            source_adaptive_level[nearest_index] - adaptive_level[i] >= 0 &&
+            split_tag[i] == 0) {
           split_tag[i] = 1;
           local_change++;
         }
@@ -230,18 +239,54 @@ bool gmls_solver::refinement() {
       int max_refinement_level = 0;
       for (int j = 1; j < neighbor_list_host(i, 0); j++) {
         int neighbor_index = neighbor_list_host(i, j + 1);
-        if (source_adaptive_level[neighbor_index] < min_refinement_level) {
-          min_refinement_level = source_adaptive_level[neighbor_index];
+        if (source_adaptive_level[neighbor_index] +
+                ghost_split_tag[neighbor_index] <
+            min_refinement_level) {
+          min_refinement_level = source_adaptive_level[neighbor_index] +
+                                 ghost_split_tag[neighbor_index];
         }
-        if (source_adaptive_level[neighbor_index] > min_refinement_level) {
-          max_refinement_level = source_adaptive_level[neighbor_index];
+        if (source_adaptive_level[neighbor_index] +
+                ghost_split_tag[neighbor_index] >
+            max_refinement_level) {
+          max_refinement_level = source_adaptive_level[neighbor_index] +
+                                 ghost_split_tag[neighbor_index];
         }
       }
 
-      if (max_finement_level - min_refinement_level > 1) {
+      if (max_refinement_level - min_refinement_level > 1) {
+        cross_refinement_level[i] = adaptive_level[i] + split_tag[i];
       }
     }
+
+    geo_mgr->ghost_forward(cross_refinement_level,
+                           ghost_cross_refinement_level);
+
+    for (int i = 0; i < num_target_coord; i++) {
+      for (int j = 1; j < neighbor_list_host(i, 0); j++) {
+        int neighbor_index = neighbor_list_host(i, j + 1);
+        if (ghost_cross_refinement_level[neighbor_index] >= 0) {
+          if (adaptive_level[i] <
+                  ghost_cross_refinement_level[neighbor_index] &&
+              split_tag[i] == 0) {
+            split_tag[i] = 1;
+            local_change++;
+          }
+        }
+      }
+    }
+
+    MPI_Allreduce(MPI_IN_PLACE, &local_change, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+    if (local_change == 0) {
+      iteration_finished = 0;
+    } else {
+      PetscPrintf(PETSC_COMM_WORLD, "number of local change: %d\n",
+                  local_change);
+    }
   }
+
+  vector<double> h_gradient;
+  write_refinement_data(split_tag, h_gradient);
 
   if (isnan(estimated_global_error) ||
       estimated_global_error < refinement_tolerance) {

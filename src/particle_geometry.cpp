@@ -2066,8 +2066,8 @@ void particle_geometry::generate_field_particle() {
 
       MPI_Barrier(MPI_COMM_WORLD);
 
-      double vol = uniform_spacing * uniform_spacing;
       for (int i = 0; i < local_spacing.size(); i++) {
+        double vol = pow(local_spacing[i], 2.0);
         insert_particle(vec3(local_coord[2 * i], local_coord[2 * i + 1], 0.0),
                         local_particle_type[i], local_spacing[i],
                         vec3(local_normal[2 * i], local_normal[2 * i + 1], 0.0),
