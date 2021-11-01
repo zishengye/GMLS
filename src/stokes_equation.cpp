@@ -2793,7 +2793,7 @@ void stokes_equation::calculate_error() {
 
   PetscPrintf(PETSC_COMM_WORLD,
               "global error: %f, global direct gradient norm: %f\n",
-              global_error, global_direct_gradient_norm);
+              sqrt(global_error), sqrt(global_direct_gradient_norm));
 
   global_error /= global_direct_gradient_norm;
   global_error = sqrt(global_error);

@@ -36,7 +36,7 @@ bool gmls_solver::refinement() {
   auto &local_spacing = *(geo_mgr->get_current_work_particle_spacing());
 
   // mark stage
-  double alpha = 0.99;
+  double alpha = 0.8;
 
   PetscPrintf(PETSC_COMM_WORLD, "alpha: %f\n", alpha);
 
