@@ -716,9 +716,10 @@ void stokes_equation::build_coefficient_matrix() {
         max_h_gradient = gradient_value;
       }
       h_gradient_norm[i] = gradient_value;
-      if (h_gradient_norm[i] > 2.0)
-        cout << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << ' '
-             << epsilon_host(i) << ' ' << h_gradient_norm[i] << endl;
+      // if (h_gradient_norm[i] > 2.0)
+      //   cout << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << '
+      //   '
+      //        << epsilon_host(i) << ' ' << h_gradient_norm[i] << endl;
     }
     MPI_Allreduce(MPI_IN_PLACE, &max_h_gradient, 1, MPI_DOUBLE, MPI_MAX,
                   MPI_COMM_WORLD);
@@ -1367,7 +1368,7 @@ void stokes_equation::build_coefficient_matrix() {
     }
 
     if (current_refinement_level == 0) {
-      A.increment(pressure_local_index, pressure_global_index, 1e-6);
+      // A.increment(pressure_local_index, pressure_global_index, 1e-6);
     }
 
     // end of pressure block
