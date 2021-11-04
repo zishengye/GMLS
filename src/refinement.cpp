@@ -221,14 +221,15 @@ bool gmls_solver::refinement() {
         for (int j = 1; j < neighbor_list_host(i, 0); j++) {
           int neighbor_index = neighbor_list_host(i, j + 1);
           vec3 difference = coord[i] - source_coord[neighbor_index];
-          if (particle_type[neighbor_index] == 0 &&
+          if (source_particle_type[neighbor_index] == 0 &&
               difference.mag() < distance) {
             distance = difference.mag();
             nearest_index = neighbor_index;
           }
         }
-        if (ghost_split_tag[nearest_index] == 1 &&
-            source_adaptive_level[nearest_index] - adaptive_level[i] >= 0 &&
+        if (ghost_split_tag[nearest_index] +
+                    source_adaptive_level[nearest_index] >
+                adaptive_level[i] &&
             split_tag[i] == 0) {
           split_tag[i] = 1;
           local_change++;
