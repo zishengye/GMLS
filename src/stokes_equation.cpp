@@ -314,7 +314,8 @@ void stokes_equation::build_coefficient_matrix() {
   //               MPI_COMM_WORLD);
 
   // ensure every particle has enough neighbors
-  vector<bool> staggered_check(local_particle_num);
+  vector<bool> staggered_check;
+  staggered_check.resize(local_particle_num);
   for (int i = 0; i < local_particle_num; i++) {
     staggered_check[i] = false;
   }
@@ -417,7 +418,7 @@ void stokes_equation::build_coefficient_matrix() {
         }
 
         Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-            temp_target_coord_device("collloid target coordinates",
+            temp_target_coord_device("colloid target coordinates",
                                      num_normal_check_point, 3);
         Kokkos::View<double **>::HostMirror temp_target_coord_host =
             Kokkos::create_mirror_view(temp_target_coord_device);
@@ -604,6 +605,7 @@ void stokes_equation::build_coefficient_matrix() {
     ite_counter++;
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(MPI_COMM_WORLD,
               "iteration count: %d min neighbor: %d, max neighbor: %d , mean "
               "neighbor %f, max ratio: %f\n",
