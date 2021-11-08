@@ -548,4 +548,4 @@ benchmark/
 
 panlab*
 
-test/bin/
+*.sh

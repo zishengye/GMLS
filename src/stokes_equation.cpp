@@ -310,11 +310,12 @@ void stokes_equation::build_coefficient_matrix() {
     epsilon_host(i) = 1.0005 * spacing[i];
   }
 
-  MPI_Allreduce(MPI_IN_PLACE, &max_epsilon, 1, MPI_DOUBLE, MPI_MAX,
-                MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, &max_epsilon, 1, MPI_DOUBLE, MPI_MAX,
+  //               MPI_COMM_WORLD);
 
   // ensure every particle has enough neighbors
-  vector<bool> staggered_check(local_particle_num);
+  vector<bool> staggered_check;
+  staggered_check.resize(local_particle_num);
   for (int i = 0; i < local_particle_num; i++) {
     staggered_check[i] = false;
   }
@@ -330,7 +331,7 @@ void stokes_equation::build_coefficient_matrix() {
     int num_neighbor_size_needed =
         1 + point_cloud_search.generate2DNeighborListsFromRadiusSearch(
                 true, target_coord_host, neighbor_list_host, epsilon_host, 0.0,
-                max_epsilon);
+                0.0);
     if (estimated_max_num_neighbor < num_neighbor_size_needed) {
       estimated_max_num_neighbor = num_neighbor_size_needed;
       neighbor_list_device =
@@ -339,8 +340,7 @@ void stokes_equation::build_coefficient_matrix() {
       neighbor_list_host = Kokkos::create_mirror_view(neighbor_list_device);
     }
     point_cloud_search.generate2DNeighborListsFromRadiusSearch(
-        false, target_coord_host, neighbor_list_host, epsilon_host, 0.0,
-        max_epsilon);
+        false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
 
     bool pass_neighbor_num_check = true;
     max_ratio = 0.0;
@@ -418,7 +418,7 @@ void stokes_equation::build_coefficient_matrix() {
         }
 
         Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-            temp_target_coord_device("collloid target coordinates",
+            temp_target_coord_device("colloid target coordinates",
                                      num_normal_check_point, 3);
         Kokkos::View<double **>::HostMirror temp_target_coord_host =
             Kokkos::create_mirror_view(temp_target_coord_device);
@@ -586,8 +586,10 @@ void stokes_equation::build_coefficient_matrix() {
 
       for (int i = 0; i < local_particle_num; i++) {
         if (!staggered_check[i]) {
-          epsilon_host(i) += 0.25 * spacing[i];
-          process_counter = 1;
+          if (epsilon_host(i) + 0.25 * spacing[i] < max_epsilon) {
+            epsilon_host(i) += 0.25 * spacing[i];
+            process_counter = 1;
+          }
         }
       }
     }
@@ -603,6 +605,7 @@ void stokes_equation::build_coefficient_matrix() {
     ite_counter++;
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(MPI_COMM_WORLD,
               "iteration count: %d min neighbor: %d, max neighbor: %d , mean "
               "neighbor %f, max ratio: %f\n",
@@ -715,9 +718,10 @@ void stokes_equation::build_coefficient_matrix() {
         max_h_gradient = gradient_value;
       }
       h_gradient_norm[i] = gradient_value;
-      if (h_gradient_norm[i] > 2.0)
-        cout << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << ' '
-             << epsilon_host(i) << ' ' << h_gradient_norm[i] << endl;
+      // if (h_gradient_norm[i] > 2.0)
+      //   cout << coord[i][0] << ' ' << coord[i][1] << ' ' << coord[i][2] << '
+      //   '
+      //        << epsilon_host(i) << ' ' << h_gradient_norm[i] << endl;
     }
     MPI_Allreduce(MPI_IN_PLACE, &max_h_gradient, 1, MPI_DOUBLE, MPI_MAX,
                   MPI_COMM_WORLD);
@@ -1324,7 +1328,7 @@ void stokes_equation::build_coefficient_matrix() {
     }
 
     if (current_refinement_level == 0) {
-      // A.increment(pressure_local_index, pressure_global_index, 1e-6);
+      A.increment(pressure_local_index, pressure_global_index, 1e-6);
     }
 
     // end of pressure block

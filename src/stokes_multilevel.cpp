@@ -830,22 +830,29 @@ int stokes_multilevel::solve(vector<double> &rhs, vector<double> &res,
 
   // setup preconditioner for base level
   if (refinement_step == 0) {
-    KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
-    KSPSetOperators(ksp_field_base->get_reference(), ff_shell, ff);
-    // KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
-    KSPSetType(ksp_field_base->get_reference(), KSPGMRES);
-    KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
-    KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e50, 500);
-    KSPSetNormType(ksp_field_base->get_reference(), KSP_NORM_UNPRECONDITIONED);
-    KSPSetResidualHistory(ksp_field_base->get_reference(), NULL, 500,
-                          PETSC_TRUE);
-
     PC pc_field_base;
 
-    KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
-    // PCSetType(pc_field_base, PCLU);
-    // PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
-    PCSetType(pc_field_base, PCSOR);
+    KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
+    KSPSetOperators(ksp_field_base->get_reference(), ff_shell, ff);
+    if (dimension == 3) {
+      KSPSetType(ksp_field_base->get_reference(), KSPRICHARDSON);
+      // KSPGMRESSetOrthogonalization(
+      //     ksp_field_base->get_reference(),
+      //     KSPGMRESModifiedGramSchmidtOrthogonalization);
+      // KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
+      KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e50, 10);
+      KSPSetResidualHistory(ksp_field_base->get_reference(), NULL, 500,
+                            PETSC_TRUE);
+
+      KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
+      PCSetType(pc_field_base, PCSOR);
+    } else {
+      KSPSetType(ksp_field_base->get_reference(), KSPPREONLY);
+
+      KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
+      PCSetType(pc_field_base, PCLU);
+      PCFactorSetMatSolverType(pc_field_base, MATSOLVERMUMPS);
+    }
     PCSetFromOptions(pc_field_base);
     PCSetUp(pc_field_base);
     KSPSetUp(ksp_field_base->get_reference());
