@@ -662,26 +662,26 @@ void gmls_solver::write_refinement_data(vector<int> &split_tag,
     file.close();
   });
 
-  master_operation(0, [this]() {
-    ofstream file;
-    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
-                  ".vtk",
-              ios::app);
-    file << "SCALARS h_gradient float 1" << endl;
-    file << "LOOKUP_TABLE default" << endl;
-    file.close();
-  });
+  // master_operation(0, [this]() {
+  //   ofstream file;
+  //   file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+  //                 ".vtk",
+  //             ios::app);
+  //   file << "SCALARS h_gradient float 1" << endl;
+  //   file << "LOOKUP_TABLE default" << endl;
+  //   file.close();
+  // });
 
-  serial_operation([h_gradient, this]() {
-    ofstream file;
-    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
-                  ".vtk",
-              ios::app);
-    for (size_t i = 0; i < h_gradient.size(); i++) {
-      file << h_gradient[i] << endl;
-    }
-    file.close();
-  });
+  // serial_operation([h_gradient, this]() {
+  //   ofstream file;
+  //   file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
+  //                 ".vtk",
+  //             ios::app);
+  //   for (size_t i = 0; i < h_gradient.size(); i++) {
+  //     file << h_gradient[i] << endl;
+  //   }
+  //   file.close();
+  // });
 
   if (equation_type == "Stokes") {
     vector<vec3> &velocity = equation_mgr->get_velocity();

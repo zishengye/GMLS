@@ -2543,7 +2543,7 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
         if (is_field_particle(coord[i], spacing[i]) == 0)
           pass_test = 1;
       }
-      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) != -2)
+      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) == -1)
         pass_test = 1;
     }
   }
@@ -4047,8 +4047,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
             coord[i][2] > bounding_box[1][2])
           pass_test = 1;
       }
-      if (is_gap_particle(coord[i], uniform_spacing, attached_rigid_body[i]) !=
-          -2) {
+      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) == -1) {
         pass_test = 1;
         break;
       }
