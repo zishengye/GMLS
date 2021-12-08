@@ -211,13 +211,16 @@ void stokes_multilevel::build_interpolation_restriction(
     old_to_new_pressure_basis.addTargets(ScalarPointEvaluation);
 
     old_to_new_pressure_basis.setWeightingType(WeightingFunctionType::Power);
-    old_to_new_pressure_basis.setWeightingPower(4);
+    old_to_new_pressure_basis.setWeightingParameter(4);
 
     // ensure each batch contains less than 200 particles
     int num_of_batches = actual_new_target / 100 + 1;
     old_to_new_pressure_basis.generateAlphas(num_of_batches);
 
-    auto old_to_new_pressure_alphas = old_to_new_pressure_basis.getAlphas();
+    auto old_to_new_pressure_solution_set =
+        old_to_new_pressure_basis.getSolutionSetHost();
+    auto old_to_new_pressure_alphas =
+        old_to_new_pressure_solution_set->getAlphas();
 
     // old to new velocity field transition
     old_to_new_velocity_basis.setProblemData(
@@ -227,11 +230,14 @@ void stokes_multilevel::build_interpolation_restriction(
     old_to_new_velocity_basis.addTargets(VectorPointEvaluation);
 
     old_to_new_velocity_basis.setWeightingType(WeightingFunctionType::Power);
-    old_to_new_velocity_basis.setWeightingPower(4);
+    old_to_new_velocity_basis.setWeightingParameter(4);
 
     old_to_new_velocity_basis.generateAlphas(num_of_batches);
 
-    auto old_to_new_velocity_alphas = old_to_new_velocity_basis.getAlphas();
+    auto old_to_new_velocity_solution_set =
+        old_to_new_velocity_basis.getSolutionSetHost();
+    auto old_to_new_velocity_alphas =
+        old_to_new_velocity_solution_set->getAlphas();
 
     // old to new interpolation matrix
     if (mpi_rank == mpi_size - 1)
@@ -299,13 +305,13 @@ void stokes_multilevel::build_interpolation_restriction(
 
     // compute interpolation matrix entity
     const auto pressure_old_to_new_alphas_index =
-        old_to_new_pressure_basis.getAlphaColumnOffset(ScalarPointEvaluation, 0,
-                                                       0, 0, 0);
+        old_to_new_pressure_solution_set->getAlphaColumnOffset(
+            ScalarPointEvaluation, 0, 0, 0, 0);
     vector<int> velocity_old_to_new_alphas_index(pow(dimension, 2));
     for (int axes1 = 0; axes1 < dimension; axes1++)
       for (int axes2 = 0; axes2 < dimension; axes2++)
         velocity_old_to_new_alphas_index[axes1 * dimension + axes2] =
-            old_to_new_velocity_basis.getAlphaColumnOffset(
+            old_to_new_velocity_solution_set->getAlphaColumnOffset(
                 VectorPointEvaluation, axes1, 0, axes2, 0);
 
     for (int i = 0; i < new_local_particle_num; i++) {
@@ -315,9 +321,11 @@ void stokes_multilevel::build_interpolation_restriction(
              j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
           for (int axes1 = 0; axes1 < dimension; axes1++)
             for (int axes2 = 0; axes2 < dimension; axes2++) {
-              auto alpha_index = old_to_new_velocity_basis.getAlphaIndexHost(
-                  new_actual_index[i],
-                  velocity_old_to_new_alphas_index[axes1 * dimension + axes2]);
+              auto alpha_index =
+                  old_to_new_velocity_solution_set->getAlphaIndex(
+                      new_actual_index[i],
+                      velocity_old_to_new_alphas_index[axes1 * dimension +
+                                                       axes2]);
               int neighbor_index =
                   old_source_index[old_to_new_neighbor_lists_host(
                       new_actual_index[i], j + 1)];
@@ -329,7 +337,7 @@ void stokes_multilevel::build_interpolation_restriction(
 
         for (int j = 0;
              j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
-          auto alpha_index = old_to_new_pressure_basis.getAlphaIndexHost(
+          auto alpha_index = old_to_new_pressure_solution_set->getAlphaIndex(
               new_actual_index[i], pressure_old_to_new_alphas_index);
           int neighbor_index = old_source_index[old_to_new_neighbor_lists_host(
               new_actual_index[i], j + 1)];
