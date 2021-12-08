@@ -137,6 +137,9 @@ void stokes_equation::build_coefficient_matrix() {
   double timer1, timer2;
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
+
   int local_particle_num;
   int global_particle_num;
 
@@ -275,11 +278,6 @@ void stokes_equation::build_coefficient_matrix() {
 
   deep_copy(tangent_bundle_device, tangent_bundle_host);
   deep_copy(colloid_tangent_bundle_device, colloid_tangent_bundle_host);
-
-  if (dim == 2)
-    number_of_batches = max(local_particle_num / 100, 1);
-  else
-    number_of_batches = max(local_particle_num / 10, 1);
 
   // neighbor search
   auto point_cloud_search(CreatePointCloudSearch(source_coord_host, dim));
@@ -443,7 +441,7 @@ void stokes_equation::build_coefficient_matrix() {
         temp_staggered_basis.setDimensionOfQuadraturePoints(1);
         temp_staggered_basis.setQuadratureType("LINE");
 
-        temp_staggered_basis.generateAlphas(number_of_batches, false);
+        temp_staggered_basis.generateAlphas(1, false);
 
         auto solution_set = temp_staggered_basis.getSolutionSetHost();
         auto temp_pressure_alpha = solution_set->getAlphas();
@@ -560,7 +558,7 @@ void stokes_equation::build_coefficient_matrix() {
         temp_staggered_basis.setDimensionOfQuadraturePoints(1);
         temp_staggered_basis.setQuadratureType("LINE");
 
-        temp_staggered_basis.generateAlphas(number_of_batches, false);
+        temp_staggered_basis.generateAlphas(1, false);
 
         auto solution_set = temp_staggered_basis.getSolutionSetHost();
         auto temp_pressure_alpha = solution_set->getAlphas();
@@ -672,9 +670,6 @@ void stokes_equation::build_coefficient_matrix() {
   deep_copy(colloid_neighbor_list_device, colloid_neighbor_list_host);
   deep_copy(colloid_epsilon_device, colloid_epsilon_host);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  timer1 = MPI_Wtime();
-
   // pressure basis
   pressure_basis->setProblemData(neighbor_list_device, source_coord_device,
                                  target_coord_device, epsilon_device);
@@ -691,10 +686,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_basis->setDimensionOfQuadraturePoints(1);
   pressure_basis->setQuadratureType("LINE");
 
-  if (compress_memory == 0)
-    pressure_basis->generateAlphas(1, true);
-  else
-    pressure_basis->generateAlphas(number_of_batches, false);
+  pressure_basis->generateAlphas(1, false);
 
   auto pressure_solution_set = pressure_basis->getSolutionSetHost();
   auto pressure_alpha = pressure_solution_set->getAlphas();
@@ -707,7 +699,6 @@ void stokes_equation::build_coefficient_matrix() {
     pressure_gradient_index.push_back(
         pressure_solution_set->getAlphaColumnOffset(pressure_operation[1], i, 0,
                                                     0, 0));
-
   // velocity basis
   velocity_basis->setProblemData(neighbor_list_device, source_coord_device,
                                  target_coord_device, epsilon_device);
@@ -717,10 +708,7 @@ void stokes_equation::build_coefficient_matrix() {
   velocity_basis->setWeightingType(WeightingFunctionType::Power);
   velocity_basis->setWeightingParameter(4);
 
-  if (compress_memory == 0)
-    velocity_basis->generateAlphas(1, true);
-  else
-    velocity_basis->generateAlphas(number_of_batches, false);
+  velocity_basis->generateAlphas(1, false);
 
   auto velocity_solution_set = velocity_basis->getSolutionSetHost();
   auto velocity_alpha = velocity_solution_set->getAlphas();
@@ -744,7 +732,7 @@ void stokes_equation::build_coefficient_matrix() {
   velocity_colloid_basis->setWeightingType(WeightingFunctionType::Power);
   velocity_colloid_basis->setWeightingParameter(4);
 
-  velocity_colloid_basis->generateAlphas(number_of_batches, false);
+  velocity_colloid_basis->generateAlphas(1, false);
 
   auto velocity_colloid_solution_set =
       velocity_colloid_basis->getSolutionSetHost();
@@ -779,10 +767,7 @@ void stokes_equation::build_coefficient_matrix() {
   pressure_neumann_basis->setDimensionOfQuadraturePoints(1);
   pressure_neumann_basis->setQuadratureType("LINE");
 
-  if (compress_memory == 0)
-    pressure_neumann_basis->generateAlphas(1, true);
-  else
-    pressure_neumann_basis->generateAlphas(number_of_batches, false);
+  pressure_neumann_basis->generateAlphas(1, false);
 
   auto pressure_neumann_solution_set =
       pressure_neumann_basis->getSolutionSetHost();
@@ -2319,6 +2304,8 @@ void stokes_equation::calculate_error() {
       }
 
       deep_copy(source_coord_device, source_coord_host);
+
+      number_of_batches = 1;
 
       int start_particle = 0;
       int end_particle;

@@ -7,6 +7,7 @@
 
 using namespace std;
 using namespace Compadre;
+using namespace Kokkos;
 
 void stokes_multilevel::build_interpolation_restriction(
     const int _num_rigid_body, const int _dimension, const int _poly_order) {
@@ -86,11 +87,10 @@ void stokes_multilevel::build_interpolation_restriction(
     old_local_dof = old_local_particle_num * field_dof;
     old_global_dof = old_global_particle_num * field_dof;
 
-    Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-        old_source_coords_device("old source coordinates",
-                                 old_source_coord.size(), 3);
-    Kokkos::View<double **>::HostMirror old_source_coords_host =
-        Kokkos::create_mirror_view(old_source_coords_device);
+    View<double **, DefaultExecutionSpace> old_source_coords_device(
+        "old source coordinates", old_source_coord.size(), 3);
+    View<double **>::HostMirror old_source_coords_host =
+        create_mirror_view(old_source_coords_device);
 
     int actual_new_target = 0;
     vector<int> new_actual_index(coord.size());
@@ -113,11 +113,10 @@ void stokes_multilevel::build_interpolation_restriction(
     PetscPrintf(PETSC_COMM_WORLD, "new particle imbalance: %f\n",
                 (double)(max_new_target) / (double)(min_new_target));
 
-    Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-        new_target_coords_device("new target coordinates", actual_new_target,
-                                 3);
-    Kokkos::View<double **>::HostMirror new_target_coords_host =
-        Kokkos::create_mirror_view(new_target_coords_device);
+    View<double **, DefaultExecutionSpace> new_target_coords_device(
+        "new target coordinates", actual_new_target, 3);
+    View<double **>::HostMirror new_target_coords_host =
+        create_mirror_view(new_target_coords_device);
 
     // copy old source coords
     for (int i = 0; i < old_source_coord.size(); i++) {
@@ -137,8 +136,8 @@ void stokes_multilevel::build_interpolation_restriction(
       }
     }
 
-    Kokkos::deep_copy(old_source_coords_device, old_source_coords_host);
-    Kokkos::deep_copy(new_target_coords_device, new_target_coords_host);
+    deep_copy(old_source_coords_device, old_source_coords_host);
+    deep_copy(new_target_coords_device, new_target_coords_host);
 
     auto old_to_new_point_search(
         CreatePointCloudSearch(old_source_coords_host, dimension));
@@ -146,17 +145,16 @@ void stokes_multilevel::build_interpolation_restriction(
     int estimated_num_neighbor_max =
         pow(2, dimension) * pow(2 * (_poly_order + 1.5), dimension);
 
-    Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-        old_to_new_neighbor_lists_device("old to new neighbor lists",
-                                         actual_new_target,
-                                         estimated_num_neighbor_max);
-    Kokkos::View<int **>::HostMirror old_to_new_neighbor_lists_host =
-        Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
+    View<int **, DefaultExecutionSpace> old_to_new_neighbor_lists_device(
+        "old to new neighbor lists", actual_new_target,
+        estimated_num_neighbor_max);
+    View<int **>::HostMirror old_to_new_neighbor_lists_host =
+        create_mirror_view(old_to_new_neighbor_lists_device);
 
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> old_epsilon_device(
-        "h supports", actual_new_target);
-    Kokkos::View<double *>::HostMirror old_epsilon_host =
-        Kokkos::create_mirror_view(old_epsilon_device);
+    View<double *, DefaultExecutionSpace> old_epsilon_device("h supports",
+                                                             actual_new_target);
+    View<double *>::HostMirror old_epsilon_host =
+        create_mirror_view(old_epsilon_device);
 
     for (int i = 0; i < coord.size(); i++) {
       if (new_added[i] < 0) {
@@ -223,9 +221,8 @@ void stokes_multilevel::build_interpolation_restriction(
                 ite_counter, min_neighbor, max_neighbor,
                 sub_timer2 - sub_timer1);
 
-    Kokkos::deep_copy(old_to_new_neighbor_lists_device,
-                      old_to_new_neighbor_lists_host);
-    Kokkos::deep_copy(old_epsilon_device, old_epsilon_host);
+    deep_copy(old_to_new_neighbor_lists_device, old_to_new_neighbor_lists_host);
+    deep_copy(old_epsilon_device, old_epsilon_host);
 
     GMLS old_to_new_pressure_basis(ScalarTaylorPolynomial, PointSample,
                                    _poly_order, dimension, "LU", "STANDARD");
@@ -445,15 +442,15 @@ void stokes_multilevel::build_interpolation_restriction(
     R_D.resize(local_rigid_body_dof, local_rigid_body_dof,
                global_rigid_body_dof);
 
-    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coords_device(
+    View<double **, DefaultExecutionSpace> source_coords_device(
         "old source coordinates", source_coord.size(), 3);
-    Kokkos::View<double **>::HostMirror source_coords_host =
-        Kokkos::create_mirror_view(source_coords_device);
+    View<double **>::HostMirror source_coords_host =
+        create_mirror_view(source_coords_device);
 
-    Kokkos::View<double **, Kokkos::DefaultExecutionSpace> target_coords_device(
+    View<double **, DefaultExecutionSpace> target_coords_device(
         "new target coordinates", old_coord.size(), 3);
-    Kokkos::View<double **>::HostMirror target_coords_host =
-        Kokkos::create_mirror_view(target_coords_device);
+    View<double **>::HostMirror target_coords_host =
+        create_mirror_view(target_coords_device);
 
     // copy old source coords
     for (int i = 0; i < source_coord.size(); i++) {
@@ -468,24 +465,24 @@ void stokes_multilevel::build_interpolation_restriction(
       }
     }
 
-    Kokkos::deep_copy(target_coords_device, target_coords_host);
-    Kokkos::deep_copy(source_coords_device, source_coords_host);
+    deep_copy(target_coords_device, target_coords_host);
+    deep_copy(source_coords_device, source_coords_host);
 
     auto point_search(CreatePointCloudSearch(source_coords_host, dimension));
 
     int estimated_num_neighbor_max =
         pow(2, dimension) * pow(2 * 3.0, dimension);
 
-    Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_lists_device(
+    View<int **, DefaultExecutionSpace> neighbor_lists_device(
         "old to new neighbor lists", old_coord.size(),
         estimated_num_neighbor_max);
-    Kokkos::View<int **>::HostMirror neighbor_lists_host =
-        Kokkos::create_mirror_view(neighbor_lists_device);
+    View<int **>::HostMirror neighbor_lists_host =
+        create_mirror_view(neighbor_lists_device);
 
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
-        "h supports", old_coord.size());
-    Kokkos::View<double *>::HostMirror epsilon_host =
-        Kokkos::create_mirror_view(epsilon_device);
+    View<double *, DefaultExecutionSpace> epsilon_device("h supports",
+                                                         old_coord.size());
+    View<double *>::HostMirror epsilon_host =
+        create_mirror_view(epsilon_device);
 
     for (int i = 0; i < old_coord.size(); i++) {
       epsilon_host(i) = 0.25 * sqrt(dimension) * old_spacing[i] + 1e-15;
@@ -520,8 +517,8 @@ void stokes_multilevel::build_interpolation_restriction(
       }
     }
 
-    Kokkos::deep_copy(neighbor_lists_device, neighbor_lists_host);
-    Kokkos::deep_copy(epsilon_device, epsilon_host);
+    deep_copy(neighbor_lists_device, neighbor_lists_host);
+    deep_copy(epsilon_device, epsilon_host);
 
     // compute restriction matrix graph
     vector<PetscInt> index;
