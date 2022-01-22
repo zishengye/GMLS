@@ -22,6 +22,9 @@ bool gmls_solver::refinement() {
               "Total error for gradient: %f, with tolerance: %f\n",
               estimated_global_error, refinement_tolerance);
 
+  if (current_refinement_step >= max_refinement_level)
+    return false;
+
   static vector<vec3> old_rigid_body_velocity;
   static vector<vec3> old_rigid_body_angular_velocity;
 
@@ -305,9 +308,6 @@ bool gmls_solver::refinement() {
       estimated_global_error < refinement_tolerance) {
     return false;
   }
-
-  if (current_refinement_step >= max_refinement_level)
-    return false;
 
   PetscPrintf(PETSC_COMM_WORLD, "start of adaptive refinement\n");
 

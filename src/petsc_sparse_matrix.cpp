@@ -631,10 +631,24 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
   __ctx.myid = myid;
   __ctx.mpisize = MPIsize;
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage before shell assembly %.2f GB\n",
+              mem / 1e9);
+
   MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __out_process_row, __col,
                             PETSC_DECIDE, __Col, colloid_part_i.data(),
                             colloid_part_j.data(), colloid_part_val.data(),
                             &(__ctx.colloid_part));
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage after colloid part assembly %.2f GB\n",
+              mem / 1e9);
 
   __ctx.fluid_colloid_part_i.resize(local_size + 1);
 
@@ -651,6 +665,13 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
     }
     __ctx.fluid_colloid_part_i[i + 1] = nnz;
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage before assembly of shell mat %.2f GB\n",
+              mem / 1e9);
 
   // since this function doesn't copy the array, they could not be released at
   // this time

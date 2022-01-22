@@ -71,7 +71,7 @@ void stokes_equation::update() {
   solve_step();
   calculate_error();
   // check_solution();
-  collect_force();
+  // collect_force();
 
   current_refinement_level++;
 }
@@ -827,11 +827,34 @@ void stokes_equation::build_coefficient_matrix() {
   int local_dof = local_velocity_dof + local_pressure_dof;
   int global_dof = global_velocity_dof + global_pressure_dof;
 
+  int local_num_rigid_body =
+      num_rigid_body / size + (num_rigid_body % size > rank) ? 1 : 0;
+  int local_colloid_dof = local_num_rigid_body * rigid_body_dof;
+  int global_colloid_dof = num_rigid_body * rigid_body_dof;
+
   int out_process_row = rigid_body_dof * num_rigid_body;
 
-  petsc_sparse_matrix &A = *(multi_mgr->getA(current_refinement_level));
-  A.resize(local_dof, local_dof, global_dof, out_process_row,
-           local_out_process_offset);
+  petsc_block_matrix &A_block =
+      *(multi_mgr->getABlock(current_refinement_level));
+  A_block.resize(3, 3);
+
+  petsc_sparse_matrix &uu = *(A_block.get_matrix(0, 0));
+  petsc_sparse_matrix &up = *(A_block.get_matrix(0, 1));
+  petsc_sparse_matrix &uc = *(A_block.get_matrix(0, 2));
+  petsc_sparse_matrix &pu = *(A_block.get_matrix(1, 0));
+  petsc_sparse_matrix &pp = *(A_block.get_matrix(1, 1));
+  petsc_sparse_matrix &pc = *(A_block.get_matrix(1, 2));
+  petsc_sparse_matrix &cu = *(A_block.get_matrix(1, 0));
+  petsc_sparse_matrix &cp = *(A_block.get_matrix(1, 1));
+  petsc_sparse_matrix &cc = *(A_block.get_matrix(1, 2));
+
+  uu.resize(local_velocity_dof, local_velocity_dof, global_velocity_dof);
+  up.resize(local_velocity_dof, local_pressure_dof, global_pressure_dof);
+  uc.resize(local_velocity_dof, local_colloid_dof, global_colloid_dof);
+  pu.resize(local_pressure_dof, local_velocity_dof, global_velocity_dof);
+  pp.resize(local_pressure_dof, local_pressure_dof, global_pressure_dof);
+  pc.resize(local_pressure_dof, local_colloid_dof, global_colloid_dof);
+  cu.resize(local_colloid_dof, local_velocity_dof, global_velocity_dof);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
@@ -842,180 +865,327 @@ void stokes_equation::build_coefficient_matrix() {
               mem / 1e9);
 
   // compute matrix graph
-  vector<vector<PetscInt>> out_process_index(out_process_row);
-
   for (int i = 0; i < local_particle_num; i++) {
     const int current_particle_local_index = local_idx[i];
     const int current_particle_global_index = source_index[i];
 
-    const int pressure_local_index =
-        current_particle_local_index * field_dof + velocity_dof;
-    const int pressure_global_index =
-        current_particle_global_index * field_dof + velocity_dof;
+    const int velocity_local_index =
+        current_particle_local_index * velocity_dof;
+    const int velocity_global_index =
+        current_particle_global_index * velocity_dof;
+    const int pressure_local_index = current_particle_local_index;
+    const int pressure_global_index = current_particle_global_index;
 
     vector<PetscInt> index;
     if (particle_type[i] == 0) {
-      // velocity block
-      index.clear();
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        const int neighbor_particle_index =
-            source_index[neighbor_list_host(i, j + 1)];
+      // interior particle
 
-        for (int axes = 0; axes < field_dof; axes++) {
-          index.push_back(field_dof * neighbor_particle_index + axes);
-        }
-      }
-
-      for (int axes = 0; axes < velocity_dof; axes++) {
-        A.set_col_index(current_particle_local_index * field_dof + axes, index);
-      }
-
-      // pressure block
-      index.clear();
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        const int neighbor_particle_index =
-            source_index[neighbor_list_host(i, j + 1)];
-
-        index.push_back(field_dof * neighbor_particle_index + velocity_dof);
-      }
-
-      A.set_col_index(current_particle_local_index * field_dof + velocity_dof,
-                      index);
-    }
-
-    if (particle_type[i] != 0 && particle_type[i] < 4) {
-      // velocity block
-      index.clear();
-      index.resize(1);
-      for (int axes = 0; axes < velocity_dof; axes++) {
-        index[0] = current_particle_global_index * field_dof + axes;
-        A.set_col_index(current_particle_local_index * field_dof + axes, index);
-      }
-
-      // pressure block
-      index.clear();
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        const int neighbor_particle_index =
-            source_index[neighbor_list_host(i, j + 1)];
-
-        for (int axes = 0; axes < field_dof; axes++) {
-          index.push_back(field_dof * neighbor_particle_index + axes);
-        }
-      }
-
-      A.set_col_index(current_particle_local_index * field_dof + velocity_dof,
-                      index);
-    }
-
-    if (particle_type[i] >= 4) {
-      // velocity block
-      index.clear();
-      index.resize(2 + rotation_dof);
-      for (int axes = 0; axes < rotation_dof; axes++) {
-        index[2 + axes] = global_rigid_body_offset +
-                          attached_rigid_body[i] * rigid_body_dof +
-                          translation_dof + axes;
-      }
-
-      for (int axes = 0; axes < velocity_dof; axes++) {
-        index[0] = current_particle_global_index * field_dof + axes;
-        index[1] = global_rigid_body_offset +
-                   attached_rigid_body[i] * rigid_body_dof + axes;
-        A.set_col_index(current_particle_local_index * field_dof + axes, index);
-      }
-
-      // pressure block
-      index.clear();
-      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
-        const int neighbor_particle_index =
-            source_index[neighbor_list_host(i, j + 1)];
-
-        for (int axes = 0; axes < field_dof; axes++) {
-          index.push_back(field_dof * neighbor_particle_index + axes);
-        }
-      }
-
-      A.set_col_index(current_particle_local_index * field_dof + velocity_dof,
-                      index);
-    }
-  }
-
-  double area = 0.0;
-  int area_num = 0;
-
-  // outprocess graph
-  for (int i = 0; i < local_particle_num; i++) {
-    int rigid_body_idx = attached_rigid_body[i];
-    const int current_particle_local_index = local_idx[i];
-    const int current_particle_global_index = source_index[i];
-
-    if (particle_type[i] >= 4) {
-      vector<PetscInt> index;
-      // attached rigid body
+      // velocity-velocity block
       index.clear();
       for (int j = 0; j < neighbor_list_host(i, 0); j++) {
         const int neighbor_particle_index =
             source_index[neighbor_list_host(i, j + 1)];
 
         for (int axes = 0; axes < velocity_dof; axes++) {
-          index.push_back(field_dof * neighbor_particle_index + axes);
-        }
-      }
-      // pressure term
-      index.push_back(field_dof * current_particle_global_index + velocity_dof);
-
-      for (int axes = 0; axes < translation_dof; axes++) {
-        vector<PetscInt> &it =
-            out_process_index[rigid_body_idx * rigid_body_dof + axes];
-        if (!rigid_body_velocity_force_switch[rigid_body_idx][axes]) {
-          it.insert(it.end(), index.begin(), index.end());
+          index.push_back(velocity_dof * neighbor_particle_index + axes);
         }
       }
 
+      for (int axes = 0; axes < velocity_dof; axes++) {
+        uu.set_col_index(velocity_local_index + axes, index);
+      }
+
+      // velocity-pressure block
+      index.clear();
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        const int neighbor_particle_index =
+            source_index[neighbor_list_host(i, j + 1)];
+
+        index.push_back(neighbor_particle_index);
+      }
+      for (int axes = 0; axes < velocity_dof; axes++) {
+        up.set_col_index(velocity_local_index + axes, index);
+      }
+
+      // pressure-pressure block
+      index.clear();
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        const int neighbor_particle_index =
+            source_index[neighbor_list_host(i, j + 1)];
+
+        index.push_back(neighbor_particle_index);
+      }
+
+      pp.set_col_index(pressure_local_index, index);
+    }
+
+    if (particle_type[i] != 0 && particle_type[i] < 4) {
+      // fluid domain particle
+
+      // velocity-velocity block
+      index.clear();
+      index.resize(1);
+      for (int axes = 0; axes < velocity_dof; axes++) {
+        index[0] = velocity_global_index + axes;
+        uu.set_col_index(velocity_local_index + axes, index);
+      }
+
+      // pressure-velocity block
+      index.clear();
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        const int neighbor_particle_index =
+            source_index[neighbor_list_host(i, j + 1)];
+
+        for (int axes = 0; axes < velocity_dof; axes++) {
+          index.push_back(neighbor_particle_index * velocity_dof + axes);
+        }
+      }
+
+      pu.set_col_index(pressure_local_index, index);
+
+      // pressure-pressure block
+      index.clear();
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        const int neighbor_particle_index =
+            source_index[neighbor_list_host(i, j + 1)];
+
+        index.push_back(neighbor_particle_index);
+      }
+
+      pp.set_col_index(pressure_local_index, index);
+    }
+
+    if (particle_type[i] >= 4) {
+      // colloid boundary particle
+
+      // velocity-velocity block
+      index.clear();
+      index.resize(1);
+      for (int axes = 0; axes < velocity_dof; axes++) {
+        index[0] = velocity_global_index + axes;
+        uu.set_col_index(velocity_local_index + axes, index);
+      }
+
+      // velocity-colloid block
+      index.clear();
+      index.resize(1 + rotation_dof);
       for (int axes = 0; axes < rotation_dof; axes++) {
-        vector<PetscInt> &it =
-            out_process_index[rigid_body_idx * rigid_body_dof +
-                              translation_dof + axes];
-        if (!rigid_body_angvelocity_torque_switch[rigid_body_idx][axes]) {
-          it.insert(it.end(), index.begin(), index.end());
+        index[1 + axes] =
+            attached_rigid_body[i] * rigid_body_dof + translation_dof + axes;
+      }
+
+      for (int axes = 0; axes < velocity_dof; axes++) {
+        index[0] = attached_rigid_body[i] * rigid_body_dof + axes;
+        uc.set_col_index(velocity_local_index + axes, index);
+      }
+
+      // pressure-velocity block
+      index.clear();
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        const int neighbor_particle_index =
+            source_index[neighbor_list_host(i, j + 1)];
+
+        for (int axes = 0; axes < velocity_dof; axes++) {
+          index.push_back(neighbor_particle_index * velocity_dof + axes);
         }
       }
+
+      pu.set_col_index(pressure_local_index, index);
+
+      // pressure-pressure block
+      index.clear();
+      for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+        const int neighbor_particle_index =
+            source_index[neighbor_list_host(i, j + 1)];
+
+        index.push_back(neighbor_particle_index);
+      }
+
+      pp.set_col_index(pressure_local_index, index);
     }
   }
 
-  if (rank == size - 1) {
-    for (int rigid_body_idx = 0; rigid_body_idx < num_rigid_body;
-         rigid_body_idx++) {
-      for (int axes = 0; axes < translation_dof; axes++) {
-        if (rigid_body_velocity_force_switch[rigid_body_idx][axes]) {
-          vector<PetscInt> &it =
-              out_process_index[rigid_body_idx * rigid_body_dof + axes];
-          it.push_back(global_rigid_body_offset +
-                       rigid_body_idx * rigid_body_dof + axes);
-        }
-      }
-      for (int axes = 0; axes < rotation_dof; axes++) {
-        if (rigid_body_angvelocity_torque_switch[rigid_body_idx][axes]) {
-          vector<PetscInt> &it =
-              out_process_index[rigid_body_idx * rigid_body_dof +
-                                translation_dof + axes];
-          it.push_back(global_rigid_body_offset +
-                       rigid_body_idx * rigid_body_dof + translation_dof +
-                       axes);
-        }
-      }
-    }
-  }
+  // vector<vector<PetscInt>> out_process_index(out_process_row);
 
-  for (int i = 0; i < out_process_index.size(); i++) {
-    sort(out_process_index[i].begin(), out_process_index[i].end());
-    out_process_index[i].erase(
-        unique(out_process_index[i].begin(), out_process_index[i].end()),
-        out_process_index[i].end());
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   const int current_particle_local_index = local_idx[i];
+  //   const int current_particle_global_index = source_index[i];
 
-    A.set_out_process_col_index(local_out_process_offset + i,
-                                out_process_index[i]);
-  }
+  //   const int pressure_local_index =
+  //       current_particle_local_index * field_dof + velocity_dof;
+  //   const int pressure_global_index =
+  //       current_particle_global_index * field_dof + velocity_dof;
+
+  //   vector<PetscInt> index;
+  //   if (particle_type[i] == 0) {
+  //     // velocity block
+  //     index.clear();
+  //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //       const int neighbor_particle_index =
+  //           source_index[neighbor_list_host(i, j + 1)];
+
+  //       for (int axes = 0; axes < field_dof; axes++) {
+  //         index.push_back(field_dof * neighbor_particle_index + axes);
+  //       }
+  //     }
+
+  //     for (int axes = 0; axes < velocity_dof; axes++) {
+  //       A.set_col_index(current_particle_local_index * field_dof + axes,
+  //       index);
+  //     }
+
+  //     // pressure block
+  //     index.clear();
+  //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //       const int neighbor_particle_index =
+  //           source_index[neighbor_list_host(i, j + 1)];
+
+  //       index.push_back(field_dof * neighbor_particle_index + velocity_dof);
+  //     }
+
+  //     A.set_col_index(current_particle_local_index * field_dof +
+  //     velocity_dof,
+  //                     index);
+  //   }
+
+  //   if (particle_type[i] != 0 && particle_type[i] < 4) {
+  //     // velocity block
+  //     index.clear();
+  //     index.resize(1);
+  //     for (int axes = 0; axes < velocity_dof; axes++) {
+  //       index[0] = current_particle_global_index * field_dof + axes;
+  //       A.set_col_index(current_particle_local_index * field_dof + axes,
+  //       index);
+  //     }
+
+  //     // pressure block
+  //     index.clear();
+  //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //       const int neighbor_particle_index =
+  //           source_index[neighbor_list_host(i, j + 1)];
+
+  //       for (int axes = 0; axes < field_dof; axes++) {
+  //         index.push_back(field_dof * neighbor_particle_index + axes);
+  //       }
+  //     }
+
+  //     A.set_col_index(current_particle_local_index * field_dof +
+  //     velocity_dof,
+  //                     index);
+  //   }
+
+  //   if (particle_type[i] >= 4) {
+  //     // velocity block
+  //     index.clear();
+  //     index.resize(2 + rotation_dof);
+  //     for (int axes = 0; axes < rotation_dof; axes++) {
+  //       index[2 + axes] = global_rigid_body_offset +
+  //                         attached_rigid_body[i] * rigid_body_dof +
+  //                         translation_dof + axes;
+  //     }
+
+  //     for (int axes = 0; axes < velocity_dof; axes++) {
+  //       index[0] = current_particle_global_index * field_dof + axes;
+  //       index[1] = global_rigid_body_offset +
+  //                  attached_rigid_body[i] * rigid_body_dof + axes;
+  //       A.set_col_index(current_particle_local_index * field_dof + axes,
+  //       index);
+  //     }
+
+  //     // pressure block
+  //     index.clear();
+  //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //       const int neighbor_particle_index =
+  //           source_index[neighbor_list_host(i, j + 1)];
+
+  //       for (int axes = 0; axes < field_dof; axes++) {
+  //         index.push_back(field_dof * neighbor_particle_index + axes);
+  //       }
+  //     }
+
+  //     A.set_col_index(current_particle_local_index * field_dof +
+  //     velocity_dof,
+  //                     index);
+  //   }
+  // }
+
+  // double area = 0.0;
+  // int area_num = 0;
+
+  // // outprocess graph
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   int rigid_body_idx = attached_rigid_body[i];
+  //   const int current_particle_local_index = local_idx[i];
+  //   const int current_particle_global_index = source_index[i];
+
+  //   if (particle_type[i] >= 4) {
+  //     vector<PetscInt> index;
+  //     // attached rigid body
+  //     index.clear();
+  //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //       const int neighbor_particle_index =
+  //           source_index[neighbor_list_host(i, j + 1)];
+
+  //       for (int axes = 0; axes < velocity_dof; axes++) {
+  //         index.push_back(field_dof * neighbor_particle_index + axes);
+  //       }
+  //     }
+  //     // pressure term
+  //     index.push_back(field_dof * current_particle_global_index +
+  //     velocity_dof);
+
+  //     for (int axes = 0; axes < translation_dof; axes++) {
+  //       vector<PetscInt> &it =
+  //           out_process_index[rigid_body_idx * rigid_body_dof + axes];
+  //       if (!rigid_body_velocity_force_switch[rigid_body_idx][axes]) {
+  //         it.insert(it.end(), index.begin(), index.end());
+  //       }
+  //     }
+
+  //     for (int axes = 0; axes < rotation_dof; axes++) {
+  //       vector<PetscInt> &it =
+  //           out_process_index[rigid_body_idx * rigid_body_dof +
+  //                             translation_dof + axes];
+  //       if (!rigid_body_angvelocity_torque_switch[rigid_body_idx][axes]) {
+  //         it.insert(it.end(), index.begin(), index.end());
+  //       }
+  //     }
+  //   }
+  // }
+
+  // if (rank == size - 1) {
+  //   for (int rigid_body_idx = 0; rigid_body_idx < num_rigid_body;
+  //        rigid_body_idx++) {
+  //     for (int axes = 0; axes < translation_dof; axes++) {
+  //       if (rigid_body_velocity_force_switch[rigid_body_idx][axes]) {
+  //         vector<PetscInt> &it =
+  //             out_process_index[rigid_body_idx * rigid_body_dof + axes];
+  //         it.push_back(global_rigid_body_offset +
+  //                      rigid_body_idx * rigid_body_dof + axes);
+  //       }
+  //     }
+  //     for (int axes = 0; axes < rotation_dof; axes++) {
+  //       if (rigid_body_angvelocity_torque_switch[rigid_body_idx][axes]) {
+  //         vector<PetscInt> &it =
+  //             out_process_index[rigid_body_idx * rigid_body_dof +
+  //                               translation_dof + axes];
+  //         it.push_back(global_rigid_body_offset +
+  //                      rigid_body_idx * rigid_body_dof + translation_dof +
+  //                      axes);
+  //       }
+  //     }
+  //   }
+  // }
+
+  // for (int i = 0; i < out_process_index.size(); i++) {
+  //   sort(out_process_index[i].begin(), out_process_index[i].end());
+  //   out_process_index[i].erase(
+  //       unique(out_process_index[i].begin(), out_process_index[i].end()),
+  //       out_process_index[i].end());
+
+  //   A.set_out_process_col_index(local_out_process_offset + i,
+  //                               out_process_index[i]);
+  // }
 
   MPI_Barrier(MPI_COMM_WORLD);
   PetscMemoryGetCurrentUsage(&mem);
@@ -1029,90 +1199,76 @@ void stokes_equation::build_coefficient_matrix() {
     const int current_particle_local_index = local_idx[i];
     const int current_particle_global_index = source_index[i];
 
-    const int pressure_local_index =
-        current_particle_local_index * field_dof + velocity_dof;
-    const int pressure_global_index =
-        current_particle_global_index * field_dof + velocity_dof;
-    // velocity block
+    const int velocity_local_index =
+        current_particle_local_index * velocity_dof;
+    const int velocity_global_index =
+        current_particle_global_index * velocity_dof;
+    const int pressure_local_index = current_particle_local_index;
+    const int pressure_global_index = current_particle_global_index;
+
+    // velocity-velocity and pressure-velocity block
     if (particle_type[i] == 0) {
+      // interior particle
       for (int j = 0; j < neighbor_list_host(i, 0); j++) {
         const int neighbor_particle_index =
             source_index[neighbor_list_host(i, j + 1)];
-        // inner fluid particle
 
         // curl curl u
         for (int axes1 = 0; axes1 < dim; axes1++) {
-          const int velocity_local_index =
-              field_dof * current_particle_local_index + axes1;
           for (int axes2 = 0; axes2 < dim; axes2++) {
-            const int velocity_global_index =
-                field_dof * neighbor_particle_index + axes2;
-
             auto alpha_index = velocity_solution_set->getAlphaIndex(
                 i, velocity_curl_curl_index[axes1 * dim + axes2]);
             const double Lij = eta * velocity_alpha(alpha_index + j);
 
-            A.increment(velocity_local_index, velocity_global_index, Lij);
+            uu.increment(velocity_local_index + axes1,
+                         velocity_global_index + axes2, Lij);
           }
         }
       }
     } else {
-      // wall boundary (including particles on rigid body)
+      // boundary particle
       for (int axes1 = 0; axes1 < dim; axes1++) {
-        const int velocity_local_index =
-            field_dof * current_particle_local_index + axes1;
-        const int velocity_global_index =
-            field_dof * current_particle_global_index + axes1;
-
-        A.increment(velocity_local_index, velocity_global_index, 1.0);
+        uu.increment(velocity_local_index + axes1,
+                     velocity_global_index + axes1, 1.0);
       }
 
       // particles on rigid body
       if (particle_type[i] >= 4) {
         const int current_rigid_body_index = attached_rigid_body[i];
-        const int current_rigid_body_local_offset =
-            local_rigid_body_offset + rigid_body_dof * current_rigid_body_index;
         const int current_rigid_body_global_offset =
-            global_rigid_body_offset +
             rigid_body_dof * current_rigid_body_index;
 
         vec3 rci = coord[i] - rigid_body_position[current_rigid_body_index];
         // non-slip condition
         // translation
         for (int axes1 = 0; axes1 < translation_dof; axes1++) {
-          const int velocity_local_index =
-              field_dof * current_particle_local_index + axes1;
-          A.increment(velocity_local_index,
-                      current_rigid_body_global_offset + axes1, -1.0);
+          uc.increment(velocity_local_index + axes1,
+                       current_rigid_body_global_offset + axes1, -1.0);
         }
 
         // rotation
         if (dim == 2) {
           for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
-            A.increment(field_dof * current_particle_local_index +
-                            (axes1 + 2) % translation_dof,
-                        current_rigid_body_global_offset + translation_dof +
-                            axes1,
-                        rci[(axes1 + 1) % translation_dof]);
-            A.increment(field_dof * current_particle_local_index +
-                            (axes1 + 1) % translation_dof,
-                        current_rigid_body_global_offset + translation_dof +
-                            axes1,
-                        -rci[(axes1 + 2) % translation_dof]);
+            uc.increment(velocity_local_index + (axes1 + 2) % translation_dof,
+                         current_rigid_body_global_offset + translation_dof +
+                             axes1,
+                         rci[(axes1 + 1) % translation_dof]);
+            uc.increment(velocity_local_index + (axes1 + 1) % translation_dof,
+                         current_rigid_body_global_offset + translation_dof +
+                             axes1,
+                         -rci[(axes1 + 2) % translation_dof]);
           }
         }
         if (dim == 3) {
           for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
-            A.increment(field_dof * current_particle_local_index +
-                            (axes1 + 2) % translation_dof,
-                        current_rigid_body_global_offset + translation_dof +
-                            axes1,
-                        -rci[(axes1 + 1) % translation_dof]);
-            A.increment(field_dof * current_particle_local_index +
-                            (axes1 + 1) % translation_dof,
-                        current_rigid_body_global_offset + translation_dof +
-                            axes1,
-                        rci[(axes1 + 2) % translation_dof]);
+            uc.increment(velocity_local_index + (axes1 + 2) % translation_dof,
+                         current_rigid_body_global_offset + translation_dof +
+                             axes1,
+                         -rci[(axes1 + 1) % translation_dof]);
+            uc.increment(velocity_local_index + (axes1 + 1) % translation_dof,
+                         current_rigid_body_global_offset + translation_dof +
+                             axes1,
+                         rci[(axes1 + 2) % translation_dof]);
           }
         }
 
@@ -1123,30 +1279,29 @@ void stokes_equation::build_coefficient_matrix() {
         } else {
           dA = (dim == 3) ? (normal[i] * p_spacing[i][0] * p_spacing[i][1])
                           : (normal[i] * p_spacing[i][0]);
-
-          area += p_spacing[i][0] * p_spacing[i][1];
-          area_num++;
         }
 
         // apply pressure
         for (int axes1 = 0; axes1 < translation_dof; axes1++) {
           if (!rigid_body_velocity_force_switch[current_rigid_body_index]
                                                [axes1]) {
-            A.out_process_increment(current_rigid_body_local_offset + axes1,
-                                    pressure_global_index, -dA[axes1]);
+            // A.out_process_increment(current_rigid_body_local_offset + axes1,
+            //                         pressure_global_index, -dA[axes1]);
           }
         }
 
         for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
           if (!rigid_body_angvelocity_torque_switch[current_rigid_body_index]
                                                    [axes1]) {
-            A.out_process_increment(current_rigid_body_local_offset +
-                                        translation_dof + axes1,
-                                    pressure_global_index,
-                                    -rci[(axes1 + 1) % translation_dof] *
-                                            dA[(axes1 + 2) % translation_dof] +
-                                        rci[(axes1 + 2) % translation_dof] *
-                                            dA[(axes1 + 1) % translation_dof]);
+            // A.out_process_increment(current_rigid_body_local_offset +
+            //                             translation_dof + axes1,
+            //                         pressure_global_index,
+            //                         -rci[(axes1 + 1) % translation_dof] *
+            //                                 dA[(axes1 + 2) % translation_dof]
+            //                                 +
+            //                             rci[(axes1 + 2) % translation_dof] *
+            //                                 dA[(axes1 + 1) %
+            //                                 translation_dof]);
           }
         }
 
@@ -1156,7 +1311,7 @@ void stokes_equation::build_coefficient_matrix() {
 
           for (int axes3 = 0; axes3 < dim; axes3++) {
             const int velocity_global_index =
-                field_dof * neighbor_particle_index + axes3;
+                velocity_dof * neighbor_particle_index + axes3;
 
             double *f = new double[dim];
             for (int axes1 = 0; axes1 < dim; axes1++) {
@@ -1191,8 +1346,9 @@ void stokes_equation::build_coefficient_matrix() {
             for (int axes1 = 0; axes1 < translation_dof; axes1++) {
               if (!rigid_body_velocity_force_switch[current_rigid_body_index]
                                                    [axes1]) {
-                A.out_process_increment(current_rigid_body_local_offset + axes1,
-                                        velocity_global_index, f[axes1]);
+                // A.out_process_increment(current_rigid_body_local_offset +
+                // axes1,
+                //                         velocity_global_index, f[axes1]);
               }
             }
 
@@ -1201,13 +1357,13 @@ void stokes_equation::build_coefficient_matrix() {
               for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
                 if (!rigid_body_angvelocity_torque_switch
                         [current_rigid_body_index][axes1]) {
-                  A.out_process_increment(
-                      current_rigid_body_local_offset + translation_dof + axes1,
-                      velocity_global_index,
-                      -rci[(axes1 + 1) % translation_dof] *
-                              f[(axes1 + 2) % translation_dof] +
-                          rci[(axes1 + 2) % translation_dof] *
-                              f[(axes1 + 1) % translation_dof]);
+                  // A.out_process_increment(
+                  //     current_rigid_body_local_offset + translation_dof +
+                  //     axes1, velocity_global_index, -rci[(axes1 + 1) %
+                  //     translation_dof] *
+                  //             f[(axes1 + 2) % translation_dof] +
+                  //         rci[(axes1 + 2) % translation_dof] *
+                  //             f[(axes1 + 1) % translation_dof]);
                 }
               }
             }
@@ -1215,82 +1371,81 @@ void stokes_equation::build_coefficient_matrix() {
               for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
                 if (!rigid_body_angvelocity_torque_switch
                         [current_rigid_body_index][axes1]) {
-                  A.out_process_increment(
-                      current_rigid_body_local_offset + translation_dof + axes1,
-                      velocity_global_index,
-                      rci[(axes1 + 1) % translation_dof] *
-                              f[(axes1 + 2) % translation_dof] -
-                          rci[(axes1 + 2) % translation_dof] *
-                              f[(axes1 + 1) % translation_dof]);
+                  // A.out_process_increment(
+                  //     current_rigid_body_local_offset + translation_dof +
+                  //     axes1, velocity_global_index, rci[(axes1 + 1) %
+                  //     translation_dof] *
+                  //             f[(axes1 + 2) % translation_dof] -
+                  //         rci[(axes1 + 2) % translation_dof] *
+                  //             f[(axes1 + 1) % translation_dof]);
                 }
               }
             }
             delete[] f;
           }
-        }
-      } // end of particles on rigid body
-    }
+        } // end of particles on rigid body
+      }
 
-    // n \cdot grad p
-    if (particle_type[i] != 0) {
-      const int neumann_index = neumann_map[i];
-      const double bi = pressure_neumann_solution_set->getAlpha0TensorTo0Tensor(
-          LaplacianOfScalarPointEvaluation, neumann_index,
-          neumann_neighbor_list_host(neumann_index, 0));
+      // n \cdot grad p
+      if (particle_type[i] != 0) {
+        const int neumann_index = neumann_map[i];
+        const double bi =
+            pressure_neumann_solution_set->getAlpha0TensorTo0Tensor(
+                LaplacianOfScalarPointEvaluation, neumann_index,
+                neumann_neighbor_list_host(neumann_index, 0));
 
-      for (int j = 0; j < neumann_neighbor_list_host(neumann_index, 0); j++) {
-        const int neighbor_particle_index =
-            source_index[neumann_neighbor_list_host(neumann_index, j + 1)];
+        for (int j = 0; j < neumann_neighbor_list_host(neumann_index, 0); j++) {
+          const int neighbor_particle_index =
+              source_index[neumann_neighbor_list_host(neumann_index, j + 1)];
 
-        for (int axes2 = 0; axes2 < dim; axes2++) {
-          double gradient = 0.0;
-          const int velocity_global_index =
-              field_dof * neighbor_particle_index + axes2;
-          for (int axes1 = 0; axes1 < dim; axes1++) {
-            auto alpha_index = velocity_solution_set->getAlphaIndex(
-                i, velocity_curl_curl_index[axes1 * dim + axes2]);
-            const double Lij = eta * velocity_alpha(alpha_index + j);
+          for (int axes2 = 0; axes2 < dim; axes2++) {
+            double gradient = 0.0;
+            const int velocity_global_index =
+                velocity_dof * neighbor_particle_index + axes2;
+            for (int axes1 = 0; axes1 < dim; axes1++) {
+              auto alpha_index = velocity_solution_set->getAlphaIndex(
+                  i, velocity_curl_curl_index[axes1 * dim + axes2]);
+              const double Lij = eta * velocity_alpha(alpha_index + j);
 
-            gradient += normal[i][axes1] * Lij;
+              gradient += normal[i][axes1] * Lij;
+            }
+            pu.increment(pressure_local_index, velocity_global_index,
+                         bi * gradient);
           }
-          A.increment(pressure_local_index, velocity_global_index,
-                      bi * gradient);
         }
       }
-    } // end of velocity block
+    }
 
-    // pressure block
+    // pressure-pressure and velocity-pressure block
     if (particle_type[i] == 0) {
       for (int j = 0; j < neighbor_list_host(i, 0); j++) {
         const int neighbor_particle_index =
             source_index[neighbor_list_host(i, j + 1)];
 
-        const int pressure_neighbor_global_index =
-            field_dof * neighbor_particle_index + velocity_dof;
+        const int pressure_neighbor_global_index = neighbor_particle_index;
 
         auto alpha_index =
             pressure_solution_set->getAlphaIndex(i, pressure_laplacian_index);
         const double Aij = pressure_alpha(alpha_index + j);
 
         // laplacian p
-        A.increment(pressure_local_index, pressure_neighbor_global_index, Aij);
-        A.increment(pressure_local_index, pressure_global_index, -Aij);
+        pp.increment(pressure_local_index, pressure_neighbor_global_index, Aij);
+        pp.increment(pressure_local_index, pressure_global_index, -Aij);
 
         for (int axes1 = 0; axes1 < dim; axes1++) {
-          const int velocity_local_index =
-              field_dof * current_particle_local_index + axes1;
-
           auto alpha_index = pressure_solution_set->getAlphaIndex(
               i, pressure_gradient_index[axes1]);
           const double Dijx = pressure_alpha(alpha_index + j);
 
           // grad p
-          A.increment(velocity_local_index, pressure_neighbor_global_index,
-                      -Dijx);
-          A.increment(velocity_local_index, pressure_global_index, Dijx);
+          up.increment(velocity_local_index + axes1,
+                       pressure_neighbor_global_index, -Dijx);
+          up.increment(velocity_local_index + axes1, pressure_global_index,
+                       Dijx);
         }
       }
     }
+
     if (particle_type[i] != 0) {
       const int neumann_index = neumann_map[i];
 
@@ -1298,130 +1453,439 @@ void stokes_equation::build_coefficient_matrix() {
         const int neighbor_particle_index =
             source_index[neumann_neighbor_list_host(neumann_index, j + 1)];
 
-        const int pressure_neighbor_global_index =
-            field_dof * neighbor_particle_index + velocity_dof;
+        const int pressure_neighbor_global_index = neighbor_particle_index;
 
         auto alpha_index = pressure_neumann_solution_set->getAlphaIndex(
             neumann_index, pressure_neumann_laplacian_index);
         const double Aij = pressure_neumann_alpha(alpha_index + j);
 
         // laplacian p
-        A.increment(pressure_local_index, pressure_neighbor_global_index, Aij);
-        A.increment(pressure_local_index, pressure_global_index, -Aij);
+        pp.increment(pressure_local_index, pressure_neighbor_global_index, Aij);
+        pp.increment(pressure_local_index, pressure_global_index, -Aij);
       }
-    }
-
-    if (current_refinement_level == 0) {
-      A.increment(pressure_local_index, pressure_global_index, 1e-6);
-    }
-
-    // end of pressure block
-  } // end of fluid particle loop
-
-  if (rank == size - 1) {
-    for (int rigid_body_idx = 0; rigid_body_idx < num_rigid_body;
-         rigid_body_idx++) {
-      for (int axes = 0; axes < translation_dof; axes++) {
-        if (rigid_body_velocity_force_switch[rigid_body_idx][axes]) {
-          A.out_process_increment(
-              local_rigid_body_offset + rigid_body_idx * rigid_body_dof + axes,
-              global_rigid_body_offset + rigid_body_idx * rigid_body_dof + axes,
-              1.0);
-        }
-      }
-      for (int axes = 0; axes < rotation_dof; axes++) {
-        if (rigid_body_angvelocity_torque_switch[rigid_body_idx][axes]) {
-          A.out_process_increment(
-              local_rigid_body_offset + rigid_body_idx * rigid_body_dof +
-                  translation_dof + axes,
-              global_rigid_body_offset + rigid_body_idx * rigid_body_dof +
-                  translation_dof + axes,
-              1.0);
-        }
-      }
-    }
+    } // end of pressure block
   }
 
   // reduce the amount of memory used
   velocity_basis.reset();
   velocity_colloid_basis.reset();
 
-  // stabilize the coefficient matrix
-  // invert_row_index.clear();
-  abandon_this_level = 0;
-  for (int i = 0; i < local_particle_num; i++) {
-    const int current_particle_local_index = local_idx[i];
-    const int current_particle_global_index = source_index[i];
+  uu.assemble();
+  up.assemble();
+  uc.assemble();
+  pu.assemble();
+  pp.assemble();
+  pc.assemble();
 
-    for (int k = 0; k < field_dof; k++) {
-      const int local_index = current_particle_local_index * field_dof + k;
-      const int global_index = current_particle_global_index * field_dof + k;
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   const int current_particle_local_index = local_idx[i];
+  //   const int current_particle_global_index = source_index[i];
 
-      if (A.get_entity(local_index, global_index) < 0.0) {
-        cout << fixed << setprecision(10) << source_index[i] << " " << k << ' '
-             << adaptive_level[i] << " " << particle_type[i] << " "
-             << epsilon[i] << ' ' << neighbor_list_host(i, 0) << ' ';
+  //   const int pressure_local_index =
+  //       current_particle_local_index * field_dof + velocity_dof;
+  //   const int pressure_global_index =
+  //       current_particle_global_index * field_dof + velocity_dof;
+  //   // velocity block
+  //   if (particle_type[i] == 0) {
+  //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //       const int neighbor_particle_index =
+  //           source_index[neighbor_list_host(i, j + 1)];
+  //       // inner fluid particle
 
-        cout << "(";
-        for (int k = 0; k < dim; k++) {
-          cout << " " << coord[i][k];
-        }
-        cout << ") "
-             << "Discretization error" << endl;
-      }
-    }
-  }
+  //       // curl curl u
+  //       for (int axes1 = 0; axes1 < dim; axes1++) {
+  //         const int velocity_local_index =
+  //             field_dof * current_particle_local_index + axes1;
+  //         for (int axes2 = 0; axes2 < dim; axes2++) {
+  //           const int velocity_global_index =
+  //               field_dof * neighbor_particle_index + axes2;
 
-  MPI_Allreduce(MPI_IN_PLACE, &abandon_this_level, 1, MPI_INT, MPI_MAX,
-                MPI_COMM_WORLD);
+  //           auto alpha_index = velocity_solution_set->getAlphaIndex(
+  //               i, velocity_curl_curl_index[axes1 * dim + axes2]);
+  //           const double Lij = eta * velocity_alpha(alpha_index + j);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Allreduce(MPI_IN_PLACE, &area, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "surface area: %f\n", area);
-  MPI_Allreduce(MPI_IN_PLACE, &area_num, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "surface area particle num: %d\n", area_num);
+  //           A.increment(velocity_local_index, velocity_global_index, Lij);
+  //         }
+  //       }
+  //     }
+  //   } else {
+  //     // wall boundary (including particles on rigid body)
+  //     for (int axes1 = 0; axes1 < dim; axes1++) {
+  //       const int velocity_local_index =
+  //           field_dof * current_particle_local_index + axes1;
+  //       const int velocity_global_index =
+  //           field_dof * current_particle_global_index + axes1;
 
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "Current memory usage before assembly %.2f GB\n", mem / 1e9);
+  //       A.increment(velocity_local_index, velocity_global_index, 1.0);
+  //     }
 
-  auto ff = multi_mgr->get_field_mat(current_refinement_level);
-  auto nn = multi_mgr->get_colloid_mat(current_refinement_level);
-  auto nw = multi_mgr->get_colloid_whole_mat(current_refinement_level);
+  //     // particles on rigid body
+  //     if (particle_type[i] >= 4) {
+  //       const int current_rigid_body_index = attached_rigid_body[i];
+  //       const int current_rigid_body_local_offset =
+  //           local_rigid_body_offset + rigid_body_dof *
+  //           current_rigid_body_index;
+  //       const int current_rigid_body_global_offset =
+  //           global_rigid_body_offset +
+  //           rigid_body_dof * current_rigid_body_index;
 
-  // if (current_refinement_level == 0) {
-  //   A.write(string("A" + to_string(current_refinement_level) + ".txt"));
+  //       vec3 rci = coord[i] - rigid_body_position[current_rigid_body_index];
+  //       // non-slip condition
+  //       // translation
+  //       for (int axes1 = 0; axes1 < translation_dof; axes1++) {
+  //         const int velocity_local_index =
+  //             field_dof * current_particle_local_index + axes1;
+  //         A.increment(velocity_local_index,
+  //                     current_rigid_body_global_offset + axes1, -1.0);
+  //       }
+
+  //       // rotation
+  //       if (dim == 2) {
+  //         for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
+  //           A.increment(field_dof * current_particle_local_index +
+  //                           (axes1 + 2) % translation_dof,
+  //                       current_rigid_body_global_offset + translation_dof +
+  //                           axes1,
+  //                       rci[(axes1 + 1) % translation_dof]);
+  //           A.increment(field_dof * current_particle_local_index +
+  //                           (axes1 + 1) % translation_dof,
+  //                       current_rigid_body_global_offset + translation_dof +
+  //                           axes1,
+  //                       -rci[(axes1 + 2) % translation_dof]);
+  //         }
+  //       }
+  //       if (dim == 3) {
+  //         for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
+  //           A.increment(field_dof * current_particle_local_index +
+  //                           (axes1 + 2) % translation_dof,
+  //                       current_rigid_body_global_offset + translation_dof +
+  //                           axes1,
+  //                       -rci[(axes1 + 1) % translation_dof]);
+  //           A.increment(field_dof * current_particle_local_index +
+  //                           (axes1 + 1) % translation_dof,
+  //                       current_rigid_body_global_offset + translation_dof +
+  //                           axes1,
+  //                       rci[(axes1 + 2) % translation_dof]);
+  //         }
+  //       }
+
+  //       vec3 dA;
+  //       if (particle_type[i] == 4) {
+  //         // corner point
+  //         dA = vec3(0.0, 0.0, 0.0);
+  //       } else {
+  //         dA = (dim == 3) ? (normal[i] * p_spacing[i][0] * p_spacing[i][1])
+  //                         : (normal[i] * p_spacing[i][0]);
+
+  //         area += p_spacing[i][0] * p_spacing[i][1];
+  //         area_num++;
+  //       }
+
+  //       // apply pressure
+  //       for (int axes1 = 0; axes1 < translation_dof; axes1++) {
+  //         if (!rigid_body_velocity_force_switch[current_rigid_body_index]
+  //                                              [axes1]) {
+  //           A.out_process_increment(current_rigid_body_local_offset + axes1,
+  //                                   pressure_global_index, -dA[axes1]);
+  //         }
+  //       }
+
+  //       for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
+  //         if (!rigid_body_angvelocity_torque_switch[current_rigid_body_index]
+  //                                                  [axes1]) {
+  //           A.out_process_increment(current_rigid_body_local_offset +
+  //                                       translation_dof + axes1,
+  //                                   pressure_global_index,
+  //                                   -rci[(axes1 + 1) % translation_dof] *
+  //                                           dA[(axes1 + 2) % translation_dof]
+  //                                           +
+  //                                       rci[(axes1 + 2) % translation_dof] *
+  //                                           dA[(axes1 + 1) %
+  //                                           translation_dof]);
+  //         }
+  //       }
+
+  //       for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //         const int neighbor_particle_index =
+  //             source_index[neighbor_list_host(i, j + 1)];
+
+  //         for (int axes3 = 0; axes3 < dim; axes3++) {
+  //           const int velocity_global_index =
+  //               field_dof * neighbor_particle_index + axes3;
+
+  //           double *f = new double[dim];
+  //           for (int axes1 = 0; axes1 < dim; axes1++) {
+  //             f[axes1] = 0.0;
+  //           }
+
+  //           for (int axes1 = 0; axes1 < dim; axes1++) {
+  //             // output component 1
+  //             for (int axes2 = 0; axes2 < dim; axes2++) {
+  //               // output component 2
+  //               const int velocity_gradient_index_1 =
+  //                   velocity_gradient_index[(axes1 * dim + axes2) * dim +
+  //                                           axes3];
+  //               const int velocity_gradient_index_2 =
+  //                   velocity_gradient_index[(axes2 * dim + axes1) * dim +
+  //                                           axes3];
+  //               auto alpha_index1 =
+  //                   velocity_colloid_solution_set->getAlphaIndex(
+  //                       colloid_map[i], velocity_gradient_index_1);
+  //               auto alpha_index2 =
+  //                   velocity_colloid_solution_set->getAlphaIndex(
+  //                       colloid_map[i], velocity_gradient_index_2);
+  //               const double sigma =
+  //                   eta * (velocity_colloid_alpha(alpha_index1 + j) +
+  //                          velocity_colloid_alpha(alpha_index2 + j));
+
+  //               f[axes1] += sigma * dA[axes2];
+  //             }
+  //           }
+
+  //           // force balance
+  //           for (int axes1 = 0; axes1 < translation_dof; axes1++) {
+  //             if (!rigid_body_velocity_force_switch[current_rigid_body_index]
+  //                                                  [axes1]) {
+  //               A.out_process_increment(current_rigid_body_local_offset +
+  //               axes1,
+  //                                       velocity_global_index, f[axes1]);
+  //             }
+  //           }
+
+  //           // torque balance
+  //           if (dim == 2) {
+  //             for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
+  //               if (!rigid_body_angvelocity_torque_switch
+  //                       [current_rigid_body_index][axes1]) {
+  //                 A.out_process_increment(
+  //                     current_rigid_body_local_offset + translation_dof +
+  //                     axes1, velocity_global_index, -rci[(axes1 + 1) %
+  //                     translation_dof] *
+  //                             f[(axes1 + 2) % translation_dof] +
+  //                         rci[(axes1 + 2) % translation_dof] *
+  //                             f[(axes1 + 1) % translation_dof]);
+  //               }
+  //             }
+  //           }
+  //           if (dim == 3) {
+  //             for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
+  //               if (!rigid_body_angvelocity_torque_switch
+  //                       [current_rigid_body_index][axes1]) {
+  //                 A.out_process_increment(
+  //                     current_rigid_body_local_offset + translation_dof +
+  //                     axes1, velocity_global_index, rci[(axes1 + 1) %
+  //                     translation_dof] *
+  //                             f[(axes1 + 2) % translation_dof] -
+  //                         rci[(axes1 + 2) % translation_dof] *
+  //                             f[(axes1 + 1) % translation_dof]);
+  //               }
+  //             }
+  //           }
+  //           delete[] f;
+  //         }
+  //       }
+  //     } // end of particles on rigid body
+  //   }
+
+  //   // n \cdot grad p
+  //   if (particle_type[i] != 0) {
+  //     const int neumann_index = neumann_map[i];
+  //     const double bi =
+  //     pressure_neumann_solution_set->getAlpha0TensorTo0Tensor(
+  //         LaplacianOfScalarPointEvaluation, neumann_index,
+  //         neumann_neighbor_list_host(neumann_index, 0));
+
+  //     for (int j = 0; j < neumann_neighbor_list_host(neumann_index, 0); j++)
+  //     {
+  //       const int neighbor_particle_index =
+  //           source_index[neumann_neighbor_list_host(neumann_index, j + 1)];
+
+  //       for (int axes2 = 0; axes2 < dim; axes2++) {
+  //         double gradient = 0.0;
+  //         const int velocity_global_index =
+  //             field_dof * neighbor_particle_index + axes2;
+  //         for (int axes1 = 0; axes1 < dim; axes1++) {
+  //           auto alpha_index = velocity_solution_set->getAlphaIndex(
+  //               i, velocity_curl_curl_index[axes1 * dim + axes2]);
+  //           const double Lij = eta * velocity_alpha(alpha_index + j);
+
+  //           gradient += normal[i][axes1] * Lij;
+  //         }
+  //         A.increment(pressure_local_index, velocity_global_index,
+  //                     bi * gradient);
+  //       }
+  //     }
+  //   } // end of velocity block
+
+  //   // pressure block
+  //   if (particle_type[i] == 0) {
+  //     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+  //       const int neighbor_particle_index =
+  //           source_index[neighbor_list_host(i, j + 1)];
+
+  //       const int pressure_neighbor_global_index =
+  //           field_dof * neighbor_particle_index + velocity_dof;
+
+  //       auto alpha_index =
+  //           pressure_solution_set->getAlphaIndex(i,
+  //           pressure_laplacian_index);
+  //       const double Aij = pressure_alpha(alpha_index + j);
+
+  //       // laplacian p
+  //       A.increment(pressure_local_index, pressure_neighbor_global_index,
+  //       Aij); A.increment(pressure_local_index, pressure_global_index, -Aij);
+
+  //       for (int axes1 = 0; axes1 < dim; axes1++) {
+  //         const int velocity_local_index =
+  //             field_dof * current_particle_local_index + axes1;
+
+  //         auto alpha_index = pressure_solution_set->getAlphaIndex(
+  //             i, pressure_gradient_index[axes1]);
+  //         const double Dijx = pressure_alpha(alpha_index + j);
+
+  //         // grad p
+  //         A.increment(velocity_local_index, pressure_neighbor_global_index,
+  //                     -Dijx);
+  //         A.increment(velocity_local_index, pressure_global_index, Dijx);
+  //       }
+  //     }
+  //   }
+  //   if (particle_type[i] != 0) {
+  //     const int neumann_index = neumann_map[i];
+
+  //     for (int j = 0; j < neumann_neighbor_list_host(neumann_index, 0); j++)
+  //     {
+  //       const int neighbor_particle_index =
+  //           source_index[neumann_neighbor_list_host(neumann_index, j + 1)];
+
+  //       const int pressure_neighbor_global_index =
+  //           field_dof * neighbor_particle_index + velocity_dof;
+
+  //       auto alpha_index = pressure_neumann_solution_set->getAlphaIndex(
+  //           neumann_index, pressure_neumann_laplacian_index);
+  //       const double Aij = pressure_neumann_alpha(alpha_index + j);
+
+  //       // laplacian p
+  //       A.increment(pressure_local_index, pressure_neighbor_global_index,
+  //       Aij); A.increment(pressure_local_index, pressure_global_index, -Aij);
+  //     }
+  //   }
+
+  //   if (current_refinement_level == 0) {
+  //     A.increment(pressure_local_index, pressure_global_index, 1e-6);
+  //   }
+
+  //   // end of pressure block
+  // } // end of fluid particle loop
+
+  // if (rank == size - 1) {
+  //   for (int rigid_body_idx = 0; rigid_body_idx < num_rigid_body;
+  //        rigid_body_idx++) {
+  //     for (int axes = 0; axes < translation_dof; axes++) {
+  //       if (rigid_body_velocity_force_switch[rigid_body_idx][axes]) {
+  //         A.out_process_increment(
+  //             local_rigid_body_offset + rigid_body_idx * rigid_body_dof +
+  //             axes, global_rigid_body_offset + rigid_body_idx *
+  //             rigid_body_dof + axes, 1.0);
+  //       }
+  //     }
+  //     for (int axes = 0; axes < rotation_dof; axes++) {
+  //       if (rigid_body_angvelocity_torque_switch[rigid_body_idx][axes]) {
+  //         A.out_process_increment(
+  //             local_rigid_body_offset + rigid_body_idx * rigid_body_dof +
+  //                 translation_dof + axes,
+  //             global_rigid_body_offset + rigid_body_idx * rigid_body_dof +
+  //                 translation_dof + axes,
+  //             1.0);
+  //       }
+  //     }
+  //   }
   // }
 
-  A.assemble(*ff, field_dof, num_rigid_body, rigid_body_dof);
+  // // reduce the amount of memory used
+  // velocity_basis.reset();
+  // velocity_colloid_basis.reset();
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  timer2 = MPI_Wtime();
-  PetscPrintf(PETSC_COMM_WORLD, "Matrix assembly duration: %fs\n",
-              timer2 - timer1);
+  // // stabilize the coefficient matrix
+  // // invert_row_index.clear();
+  // abandon_this_level = 0;
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   const int current_particle_local_index = local_idx[i];
+  //   const int current_particle_global_index = source_index[i];
 
-  idx_colloid.clear();
+  //   for (int k = 0; k < field_dof; k++) {
+  //     const int local_index = current_particle_local_index * field_dof + k;
+  //     const int global_index = current_particle_global_index * field_dof + k;
 
-  if (num_rigid_body != 0)
-    A.extract_neighbor_index(idx_colloid, dim, num_rigid_body,
-                             local_rigid_body_offset, global_rigid_body_offset,
-                             *nn, *nw);
+  //     if (A.get_entity(local_index, global_index) < 0.0) {
+  //       cout << fixed << setprecision(10) << source_index[i] << " " << k << '
+  //       '
+  //            << adaptive_level[i] << " " << particle_type[i] << " "
+  //            << epsilon[i] << ' ' << neighbor_list_host(i, 0) << ' ';
 
-  PetscMemoryGetCurrentUsage(&mem);
-  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "Current memory usage after assembly %.2f GB\n",
-              mem / 1e9);
+  //       cout << "(";
+  //       for (int k = 0; k < dim; k++) {
+  //         cout << " " << coord[i][k];
+  //       }
+  //       cout << ") "
+  //            << "Discretization error" << endl;
+  //     }
+  //   }
+  // }
 
-  int inner_counter = 0;
-  for (int i = 0; i < local_particle_num; i++) {
-    if (particle_type[i] == 0)
-      inner_counter++;
-  }
-  MPI_Allreduce(MPI_IN_PLACE, &inner_counter, 1, MPI_INT, MPI_SUM,
-                MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD, "total inner particle count: %d\n",
-              inner_counter);
+  // MPI_Allreduce(MPI_IN_PLACE, &abandon_this_level, 1, MPI_INT, MPI_MAX,
+  //               MPI_COMM_WORLD);
+
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, &area, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  // PetscPrintf(PETSC_COMM_WORLD, "surface area: %f\n", area);
+  // MPI_Allreduce(MPI_IN_PLACE, &area_num, 1, MPI_INT, MPI_SUM,
+  // MPI_COMM_WORLD); PetscPrintf(PETSC_COMM_WORLD, "surface area particle num:
+  // %d\n", area_num);
+
+  // PetscMemoryGetCurrentUsage(&mem);
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  // PetscPrintf(PETSC_COMM_WORLD,
+  //             "Current memory usage before assembly %.2f GB\n", mem / 1e9);
+
+  // auto ff = multi_mgr->get_field_mat(current_refinement_level);
+  // auto nn = multi_mgr->get_colloid_mat(current_refinement_level);
+  // auto nw = multi_mgr->get_colloid_whole_mat(current_refinement_level);
+
+  // // if (current_refinement_level == 0) {
+  // //   A.write(string("A" + to_string(current_refinement_level) + ".txt"));
+  // // }
+
+  // A.assemble(*ff, field_dof, num_rigid_body, rigid_body_dof);
+
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // timer2 = MPI_Wtime();
+  // PetscPrintf(PETSC_COMM_WORLD, "Matrix assembly duration: %fs\n",
+  //             timer2 - timer1);
+
+  // idx_colloid.clear();
+
+  // if (num_rigid_body != 0)
+  //   A.extract_neighbor_index(idx_colloid, dim, num_rigid_body,
+  //                            local_rigid_body_offset,
+  //                            global_rigid_body_offset, *nn, *nw);
+
+  // PetscMemoryGetCurrentUsage(&mem);
+  // MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  // PetscPrintf(PETSC_COMM_WORLD, "Current memory usage after assembly %.2f
+  // GB\n",
+  //             mem / 1e9);
+
+  // int inner_counter = 0;
+  // for (int i = 0; i < local_particle_num; i++) {
+  //   if (particle_type[i] == 0)
+  //     inner_counter++;
+  // }
+  // MPI_Allreduce(MPI_IN_PLACE, &inner_counter, 1, MPI_INT, MPI_SUM,
+  //               MPI_COMM_WORLD);
+  // PetscPrintf(PETSC_COMM_WORLD, "total inner particle count: %d\n",
+  //             inner_counter);
 }
 
 void stokes_equation::build_rhs() {
@@ -1733,7 +2197,7 @@ void stokes_equation::solve_step() {
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
   // if (current_refinement_level < 4)
-  multi_mgr->solve(rhs, res, idx_colloid);
+  // multi_mgr->solve(rhs, res, idx_colloid);
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
