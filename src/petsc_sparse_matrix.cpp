@@ -61,72 +61,6 @@ int petsc_sparse_matrix::write(string fileName) {
 
 int petsc_sparse_matrix::assemble() {
   // move data from out_process_increment
-  int myid, MPIsize;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
-
-  for (PetscInt row = 0; row < __out_process_row; row++) {
-    int send_count = __out_process_matrix[row].size();
-    vector<int> recv_count(MPIsize);
-
-    MPI_Gather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT,
-               MPIsize - 1, MPI_COMM_WORLD);
-
-    vector<int> displs(MPIsize + 1);
-    if (myid == MPIsize - 1) {
-      displs[0] = 0;
-      for (int i = 1; i <= MPIsize; i++) {
-        displs[i] = displs[i - 1] + recv_count[i - 1];
-      }
-    }
-
-    vector<PetscInt> recv_j;
-    vector<PetscReal> recv_val;
-
-    recv_j.resize(displs[MPIsize]);
-    recv_val.resize(displs[MPIsize]);
-
-    vector<PetscInt> send_j(send_count);
-    vector<PetscReal> send_val(send_count);
-
-    size_t n = 0;
-    n = __out_process_matrix[row].size();
-    send_j.resize(n);
-    send_val.resize(n);
-    for (auto i = 0; i < n; i++) {
-      send_j[i] = __out_process_matrix[row][i].first;
-      send_val[i] = __out_process_matrix[row][i].second;
-    }
-
-    MPI_Gatherv(send_j.data(), send_count, MPI_UNSIGNED, recv_j.data(),
-                recv_count.data(), displs.data(), MPI_UNSIGNED, MPIsize - 1,
-                MPI_COMM_WORLD);
-    MPI_Gatherv(send_val.data(), send_count, MPI_DOUBLE, recv_val.data(),
-                recv_count.data(), displs.data(), MPI_DOUBLE, MPIsize - 1,
-                MPI_COMM_WORLD);
-
-    // merge data
-    if (myid == MPIsize - 1) {
-      vector<int> sorted_recv_j = recv_j;
-      sort(sorted_recv_j.begin(), sorted_recv_j.end());
-      sorted_recv_j.erase(unique(sorted_recv_j.begin(), sorted_recv_j.end()),
-                          sorted_recv_j.end());
-
-      __matrix[row + __out_process_reduction].resize(sorted_recv_j.size());
-      for (int i = 0; i < sorted_recv_j.size(); i++) {
-        __matrix[row + __out_process_reduction][i] =
-            entry(sorted_recv_j[i], 0.0);
-      }
-
-      for (int i = 0; i < recv_j.size(); i++) {
-        auto it = lower_bound(__matrix[row + __out_process_reduction].begin(),
-                              __matrix[row + __out_process_reduction].end(),
-                              entry(recv_j[i], recv_val[i]), compare_index);
-
-        it->second += recv_val[i];
-      }
-    }
-  }
 
   __i.resize(__row + 1);
 
@@ -162,14 +96,9 @@ int petsc_sparse_matrix::assemble() {
     }
   }
 
-  if (__Col != 0)
-    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
-                              __Col, __i.data(), __j.data(), __val.data(),
-                              &__mat);
-  else
-    MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
-                              PETSC_DECIDE, __i.data(), __j.data(),
-                              __val.data(), &__mat);
+  MatCreateMPIAIJWithArrays(PETSC_COMM_WORLD, __row, __col, PETSC_DECIDE,
+                            PETSC_DECIDE, __i.data(), __j.data(), __val.data(),
+                            &__mat);
 
   is_assembled = true;
 
@@ -701,6 +630,97 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
               mem / 1e9);
 
   return __nnz;
+}
+
+int petsc_sparse_matrix::out_process_assemble() {
+  // move data from out_process
+  int myid, MPIsize;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
+
+  vector<int> whole_row;
+  whole_row.resize(MPIsize);
+
+  int send_count;
+  send_count = __row;
+
+  MPI_Allgather(&send_count, 1, MPI_INT, whole_row.data(), 1, MPI_INT,
+                MPI_COMM_WORLD);
+
+  vector<int> row_offset;
+  row_offset.resize(MPIsize + 1);
+  row_offset[0] = 0;
+  for (int idx = 0; idx < MPIsize; idx++) {
+    row_offset[idx + 1] = row_offset[idx] + whole_row[idx];
+  }
+
+  for (int idx = 0; idx < MPIsize; idx++) {
+    for (PetscInt row = row_offset[idx]; row < row_offset[idx + 1]; row++) {
+      send_count = __out_process_matrix[row].size();
+      vector<int> recv_count(MPIsize);
+
+      MPI_Gather(&send_count, 1, MPI_INT, recv_count.data(), 1, MPI_INT, idx,
+                 MPI_COMM_WORLD);
+
+      vector<int> displs(MPIsize + 1);
+      if (myid == idx) {
+        displs[0] = 0;
+        for (int i = 1; i <= MPIsize; i++) {
+          displs[i] = displs[i - 1] + recv_count[i - 1];
+        }
+      }
+
+      vector<PetscInt> recv_j;
+      vector<PetscReal> recv_val;
+
+      recv_j.resize(displs[MPIsize]);
+      recv_val.resize(displs[MPIsize]);
+
+      vector<PetscInt> send_j(send_count);
+      vector<PetscReal> send_val(send_count);
+
+      size_t n = 0;
+      n = __out_process_matrix[row].size();
+      send_j.resize(n);
+      send_val.resize(n);
+      for (auto i = 0; i < n; i++) {
+        send_j[i] = __out_process_matrix[row][i].first;
+        send_val[i] = __out_process_matrix[row][i].second;
+      }
+
+      MPI_Gatherv(send_j.data(), send_count, MPI_UNSIGNED, recv_j.data(),
+                  recv_count.data(), displs.data(), MPI_UNSIGNED, idx,
+                  MPI_COMM_WORLD);
+      MPI_Gatherv(send_val.data(), send_count, MPI_DOUBLE, recv_val.data(),
+                  recv_count.data(), displs.data(), MPI_DOUBLE, idx,
+                  MPI_COMM_WORLD);
+
+      // merge data
+      if (myid == idx) {
+        __matrix.resize(__row);
+
+        vector<int> sorted_recv_j = recv_j;
+        sort(sorted_recv_j.begin(), sorted_recv_j.end());
+        sorted_recv_j.erase(unique(sorted_recv_j.begin(), sorted_recv_j.end()),
+                            sorted_recv_j.end());
+
+        __matrix[row - row_offset[idx]].resize(sorted_recv_j.size());
+        for (int i = 0; i < sorted_recv_j.size(); i++) {
+          __matrix[row - row_offset[idx]][i] = entry(sorted_recv_j[i], 0.0);
+        }
+
+        for (int i = 0; i < recv_j.size(); i++) {
+          auto it = lower_bound(__matrix[row - row_offset[idx]].begin(),
+                                __matrix[row - row_offset[idx]].end(),
+                                entry(recv_j[i], recv_val[i]), compare_index);
+
+          it->second += recv_val[i];
+        }
+      }
+    }
+  }
+
+  return assemble();
 }
 
 int petsc_sparse_matrix::extract_neighbor_index(

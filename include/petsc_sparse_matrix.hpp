@@ -62,6 +62,7 @@ public:
 
 private:
   bool is_assembled, is_shell_assembled, is_ctx_assembled;
+  bool is_transpose_assemble;
 
   typedef std::pair<PetscInt, double> entry;
   std::vector<std::vector<entry>> __matrix;
@@ -199,6 +200,7 @@ public:
   int assemble(int blockSize, int num_rigid_body, int rigid_body_dof);
   int assemble(petsc_sparse_matrix &mat, int blockSize, int num_rigid_body,
                int rigid_body_dof);
+  int out_process_assemble();
 
   int extract_neighbor_index(std::vector<int> &idx_colloid, int dimension,
                              int num_rigid_body, int local_rigid_body_offset,
