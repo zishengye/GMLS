@@ -1471,9 +1471,11 @@ void stokes_equation::build_coefficient_matrix() {
   pu.assemble();
   pp.assemble();
   pc.assemble();
-  cu.out_process_assemble();
+  cu.out_process_assemble(true);
   cp.out_process_assemble();
   cc.assemble();
+
+  A_block.assemble();
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();

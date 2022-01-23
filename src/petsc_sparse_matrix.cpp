@@ -59,7 +59,7 @@ int petsc_sparse_matrix::write(string fileName) {
   return 0;
 }
 
-int petsc_sparse_matrix::assemble() {
+int petsc_sparse_matrix::assemble(bool reserve_data) {
   __i.resize(__row + 1);
 
   __nnz = 0;
@@ -100,18 +100,18 @@ int petsc_sparse_matrix::assemble() {
 
   is_assembled = true;
 
-  {
+  if (reserve_data == false) {
     decltype(__i)().swap(__i);
     decltype(__j)().swap(__j);
     decltype(__val)().swap(__val);
-
-    decltype(__matrix)().swap(__matrix);
   }
+
+  decltype(__matrix)().swap(__matrix);
 
   return __nnz;
 }
 
-int petsc_sparse_matrix::assemble(int block_size) {
+int petsc_sparse_matrix::assemble(int block_size, bool reserve_data) {
   // move data from out_process_increment
   int myid, MPIsize;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
@@ -260,13 +260,13 @@ int petsc_sparse_matrix::assemble(int block_size) {
 
   is_assembled = true;
 
-  {
+  if (reserve_data == false) {
     decltype(__i)().swap(__i);
     decltype(__j)().swap(__j);
     decltype(__val)().swap(__val);
-
-    decltype(__matrix)().swap(__matrix);
   }
+
+  decltype(__matrix)().swap(__matrix);
 
   return __nnz;
 }
@@ -630,7 +630,7 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
   return __nnz;
 }
 
-int petsc_sparse_matrix::out_process_assemble() {
+int petsc_sparse_matrix::out_process_assemble(bool reserve_data) {
   // move data from out_process
   int myid, MPIsize;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
@@ -718,7 +718,7 @@ int petsc_sparse_matrix::out_process_assemble() {
     }
   }
 
-  return assemble();
+  return assemble(reserve_data);
 }
 
 int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
@@ -757,32 +757,37 @@ int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
   col_index.erase(unique(col_index.begin(), col_index.end()), col_index.end());
 
   for (int idx = 0; idx < MPIsize; idx++) {
-    vector<int> marker;
+    vector<int> marker, recv_marker;
     marker.resize(whole_col[idx] / field_dof);
+    recv_marker.resize(whole_col[idx] / field_dof);
+
     int idx1, idx2;
     idx1 = col_offset[idx] / field_dof;
     idx2 = col_offset[idx + 1] / field_dof;
 
     for (int i = 0; i < whole_col[idx] / field_dof; i++)
-      marker[idx] = 0;
+      marker[i] = 0;
 
-    auto first = lower_bound(col_index.begin(), col_index.end(), idx1);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    auto first = upper_bound(col_index.begin(), col_index.end(), idx1);
     auto last = lower_bound(col_index.begin(), col_index.end(), idx2);
 
     for (auto it = first; it != last; it++) {
       marker[*it] = 1;
     }
-
-    MPI_Reduce(marker.data(), marker.data(), marker.size(), MPI_INT, MPI_SUM,
-               idx, MPI_COMM_WORLD);
+    MPI_Reduce(marker.data(), recv_marker.data(), marker.size(), MPI_INT,
+               MPI_SUM, idx, MPI_COMM_WORLD);
 
     if (myId == idx)
-      for (int i = 0; i < marker.size(); i++)
-        if (marker[i] != 0)
+      for (int i = 0; i < recv_marker.size(); i++)
+        if (recv_marker[i] != 0)
           idx_colloid.push_back(i);
-
-    MPI_Barrier(MPI_COMM_WORLD);
   }
+
+  decltype(__i)().swap(__i);
+  decltype(__j)().swap(__j);
+  decltype(__val)().swap(__val);
 
   return 0;
 }

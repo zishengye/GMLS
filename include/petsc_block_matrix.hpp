@@ -21,6 +21,8 @@ private:
 
   PetscInt Row, Col;
 
+  Mat mat;
+
 public:
   petsc_block_matrix();
 
@@ -31,6 +33,10 @@ public:
   std::shared_ptr<petsc_sparse_matrix> get_matrix(PetscInt i, PetscInt j) {
     return block_matrix[i * Col + j];
   }
+
+  void assemble();
+
+  Mat &get_reference() { return mat; }
 };
 
 #endif

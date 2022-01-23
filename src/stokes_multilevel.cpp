@@ -659,132 +659,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   vector<int> idx_field;
   vector<int> idx_pressure;
 
-  // PetscInt local_n1, local_n2;
-  // Mat &shell_mat = getA(refinement_step)->get_shell_reference();
-  // MatGetOwnershipRange(shell_mat, &local_n1, &local_n2);
+  petsc_block_matrix &A_block = *getABlock(refinement_step);
 
-  // int local_particle_num;
-  // if (mpi_rank != mpi_size - 1) {
-  //   local_particle_num = (local_n2 - local_n1) / field_dof;
-  //   idx_field.resize(field_dof * local_particle_num);
-  //   idx_pressure.resize(local_particle_num);
-
-  //   for (int i = 0; i < local_particle_num; i++) {
-  //     for (int j = 0; j < dimension; j++) {
-  //       idx_field[field_dof * i + j] = local_n1 + field_dof * i + j;
-  //     }
-  //     idx_field[field_dof * i + velocity_dof] =
-  //         local_n1 + field_dof * i + velocity_dof;
-
-  //     idx_pressure[i] = local_n1 + field_dof * i + velocity_dof;
-  //   }
-  // } else {
-  //   local_particle_num =
-  //       (local_n2 - local_n1 - num_rigid_body * rigid_body_dof) / field_dof;
-  //   idx_field.resize(field_dof * local_particle_num);
-  //   idx_pressure.resize(local_particle_num);
-
-  //   for (int i = 0; i < local_particle_num; i++) {
-  //     for (int j = 0; j < dimension; j++) {
-  //       idx_field[field_dof * i + j] = local_n1 + field_dof * i + j;
-  //     }
-  //     idx_field[field_dof * i + velocity_dof] =
-  //         local_n1 + field_dof * i + velocity_dof;
-
-  //     idx_pressure[i] = local_n1 + field_dof * i + velocity_dof;
-  //   }
-  // }
-
-  int global_particle_num;
-  MPI_Allreduce(&local_particle_num, &global_particle_num, 1, MPI_INT, MPI_SUM,
-                MPI_COMM_WORLD);
-
-  local_particle_num_list.push_back(local_particle_num);
-  global_particle_num_list.push_back(global_particle_num);
-
-  // auto isg_field = isg_field_list[refinement_step];
-  // auto isg_colloid = isg_colloid_list[refinement_step];
-  // auto isg_pressure = isg_pressure_list[refinement_step];
-
-  // isg_field->create_local(idx_field);
-  // isg_colloid->create(idx_colloid);
-  // isg_pressure->create_local(idx_pressure);
-
-  // vector<int> idx_colloid_sub_field;
-  // vector<int> idx_colloid_sub_colloid;
-  // vector<int> idx_colloid_field;
-
-  // vector<int> idx_colloid_offset, idx_colloid_global_size;
-  // idx_colloid_offset.resize(mpi_size + 1);
-  // idx_colloid_global_size.resize(mpi_size);
-
-  // int idx_colloid_local_size = idx_colloid.size();
-  // MPI_Allgather(&idx_colloid_local_size, 1, MPI_INT,
-  //               idx_colloid_global_size.data(), 1, MPI_INT, MPI_COMM_WORLD);
-
-  // idx_colloid_offset[0] = 0;
-  // for (int i = 0; i < mpi_size; i++) {
-  //   idx_colloid_offset[i + 1] =
-  //       idx_colloid_offset[i] + idx_colloid_global_size[i];
-  // }
-
-  // for (int i = 0; i < idx_colloid.size(); i++) {
-  //   if (idx_colloid[i] < global_particle_num * field_dof) {
-  //     idx_colloid_sub_field.push_back(i + idx_colloid_offset[mpi_rank]);
-  //     idx_colloid_field.push_back(idx_colloid[i]);
-  //   } else {
-  //     idx_colloid_sub_colloid.push_back(i + idx_colloid_offset[mpi_rank]);
-  //   }
-  // }
-
-  // IS isg_colloid_sub_field, isg_colloid_sub_colloid, isg_colloid_field;
-
-  // petsc_vector _rhs, _x;
-  // _rhs.create(rhs);
-  // _x.create(x);
-
-  // Mat &ff_shell = ff_list[refinement_step]->get_shell_reference();
-  // Mat &ff = ff_list[refinement_step]->get_reference();
-  // Mat &nn = nn_list[refinement_step]->get_reference();
-  // Mat &nn_shell = nn_list[refinement_step]->get_shell_reference();
-  // Mat &nw = nw_list[refinement_step]->get_reference();
-  // // Mat &pp = pp_list[refinement_step]->get_reference();
-
-  // PetscLogDouble mem;
-
-  // // MatCreateSubMatrix(mat, isg_colloid->get_reference(),
-  // //                    isg_colloid->get_reference(), MAT_INITIAL_MATRIX,
-  // //                    nn_list[refinement_step]->get_pointer());
-  // // MatCreateSubMatrix(mat, isg_colloid->get_reference(), NULL,
-  // //                    MAT_INITIAL_MATRIX,
-  // //                    nw_list[refinement_step]->get_pointer());
-  // // MatCreateSubMatrix(ff, isg_pressure->get_reference(),
-  // //                    isg_pressure->get_reference(), MAT_INITIAL_MATRIX,
-  // //                    pp_list[refinement_step]->get_pointer());
-  // // MatCreateSubMatrix(mat, isg_pressure->get_reference(), NULL,
-  // //                    MAT_INITIAL_MATRIX,
-  // //                    pw_list[refinement_step]->get_pointer());
-
-  // // setup current level vectors
-  // x_list.push_back(make_shared<petsc_vector>());
-  // b_list.push_back(make_shared<petsc_vector>());
-  // r_list.push_back(make_shared<petsc_vector>());
-  // t_list.push_back(make_shared<petsc_vector>());
-
-  // x_pressure_list.push_back(make_shared<petsc_vector>());
-  // y_pressure_list.push_back(make_shared<petsc_vector>());
-
-  // x_field_list.push_back(make_shared<petsc_vector>());
-  // y_field_list.push_back(make_shared<petsc_vector>());
-  // b_field_list.push_back(make_shared<petsc_vector>());
-  // r_field_list.push_back(make_shared<petsc_vector>());
-
-  // x_colloid_list.push_back(make_shared<petsc_vector>());
-  // b_colloid_list.push_back(make_shared<petsc_vector>());
-
-  // field_relaxation_list.push_back(make_shared<petsc_ksp>());
-  // colloid_relaxation_list.push_back(make_shared<petsc_ksp>());
-  // // pressure_relaxation_list.push_back(make_shared<petsc_ksp>());
+  PetscLogDouble mem;
 
   // MatCreateVecs(shell_mat, NULL,
   // &(x_list[refinement_step]->get_reference())); MatCreateVecs(shell_mat,
@@ -1016,20 +893,20 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   //   }
   // }
 
-  // KSP _ksp;
-  // KSPCreate(PETSC_COMM_WORLD, &_ksp);
+  KSP _ksp;
+  KSPCreate(PETSC_COMM_WORLD, &_ksp);
 
-  // PC _pc;
+  PC _pc;
 
-  // HypreLUShellPC *shell_ctx;
+  HypreLUShellPC *shell_ctx;
 
-  // static PetscInt restart;
+  static PetscInt restart;
 
-  // KSPGetPC(_ksp, &_pc);
-  // KSPSetOperators(_ksp, shell_mat, shell_mat);
-  // KSPSetFromOptions(_ksp);
+  KSPGetPC(_ksp, &_pc);
+  KSPSetOperators(_ksp, A_block.get_reference(), A_block.get_reference());
+  KSPSetFromOptions(_ksp);
 
-  // PCSetType(_pc, PCSHELL);
+  PCSetType(_pc, PCSHELL);
 
   // if (refinement_step == 0) {
   //   KSPGMRESGetRestart(_ksp, &restart);
@@ -1047,21 +924,20 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   // //                      (double)(global_particle_num_list[0]),
   // //                  atol, dtol, maxits);
 
-  // KSPSetUp(_ksp);
+  KSPSetUp(_ksp);
 
-  // HypreLUShellPCCreate(&shell_ctx);
+  HypreLUShellPCCreate(&shell_ctx);
 
-  // MPI_Barrier(MPI_COMM_WORLD);
-  // PetscPrintf(PETSC_COMM_WORLD,
-  //             "start of stokes_multilevel preconditioner setup\n");
+  MPI_Barrier(MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "start of stokes_multilevel preconditioner setup\n");
 
-  // PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
-  // PCShellSetContext(_pc, shell_ctx);
-  // PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+  PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
+  PCShellSetContext(_pc, shell_ctx);
+  PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
   // HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
   //                     field_dof, num_rigid_body);
-  // // }
 
   // PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   // PetscReal residual_norm, rhs_norm;
@@ -1127,13 +1003,13 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   //   ISDestroy(&isg_colloid_field);
   // }
 
-  // PetscLogDouble maxMem;
-  // PetscMemoryGetCurrentUsage(&mem);
-  // MPI_Allreduce(&mem, &maxMem, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-  // MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  // PetscPrintf(PETSC_COMM_WORLD,
-  //             "Current memory usage %.2f GB, maximum memory usage: %.2f
-  //             GB\n", mem / 1e9, maxMem / 1e9);
+  PetscLogDouble maxMem;
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(&mem, &maxMem, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage %.2f GB, maximum memory usage: %.2fGB\n",
+              mem / 1e9, maxMem / 1e9);
 
   return 0;
 }

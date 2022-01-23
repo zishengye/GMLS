@@ -158,6 +158,12 @@ public:
     __out_process_matrix.resize(out_process_row);
   }
 
+  PetscInt get_row() { return __row; }
+
+  PetscInt get_col() { return __col; }
+
+  PetscInt get_Col() { return __Col; }
+
   Mat &get_reference() { return __mat; }
 
   Mat *get_pointer() { return &__mat; }
@@ -195,12 +201,12 @@ public:
 
   int write(std::string filename);
 
-  int assemble();
-  int assemble(int blockSize);
+  int assemble(bool reserve_data = false);
+  int assemble(int blockSize, bool reserve_data = false);
   int assemble(int blockSize, int num_rigid_body, int rigid_body_dof);
   int assemble(petsc_sparse_matrix &mat, int blockSize, int num_rigid_body,
                int rigid_body_dof);
-  int out_process_assemble();
+  int out_process_assemble(bool reserve_data = false);
 
   int extract_neighbor_index(std::vector<int> &idx_colloid, int dimension,
                              int num_rigid_body, int field_dof);
