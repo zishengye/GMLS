@@ -203,9 +203,7 @@ public:
   int out_process_assemble();
 
   int extract_neighbor_index(std::vector<int> &idx_colloid, int dimension,
-                             int num_rigid_body, int local_rigid_body_offset,
-                             int global_rigid_body_offset,
-                             petsc_sparse_matrix &nn, petsc_sparse_matrix &nw);
+                             int num_rigid_body, int field_dof);
 
   // (*this) * x = rhs
   void solve(std::vector<double> &rhs,

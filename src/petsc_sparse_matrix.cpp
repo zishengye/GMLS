@@ -60,8 +60,6 @@ int petsc_sparse_matrix::write(string fileName) {
 }
 
 int petsc_sparse_matrix::assemble() {
-  // move data from out_process_increment
-
   __i.resize(__row + 1);
 
   __nnz = 0;
@@ -723,453 +721,68 @@ int petsc_sparse_matrix::out_process_assemble() {
   return assemble();
 }
 
-int petsc_sparse_matrix::extract_neighbor_index(
-    vector<int> &idx_colloid, int dimension, int num_rigid_body,
-    int local_rigid_body_offset, int global_rigid_body_offset,
-    petsc_sparse_matrix &nn, petsc_sparse_matrix &nw) {
+int petsc_sparse_matrix::extract_neighbor_index(vector<int> &idx_colloid,
+                                                int dimension,
+                                                int num_rigid_body,
+                                                int field_dof) {
 
   int MPIsize, myId;
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
   int rigid_body_dof = (dimension == 2) ? 3 : 6;
-  int field_dof = dimension + 1;
+
+  vector<int> whole_col;
+  whole_col.resize(MPIsize);
+
+  int send_count;
+  send_count = __col;
+
+  MPI_Allgather(&send_count, 1, MPI_INT, whole_col.data(), 1, MPI_INT,
+                MPI_COMM_WORLD);
+
+  vector<int> col_offset;
+  col_offset.resize(MPIsize + 1);
+  col_offset[0] = 0;
+  for (int idx = 0; idx < MPIsize; idx++) {
+    col_offset[idx + 1] = col_offset[idx] + whole_col[idx];
+  }
 
   idx_colloid.clear();
 
-  vector<int> neighbor_inclusion;
+  vector<int> col_index = __j;
+  for (int i = 0; i < col_index.size(); i++)
+    col_index[i] /= field_dof;
+  sort(col_index.begin(), col_index.end());
+  col_index.erase(unique(col_index.begin(), col_index.end()), col_index.end());
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  idx_colloid.clear();
+  for (int idx = 0; idx < MPIsize; idx++) {
+    vector<int> marker;
+    marker.resize(whole_col[idx] / field_dof);
+    int idx1, idx2;
+    idx1 = col_offset[idx] / field_dof;
+    idx2 = col_offset[idx + 1] / field_dof;
 
-  PetscInt local_N1;
-  MatGetOwnershipRange(__shell_mat, &local_N1, NULL);
+    for (int i = 0; i < whole_col[idx] / field_dof; i++)
+      marker[idx] = 0;
 
-  neighbor_inclusion.clear();
+    auto first = lower_bound(col_index.begin(), col_index.end(), idx1);
+    auto last = lower_bound(col_index.begin(), col_index.end(), idx2);
 
-  PetscInt Col_block, row_block, col_block;
-  Col_block = __Col - num_rigid_body * rigid_body_dof;
-  if (myId == MPIsize - 1) {
-    row_block = __row - num_rigid_body * rigid_body_dof;
-    col_block = __col - num_rigid_body * rigid_body_dof;
-  } else {
-    row_block = __row;
-    col_block = __col;
-  }
-
-  for (int i = 0; i < row_block; i++) {
-    auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
-                          entry(global_rigid_body_offset, 0.0), compare_index);
-    if (it != __matrix[i].end()) {
-      neighbor_inclusion.push_back((local_N1 + i) / field_dof);
-    }
-  }
-
-  sort(neighbor_inclusion.begin(), neighbor_inclusion.end());
-  neighbor_inclusion.erase(
-      unique(neighbor_inclusion.begin(), neighbor_inclusion.end()),
-      neighbor_inclusion.end());
-
-  // move data
-  vector<int> local_neighbor_inclusion_num(MPIsize);
-  for (int i = 0; i < MPIsize; i++) {
-    local_neighbor_inclusion_num[i] = 0;
-  }
-  local_neighbor_inclusion_num[myId] = neighbor_inclusion.size();
-
-  MPI_Allreduce(MPI_IN_PLACE, local_neighbor_inclusion_num.data(), MPIsize,
-                MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-  int recv_num = 0;
-  vector<int> displs;
-  vector<int> recv_neighbor_inclusion;
-  if (myId == MPIsize - 1) {
-    displs.resize(MPIsize + 1);
-    displs[0] = 0;
-    for (int i = 0; i < MPIsize; i++) {
-      recv_num += local_neighbor_inclusion_num[i];
-      displs[i + 1] = displs[i] + local_neighbor_inclusion_num[i];
+    for (auto it = first; it != last; it++) {
+      marker[*it] = 1;
     }
 
-    recv_neighbor_inclusion.resize(recv_num);
-  }
+    MPI_Reduce(marker.data(), marker.data(), marker.size(), MPI_INT, MPI_SUM,
+               idx, MPI_COMM_WORLD);
 
-  MPI_Gatherv(neighbor_inclusion.data(), neighbor_inclusion.size(), MPI_INT,
-              recv_neighbor_inclusion.data(),
-              local_neighbor_inclusion_num.data(), displs.data(), MPI_INT,
-              MPIsize - 1, MPI_COMM_WORLD);
-
-  if (myId == MPIsize - 1) {
-    sort(recv_neighbor_inclusion.begin(), recv_neighbor_inclusion.end());
-    recv_neighbor_inclusion.erase(
-        unique(recv_neighbor_inclusion.begin(), recv_neighbor_inclusion.end()),
-        recv_neighbor_inclusion.end());
-  }
-
-  vector<vector<entry>>().swap(__matrix);
-
-  if (myId == MPIsize - 1) {
-    neighbor_inclusion.clear();
-    neighbor_inclusion.insert(
-        neighbor_inclusion.end(), __j.begin() + __i[local_rigid_body_offset],
-        __j.begin() +
-            __i[local_rigid_body_offset + num_rigid_body * rigid_body_dof]);
-
-    for (int i = 0; i < neighbor_inclusion.size(); i++) {
-      if (neighbor_inclusion[i] < global_rigid_body_offset)
-        neighbor_inclusion[i] /= field_dof;
-    }
-
-    neighbor_inclusion.insert(neighbor_inclusion.end(),
-                              recv_neighbor_inclusion.begin(),
-                              recv_neighbor_inclusion.end());
-
-    sort(neighbor_inclusion.begin(), neighbor_inclusion.end());
-
-    neighbor_inclusion.erase(
-        unique(neighbor_inclusion.begin(), neighbor_inclusion.end()),
-        neighbor_inclusion.end());
-
-    auto it = neighbor_inclusion.begin();
-    for (; it != neighbor_inclusion.end(); it++) {
-      if (*it >= global_rigid_body_offset)
-        break;
-    }
-
-    neighbor_inclusion.erase(it, neighbor_inclusion.end());
-  }
-
-  int neighbor_inclusionSize, offset = 0;
-
-  vector<int> recvneighbor_inclusion;
-
-  for (int i = 0; i < MPIsize; i++) {
-    if (i != MPIsize - 1) {
-      if (myId == MPIsize - 1) {
-        neighbor_inclusionSize = neighbor_inclusion.size() / MPIsize;
-        neighbor_inclusionSize +=
-            (neighbor_inclusion.size() % MPIsize > i) ? 1 : 0;
-
-        MPI_Send(&neighbor_inclusionSize, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-        MPI_Send(neighbor_inclusion.data() + offset, neighbor_inclusionSize,
-                 MPI_INT, i, 1, MPI_COMM_WORLD);
-      }
-      if (myId == i) {
-        MPI_Status stat;
-        MPI_Recv(&neighbor_inclusionSize, 1, MPI_INT, MPIsize - 1, 0,
-                 MPI_COMM_WORLD, &stat);
-        recvneighbor_inclusion.resize(neighbor_inclusionSize);
-        MPI_Recv(recvneighbor_inclusion.data(), neighbor_inclusionSize, MPI_INT,
-                 MPIsize - 1, 1, MPI_COMM_WORLD, &stat);
-      }
-    } else {
-      if (myId == MPIsize - 1) {
-        recvneighbor_inclusion.clear();
-        recvneighbor_inclusion.insert(recvneighbor_inclusion.end(),
-                                      neighbor_inclusion.begin() + offset,
-                                      neighbor_inclusion.end());
-      }
-    }
-
-    if (myId == MPIsize - 1) {
-      offset += neighbor_inclusionSize;
-    }
+    if (myId == idx)
+      for (int i = 0; i < marker.size(); i++)
+        if (marker[i] != 0)
+          idx_colloid.push_back(i);
 
     MPI_Barrier(MPI_COMM_WORLD);
   }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  idx_colloid.clear();
-  for (int i = 0; i < recvneighbor_inclusion.size(); i++) {
-    for (int j = 0; j < field_dof; j++) {
-      idx_colloid.push_back(recvneighbor_inclusion[i] * field_dof + j);
-    }
-  }
-
-  // split colloid rigid body dof to each process
-  int avg_rigid_body_num = num_rigid_body / MPIsize;
-  int rigid_body_idx_low = 0;
-  int rigid_body_idx_high = 0;
-  for (int i = 0; i < myId; i++) {
-    if (i < num_rigid_body % MPIsize) {
-      rigid_body_idx_low += avg_rigid_body_num + 1;
-    } else {
-      rigid_body_idx_low += avg_rigid_body_num;
-    }
-  }
-  if (myId < num_rigid_body % MPIsize) {
-    rigid_body_idx_high = rigid_body_idx_low + avg_rigid_body_num + 1;
-  } else {
-    rigid_body_idx_high = rigid_body_idx_low + avg_rigid_body_num;
-  }
-
-  for (int i = rigid_body_idx_low; i < rigid_body_idx_high; i++) {
-    for (int j = 0; j < rigid_body_dof; j++) {
-      idx_colloid.push_back(global_rigid_body_offset + i * rigid_body_dof + j);
-    }
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // // build nn & nw matrices
-  // PetscInt localN1, localN2;
-  // MatGetOwnershipRange(__shell_mat, &localN1, &localN2);
-
-  // vector<int> range;
-  // range.resize(MPIsize + 1);
-  // for (int i = 0; i < MPIsize; i++) {
-  //   range[i] = 0;
-  // }
-  // range[myId] = localN1;
-  // if (myId == MPIsize - 1)
-  //   range[MPIsize] = localN2;
-  // MPI_Allreduce(MPI_IN_PLACE, range.data(), MPIsize + 1, MPI_INT, MPI_SUM,
-  //               MPI_COMM_WORLD);
-
-  // vector<int> index;
-  // vector<vector<int>> out_index, in_index;
-  // vector<int> out_graph, in_graph;
-
-  // vector<int> in_num;
-  // in_num.resize(MPIsize);
-  // for (int i = 0; i < MPIsize; i++) {
-  //   in_num[i] = 0;
-  // }
-  // for (int i = 0; i < idx_colloid.size(); i++) {
-  //   auto it = lower_bound(range.begin(), range.end(), idx_colloid[i]);
-  //   int rank_index = (int)(it - range.begin());
-  //   if (rank_index != myId)
-  //     in_num[rank_index]++;
-  // }
-  // for (int i = 0; i < MPIsize; i++) {
-  //   if (in_num[i] != 0)
-  //     in_graph.push_back(i);
-  // }
-
-  // for (int i = 0; i < MPIsize; i++) {
-  //   int index_num;
-  //   if (i == myId) {
-  //     index = idx_colloid;
-  //     index_num = idx_colloid.size();
-  //   }
-  //   MPI_Bcast(&index_num, 1, MPI_INT, i, MPI_COMM_WORLD);
-  //   if (i != myId)
-  //     index.resize(index_num);
-  //   MPI_Bcast(index.data(), index_num, MPI_INT, i, MPI_COMM_WORLD);
-
-  //   if (i != myId) {
-  //     for (auto it = index.begin(); it != index.end(); it++) {
-  //       if (*it >= localN1 && *it < localN2) {
-  //         out_index[i].push_back(*it);
-  //       }
-  //     }
-
-  //     if (out_index[i].size() != 0)
-  //       out_graph.push_back(i);
-  //   }
-
-  //   MPI_Barrier(MPI_COMM_WORLD);
-  // }
-
-  // vector<vector<int>> out_matrix_i, out_matrix_j;
-  // vector<vector<double>> out_matrix_val;
-  // vector<vector<int>> in_matrix_i, in_matrix_j;
-  // vector<vector<double>> in_matrix_val;
-
-  // for (int i = 0; i < MPIsize; i++) {
-  //   out_matrix_i[i].resize(out_index[i].size() + 1);
-  //   out_matrix_i[i][0] = 0;
-  //   for (int j = 0; j < out_index[i].size(); j++) {
-  //     int local_row_index = out_index[i][j] - localN1;
-  //     out_matrix_i[i][j + 1] =
-  //         out_matrix_i[i][j] + __i[local_row_index + 1] -
-  //         __i[local_row_index];
-  //   }
-  //   out_matrix_j[i].resize(out_matrix_i[i][out_index[i].size()]);
-  //   out_matrix_val[i].resize(out_matrix_i[i][out_index[i].size()]);
-  //   for (int j = 0; j < out_index[i].size(); j++) {
-  //     int local_row_index = out_index[i][j] - localN1;
-  //     for (int k = __i[local_row_index]; k < __i[local_row_index + 1]; k++) {
-  //       out_matrix_j[i][out_matrix_i[i][j] + k - __i[local_row_index]] =
-  //       __j[k]; out_matrix_val[i][out_matrix_i[i][j] + k -
-  //       __i[local_row_index]] =
-  //           __val[k];
-  //     }
-  //   }
-  // }
-
-  // // collect from other processes
-  // vector<int> in_collector;
-  // in_collector.resize(MPIsize);
-  // for (int i = 0; i < MPIsize; i++) {
-  //   for (int j = 0; j < MPIsize; j++) {
-  //     in_collector[j] = 0;
-  //   }
-  //   if (out_matrix_i[i].size() != 0)
-  //     in_collector[i] = out_matrix_i[i].size();
-
-  //   MPI_Allreduce(MPI_IN_PLACE, in_collector.data(), 1, MPI_INT, MPI_SUM,
-  //                 MPI_COMM_WORLD);
-  //   if (i == myId) {
-  //     for (int j = 0; j < MPIsize; j++)
-  //       in_matrix_i[j].resize(in_collector[j]);
-  //   }
-
-  //   if (out_matrix_i[i].size() != 0)
-  //     in_collector[i] = out_matrix_i[i][out_matrix_i[i].size()];
-
-  //   MPI_Allreduce(MPI_IN_PLACE, in_collector.data(), 1, MPI_INT, MPI_SUM,
-  //                 MPI_COMM_WORLD);
-  //   if (i == myId) {
-  //     for (int j = 0; j < MPIsize; j++) {
-  //       in_matrix_j[j].resize(in_collector[j]);
-  //       in_matrix_val[j].resize(in_collector[j]);
-  //     }
-  //   }
-  // }
-
-  // // move data
-  // vector<MPI_Request> send_request;
-  // vector<MPI_Request> recv_request;
-
-  // vector<MPI_Status> send_status;
-  // vector<MPI_Status> recv_status;
-
-  // send_request.resize(out_graph.size());
-  // send_status.resize(out_graph.size());
-  // recv_request.resize(in_graph.size());
-  // recv_status.resize(in_graph.size());
-
-  // // move i
-  // for (int i = 0; i < out_graph.size(); i++) {
-  //   MPI_Isend(out_matrix_i[out_graph[i]].data(),
-  //             out_matrix_i[out_graph[i]].size(), MPI_INT, out_graph[i], 0,
-  //             MPI_COMM_WORLD, send_request.data() + i);
-  // }
-
-  // for (int i = 0; i < in_graph.size(); i++) {
-  //   MPI_Irecv(in_matrix_i[in_graph[i]].data(),
-  //   in_matrix_i[in_graph[i]].size(),
-  //             MPI_INT, in_graph[i], 0, MPI_COMM_WORLD, recv_request.data() +
-  //             i);
-  // }
-
-  // MPI_Waitall(send_request.size(), send_request.data(), send_status.data());
-  // MPI_Waitall(recv_request.size(), recv_request.data(), recv_status.data());
-  // MPI_Barrier(MPI_COMM_WORLD);
-
-  {
-    decltype(__i)().swap(__i);
-    decltype(__j)().swap(__j);
-    decltype(__val)().swap(__val);
-  }
-
-  petsc_is isg_colloid;
-  isg_colloid.create(idx_colloid);
-
-  MatCreateSubMatrix(__mat, isg_colloid.get_reference(),
-                     isg_colloid.get_reference(), MAT_INITIAL_MATRIX,
-                     nn.get_pointer());
-  MatCreateSubMatrix(__mat, isg_colloid.get_reference(), NULL,
-                     MAT_INITIAL_MATRIX, nw.get_pointer());
-
-  MatDestroy(&__mat);
-
-  int mpi_rank = myId;
-  int mpi_size = MPIsize;
-
-  vector<int> idx_colloid_sub_field;
-  vector<int> idx_colloid_sub_colloid;
-  vector<int> idx_colloid_field;
-
-  vector<int> idx_colloid_offset, idx_colloid_global_size;
-  idx_colloid_offset.resize(mpi_size + 1);
-  idx_colloid_global_size.resize(mpi_size);
-
-  int idx_colloid_local_size = idx_colloid.size();
-  MPI_Allgather(&idx_colloid_local_size, 1, MPI_INT,
-                idx_colloid_global_size.data(), 1, MPI_INT, MPI_COMM_WORLD);
-
-  idx_colloid_offset[0] = 0;
-  for (int i = 0; i < mpi_size; i++) {
-    idx_colloid_offset[i + 1] =
-        idx_colloid_offset[i] + idx_colloid_global_size[i];
-  }
-
-  for (int i = 0; i < idx_colloid.size(); i++) {
-    if (idx_colloid[i] < Col_block) {
-      idx_colloid_sub_field.push_back(i + idx_colloid_offset[mpi_rank]);
-      idx_colloid_field.push_back(idx_colloid[i]);
-    } else {
-      idx_colloid_sub_colloid.push_back(i + idx_colloid_offset[mpi_rank]);
-    }
-  }
-
-  IS isg_colloid_sub_field, isg_colloid_sub_colloid, isg_colloid_field;
-
-  Mat sub_ff, sub_fc, sub_cf;
-
-  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_field.size(),
-                  idx_colloid_sub_field.data(), PETSC_COPY_VALUES,
-                  &isg_colloid_sub_field);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_sub_colloid.size(),
-                  idx_colloid_sub_colloid.data(), PETSC_COPY_VALUES,
-                  &isg_colloid_sub_colloid);
-  ISCreateGeneral(MPI_COMM_WORLD, idx_colloid_field.size(),
-                  idx_colloid_field.data(), PETSC_COPY_VALUES,
-                  &isg_colloid_field);
-
-  MatCreateSubMatrix(*(__ctx.fluid_part), isg_colloid_field, isg_colloid_field,
-                     MAT_INITIAL_MATRIX, &sub_ff);
-  // MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_field,
-  //                    isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_ff);
-  MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_field,
-                     isg_colloid_sub_colloid, MAT_INITIAL_MATRIX, &sub_fc);
-  MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_colloid, NULL,
-                     MAT_INITIAL_MATRIX, &sub_cf);
-
-  MatConvert(sub_ff, MATSAME, MAT_INITIAL_MATRIX, &(nn.__ctx.fluid_raw_part));
-  MatConvert(sub_fc, MATSAME, MAT_INITIAL_MATRIX,
-             &(nn.__ctx.fluid_colloid_part));
-  MatTranspose(sub_cf, MAT_INITIAL_MATRIX, &(nn.__ctx.colloid_part));
-
-  VecCreateMPI(PETSC_COMM_WORLD, idx_colloid_sub_field.size(), PETSC_DECIDE,
-               &(nn.__ctx.fluid_vec1));
-  VecCreateMPI(PETSC_COMM_WORLD, idx_colloid_sub_field.size(), PETSC_DECIDE,
-               &(nn.__ctx.fluid_vec2));
-  VecCreateMPI(PETSC_COMM_WORLD, idx_colloid_sub_colloid.size(), PETSC_DECIDE,
-               &(nn.__ctx.colloid_vec));
-
-  Vec x;
-  MatCreateVecs(nn.get_reference(), &x, NULL);
-
-  VecScatterCreate(x, isg_colloid_sub_field, nn.__ctx.fluid_vec1, NULL,
-                   &(nn.__ctx.fluid_scatter));
-  VecScatterCreate(x, isg_colloid_sub_colloid, nn.__ctx.colloid_vec, NULL,
-                   &(nn.__ctx.colloid_scatter));
-
-  Mat &shell_mat = nn.get_shell_reference();
-  MatCreateShell(PETSC_COMM_WORLD, idx_colloid.size(), idx_colloid.size(),
-                 PETSC_DECIDE, PETSC_DECIDE, &nn.__ctx, &shell_mat);
-  MatShellSetOperation(shell_mat, MATOP_MULT,
-                       (void (*)(void))fluid_colloid_matrix_mult2);
-
-  nn.is_shell_assembled = true;
-  nn.is_ctx_assembled = true;
-  nn.__ctx.use_vec_scatter = true;
-  nn.__ctx.use_raw_fluid_part = true;
-  nn.__ctx.use_local_vec = false;
-
-  ISDestroy(&isg_colloid_sub_field);
-  ISDestroy(&isg_colloid_sub_colloid);
-  ISDestroy(&isg_colloid_field);
-
-  MatDestroy(&sub_ff);
-  MatDestroy(&sub_fc);
-  MatDestroy(&sub_cf);
-
-  VecDestroy(&x);
 
   return 0;
 }

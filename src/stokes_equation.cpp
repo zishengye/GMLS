@@ -1482,10 +1482,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   idx_colloid.clear();
 
-  // if (num_rigid_body != 0)
-  //   A.extract_neighbor_index(idx_colloid, dim, num_rigid_body,
-  //                            local_rigid_body_offset,
-  //                            global_rigid_body_offset, *nn, *nw);
+  cu.extract_neighbor_index(idx_colloid, dim, num_rigid_body, velocity_dof);
 
   PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -1812,7 +1809,7 @@ void stokes_equation::solve_step() {
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
   // if (current_refinement_level < 4)
-  // multi_mgr->solve(rhs, res, idx_colloid);
+  multi_mgr->solve(rhs, res, idx_colloid);
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
