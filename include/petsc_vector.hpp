@@ -19,6 +19,7 @@ public:
 
   void create(std::vector<double> &_vec);
   void create(petsc_vector &_vec);
+  void create(PetscInt size);
 
   void copy(std::vector<double> &_vec);
 

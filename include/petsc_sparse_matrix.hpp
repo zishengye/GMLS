@@ -158,11 +158,11 @@ public:
     __out_process_matrix.resize(out_process_row);
   }
 
-  PetscInt get_row() { return __row; }
+  const PetscInt get_row() { return __row; }
 
-  PetscInt get_col() { return __col; }
+  const PetscInt get_col() { return __col; }
 
-  PetscInt get_Col() { return __Col; }
+  const PetscInt get_Col() { return __Col; }
 
   Mat &get_reference() { return __mat; }
 

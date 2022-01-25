@@ -69,7 +69,7 @@ void stokes_equation::update() {
   build_coefficient_matrix();
   build_rhs();
   solve_step();
-  calculate_error();
+  // calculate_error();
   // check_solution();
   // collect_force();
 
@@ -781,6 +781,8 @@ void stokes_equation::build_coefficient_matrix() {
       pressure_neumann_solution_set->getAlphaColumnOffset(
           pressure_neumann_operation[0], 0, 0, 0, 0);
 
+  bi.resize(num_neumann_target_coord);
+
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "GMLS solving duration: %fs\n",
@@ -805,20 +807,9 @@ void stokes_equation::build_coefficient_matrix() {
   int velocity_dof = dim;
 
   int local_velocity_dof = local_particle_num * dim;
-  int global_velocity_dof =
-      global_particle_num * dim + rigid_body_dof * num_rigid_body;
+  int global_velocity_dof = global_particle_num * dim;
   int local_pressure_dof = local_particle_num;
   int global_pressure_dof = global_particle_num;
-
-  if (rank == size - 1) {
-    local_velocity_dof += rigid_body_dof * num_rigid_body;
-  }
-
-  vector<int> particle_num_per_process;
-  particle_num_per_process.resize(size);
-
-  MPI_Allgather(&local_particle_num, 1, MPI_INT,
-                particle_num_per_process.data(), 1, MPI_INT, MPI_COMM_WORLD);
 
   int local_dof = local_velocity_dof + local_pressure_dof;
   int global_dof = global_velocity_dof + global_pressure_dof;
@@ -1319,7 +1310,7 @@ void stokes_equation::build_coefficient_matrix() {
       // n \cdot grad p
       if (particle_type[i] != 0) {
         const int neumann_index = neumann_map[i];
-        const double bi =
+        bi[neumann_index] =
             pressure_neumann_solution_set->getAlpha0TensorTo0Tensor(
                 LaplacianOfScalarPointEvaluation, neumann_index,
                 neumann_neighbor_list_host(neumann_index, 0));
@@ -1340,7 +1331,7 @@ void stokes_equation::build_coefficient_matrix() {
               gradient += normal[i][axes1] * Lij;
             }
             pu.increment(pressure_local_index, velocity_global_index,
-                         bi * gradient);
+                         bi[neumann_index] * gradient);
           }
         }
       }
@@ -1418,6 +1409,8 @@ void stokes_equation::build_coefficient_matrix() {
   // reduce the amount of memory used
   velocity_basis.reset();
   velocity_colloid_basis.reset();
+  // pressure_neumann_basis.reset();
+  // pressure_basis.reset();
 
   // stabilize the coefficient matrix
   for (int i = 0; i < local_particle_num; i++) {
@@ -1500,9 +1493,13 @@ void stokes_equation::build_coefficient_matrix() {
                 MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "total inner particle count: %d\n",
               inner_counter);
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void stokes_equation::build_rhs() {
+  PetscPrintf(PETSC_COMM_WORLD, "Start of building rhs\n");
+  MPI_Barrier(MPI_COMM_WORLD);
+
   auto &coord = *(geo_mgr->get_current_work_particle_coord());
   auto &normal = *(geo_mgr->get_current_work_particle_normal());
   auto &particle_type = *(geo_mgr->get_current_work_particle_type());
@@ -1533,26 +1530,17 @@ void stokes_equation::build_rhs() {
   int velocity_dof = dim;
 
   int local_velocity_dof = local_particle_num * dim;
-  int global_velocity_dof =
-      global_particle_num * dim + rigid_body_dof * num_rigid_body;
   int local_pressure_dof = local_particle_num;
-  int global_pressure_dof = global_particle_num;
 
-  if (rank == size - 1) {
-    local_velocity_dof += rigid_body_dof * num_rigid_body;
-  }
+  int local_num_rigid_body =
+      num_rigid_body / size + (num_rigid_body % size > rank) ? 1 : 0;
+  int local_colloid_dof = local_num_rigid_body * rigid_body_dof;
 
-  vector<int> particle_num_per_process;
-  particle_num_per_process.resize(size);
+  int local_velocity_offset = 0;
+  int local_pressure_offset = local_velocity_dof;
+  int local_rigid_body_offset = local_velocity_dof + local_pressure_dof;
 
-  MPI_Allgather(&local_particle_num, 1, MPI_INT,
-                particle_num_per_process.data(), 1, MPI_INT, MPI_COMM_WORLD);
-
-  int local_rigid_body_offset = particle_num_per_process[size - 1] * field_dof;
-  int global_rigid_body_offset = global_particle_num * field_dof;
-  int local_out_process_offset = particle_num_per_process[size - 1] * field_dof;
-
-  int local_dof = local_velocity_dof + local_pressure_dof;
+  int local_dof = local_velocity_dof + local_pressure_dof + local_colloid_dof;
 
   rhs.resize(local_dof);
   res.resize(local_dof);
@@ -1561,11 +1549,6 @@ void stokes_equation::build_rhs() {
     rhs[i] = 0.0;
     res[i] = 0.0;
   }
-
-  auto neumann_neighbor_list = pressure_neumann_basis->getNeighborLists();
-
-  auto pressure_neumann_solution_set =
-      pressure_neumann_basis->getSolutionSetHost();
 
   // for (int i = 0; i < local_particle_num; i++) {
   //   int current_particle_local_index = local_idx[i];
@@ -1584,26 +1567,21 @@ void stokes_equation::build_rhs() {
         double x = coord[i][0];
         double y = coord[i][1];
 
-        rhs[field_dof * current_particle_local_index] =
+        rhs[velocity_dof * current_particle_local_index] =
             sin(M_PI * x) * cos(M_PI * y);
-        rhs[field_dof * current_particle_local_index + 1] =
+        rhs[velocity_dof * current_particle_local_index + 1] =
             -cos(M_PI * x) * sin(M_PI * y);
 
-        const int neumann_index = neumann_map[i];
-        const double bi =
-            pressure_neumann_solution_set->getAlpha0TensorTo0Tensor(
-                LaplacianOfScalarPointEvaluation, neumann_index,
-                neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
-
-        rhs[field_dof * current_particle_local_index + velocity_dof] =
+        rhs[current_particle_local_index + local_pressure_offset] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y) -
-                  normal[i][1] * 2.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y)) +
-            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
+            bi[neumann_map[i]] * (normal[i][0] * 2.0 * pow(M_PI, 2.0) *
+                                      sin(M_PI * x) * cos(M_PI * y) -
+                                  normal[i][1] * 2.0 * pow(M_PI, 2.0) *
+                                      cos(M_PI * x) * sin(M_PI * y)) +
+            bi[neumann_map[i]] *
+                (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+                 normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y));
       }
 
       // 3-d Taylor-Green vortex-like flow
@@ -1612,46 +1590,42 @@ void stokes_equation::build_rhs() {
         double y = coord[i][1];
         double z = coord[i][2];
 
-        rhs[field_dof * current_particle_local_index] =
+        rhs[velocity_dof * current_particle_local_index] =
             sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z);
-        rhs[field_dof * current_particle_local_index + 1] =
+        rhs[velocity_dof * current_particle_local_index + 1] =
             -2 * cos(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
-        rhs[field_dof * current_particle_local_index + 2] =
+        rhs[velocity_dof * current_particle_local_index + 2] =
             cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
 
-        const int neumann_index = neumann_map[i];
-        const double bi =
-            pressure_neumann_solution_set->getAlpha0TensorTo0Tensor(
-                LaplacianOfScalarPointEvaluation, neumann_index,
-                neumann_neighbor_list->getNumberOfNeighborsHost(neumann_index));
-
-        rhs[field_dof * current_particle_local_index + velocity_dof] =
+        rhs[current_particle_local_index + local_pressure_offset] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
                  cos(2.0 * M_PI * z)) +
-            bi * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                      cos(M_PI * y) * cos(M_PI * z) -
-                  normal[i][1] * 6.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      sin(M_PI * y) * cos(M_PI * z) +
-                  normal[i][2] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                      cos(M_PI * y) * sin(M_PI * z)) +
-            bi * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-                  normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
-                  normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
+            bi[neumann_map[i]] *
+                (normal[i][0] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                     cos(M_PI * y) * cos(M_PI * z) -
+                 normal[i][1] * 6.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                     sin(M_PI * y) * cos(M_PI * z) +
+                 normal[i][2] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                     cos(M_PI * y) * sin(M_PI * z)) +
+            bi[neumann_map[i]] *
+                (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+                 normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
+                 normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
       }
     } else if (particle_type[i] == 0) {
       if (dim == 2) {
         double x = coord[i][0];
         double y = coord[i][1];
 
-        rhs[field_dof * current_particle_local_index] =
+        rhs[velocity_dof * current_particle_local_index] =
             2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
             2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[field_dof * current_particle_local_index + 1] =
+        rhs[velocity_dof * current_particle_local_index + 1] =
             -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
 
-        rhs[field_dof * current_particle_local_index + velocity_dof] =
+        rhs[current_particle_local_index + local_pressure_offset] =
             -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
       }
       if (dim == 3) {
@@ -1659,18 +1633,18 @@ void stokes_equation::build_rhs() {
         double y = coord[i][1];
         double z = coord[i][2];
 
-        rhs[field_dof * current_particle_local_index] =
+        rhs[velocity_dof * current_particle_local_index] =
             3.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[field_dof * current_particle_local_index + 1] =
+        rhs[velocity_dof * current_particle_local_index + 1] =
             -6.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) *
                 cos(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
-        rhs[field_dof * current_particle_local_index + 2] =
+        rhs[velocity_dof * current_particle_local_index + 2] =
             3.0 * pow(M_PI, 2) * cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * z);
 
-        rhs[field_dof * current_particle_local_index + velocity_dof] =
+        rhs[current_particle_local_index + local_pressure_offset] =
             -4.0 * pow(M_PI, 2.0) *
             (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
       }
@@ -1691,12 +1665,6 @@ void stokes_equation::build_rhs() {
   //       double x = coord[i][0] - rigid_body_position[0][0];
   //       double y = coord[i][1] - rigid_body_position[0][1];
   //       double z = coord[i][2] - rigid_body_position[0][2];
-
-  //       const int neumann_index = neumann_map[i];
-  //       // const double bi =
-  //       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-  //       //     LaplacianOfScalarPointEvaluation, neumann_index,
-  //       //     neumannBoundaryNeighborLists(neumann_index, 0));
 
   //       double r = sqrt(x * x + y * y + z * z);
   //       double theta = acos(z / r);
@@ -1729,12 +1697,6 @@ void stokes_equation::build_rhs() {
   //       double theta = acos(z / r);
   //       double phi = atan2(y, x);
 
-  //       const int neumann_index = neumann_map[i];
-  //       // const double bi =
-  //       // pressureNeumannBoundaryBasis.getAlpha0TensorTo0Tensor(
-  //       //     LaplacianOfScalarPointEvaluation, neumann_index,
-  //       //     neumannBoundaryNeighborLists(neumann_index, 0));
-
   //       double pr = 3 * RR / pow(r, 3) * u * cos(theta);
   //       double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
 
@@ -1745,24 +1707,38 @@ void stokes_equation::build_rhs() {
   //   }
   // }
 
-  if (rank == size - 1) {
-    for (int i = 0; i < num_rigid_body; i++) {
-      for (int axes = 0; axes < translation_dof; axes++) {
-        if (rigid_body_velocity_force_switch[i][axes])
-          rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
-              rigid_body_velocity[i][axes];
-        else
-          rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
-              -rigid_body_force[i][axes];
-      }
-      for (int axes = 0; axes < rotation_dof; axes++) {
-        if (rigid_body_angvelocity_torque_switch[i][axes])
-          rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-              axes] = rigid_body_angular_velocity[i][axes];
-        else
-          rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-              axes] = -rigid_body_torque[i][axes];
-      }
+  int local_rigid_body_idx1, local_rigid_body_idx2;
+  local_rigid_body_idx1 = 0;
+  for (int i = 0; i < rank; i++)
+    local_rigid_body_idx1 +=
+        num_rigid_body / size + (num_rigid_body % size > i) ? 1 : 0;
+  local_rigid_body_idx2 = local_rigid_body_idx1 + num_rigid_body / size +
+                                  (num_rigid_body % size > rank)
+                              ? 1
+                              : 0;
+
+  for (int rigid_body_idx = local_rigid_body_idx1;
+       rigid_body_idx < local_rigid_body_idx2; rigid_body_idx++) {
+    for (int axes = 0; axes < translation_dof; axes++) {
+      if (rigid_body_velocity_force_switch[rigid_body_idx][axes])
+        rhs[local_rigid_body_offset +
+            (rigid_body_idx - local_rigid_body_idx1) * rigid_body_dof + axes] =
+            rigid_body_velocity[rigid_body_idx][axes];
+      else
+        rhs[local_rigid_body_offset +
+            (rigid_body_idx - local_rigid_body_idx1) * rigid_body_dof + axes] =
+            -rigid_body_force[rigid_body_idx][axes];
+    }
+    for (int axes = 0; axes < rotation_dof; axes++) {
+      if (rigid_body_angvelocity_torque_switch[rigid_body_idx][axes])
+        rhs[local_rigid_body_offset +
+            (rigid_body_idx - local_rigid_body_idx1) * rigid_body_dof +
+            translation_dof + axes] =
+            rigid_body_angular_velocity[rigid_body_idx][axes];
+      else
+        rhs[local_rigid_body_offset +
+            (rigid_body_idx - local_rigid_body_idx1) * rigid_body_dof +
+            translation_dof + axes] = -rigid_body_torque[rigid_body_idx][axes];
     }
   }
 
@@ -1771,18 +1747,16 @@ void stokes_equation::build_rhs() {
   for (int i = 0; i < local_particle_num; i++) {
     int current_particle_local_index = local_idx[i];
     rhs_pressure_sum +=
-        rhs[field_dof * current_particle_local_index + velocity_dof];
+        rhs[current_particle_local_index + local_pressure_offset];
   }
   MPI_Allreduce(MPI_IN_PLACE, &rhs_pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
   rhs_pressure_sum /= global_particle_num;
   for (int i = 0; i < local_particle_num; i++) {
     int current_particle_local_index = local_idx[i];
-    rhs[field_dof * current_particle_local_index + velocity_dof] -=
+    rhs[current_particle_local_index + local_pressure_offset] -=
         rhs_pressure_sum;
   }
-
-  pressure_neumann_basis.reset();
 }
 
 void stokes_equation::solve_step() {

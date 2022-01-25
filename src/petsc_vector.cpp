@@ -17,6 +17,10 @@ void petsc_vector::create(petsc_vector &_vec) {
   VecDuplicate(_vec.get_reference(), &vec);
 }
 
+void petsc_vector::create(const PetscInt size) {
+  VecCreateMPI(MPI_COMM_WORLD, size, PETSC_DECIDE, &vec);
+}
+
 void petsc_vector::copy(vector<double> &_vec) {
   PetscScalar *a;
   PetscInt local_size;

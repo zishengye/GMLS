@@ -15,13 +15,21 @@
 
 #include "petsc_sparse_matrix.hpp"
 
+PetscErrorCode petsc_block_matrix_matmult_wrapper(Mat mat, Vec x, Vec y);
+
 class petsc_block_matrix {
 private:
   std::vector<std::shared_ptr<petsc_sparse_matrix>> block_matrix;
+  std::vector<PetscInt> block_offset;
+  std::vector<petsc_vector> x_list;
+  std::vector<petsc_vector> y_list;
+  std::vector<petsc_vector> b_list;
 
   PetscInt Row, Col;
 
   Mat mat;
+
+  void matmult(Vec &x, Vec &y);
 
 public:
   petsc_block_matrix();
@@ -37,6 +45,9 @@ public:
   void assemble();
 
   Mat &get_reference() { return mat; }
+
+  friend PetscErrorCode petsc_block_matrix_matmult_wrapper(Mat mat, Vec x,
+                                                           Vec y);
 };
 
 #endif

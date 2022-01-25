@@ -906,7 +906,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetOperators(_ksp, A_block.get_reference(), A_block.get_reference());
   KSPSetFromOptions(_ksp);
 
-  PCSetType(_pc, PCSHELL);
+  PCSetType(_pc, PCNONE);
 
   // if (refinement_step == 0) {
   //   KSPGMRESGetRestart(_ksp, &restart);
@@ -932,64 +932,68 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   PetscPrintf(PETSC_COMM_WORLD,
               "start of stokes_multilevel preconditioner setup\n");
 
-  PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
-  PCShellSetContext(_pc, shell_ctx);
-  PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+  // PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
+  // PCShellSetContext(_pc, shell_ctx);
+  // PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
   // HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
   //                     field_dof, num_rigid_body);
 
-  // PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-  // PetscReal residual_norm, rhs_norm;
-  // VecNorm(_rhs.get_reference(), NORM_2, &rhs_norm);
-  // residual_norm = global_particle_num;
-  // Vec residual;
-  // VecDuplicate(_rhs.get_reference(), &residual);
-  // MatMult(shell_mat, _x.get_reference(), residual);
-  // VecAXPY(residual, -1.0, _rhs.get_reference());
-  // VecNorm(residual, NORM_2, &residual_norm);
-  // PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
-  //             residual_norm / rhs_norm);
-  // int counter = 0;
-  // double initial_residual = residual_norm / rhs_norm;
-  // while (residual_norm / rhs_norm > 1e-3 && counter < 5) {
-  //   KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
+  petsc_vector _rhs, _x;
+  _rhs.create(rhs);
+  _x.create(x);
 
-  //   KSPConvergedReason convergence_reason;
-  //   KSPGetConvergedReason(_ksp, &convergence_reason);
+  PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
+  PetscReal residual_norm, rhs_norm;
+  VecNorm(_rhs.get_reference(), NORM_2, &rhs_norm);
+  residual_norm = 1.0;
+  Vec residual;
+  VecDuplicate(_rhs.get_reference(), &residual);
+  MatMult(A_block.get_reference(), _x.get_reference(), residual);
+  VecAXPY(residual, -1.0, _rhs.get_reference());
+  VecNorm(residual, NORM_2, &residual_norm);
+  PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+              residual_norm / rhs_norm);
+  int counter = 0;
+  double initial_residual = residual_norm / rhs_norm;
+  while (residual_norm / rhs_norm > 1e-3 && counter < 5) {
+    KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
-  //   MatMult(shell_mat, _x.get_reference(), residual);
-  //   VecAXPY(residual, -1.0, _rhs.get_reference());
-  //   VecNorm(residual, NORM_2, &residual_norm);
-  //   PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
-  //               residual_norm / rhs_norm);
-  //   counter++;
+    KSPConvergedReason convergence_reason;
+    KSPGetConvergedReason(_ksp, &convergence_reason);
 
-  //   if (convergence_reason != KSP_CONVERGED_RTOL) {
-  //     restart += 50;
-  //     KSPGMRESSetRestart(_ksp, restart);
+    MatMult(A_block.get_reference(), _x.get_reference(), residual);
+    VecAXPY(residual, -1.0, _rhs.get_reference());
+    VecNorm(residual, NORM_2, &residual_norm);
+    PetscPrintf(PETSC_COMM_WORLD, "relative residual norm: %f\n",
+                residual_norm / rhs_norm);
+    counter++;
 
-  //     KSPSetUp(_ksp);
-  //   }
-  //   if (convergence_reason == KSP_CONVERGED_RTOL &&
-  //       residual_norm / rhs_norm > 1e-3) {
-  //     KSPSetTolerances(_ksp, pow(10, -6 - counter), 1e-50, 1e50, 500);
-  //   }
-  //   KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
-  // }
-  // PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
+    if (convergence_reason != KSP_CONVERGED_RTOL) {
+      restart += 50;
+      KSPGMRESSetRestart(_ksp, restart);
 
-  // if (residual_norm / rhs_norm < initial_residual || refinement_step == 0) {
-  //   _x.copy(x);
-  // }
+      KSPSetUp(_ksp);
+    }
+    if (convergence_reason == KSP_CONVERGED_RTOL &&
+        residual_norm / rhs_norm > 1e-3) {
+      KSPSetTolerances(_ksp, pow(10, -6 - counter), 1e-50, 1e50, 500);
+    }
+    KSPSetInitialGuessNonzero(_ksp, PETSC_TRUE);
+  }
+  PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
-  // PetscPrintf(PETSC_COMM_WORLD, "nn matmult duration: %fs\n",
-  //             nn_list[refinement_step]->__ctx.matmult_duration);
-  // PetscPrintf(PETSC_COMM_WORLD, "ff matmult duration: %fs\n",
-  //             ff_list[refinement_step]->__ctx.matmult_duration);
+  if (residual_norm / rhs_norm < initial_residual || refinement_step == 0) {
+    _x.copy(x);
+  }
 
-  // VecDestroy(&residual);
-  // KSPDestroy(&_ksp);
+  PetscPrintf(PETSC_COMM_WORLD, "nn matmult duration: %fs\n",
+              nn_list[refinement_step]->__ctx.matmult_duration);
+  PetscPrintf(PETSC_COMM_WORLD, "ff matmult duration: %fs\n",
+              ff_list[refinement_step]->__ctx.matmult_duration);
+
+  VecDestroy(&residual);
+  KSPDestroy(&_ksp);
 
   // if (num_rigid_body != 0) {
   //   MatDestroy(&sub_ff);

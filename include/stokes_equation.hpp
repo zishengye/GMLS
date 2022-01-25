@@ -41,6 +41,7 @@ private:
   std::vector<double> rhs;
   std::vector<double> res;
   std::vector<double> error;
+  std::vector<double> bi;
   std::vector<int> idx_colloid;
 
   std::vector<int> neumann_map;
