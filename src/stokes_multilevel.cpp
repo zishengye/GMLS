@@ -751,6 +751,67 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   //   MatDestroy(&C);
   // }
 
+  // setup preconditioner on base level
+  if (refinement_step == 0) {
+    PC pc_field_base;
+    KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
+    KSPSetOperators(ksp_field_base->get_reference(), A_block.get_mask_matrix(0),
+                    A_block.get_mask_matrix(0));
+
+    KSPSetType(ksp_field_base->get_reference(), KSPRICHARDSON);
+    KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e50, 1);
+    KSPGetPC(ksp_field_base->get_reference(), &pc_field_base);
+
+    PCSetType(pc_field_base, PCFIELDSPLIT);
+    PCFieldSplitSetIS(pc_field_base, "0", A_block.get_mask_matrix_sub_is(0, 0));
+    PCFieldSplitSetIS(pc_field_base, "1", A_block.get_mask_matrix_sub_is(0, 1));
+
+    Mat B, C, S;
+    MatCreate(MPI_COMM_WORLD, &B);
+    MatSetType(B, MATMPIAIJ);
+    MatInvertBlockDiagonalMat(A_block.get_matrix(0, 0)->get_reference(), B);
+
+    MatMatMult(B, A_block.get_matrix(0, 1)->get_reference(), MAT_INITIAL_MATRIX,
+               PETSC_DEFAULT, &C);
+    MatMatMult(A_block.get_matrix(1, 0)->get_reference(), C, MAT_INITIAL_MATRIX,
+               PETSC_DEFAULT, &S);
+    MatScale(S, -1.0);
+    MatAXPY(S, 1.0, A_block.get_matrix(1, 1)->get_reference(),
+            DIFFERENT_NONZERO_PATTERN);
+
+    PCFieldSplitSetSchurPre(pc_field_base, PC_FIELDSPLIT_SCHUR_PRE_USER, S);
+    PCFieldSplitSetSchurFactType(pc_field_base, PC_FIELDSPLIT_SCHUR_FACT_DIAG);
+    PCSetUp(pc_field_base);
+
+    KSP *fieldsplit_sub_ksp;
+    PC fieldsplit_sub_pc;
+    PetscInt n;
+    PCFieldSplitGetSubKSP(pc_field_base, &n, &fieldsplit_sub_ksp);
+
+    KSPSetOperators(fieldsplit_sub_ksp[0],
+                    A_block.get_matrix(0, 0)->get_reference(),
+                    A_block.get_matrix(0, 0)->get_reference());
+    KSPSetType(fieldsplit_sub_ksp[0], KSPRICHARDSON);
+    KSPSetTolerances(fieldsplit_sub_ksp[0], 1e-2, 1e-50, 1e50, 5);
+    KSPGetPC(fieldsplit_sub_ksp[0], &fieldsplit_sub_pc);
+    PCSetType(fieldsplit_sub_pc, PCSOR);
+    PCSetFromOptions(fieldsplit_sub_pc);
+    PCSetUp(fieldsplit_sub_pc);
+
+    KSPSetOperators(fieldsplit_sub_ksp[1], S, S);
+    KSPSetTolerances(fieldsplit_sub_ksp[1], 1e-2, 1e-50, 1e50, 5);
+    KSPGetPC(fieldsplit_sub_ksp[1], &fieldsplit_sub_pc);
+    PCSetType(fieldsplit_sub_pc, PCSOR);
+    PCSetFromOptions(fieldsplit_sub_pc);
+    PCSetUp(fieldsplit_sub_pc);
+
+    KSPSetUp(fieldsplit_sub_ksp[0]);
+    KSPSetUp(fieldsplit_sub_ksp[1]);
+    PetscFree(fieldsplit_sub_ksp);
+
+    KSPSetUp(ksp_field_base->get_reference());
+  }
+
   // // setup preconditioner for base level
   // if (refinement_step == 0) {
   //   PC pc_field_base;
@@ -906,42 +967,26 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   KSPSetOperators(_ksp, A_block.get_reference(), A_block.get_reference());
   KSPSetFromOptions(_ksp);
 
-  PCSetType(_pc, PCNONE);
-
-  // if (refinement_step == 0) {
-  //   KSPGMRESGetRestart(_ksp, &restart);
-  // } else {
-  //   KSPGMRESSetRestart(_ksp, restart);
-  // }
-
-  // // PetscReal rtol, atol, dtol;
-  // // PetscInt maxits;
-  // // KSPGetTolerances(_ksp, &rtol, &atol, &dtol, &maxits);
-  // // KSPSetTolerances(_ksp,
-  // //                  rtol *
-  // (double)(global_particle_num_list[refinement_step])
-  // //                  /
-  // //                      (double)(global_particle_num_list[0]),
-  // //                  atol, dtol, maxits);
+  PCSetType(_pc, PCSHELL);
 
   KSPSetUp(_ksp);
-
-  HypreLUShellPCCreate(&shell_ctx);
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "start of stokes_multilevel preconditioner setup\n");
-
-  // PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
-  // PCShellSetContext(_pc, shell_ctx);
-  // PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
-
-  // HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
-  //                     field_dof, num_rigid_body);
 
   petsc_vector _rhs, _x;
   _rhs.create(rhs);
   _x.create(x);
+
+  PetscPrintf(PETSC_COMM_WORLD,
+              "start of stokes_multilevel preconditioner setup\n");
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  HypreLUShellPCCreate(&shell_ctx);
+
+  PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
+  PCShellSetContext(_pc, shell_ctx);
+  PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
+
+  HypreLUShellPCSetUp(_pc, this, _x.get_reference(), 0, field_dof,
+                      num_rigid_body);
 
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
   PetscReal residual_norm, rhs_norm;
@@ -956,7 +1001,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
               residual_norm / rhs_norm);
   int counter = 0;
   double initial_residual = residual_norm / rhs_norm;
-  while (residual_norm / rhs_norm > 1e-3 && counter < 5) {
+  while (residual_norm / rhs_norm > 1e-3 && counter < 1) {
     KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
     KSPConvergedReason convergence_reason;

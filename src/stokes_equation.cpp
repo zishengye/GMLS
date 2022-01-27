@@ -1470,6 +1470,12 @@ void stokes_equation::build_coefficient_matrix() {
 
   A_block.assemble();
 
+  vector<int> ff_idx;
+  ff_idx.resize(2);
+  ff_idx[0] = 0;
+  ff_idx[1] = 1;
+  A_block.assemble_mask_matrix(ff_idx);
+
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "Matrix assembly duration: %fs\n",

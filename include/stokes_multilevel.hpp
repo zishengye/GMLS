@@ -104,6 +104,8 @@ public:
     y_colloid = std::make_shared<petsc_vector>();
   }
 
+  inline int get_current_refinement_level() { return current_refinement_level; }
+
   inline int get_dimension() { return dimension; }
 
   inline int get_num_rigid_body() { return num_rigid_body; }
