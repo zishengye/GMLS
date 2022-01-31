@@ -76,13 +76,14 @@ private:
   std::vector<PetscReal> __val;
 
   Mat __mat, __shell_mat;
+  MatNullSpace null_space;
 
 public:
   petsc_sparse_matrix()
       : is_ctx_assembled(false), is_shell_assembled(false), is_assembled(false),
         __row(0), __col(0), __Col(0), __out_process_row(0),
-        __out_process_reduction(0), __mat(PETSC_NULL), __shell_mat(PETSC_NULL) {
-  }
+        __out_process_reduction(0), __mat(PETSC_NULL), __shell_mat(PETSC_NULL),
+        null_space(PETSC_NULL) {}
 
   // only for square matrix
   petsc_sparse_matrix(PetscInt m /* local # of rows */,
@@ -109,6 +110,10 @@ public:
   }
 
   ~petsc_sparse_matrix() {
+    if (null_space != PETSC_NULL) {
+      MatSetNullSpace(__mat, PETSC_NULL);
+      MatNullSpaceDestroy(&null_space);
+    }
     if (is_assembled || __mat != PETSC_NULL) {
       MatSetNearNullSpace(__mat, NULL);
       MatDestroy(&__mat);
@@ -184,6 +189,12 @@ public:
       return &__shell_mat;
     else
       return &__mat;
+  }
+
+  void set_null_space() {
+    MatNullSpaceCreate(MPI_COMM_WORLD, PETSC_TRUE, 0, PETSC_NULL, &null_space);
+    MatSetNullSpace(__mat, null_space);
+    MatSetTransposeNullSpace(__mat, null_space);
   }
 
   inline void set_col_index(const PetscInt row, std::vector<PetscInt> &index);

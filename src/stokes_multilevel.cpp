@@ -1002,7 +1002,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   int counter = 0;
   double initial_residual = residual_norm / rhs_norm;
   while (residual_norm / rhs_norm > 1e-3 && counter < 1) {
-    KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
+    // KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
 
     KSPConvergedReason convergence_reason;
     KSPGetConvergedReason(_ksp, &convergence_reason);

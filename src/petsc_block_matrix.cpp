@@ -17,9 +17,6 @@ PetscErrorCode petsc_mask_matrix_matmult_wrapper(Mat mat, Vec x, Vec y) {
 
   ctx->ptr->mask_matmult(ctx->mask_idx, x, y);
 
-  PetscPrintf(PETSC_COMM_WORLD, "mask matmult wrapper\n");
-  MPI_Barrier(MPI_COMM_WORLD);
-
   return 0;
 }
 
@@ -41,13 +38,45 @@ void petsc_block_matrix::matmult(Vec &x, Vec &y) {
     VecZeroEntries(y_list[i].get_reference());
   }
 
+  // project pressure column
+  PetscReal sum = 0, average;
+  int length;
+  VecGetArray(x_list[1].get_reference(), &b);
+  for (int offset = block_offset[1]; offset < block_offset[2]; offset++) {
+    sum += b[offset - block_offset[1]];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  VecGetSize(x_list[1].get_reference(), &length);
+  average = sum / length;
+  for (int offset = block_offset[1]; offset < block_offset[2]; offset++) {
+    b[offset - block_offset[1]] -= average;
+  }
+  VecRestoreArray(x_list[1].get_reference(), &b);
+
   for (int i = 0; i < Row; i++) {
     for (int j = 0; j < Col; j++) {
       MatMultAdd(block_matrix[i * Col + j]->get_reference(),
                  x_list[j].get_reference(), y_list[i].get_reference(),
                  y_list[i].get_reference());
+
+      PetscReal norm;
+      VecNorm(y_list[i].get_reference(), NORM_2, &norm);
+      PetscPrintf(PETSC_COMM_WORLD, "norm of y_%d: %f\n", i, norm);
     }
   }
+
+  sum = 0;
+  VecGetArray(y_list[1].get_reference(), &b);
+  for (int offset = block_offset[1]; offset < block_offset[2]; offset++) {
+    sum += b[offset - block_offset[1]];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  VecGetSize(y_list[1].get_reference(), &length);
+  average = sum / length;
+  for (int offset = block_offset[1]; offset < block_offset[2]; offset++) {
+    b[offset - block_offset[1]] -= average;
+  }
+  VecRestoreArray(x_list[1].get_reference(), &b);
 
   VecGetArray(y, &a);
   for (int i = 0; i < Row; i++) {
@@ -81,6 +110,21 @@ void petsc_block_matrix::mask_matmult(int mask_idx, Vec &x, Vec &y) {
     VecZeroEntries(y_list[mask_index[mask_idx][i]].get_reference());
   }
 
+  // project pressure column
+  PetscReal sum = 0, average;
+  int length;
+  VecGetArray(x_list[1].get_reference(), &b);
+  for (int offset = block_offset[1]; offset < block_offset[2]; offset++) {
+    sum += b[offset - block_offset[1]];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  VecGetSize(x_list[1].get_reference(), &length);
+  average = sum / length;
+  for (int offset = block_offset[1]; offset < block_offset[2]; offset++) {
+    b[offset - block_offset[1]] -= average;
+  }
+  VecRestoreArray(x_list[1].get_reference(), &b);
+
   for (int i = 0; i < mask_index[mask_idx].size(); i++) {
     for (int j = 0; j < mask_index[mask_idx].size(); j++) {
       MatMultAdd(
@@ -91,6 +135,19 @@ void petsc_block_matrix::mask_matmult(int mask_idx, Vec &x, Vec &y) {
           y_list[mask_index[mask_idx][i]].get_reference());
     }
   }
+
+  sum = 0;
+  VecGetArray(y_list[1].get_reference(), &b);
+  for (int offset = block_offset[1]; offset < block_offset[2]; offset++) {
+    sum += b[offset - block_offset[1]];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  VecGetSize(y_list[1].get_reference(), &length);
+  average = sum / length;
+  for (int offset = block_offset[1]; offset < block_offset[2]; offset++) {
+    b[offset - block_offset[1]] -= average;
+  }
+  VecRestoreArray(x_list[1].get_reference(), &b);
 
   VecGetArray(y, &a);
   for (int i = 0; i < mask_index[mask_idx].size(); i++) {

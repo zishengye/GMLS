@@ -1468,6 +1468,8 @@ void stokes_equation::build_coefficient_matrix() {
   cp.out_process_assemble();
   cc.assemble();
 
+  pp.set_null_space();
+
   A_block.assemble();
 
   vector<int> ff_idx;
@@ -1578,7 +1580,7 @@ void stokes_equation::build_rhs() {
         rhs[velocity_dof * current_particle_local_index + 1] =
             -cos(M_PI * x) * sin(M_PI * y);
 
-        rhs[current_particle_local_index + local_pressure_offset] =
+        rhs[local_pressure_offset + current_particle_local_index] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
             bi[neumann_map[i]] * (normal[i][0] * 2.0 * pow(M_PI, 2.0) *
@@ -1603,7 +1605,7 @@ void stokes_equation::build_rhs() {
         rhs[velocity_dof * current_particle_local_index + 2] =
             cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
 
-        rhs[current_particle_local_index + local_pressure_offset] =
+        rhs[local_pressure_offset + current_particle_local_index] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
                  cos(2.0 * M_PI * z)) +
@@ -1631,7 +1633,7 @@ void stokes_equation::build_rhs() {
             -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
 
-        rhs[current_particle_local_index + local_pressure_offset] =
+        rhs[local_pressure_offset + current_particle_local_index] =
             -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
       }
       if (dim == 3) {
@@ -1650,10 +1652,48 @@ void stokes_equation::build_rhs() {
             3.0 * pow(M_PI, 2) * cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * z);
 
-        rhs[current_particle_local_index + local_pressure_offset] =
+        rhs[local_pressure_offset + current_particle_local_index] =
             -4.0 * pow(M_PI, 2.0) *
             (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
       }
+    }
+  }
+
+  // setup result
+  for (int i = 0; i < local_particle_num; i++) {
+    int current_particle_local_index = local_idx[i];
+    if (dim == 2) {
+      double x = coord[i][0];
+      double y = coord[i][1];
+
+      res[velocity_dof * current_particle_local_index] =
+          2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
+          2.0 * M_PI * sin(2.0 * M_PI * x);
+      res[velocity_dof * current_particle_local_index + 1] =
+          -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
+          2.0 * M_PI * sin(2.0 * M_PI * y);
+
+      res[local_pressure_offset + current_particle_local_index] =
+          -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
+    }
+    if (dim == 3) {
+      double x = coord[i][0];
+      double y = coord[i][1];
+      double z = coord[i][2];
+
+      res[velocity_dof * current_particle_local_index] =
+          3.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z) +
+          2.0 * M_PI * sin(2.0 * M_PI * x);
+      res[velocity_dof * current_particle_local_index + 1] =
+          -6.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
+          2.0 * M_PI * sin(2.0 * M_PI * y);
+      res[velocity_dof * current_particle_local_index + 2] =
+          3.0 * pow(M_PI, 2) * cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z) +
+          2.0 * M_PI * sin(2.0 * M_PI * z);
+
+      res[local_pressure_offset + current_particle_local_index] =
+          -4.0 * pow(M_PI, 2.0) *
+          (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
     }
   }
 
@@ -1753,14 +1793,14 @@ void stokes_equation::build_rhs() {
   for (int i = 0; i < local_particle_num; i++) {
     int current_particle_local_index = local_idx[i];
     rhs_pressure_sum +=
-        rhs[current_particle_local_index + local_pressure_offset];
+        rhs[local_pressure_offset + current_particle_local_index];
   }
   MPI_Allreduce(MPI_IN_PLACE, &rhs_pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
   rhs_pressure_sum /= global_particle_num;
   for (int i = 0; i < local_particle_num; i++) {
     int current_particle_local_index = local_idx[i];
-    rhs[current_particle_local_index + local_pressure_offset] -=
+    rhs[local_pressure_offset + current_particle_local_index] -=
         rhs_pressure_sum;
   }
 }
@@ -1826,6 +1866,7 @@ void stokes_equation::solve_step() {
   MPI_Allgather(&local_particle_num, 1, MPI_INT,
                 particle_num_per_process.data(), 1, MPI_INT, MPI_COMM_WORLD);
 
+  int local_pressure_offset = local_particle_num * velocity_dof;
   int local_rigid_body_offset = particle_num_per_process[size - 1] * field_dof;
   int global_rigid_body_offset = global_particle_num * field_dof;
   int local_out_process_offset = particle_num_per_process[size - 1] * field_dof;
@@ -1836,11 +1877,11 @@ void stokes_equation::solve_step() {
   double pressure_sum = 0.0;
   for (int i = 0; i < local_particle_num; i++) {
     int current_particle_local_index = local_idx[i];
-    pressure[i] = res[field_dof * current_particle_local_index + velocity_dof];
+    pressure[i] = res[local_pressure_offset + current_particle_local_index];
     pressure_sum += pressure[i];
     for (int axes1 = 0; axes1 < dim; axes1++)
       velocity[i][axes1] =
-          res[field_dof * current_particle_local_index + axes1];
+          res[velocity_dof * current_particle_local_index + axes1];
   }
 
   MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
