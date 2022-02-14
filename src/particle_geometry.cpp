@@ -290,17 +290,17 @@ void particle_geometry::init(const int _dim, const int _problem_type,
     if (domain_type == 1) {
       bounding_box_size[0] = 2.0 * cap_radius;
       bounding_box_size[1] = 2.0 * cap_radius;
-      bounding_box_size[2] = cap_height;
+      bounding_box_size[2] = cap_radius;
 
       bounding_box[0][0] = -cap_radius;
       bounding_box[0][1] = -cap_radius;
       bounding_box[0][2] = 0.0;
       bounding_box[1][0] = cap_radius;
       bounding_box[1][1] = cap_radius;
-      bounding_box[1][2] = cap_height;
+      bounding_box[1][2] = cap_radius;
 
       auxiliary_size.push_back(cap_radius);
-      auxiliary_size.push_back(cap_height);
+      auxiliary_size.push_back(cap_radius);
     }
   } else {
     domain_type = 0;
@@ -2091,15 +2091,10 @@ void particle_geometry::generate_field_surface_particle() {
     }
     if (domain_type == 1) {
       double h = uniform_spacing;
-      double cap_radius, cap_height;
+      double cap_radius;
       cap_radius = auxiliary_size[0];
-      cap_height = auxiliary_size[1];
 
-      double R = (cap_radius * cap_radius + cap_height * cap_height) /
-                 (2.0 * cap_height);
-      double d = R - cap_height;
-
-      vec3 center = vec3(0.0, 0.0, -d);
+      double R = cap_radius;
 
       pos_z = 0.0;
       pos_x = domain[0][0] + uniform_spacing / 2.0;
@@ -2151,14 +2146,13 @@ void particle_geometry::generate_field_surface_particle() {
           pos_z = cos(phi) * R;
           double r = sqrt(R * R - pow(pos_z, 2.0));
           int M_theta = round(2.0 * M_PI * r / h);
-          pos_z -= d;
 
           for (int i = 0; i < M_theta; ++i) {
             double theta = 2.0 * M_PI * (i + 0.5) / M_theta - M_PI;
             vec3 normal = vec3(cos(theta), sin(theta), 0.0);
             vec3 pos = normal * r;
             pos[2] = pos_z;
-            vec3 dist = pos - center;
+            vec3 dist = pos;
             double norm = dist.mag();
             normal = dist * (-1.0 / norm);
             if (dist.mag() < R + 1e-5 * uniform_spacing)
