@@ -605,6 +605,12 @@ void stokes_equation::build_coefficient_matrix() {
     ite_counter++;
   }
 
+  for (int i = 0; i < local_particle_num; i++) {
+    if (neighbor_list_host(i, 0) > 1000)
+      cout << target_coord_host(i, 0) << ' ' << target_coord_host(i, 1) << ' '
+           << target_coord_host(i, 2) << endl;
+  }
+
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(MPI_COMM_WORLD,
               "iteration count: %d min neighbor: %d, max neighbor: %d , mean "

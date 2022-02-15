@@ -2103,13 +2103,12 @@ void particle_geometry::generate_field_surface_particle() {
         while (pos_y < domain[1][1] - 1e-5) {
           vec3 pos = vec3(pos_x, pos_y, pos_z);
           normal = vec3(0.0, 0.0, 1.0);
-          if (pos.mag() < cap_radius - 0.5 * uniform_spacing)
-            if (pos[0] > domain_bounding_box[0][0] - 1e-10 * h &&
-                pos[0] < domain_bounding_box[1][0] + 1e-10 * h &&
-                pos[1] > domain_bounding_box[0][1] - 1e-10 * h &&
-                pos[1] < domain_bounding_box[1][1] + 1e-10 * h &&
-                domain_bounding_box[0][2] < 1e-5)
-              insert_particle(pos, 3, uniform_spacing, normal, 0, vol);
+          if (pos[0] > domain_bounding_box[0][0] - 1e-10 * h &&
+              pos[0] < domain_bounding_box[1][0] + 1e-10 * h &&
+              pos[1] > domain_bounding_box[0][1] - 1e-10 * h &&
+              pos[1] < domain_bounding_box[1][1] + 1e-10 * h &&
+              domain_bounding_box[0][2] < 1e-5)
+            insert_particle(pos, 3, uniform_spacing, normal, 0, vol);
 
           pos_y += uniform_spacing;
         }
@@ -3212,7 +3211,7 @@ void particle_geometry::insert_particle(const vec3 &_pos, int _particle_type,
   int idx_field = is_field_particle(_pos, _spacing);
   if (_particle_type > 0)
     idx_field = -2;
-  if (_particle_type > 0)
+  if (_particle_type > 3 || _particle_type == 1)
     idx = -2;
 
   if ((idx == -2) && (idx_field == -2)) {
@@ -3397,17 +3396,12 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
 
             double new_adaptive_level = adaptive_level[tag] + 1;
 
-            double cap_radius, cap_height;
+            double cap_radius;
             cap_radius = auxiliary_size[0];
-            cap_height = auxiliary_size[1];
 
-            double R = (cap_radius * cap_radius + cap_height * cap_height) /
-                       (2.0 * cap_height);
-            double d = R - cap_height;
+            double R = cap_radius;
 
-            vec3 center = vec3(0.0, 0.0, -d);
-
-            vec3 dist = coord[tag] - center;
+            vec3 dist = coord[tag];
 
             double h0 = pow(0.5, adaptive_level[tag]) * uniform_spacing;
             double h = 0.5 * h0;
@@ -3433,7 +3427,6 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
                 pos_z = cos(phi) * R;
                 double r = sqrt(R * R - pow(pos_z, 2.0));
                 int M_theta = round(2 * M_PI * r / h);
-                pos_z -= d;
 
                 for (int i = 0; i < M_theta; ++i) {
                   double theta = 2 * M_PI * (i + 0.5) / M_theta - M_PI;
@@ -3442,7 +3435,7 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
                     vec3 new_normal = vec3(cos(theta), sin(theta), 0.0);
                     pos = new_normal * r;
                     pos[2] = pos_z;
-                    vec3 dist = pos - center;
+                    vec3 dist = pos;
                     double norm = dist.mag();
                     new_normal = dist * (-1.0 / norm);
                     if (dist.mag() < R + 1e-5 * h)
@@ -3486,9 +3479,8 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
 
               insert = true;
             } else {
-              double vol = volume[tag];
               insert_particle(new_pos, particle_type[tag], spacing[tag],
-                              normal[tag], adaptive_level[tag], vol);
+                              normal[tag], adaptive_level[tag], volume[tag]);
             }
           }
         } else {
@@ -3521,13 +3513,19 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
                              direction2 * j * spacing[tag] * 0.5;
 
               if (!insert) {
-                coord[tag] = new_pos;
+                double cap_radius = auxiliary_size[0];
+                if (new_pos.mag() < cap_radius - 1e-3 * spacing[tag]) {
+                  coord[tag] = new_pos;
 
-                insert = true;
+                  insert = true;
+                } else {
+                  insert_particle(new_pos, particle_type[tag], spacing[tag],
+                                  normal[tag], adaptive_level[tag],
+                                  volume[tag]);
+                }
               } else {
-                double vol = volume[tag];
                 insert_particle(new_pos, particle_type[tag], spacing[tag],
-                                normal[tag], adaptive_level[tag], vol);
+                                normal[tag], adaptive_level[tag], volume[tag]);
               }
             }
           }
@@ -4077,20 +4075,58 @@ void particle_geometry::split_gap_particle(vector<int> &split_tag) {
                         gap_spacing[tag], gap_normal[tag],
                         gap_adaptive_level[tag], gap_volume[tag]);
       } else {
-        vec3 origin = gap_coord[tag];
-        const double x_delta = gap_spacing[tag] * 0.25;
-        const double y_delta = gap_spacing[tag] * 0.25;
-        const double z_delta = gap_spacing[tag] * 0.25;
-        for (int i = -1; i < 2; i += 2) {
-          for (int j = -1; j < 2; j += 2) {
-            for (int k = -1; k < 2; k += 2) {
-              double new_spacing = gap_spacing[tag] * 0.5;
-              vec3 new_pos =
-                  origin + vec3(i * x_delta, j * y_delta, k * z_delta);
-              double new_volume = gap_volume[tag] / 8.0;
-              insert_particle(new_pos, gap_particle_type[tag], new_spacing,
-                              gap_normal[tag], gap_adaptive_level[tag] + 1,
-                              new_volume);
+        if (gap_particle_type[tag] == 0) {
+          vec3 origin = gap_coord[tag];
+          const double x_delta = gap_spacing[tag] * 0.25;
+          const double y_delta = gap_spacing[tag] * 0.25;
+          const double z_delta = gap_spacing[tag] * 0.25;
+          for (int i = -1; i < 2; i += 2) {
+            for (int j = -1; j < 2; j += 2) {
+              for (int k = -1; k < 2; k += 2) {
+                double new_spacing = gap_spacing[tag] * 0.5;
+                vec3 new_pos =
+                    origin + vec3(i * x_delta, j * y_delta, k * z_delta);
+                double new_volume = gap_volume[tag] / 8.0;
+                insert_particle(new_pos, gap_particle_type[tag], new_spacing,
+                                gap_normal[tag], gap_adaptive_level[tag] + 1,
+                                new_volume);
+              }
+            }
+          }
+        } else {
+          if (domain_type == 1) {
+            // plane particle
+            double new_spacing = gap_spacing[tag] / 2.0;
+            double new_volume = gap_volume[tag] / 8.0;
+            int new_adaptive_level = gap_adaptive_level[tag] + 1;
+            int is_new_added = -1;
+
+            vec3 origin = gap_coord[tag];
+
+            vec3 direction1, direction2;
+            if (gap_normal[tag][0] != 0) {
+              direction1 = vec3(0.0, 1.0, 0.0);
+              direction2 = vec3(0.0, 0.0, 1.0);
+            }
+            if (gap_normal[tag][1] != 0) {
+              direction1 = vec3(1.0, 0.0, 0.0);
+              direction2 = vec3(0.0, 0.0, 1.0);
+            }
+            if (gap_normal[tag][2] != 0) {
+              direction1 = vec3(1.0, 0.0, 0.0);
+              direction2 = vec3(0.0, 1.0, 0.0);
+            }
+
+            bool insert = false;
+            for (int i = -1; i < 2; i += 2) {
+              for (int j = -1; j < 2; j += 2) {
+                vec3 new_pos = origin + direction1 * i * new_spacing * 0.5 +
+                               direction2 * j * new_spacing * 0.5;
+
+                insert_particle(new_pos, gap_particle_type[tag], new_spacing,
+                                gap_normal[tag], new_adaptive_level,
+                                new_volume);
+              }
             }
           }
         }
@@ -4144,6 +4180,18 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
     vec3 rigid_body_ori = rb_mgr->get_orientation(idx);
     quaternion rigid_body_quaternion = rb_mgr->get_quaternion(idx);
     vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size(idx);
+
+    // check over domain
+    if (domain_type == 1) {
+      double cap_radius = auxiliary_size[0];
+
+      if (_pos.mag() > cap_radius + 1.5 * _spacing)
+        return -1;
+      if (_pos.mag() > cap_radius - 1e-3 * _spacing)
+        return 0;
+    }
+
+    // check over solid bodies
     switch (rigid_body_type) {
     case 1:
       // circle in 2d, sphere in 3d
@@ -4432,19 +4480,15 @@ int particle_geometry::is_field_particle(const vec3 &_pos, double _spacing) {
     }
   }
   if (domain_type == 1) {
-    double cap_radius, cap_height;
+    double cap_radius;
     cap_radius = auxiliary_size[0];
-    cap_height = auxiliary_size[1];
 
     if (_pos[2] < 0.0)
       return 0;
 
-    double R = (cap_radius * cap_radius + cap_height * cap_height) /
-               (2.0 * cap_height);
-    double d = R - cap_height;
+    double R = cap_radius;
 
-    vec3 center = vec3(0.0, 0.0, -d);
-    vec3 dist = _pos - center;
+    vec3 dist = _pos;
     if (dist.mag() > R)
       return -1;
     else if (dist.mag() > R - 0.5 * _spacing)
