@@ -3514,7 +3514,7 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
 
               if (!insert) {
                 double cap_radius = auxiliary_size[0];
-                if (new_pos.mag() < cap_radius - 1e-3 * spacing[tag]) {
+                if (new_pos.mag() < cap_radius - 0.5 * spacing[tag]) {
                   coord[tag] = new_pos;
 
                   insert = true;
@@ -4187,7 +4187,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
 
       if (_pos.mag() > cap_radius + 1.5 * _spacing)
         return -1;
-      if (_pos.mag() > cap_radius - 1e-3 * _spacing)
+      if (_pos.mag() > cap_radius - 0.5 * _spacing)
         return 0;
     }
 

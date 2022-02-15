@@ -38,6 +38,7 @@ private:
   int dimension;
 
 protected:
+  void custom_shape_normal(int rigid_body_index, const vec3 &pos, vec3 &norm);
   int find_rigid_body(const int rigid_body_index, const int refinement_level);
 
   void extend_hierarchy(const int compressed_rigid_body_index);

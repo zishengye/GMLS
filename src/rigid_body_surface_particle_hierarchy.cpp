@@ -7,6 +7,39 @@
 using namespace std;
 using namespace Compadre;
 
+void rigid_body_surface_particle_hierarchy::custom_shape_normal(
+    int rigid_body_index, const vec3 &pos, vec3 &norm) {
+  auto &rigid_body_size = rb_mgr->get_rigid_body_size(rigid_body_index);
+  double r1 = rigid_body_size[0];
+  double r2 = rigid_body_size[1];
+  double d = rigid_body_size[2];
+
+  double theta1 = 0.5 * M_PI + asin((d - r2) / (r1 - r2));
+  double s = sqrt((pow(r1 - r2, 2.0) - pow(d - r2, 2.0)));
+  double theta2 = M_PI - atan(s / d);
+
+  double r = pos.mag();
+  double theta = acos(pos[2] / r);
+  double phi = atan2(pos[1], pos[0]);
+
+  if (theta < theta1) {
+    norm = vec3(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta));
+  } else if (theta < theta2) {
+    vec3 new_center =
+        vec3((r1 - r2) * cos(phi) * sin(theta1),
+             (r1 - r2) * sin(phi) * sin(theta1), (r1 - r2) * cos(theta1));
+    vec3 new_pos = pos - new_center;
+    double new_r = new_pos.mag();
+    double new_theta = acos(new_pos[2] / new_r);
+    double new_phi = atan2(new_pos[1], new_pos[0]);
+
+    norm = vec3(cos(new_phi) * sin(new_theta), sin(new_phi) * sin(new_theta),
+                cos(new_theta));
+  } else {
+    norm = vec3(0.0, 0.0, -1.0);
+  }
+}
+
 int rigid_body_surface_particle_hierarchy::find_rigid_body(
     const int rigid_body_index, const int refinement_level) {
   while (refinement_level >= mapping[rb_idx[rigid_body_index]].size())
@@ -336,9 +369,11 @@ void rigid_body_surface_particle_hierarchy::add_customized_shape(
       input >> xyz[i];
     }
 
+    vec3 norm;
+    custom_shape_normal(0, xyz, norm);
+
     coord.push_back(xyz);
-    double mag = 1.0 / xyz.mag();
-    normal.push_back(xyz * mag);
+    normal.push_back(norm);
     spacing.push_back(vec3(1.0, 0.0, 0.0));
   }
 
@@ -658,7 +693,7 @@ void rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
     double d = rigid_body_size[2];
 
     double theta1 = 0.5 * M_PI + asin((d - r2) / (r1 - r2));
-    double s = sqrt((pow(r1 - r2, 2.0) - pow(d - r2, 2.0)) / d);
+    double s = sqrt((pow(r1 - r2, 2.0) - pow(d - r2, 2.0)));
     double theta2 = M_PI - atan(s / d);
 
     double r = pos.mag();
@@ -669,8 +704,8 @@ void rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
       norm = vec3(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta));
     } else if (theta < theta2) {
       vec3 new_center =
-          vec3((r1 - r2) * cos(phi) * sin(theta),
-               (r1 - r2) * sin(phi) * sin(theta), (r1 - r2) * cos(theta));
+          vec3((r1 - r2) * cos(phi) * sin(theta1),
+               (r1 - r2) * sin(phi) * sin(theta1), (r1 - r2) * cos(theta1));
       vec3 new_pos = pos - new_center;
       double new_r = new_pos.mag();
       double new_theta = acos(new_pos[2] / new_r);
