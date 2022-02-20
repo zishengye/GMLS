@@ -2123,17 +2123,15 @@ void particle_geometry::generate_field_surface_particle() {
 
       //   for (int i = 0; i < M_theta; ++i) {
       //     double theta = 2 * M_PI * (i + 0.5) / M_theta;
-      //     vec3 normal = vec3(cos(theta), sin(theta), 0.0);
+      //     vec3 normal = vec3(-cos(theta), -sin(theta), 0.0);
       //     vec3 pos = normal * r;
-      //     normal = vec3(0.0, 0.0, 1.0);
-      //     if (pos.mag() < cap_radius + 1e-5 * uniform_spacing)
-      //       if (pos[0] > domain[0][0] - 1e-10 * h &&
-      //           pos[0] < domain[1][0] + 1e-10 * h &&
-      //           pos[1] > domain[0][1] - 1e-10 * h &&
-      //           pos[1] < domain[1][1] + 1e-10 * h &&
-      //           pos[2] > domain[0][2] - 1e-10 * h &&
-      //           pos[2] < domain[1][2] + 1e-10 * h)
-      //         insert_particle(pos, 2, uniform_spacing, normal, 0, vol);
+      //     if (pos[0] > domain_bounding_box[0][0] - 1e-10 * h &&
+      //         pos[0] < domain_bounding_box[1][0] + 1e-10 * h &&
+      //         pos[1] > domain_bounding_box[0][1] - 1e-10 * h &&
+      //         pos[1] < domain_bounding_box[1][1] + 1e-10 * h &&
+      //         pos[2] > domain_bounding_box[0][2] - 1e-10 * h &&
+      //         pos[2] < domain_bounding_box[1][2] + 1e-10 * h)
+      //       insert_particle(pos, 2, uniform_spacing, normal, 0, vol);
       //   }
       // }
 
@@ -2150,6 +2148,8 @@ void particle_geometry::generate_field_surface_particle() {
             double theta = 2.0 * M_PI * (i + 0.5) / M_theta - M_PI;
             vec3 normal = vec3(cos(theta), sin(theta), 0.0);
             vec3 pos = normal * r;
+            normal =
+                vec3(cos(theta) * sin(phi), sin(theta) * sin(phi), cos(phi));
             pos[2] = pos_z;
             vec3 dist = pos;
             double norm = dist.mag();
@@ -3211,7 +3211,7 @@ void particle_geometry::insert_particle(const vec3 &_pos, int _particle_type,
   int idx_field = is_field_particle(_pos, _spacing);
   if (_particle_type > 0)
     idx_field = -2;
-  if (_particle_type > 3 || _particle_type == 1)
+  if (_particle_type > 3 || _particle_type == 1 || _particle_type == 2)
     idx = -2;
 
   if ((idx == -2) && (idx_field == -2)) {
@@ -4173,6 +4173,16 @@ void particle_geometry::split_gap_particle(vector<int> &split_tag) {
 
 int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
                                        int _attached_rigid_body_index) {
+  // check over domain
+  if (domain_type == 1) {
+    double cap_radius = auxiliary_size[0];
+
+    if (_pos.mag() > cap_radius + 1.5 * _spacing)
+      return -1;
+    if (_pos.mag() > cap_radius - _spacing)
+      return 0;
+  }
+
   int rigid_body_num = rb_mgr->get_rigid_body_num();
   for (size_t idx = 0; idx < rigid_body_num; idx++) {
     int rigid_body_type = rb_mgr->get_rigid_body_type(idx);
@@ -4180,16 +4190,6 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
     vec3 rigid_body_ori = rb_mgr->get_orientation(idx);
     quaternion rigid_body_quaternion = rb_mgr->get_quaternion(idx);
     vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size(idx);
-
-    // check over domain
-    if (domain_type == 1) {
-      double cap_radius = auxiliary_size[0];
-
-      if (_pos.mag() > cap_radius + 1.5 * _spacing)
-        return -1;
-      if (_pos.mag() > cap_radius - 0.5 * _spacing)
-        return 0;
-    }
 
     // check over solid bodies
     switch (rigid_body_type) {
