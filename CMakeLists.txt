@@ -61,6 +61,6 @@ file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
 add_compile_options(-O3 -w -fopenmp -fPIC)
 
-add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
-add_executable(test_particle_hierarchy ${sources} ${PROJECT_SOURCE_DIR}/test/test_particle_hierarchy.cpp)
+include(${PROJECT_SOURCE_DIR}/test/unit_test.cmake)

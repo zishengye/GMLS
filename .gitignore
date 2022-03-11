@@ -549,3 +549,6 @@ benchmark/
 panlab*
 
 *.sh
+
+build/
+bin/
