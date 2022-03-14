@@ -1,0 +1,21 @@
+#ifndef _HYDROGEN_RENDERING_HPP_
+#define _HYDROGEN_RENDERING_HPP_
+
+// GPU side rendering flags
+#ifdef ENABLE_OPENGL
+#define HYDROGEN_ENABLE_OPENGL
+#endif
+
+#ifdef ENABLE_VULKAN
+#define HYDROGEN_ENABLE_VULKAN
+#endif
+
+#ifdef ENABLE_DIRECTX
+#define HYDROGEN_ENABLE_DIRECTX
+#endif
+
+#ifdef ENABLE_METAL
+#define HYDROGEN_ENABLE_METAL
+#endif
+
+#endif

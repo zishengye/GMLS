@@ -3,6 +3,8 @@ project (GMLS_SOLVER)
 
 # set(CMAKE_VERBOSE_MAKEFILE on)
 
+find_package(GTest REQUIRED)
+
 find_package(MPI)
 
 set(TRILINOS_PATH /opt/trilinos/)
@@ -34,7 +36,7 @@ ELSE()
   MESSAGE(FATAL_ERROR "Could not find Trilinos!")
 ENDIF()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/build)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/)
