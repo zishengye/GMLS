@@ -1,4 +1,4 @@
-#include "domain_geometry.hpp"
+#include "DomainGeometry.hpp"
 
 #include <gtest/gtest.h>
 
@@ -33,9 +33,13 @@ TEST(DomainGeometryTest, IsInterior2D) {
 
     Kokkos::deep_copy(host_coords, coords);
 
-    Kokkos::View<bool *, Kokkos::DefaultExecutionSpace> results;
+    Kokkos::View<bool *, Kokkos::DefaultExecutionSpace> results(
+        "interior check results", 10);
 
     geometry.IsInterior(coords, results);
+
+    auto host_results = Kokkos::create_mirror_view(results);
+    Kokkos::deep_copy(results, host_results);
   }
 
   Kokkos::finalize();
@@ -45,13 +49,13 @@ TEST(DomainGeometryTest, IsInterior3D) {
   Kokkos::initialize(globalArgc, globalArgv);
 
   {
-    std::vector<double> size(2);
+    std::vector<double> size(3);
     size[0] = 2.0;
     size[1] = 2.0;
     size[2] = 2.0;
 
     DomainGeometry geometry;
-    geometry.SetDimension(2);
+    geometry.SetDimension(3);
     geometry.SetType(Box);
     geometry.SetSize(size);
 
@@ -71,7 +75,8 @@ TEST(DomainGeometryTest, IsInterior3D) {
 
     Kokkos::deep_copy(host_coords, coords);
 
-    Kokkos::View<bool *, Kokkos::DefaultExecutionSpace> results;
+    Kokkos::View<bool *, Kokkos::DefaultExecutionSpace> results(
+        "interior check results", 10);
 
     geometry.IsInterior(coords, results);
   }
@@ -80,10 +85,24 @@ TEST(DomainGeometryTest, IsInterior3D) {
 }
 
 int main(int argc, char *argv[]) {
+  MPI_Init(&argc, &argv);
   ::testing::InitGoogleTest(&argc, argv);
 
   globalArgc = argc;
   globalArgv = argv;
 
-  return RUN_ALL_TESTS();
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  ::testing::TestEventListeners &listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+  if (rank != 0) {
+    delete listeners.Release(listeners.default_result_printer());
+  }
+
+  auto result = RUN_ALL_TESTS();
+
+  MPI_Finalize();
+
+  return result;
 }
