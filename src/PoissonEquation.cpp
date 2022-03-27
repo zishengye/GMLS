@@ -327,6 +327,8 @@ void PoissonEquation::InitLinearSystem() {
     A.SetColIndex(currentParticleIndex, index);
   }
 
+  A.GraphAssemble();
+
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
     printf("\nAfter satisfying conditioning of Laplacian operator\niteration "

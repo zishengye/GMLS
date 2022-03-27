@@ -21,13 +21,19 @@ inline bool CompareIndex(Entry entry1, Entry entry2) {
 
 class PetscMatrix {
 protected:
-  std::vector<PetscInt> row_;
-  std::vector<PetscInt> col_;
-  std::vector<PetscReal> val_;
+  std::vector<PetscInt> diagRow_;
+  std::vector<PetscInt> diagCol_;
+  std::vector<PetscReal> diagVal_;
+
+  std::vector<PetscInt> offDiagRow_;
+  std::vector<PetscInt> offDiagCol_;
+  std::vector<PetscReal> offDiagVal_;
 
   PetscInt localRowSize_, localColSize_;
+  PetscInt globalRowSize_, globalColSize_;
+  PetscInt colRangeLow, colRangeHigh;
 
-  std::vector<std::vector<Entry>> matrix_;
+  std::vector<std::vector<PetscInt>> diagMatrixCol_, offDiagMatrixCol_;
 
   int mpiRank_, mpiSize_;
 
@@ -47,6 +53,8 @@ public:
   void Increment(const PetscInt row, const PetscInt col, const PetscReal value);
   void Increment(const PetscInt row, const std::vector<PetscInt> &index,
                  const std::vector<PetscReal> &value);
+
+  const unsigned long GraphAssemble();
 
   const unsigned long Assemble();
   const unsigned long Assemble(const PetscInt blockSize);

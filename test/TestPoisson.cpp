@@ -7,6 +7,7 @@ char **globalArgv;
 
 TEST(PoissonEquationTest, LinearSystemSovling) {
   Kokkos::initialize(globalArgc, globalArgv);
+  PetscInitialize(&globalArgc, &globalArgv, PETSC_NULL, PETSC_NULL);
 
   {
     PoissonEquation equation;
@@ -28,6 +29,7 @@ TEST(PoissonEquationTest, LinearSystemSovling) {
     auto field = equation.GetField();
   }
 
+  PetscFinalize();
   Kokkos::finalize();
 }
 
