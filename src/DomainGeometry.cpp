@@ -90,7 +90,7 @@ void DomainGeometry::IsInterior(Kokkos::View<Scalar **> coords,
   }
 }
 
-void DomainGeometry::SetType(SimpleDomainShape shape) { shape_ = shape; }
+void DomainGeometry::SetType(const SimpleDomainShape shape) { shape_ = shape; }
 
 void DomainGeometry::SetDimension(const int dimension) {
   dimension_ = dimension;
@@ -98,11 +98,11 @@ void DomainGeometry::SetDimension(const int dimension) {
 
 void DomainGeometry::SetSize(const std::vector<Scalar> &size) { size_ = size; }
 
-SimpleDomainShape DomainGeometry::GetType() { return shape_; }
+const SimpleDomainShape DomainGeometry::GetType() { return shape_; }
 
 const int DomainGeometry::GetDimension() { return dimension_; }
 
-Scalar DomainGeometry::GetSize(const int size_index) {
+const Scalar DomainGeometry::GetSize(const int size_index) {
   return size_[size_index];
 }
 

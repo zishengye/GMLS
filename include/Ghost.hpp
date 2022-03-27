@@ -26,6 +26,8 @@ public:
   void ApplyGhost(const HostRealMatrix &sourceData, HostRealMatrix &ghostData);
   void ApplyGhost(const HostRealVector &sourceData, HostRealVector &ghostData);
   void ApplyGhost(const HostIntVector &sourceData, HostIntVector &ghostData);
+  void ApplyGhost(const HostIndexVector &sourceData,
+                  HostIndexVector &ghostData);
 };
 
 #endif

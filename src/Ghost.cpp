@@ -295,3 +295,50 @@ void Ghost::ApplyGhost(const HostIntVector &sourceData,
     ghostData(localReserveNum_ + i) = flattenedRecvData[i];
   }
 }
+
+void Ghost::ApplyGhost(const HostIndexVector &sourceData,
+                       HostIndexVector &ghostData) {
+  std::vector<MPI_Request> sendRequest(ghostOutGraph_.size());
+  std::vector<MPI_Request> recvRequest(ghostInGraph_.size());
+  std::vector<MPI_Status> sendStatus(ghostOutGraph_.size());
+  std::vector<MPI_Status> recvStatus(ghostInGraph_.size());
+
+  std::vector<unsigned long> flattenedSendData(
+      ghostOutOffset_[ghostOutGraph_.size()]);
+  std::vector<unsigned long> flattenedRecvData(
+      ghostInOffset_[ghostInGraph_.size()]);
+
+  // prepare send data
+  for (int i = 0; i < ghostMap_.size(); i++) {
+    flattenedSendData[i] = sourceData(ghostMap_[i]);
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // send and recv data
+  for (int i = 0; i < ghostOutGraph_.size(); i++) {
+    MPI_Isend(flattenedSendData.data() + ghostOutOffset_[i], ghostOutNum_[i],
+              MPI_UNSIGNED_LONG, ghostOutGraph_[i], 0, MPI_COMM_WORLD,
+              sendRequest.data() + i);
+  }
+
+  for (int i = 0; i < ghostInGraph_.size(); i++) {
+    MPI_Irecv(flattenedRecvData.data() + ghostInOffset_[i], ghostInNum_[i],
+              MPI_UNSIGNED_LONG, ghostInGraph_[i], 0, MPI_COMM_WORLD,
+              recvRequest.data() + i);
+  }
+
+  MPI_Waitall(sendRequest.size(), sendRequest.data(), sendStatus.data());
+  MPI_Waitall(recvRequest.size(), recvRequest.data(), recvStatus.data());
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  Kokkos::resize(ghostData, localReserveNum_ + remoteInNum_);
+  // store reserved local data
+  for (int i = 0; i < localReserveNum_; i++) {
+    ghostData(i) = sourceData(reserveMap_[i]);
+  }
+
+  // store remote data
+  for (int i = 0; i < remoteInNum_; i++) {
+    ghostData(localReserveNum_ + i) = flattenedRecvData[i];
+  }
+}

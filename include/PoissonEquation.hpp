@@ -4,8 +4,20 @@
 #include "Equation.hpp"
 
 class PoissonEquation : public Equation {
+protected:
+  virtual void InitLinearSystem();
+  virtual void ConstructLinearSystem();
+  virtual void ConstructRhs();
+
+  HostRealVector field_;
+
 public:
   PoissonEquation();
+  ~PoissonEquation();
+
+  virtual void Init();
+
+  HostRealVector &GetField();
 };
 
 #endif

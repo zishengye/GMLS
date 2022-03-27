@@ -65,5 +65,7 @@ add_compile_options(-O3 -w -fopenmp -fPIC)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
+add_library(gmls_module SHARED ${sources})
+
 include(${PROJECT_SOURCE_DIR}/test/unit_test.cmake)
 include(${PROJECT_SOURCE_DIR}/test/performance_test.cmake)

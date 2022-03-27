@@ -7,13 +7,18 @@ typedef scalar_type Scalar;
 typedef local_index_type LocalIndex;
 typedef global_index_type GlobalIndex;
 
-typedef Kokkos::View<scalar_type **, Kokkos::DefaultHostExecutionSpace>
+typedef Kokkos::View<Scalar **, Kokkos::DefaultHostExecutionSpace>
     HostRealMatrix;
-typedef Kokkos::View<scalar_type **, Kokkos::DefaultExecutionSpace>
-    DeviceRealMatrix;
+typedef Kokkos::View<Scalar **, Kokkos::DefaultExecutionSpace> DeviceRealMatrix;
 
-typedef Kokkos::View<scalar_type *, Kokkos::DefaultHostExecutionSpace>
+typedef Kokkos::View<LocalIndex **, Kokkos::DefaultHostExecutionSpace>
+    HostIntMatrix;
+typedef Kokkos::View<LocalIndex **, Kokkos::DefaultExecutionSpace>
+    DeviceIntMatrix;
+
+typedef Kokkos::View<Scalar *, Kokkos::DefaultHostExecutionSpace>
     HostRealVector;
+typedef Kokkos::View<Scalar *, Kokkos::DefaultExecutionSpace> DeviceRealVector;
 
 typedef Kokkos::View<int *, Kokkos::DefaultHostExecutionSpace> HostIntVector;
 typedef Kokkos::View<int *, Kokkos::DefaultExecutionSpace> DeviceIntVector;

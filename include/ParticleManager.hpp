@@ -32,6 +32,7 @@ protected:
 
   HostRealMatrix hostGhostParticleCoords_;
   HostIntVector hostGhostParticleType_;
+  HostIndexVector hostGhostParticleIndex_;
 
   DeviceRealMatrix deviceCoords_;
   DeviceIntVector deviceParticleType_;
@@ -42,17 +43,22 @@ protected:
   Partition partition_;
 
   Ghost ghost_;
+  double ghostMultiplier_;
 
 public:
   ParticleSet(CoordType coordType = CartesianCoordinates);
 
   void SetDimension(const int dimension);
+  void SetGhostMultiplier(const double multiplier);
 
   HostRealMatrix &GetParticleCoords();
   HostRealMatrix &GetParticleNormal();
   HostRealVector &GetParticleSize();
   HostIntVector &GetParticleType();
   HostIndexVector &GetParticleIndex();
+
+  HostRealMatrix &GetGhostParticleCoords();
+  HostIndexVector &GetGhostParticleIndex();
 
   DeviceRealMatrix &PrepareDeviceCoords();
   DeviceIntVector &PrepareDeviceParticleType();
@@ -89,15 +95,27 @@ public:
   ParticleManager();
 
   void SetDimension(const int dimension);
-  void SetDomainType(SimpleDomainShape shape);
+  void SetDomainType(const SimpleDomainShape shape);
   void SetSize(const std::vector<Scalar> &size);
   void SetSpacing(const Scalar spacing);
+  void SetGhostMultiplier(const double multiplier);
 
-  void Init();
-  void Clear();
+  const int GetDimension();
+
+  virtual void Init();
+  virtual void Clear();
 
   const LocalIndex GetLocalParticleNum();
   const GlobalIndex GetGlobalParticleNum();
+
+  HostRealMatrix &GetParticleCoords();
+  HostRealMatrix &GetParticleNormal();
+  HostRealVector &GetParticleSize();
+  HostIntVector &GetParticleType();
+  HostIndexVector &GetParticleIndex();
+
+  HostRealMatrix &GetGhostParticleCoords();
+  HostIndexVector &GetGhostParticleIndex();
 
   void Output(std::string outputFileName = "output.vtk", bool isBinary = true);
 };
@@ -109,8 +127,8 @@ protected:
 public:
   HierarchicalParticleManager();
 
-  void Init();
-  void Clear();
+  virtual void Init();
+  virtual void Clear();
 };
 
 #endif

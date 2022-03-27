@@ -8,7 +8,7 @@ template <typename T> void SwapEnd(T &var) {
     std::swap(varArray[sizeof(var) - 1 - i], varArray[i]);
 }
 
-ParticleSet::ParticleSet(CoordType coordType) {
+ParticleSet::ParticleSet(CoordType coordType) : ghostMultiplier_(3.0) {
   coordType_ = coordType;
 
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);
@@ -16,6 +16,10 @@ ParticleSet::ParticleSet(CoordType coordType) {
 }
 
 void ParticleSet::SetDimension(const int dimension) { dimension_ = dimension; }
+
+void ParticleSet::SetGhostMultiplier(const double multiplier) {
+  ghostMultiplier_ = multiplier;
+}
 
 HostRealMatrix &ParticleSet::GetParticleCoords() { return hostParticleCoords_; }
 
@@ -26,6 +30,14 @@ HostRealVector &ParticleSet::GetParticleSize() { return hostParticleSize_; }
 HostIntVector &ParticleSet::GetParticleType() { return hostParticleType_; }
 
 HostIndexVector &ParticleSet::GetParticleIndex() { return hostParticleIndex_; }
+
+HostRealMatrix &ParticleSet::GetGhostParticleCoords() {
+  return hostGhostParticleCoords_;
+}
+
+HostIndexVector &ParticleSet::GetGhostParticleIndex() {
+  return hostGhostParticleIndex_;
+}
 
 const LocalIndex ParticleSet::GetLocalParticleNum() {
   return hostParticleCoords_.extent(0);
@@ -60,9 +72,10 @@ void ParticleSet::Balance() {
 }
 
 void ParticleSet::BuildGhost() {
-  ghost_.Init(hostParticleCoords_, hostParticleSize_, hostParticleCoords_, 3.0,
-              dimension_);
+  ghost_.Init(hostParticleCoords_, hostParticleSize_, hostParticleCoords_,
+              ghostMultiplier_, dimension_);
   ghost_.ApplyGhost(hostParticleCoords_, hostGhostParticleCoords_);
+  ghost_.ApplyGhost(hostParticleIndex_, hostGhostParticleIndex_);
 }
 
 void ParticleSet::Output(std::string outputFileName, bool isBinary) {
@@ -250,6 +263,9 @@ void ParticleSet::Output(std::string outputFileName, bool isBinary) {
 }
 
 ParticleManager::ParticleManager() {
+  geometry_.SetDimension(0);
+  geometry_.SetType(UndefinedDomain);
+
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiSize_);
 }
@@ -259,7 +275,7 @@ void ParticleManager::SetDimension(const int dimension) {
   particleSet_.SetDimension(dimension);
 }
 
-void ParticleManager::SetDomainType(SimpleDomainShape shape) {
+void ParticleManager::SetDomainType(const SimpleDomainShape shape) {
   geometry_.SetType(shape);
 }
 
@@ -269,7 +285,14 @@ void ParticleManager::SetSize(const std::vector<Scalar> &size) {
 
 void ParticleManager::SetSpacing(const Scalar spacing) { spacing_ = spacing; }
 
+void ParticleManager::SetGhostMultiplier(const double multiplier) {
+  particleSet_.SetGhostMultiplier(multiplier);
+}
+
+const int ParticleManager::GetDimension() { return geometry_.GetDimension(); }
+
 void ParticleManager::Init() {
+  assert(geometry_.GetType() != UndefinedDomain);
   LocalIndex localParticleNum = geometry_.EstimateNodeNum(spacing_);
 
   particleSet_.Resize(localParticleNum);
@@ -319,12 +342,42 @@ void ParticleManager::Init() {
   }
 }
 
+void ParticleManager::Clear() {}
+
 const LocalIndex ParticleManager::GetLocalParticleNum() {
   return particleSet_.GetLocalParticleNum();
 }
 
 const GlobalIndex ParticleManager::GetGlobalParticleNum() {
   return particleSet_.GetGlobalParticleNum();
+}
+
+HostRealMatrix &ParticleManager::GetParticleNormal() {
+  return particleSet_.GetParticleNormal();
+}
+
+HostRealMatrix &ParticleManager::GetParticleCoords() {
+  return particleSet_.GetParticleCoords();
+}
+
+HostRealVector &ParticleManager::GetParticleSize() {
+  return particleSet_.GetParticleSize();
+}
+
+HostIntVector &ParticleManager::GetParticleType() {
+  return particleSet_.GetParticleType();
+}
+
+HostIndexVector &ParticleManager::GetParticleIndex() {
+  return particleSet_.GetParticleIndex();
+}
+
+HostRealMatrix &ParticleManager::GetGhostParticleCoords() {
+  return particleSet_.GetGhostParticleCoords();
+}
+
+HostIndexVector &ParticleManager::GetGhostParticleIndex() {
+  return particleSet_.GetGhostParticleIndex();
 }
 
 void ParticleManager::Output(std::string outputFileName, bool isBinary) {
@@ -334,3 +387,5 @@ void ParticleManager::Output(std::string outputFileName, bool isBinary) {
 HierarchicalParticleManager::HierarchicalParticleManager() {}
 
 void HierarchicalParticleManager::Init() { ParticleManager::Init(); }
+
+void HierarchicalParticleManager::Clear() { ParticleManager::Clear(); }

@@ -7,7 +7,7 @@
 #include "Parallel.hpp"
 #include "Typedef.hpp"
 
-enum SimpleDomainShape { Box, Cylinder, Sphere };
+enum SimpleDomainShape { UndefinedDomain, Box, Cylinder, Sphere };
 
 class DomainGeometry {
 private:
@@ -31,14 +31,14 @@ public:
   void MeasusreToBoundary(Kokkos::View<Scalar **> coords,
                           Kokkos::View<Scalar *> results);
 
-  void SetType(SimpleDomainShape shape);
+  void SetType(const SimpleDomainShape shape);
   void SetDimension(const int dimension);
   void SetGeometryFile(const std::string filename);
   void SetSize(const std::vector<Scalar> &size);
 
-  SimpleDomainShape GetType();
+  const SimpleDomainShape GetType();
   const int GetDimension();
-  Scalar GetSize(const int size_index);
+  const Scalar GetSize(const int size_index);
 
   const LocalIndex EstimateNodeNum(const Scalar spacing);
   void AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
