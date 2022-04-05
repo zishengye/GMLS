@@ -2,13 +2,7 @@
 
 #include "ParticleManager.hpp"
 
-template <typename T> void SwapEnd(T &var) {
-  char *varArray = reinterpret_cast<char *>(&var);
-  for (long i = 0; i < static_cast<long>(sizeof(var) / 2); i++)
-    std::swap(varArray[sizeof(var) - 1 - i], varArray[i]);
-}
-
-ParticleSet::ParticleSet(CoordType coordType) : ghostMultiplier_(3.0) {
+ParticleSet::ParticleSet(CoordType coordType) {
   coordType_ = coordType;
 
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);
@@ -16,10 +10,6 @@ ParticleSet::ParticleSet(CoordType coordType) : ghostMultiplier_(3.0) {
 }
 
 void ParticleSet::SetDimension(const int dimension) { dimension_ = dimension; }
-
-void ParticleSet::SetGhostMultiplier(const double multiplier) {
-  ghostMultiplier_ = multiplier;
-}
 
 HostRealMatrix &ParticleSet::GetParticleCoords() { return hostParticleCoords_; }
 
@@ -30,14 +20,6 @@ HostRealVector &ParticleSet::GetParticleSize() { return hostParticleSize_; }
 HostIntVector &ParticleSet::GetParticleType() { return hostParticleType_; }
 
 HostIndexVector &ParticleSet::GetParticleIndex() { return hostParticleIndex_; }
-
-HostRealMatrix &ParticleSet::GetGhostParticleCoords() {
-  return hostGhostParticleCoords_;
-}
-
-HostIndexVector &ParticleSet::GetGhostParticleIndex() {
-  return hostGhostParticleIndex_;
-}
 
 const LocalIndex ParticleSet::GetLocalParticleNum() {
   return hostParticleCoords_.extent(0);
@@ -69,13 +51,6 @@ void ParticleSet::Balance() {
   partition_.ApplyPartition(hostParticleNormal_);
   partition_.ApplyPartition(hostParticleSize_);
   partition_.ApplyPartition(hostParticleType_);
-}
-
-void ParticleSet::BuildGhost() {
-  ghost_.Init(hostParticleCoords_, hostParticleSize_, hostParticleCoords_,
-              ghostMultiplier_, dimension_);
-  ghost_.ApplyGhost(hostParticleCoords_, hostGhostParticleCoords_);
-  ghost_.ApplyGhost(hostParticleIndex_, hostGhostParticleIndex_);
 }
 
 void ParticleSet::Output(std::string outputFileName, bool isBinary) {
@@ -285,10 +260,6 @@ void ParticleManager::SetSize(const std::vector<Scalar> &size) {
 
 void ParticleManager::SetSpacing(const Scalar spacing) { spacing_ = spacing; }
 
-void ParticleManager::SetGhostMultiplier(const double multiplier) {
-  particleSet_.SetGhostMultiplier(multiplier);
-}
-
 const int ParticleManager::GetDimension() { return geometry_.GetDimension(); }
 
 void ParticleManager::Init() {
@@ -322,7 +293,6 @@ void ParticleManager::Init() {
   }
 
   particleSet_.Balance();
-  particleSet_.BuildGhost();
 
   // reindex
   for (int i = 0; i < mpiSize_; i++) {
@@ -370,14 +340,6 @@ HostIntVector &ParticleManager::GetParticleType() {
 
 HostIndexVector &ParticleManager::GetParticleIndex() {
   return particleSet_.GetParticleIndex();
-}
-
-HostRealMatrix &ParticleManager::GetGhostParticleCoords() {
-  return particleSet_.GetGhostParticleCoords();
-}
-
-HostIndexVector &ParticleManager::GetGhostParticleIndex() {
-  return particleSet_.GetGhostParticleIndex();
 }
 
 void ParticleManager::Output(std::string outputFileName, bool isBinary) {

@@ -175,3 +175,5 @@ const unsigned long PetscMatrix::Assemble() {
 
   return diagCol_.size() + offDiagCol_.size();
 }
+
+Mat &PetscMatrix::GetReference() { return mat_; }

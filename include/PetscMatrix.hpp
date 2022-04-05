@@ -58,6 +58,8 @@ public:
 
   const unsigned long Assemble();
   const unsigned long Assemble(const PetscInt blockSize);
+
+  Mat &GetReference();
 };
 
 #endif

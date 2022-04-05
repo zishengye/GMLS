@@ -3,12 +3,14 @@
 #include "Equation.hpp"
 
 void Equation::InitLinearSystem() {
+  BuildGhost();
+
   GlobalIndex globalParticleNum = particleMgr_.GetGlobalParticleNum();
   if (mpiRank_ == 0)
     printf("Start of preparing linear system with %lu particles\n",
            globalParticleNum);
 
-  linearSystems_.push_back(PetscMatrix());
+  linearSystemsPtr_.push_back(std::make_shared<PetscMatrix>());
 
   MPI_Barrier(MPI_COMM_WORLD);
 }
@@ -23,27 +25,98 @@ void Equation::DiscretizeEquation() {
   this->ConstructRhs();
 }
 
-void Equation::InitPreconditioner() {}
+void Equation::InitPreconditioner() {
+  ksp_.SetUp(*(linearSystemsPtr_[refinementIteration_]), KSPGMRES);
+}
 
-void Equation::SolveEquation() {}
+void Equation::SolveEquation() {
+  ksp_.Solve(b_.GetReference(), x_.GetReference());
+}
 
 void Equation::CalculateError() {
-  const LocalIndex localNumParticle = particleMgr_.GetLocalParticleNum();
-  Kokkos::resize(error_, localNumParticle);
+  const LocalIndex localParticleNum = particleMgr_.GetLocalParticleNum();
+  Kokkos::resize(error_, localParticleNum);
 }
 
 void Equation::Refine() {}
 
+void Equation::BuildGhost() {
+  auto &particleCoords = particleMgr_.GetParticleCoords();
+  auto &particleSize = particleMgr_.GetParticleSize();
+  auto &particleIndex = particleMgr_.GetParticleIndex();
+  ghost_.Init(particleCoords, particleSize, particleCoords, ghostMultiplier_,
+              particleMgr_.GetDimension());
+  ghost_.ApplyGhost(particleCoords, hostGhostParticleCoords_);
+  ghost_.ApplyGhost(particleIndex, hostGhostParticleIndex_);
+}
+
 void Equation::Output() {
   if (outputLevel_ > 0) {
+    if (mpiRank_ == 0)
+      printf("Start of writing adaptive step output file\n");
     // write particles
     particleMgr_.Output(
         "AdaptiveStep" + std::to_string(refinementIteration_) + ".vtk", true);
   }
+
+  std::ofstream vtkStream;
+  // output epsilon
+  if (mpiRank_ == 0) {
+    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                       ".vtk",
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS epsilon float 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                         ".vtk",
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (int i = 0; i < epsilon_.extent(0); i++) {
+        float x = epsilon_(i);
+        SwapEnd(x);
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  // output number of neighbor
+  if (mpiRank_ == 0) {
+    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                       ".vtk",
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS nn int 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                         ".vtk",
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (int i = 0; i < neighborLists_.extent(0); i++) {
+        int x = neighborLists_(i, 0);
+        SwapEnd(x);
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
 }
 
 void Equation::ConstructNeighborLists(const int satisfiedNumNeighbor) {
-  auto &sourceCoords = particleMgr_.GetGhostParticleCoords();
+  auto &sourceCoords = hostGhostParticleCoords_;
   auto &coords = particleMgr_.GetParticleCoords();
   auto &spacing = particleMgr_.GetParticleSize();
 
@@ -55,7 +128,7 @@ void Equation::ConstructNeighborLists(const int satisfiedNumNeighbor) {
   Kokkos::resize(epsilon_, localParticleNum);
 
   for (int i = 0; i < localParticleNum; i++) {
-    epsilon_(i) = 1.5 * spacing(i);
+    epsilon_(i) = 1.50005 * spacing(i);
   }
 
   auto pointCloudSearch(Compadre::CreatePointCloudSearch(
@@ -120,34 +193,9 @@ void Equation::ConstructNeighborLists(const int satisfiedNumNeighbor) {
   if (mpiRank_ == 0)
     printf("\nAfter satisfying least number of neighbors\niteration count: %d "
            "min neighbor: %d, max neighbor: %d , mean "
-           "neighbor: %f, max ratio: %f\n",
+           "neighbor: %.2f, max ratio: %.2f\n",
            iteCounter, minNeighbor, maxNeighbor,
            meanNeighbor / (double)globalParticleNum, maxRatio);
-}
-
-void Equation::Init() {
-  particleMgr_.SetGhostMultiplier(6.0);
-  particleMgr_.Init();
-}
-
-void Equation::Update() {
-  refinementIteration_ = 0;
-  double error = 1e9;
-
-  while (error > errorTolerance_ &&
-         refinementIteration_ < maxRefinementIteration_) {
-    if (mpiRank_ == 0) {
-      printf("Refinement iteration: %d\n", refinementIteration_);
-    }
-    this->DiscretizeEquation();
-    this->InitPreconditioner();
-    this->SolveEquation();
-    this->CalculateError();
-    this->Refine();
-    this->Output();
-
-    refinementIteration_++;
-  }
 }
 
 Equation::Equation()
@@ -185,4 +233,55 @@ void Equation::SetRefinementMethod(const RefinementMethod refinementMethod) {
 
 void Equation::SetMaxRefinementIteration(const int maxRefinementIteration) {
   maxRefinementIteration_ = maxRefinementIteration;
+}
+
+void Equation::SetOutputLevel(const int outputLevel) {
+  outputLevel_ = outputLevel;
+}
+
+void Equation::SetGhostMultiplier(const double multiplier) {
+  ghostMultiplier_ = multiplier;
+}
+
+void Equation::Init() {
+  SetGhostMultiplier(6.0);
+  particleMgr_.Init();
+}
+
+void Equation::Update() {
+  double tStart, tEnd;
+  tStart = MPI_Wtime();
+  refinementIteration_ = 0;
+  double error = 1e9;
+
+  while (error > errorTolerance_ &&
+         refinementIteration_ < maxRefinementIteration_) {
+    if (mpiRank_ == 0) {
+      printf("Refinement iteration: %d\n", refinementIteration_);
+    }
+    this->DiscretizeEquation();
+    this->InitPreconditioner();
+    {
+      double tStart, tEnd;
+      tStart = MPI_Wtime();
+      this->SolveEquation();
+      tEnd = MPI_Wtime();
+      if (mpiRank_ == 0)
+        printf("Duration of solving linear system: %fs\n", tEnd - tStart);
+    }
+    this->CalculateError();
+    this->Refine();
+    this->Output();
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (mpiRank_ == 0)
+      printf("End of adaptive refinement iteration %d\n", refinementIteration_);
+
+    refinementIteration_++;
+  }
+  tEnd = MPI_Wtime();
+  if (mpiRank_ == 0) {
+    printf("End of updating physics\nDuration of updating is %fs\n",
+           tEnd - tStart);
+  }
 }

@@ -20,6 +20,9 @@ public:
   void Create(PetscVector &vec);
   void Create(HostRealVector &vec);
 
+  void Copy(std::vector<double> &vec);
+  void Copy(HostRealVector &vec);
+
   void Clear();
 
   Vec &GetReference();

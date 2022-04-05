@@ -7,12 +7,13 @@ char **globalArgv;
 
 TEST(PoissonEquationTest, LinearSystemSovling) {
   Kokkos::initialize(globalArgc, globalArgv);
-  PetscInitialize(&globalArgc, &globalArgv, PETSC_NULL, PETSC_NULL);
+  PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.yaml",
+                  PETSC_NULL);
 
   {
     PoissonEquation equation;
     equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.02);
+    equation.SetInitialDiscretizationResolution(0.05);
 
     std::vector<double> size(2);
     size[0] = 2.0;
@@ -22,11 +23,48 @@ TEST(PoissonEquationTest, LinearSystemSovling) {
     equation.SetDomainSize(size);
     equation.SetDomainType(Box);
     equation.SetMaxRefinementIteration(1);
+    equation.SetOutputLevel(1);
 
     equation.Init();
     equation.Update();
+  }
 
-    auto field = equation.GetField();
+  {
+    PoissonEquation equation;
+    equation.SetErrorTolerance(1e-3);
+    equation.SetInitialDiscretizationResolution(0.025);
+
+    std::vector<double> size(2);
+    size[0] = 2.0;
+    size[1] = 2.0;
+
+    equation.SetDimension(2);
+    equation.SetDomainSize(size);
+    equation.SetDomainType(Box);
+    equation.SetMaxRefinementIteration(1);
+    equation.SetOutputLevel(1);
+
+    equation.Init();
+    equation.Update();
+  }
+
+  {
+    PoissonEquation equation;
+    equation.SetErrorTolerance(1e-3);
+    equation.SetInitialDiscretizationResolution(0.05);
+
+    std::vector<double> size(2);
+    size[0] = 2.0;
+    size[1] = 2.0;
+
+    equation.SetDimension(2);
+    equation.SetDomainSize(size);
+    equation.SetDomainType(Box);
+    equation.SetMaxRefinementIteration(2);
+    equation.SetOutputLevel(1);
+
+    equation.Init();
+    equation.Update();
   }
 
   PetscFinalize();

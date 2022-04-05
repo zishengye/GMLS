@@ -13,6 +13,12 @@
 #include "Partition.hpp"
 #include "Typedef.hpp"
 
+template <typename T> void SwapEnd(T &var) {
+  char *varArray = reinterpret_cast<char *>(&var);
+  for (long i = 0; i < static_cast<long>(sizeof(var) / 2); i++)
+    std::swap(varArray[sizeof(var) - 1 - i], varArray[i]);
+}
+
 enum CoordType {
   CartesianCoordinates,
   SphericalCoordinates,
@@ -30,10 +36,6 @@ protected:
   HostIntVector hostParticleType_;
   HostIndexVector hostParticleIndex_;
 
-  HostRealMatrix hostGhostParticleCoords_;
-  HostIntVector hostGhostParticleType_;
-  HostIndexVector hostGhostParticleIndex_;
-
   DeviceRealMatrix deviceCoords_;
   DeviceIntVector deviceParticleType_;
   DeviceIndexVector deviceParticleIndex_;
@@ -42,23 +44,16 @@ protected:
 
   Partition partition_;
 
-  Ghost ghost_;
-  double ghostMultiplier_;
-
 public:
   ParticleSet(CoordType coordType = CartesianCoordinates);
 
   void SetDimension(const int dimension);
-  void SetGhostMultiplier(const double multiplier);
 
   HostRealMatrix &GetParticleCoords();
   HostRealMatrix &GetParticleNormal();
   HostRealVector &GetParticleSize();
   HostIntVector &GetParticleType();
   HostIndexVector &GetParticleIndex();
-
-  HostRealMatrix &GetGhostParticleCoords();
-  HostIndexVector &GetGhostParticleIndex();
 
   DeviceRealMatrix &PrepareDeviceCoords();
   DeviceIntVector &PrepareDeviceParticleType();
@@ -98,7 +93,6 @@ public:
   void SetDomainType(const SimpleDomainShape shape);
   void SetSize(const std::vector<Scalar> &size);
   void SetSpacing(const Scalar spacing);
-  void SetGhostMultiplier(const double multiplier);
 
   const int GetDimension();
 
@@ -113,9 +107,6 @@ public:
   HostRealVector &GetParticleSize();
   HostIntVector &GetParticleType();
   HostIndexVector &GetParticleIndex();
-
-  HostRealMatrix &GetGhostParticleCoords();
-  HostIndexVector &GetGhostParticleIndex();
 
   void Output(std::string outputFileName = "output.vtk", bool isBinary = true);
 };

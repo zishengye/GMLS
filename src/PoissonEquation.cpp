@@ -1,5 +1,7 @@
 #include "PoissonEquation.hpp"
+#include "PolyBasis.hpp"
 
+#include <Compadre_Evaluator.hpp>
 #include <Compadre_GMLS.hpp>
 #include <Compadre_PointCloudSearch.hpp>
 
@@ -10,8 +12,8 @@ void PoissonEquation::InitLinearSystem() {
   if (mpiRank_ == 0)
     printf("Start of initializing physics: Poisson\n");
 
-  auto &sourceCoords = particleMgr_.GetGhostParticleCoords();
-  auto &sourceIndex = particleMgr_.GetGhostParticleIndex();
+  auto &sourceCoords = hostGhostParticleCoords_;
+  auto &sourceIndex = hostGhostParticleIndex_;
   auto &coords = particleMgr_.GetParticleCoords();
   auto &spacing = particleMgr_.GetParticleSize();
   auto &particleType = particleMgr_.GetParticleType();
@@ -307,7 +309,7 @@ void PoissonEquation::InitLinearSystem() {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  auto &A = linearSystems_[refinementIteration_];
+  auto &A = *(linearSystemsPtr_[refinementIteration_]);
   A.Resize(localParticleNum, localParticleNum);
   std::vector<PetscInt> index;
   for (int i = 0; i < localParticleNum; i++) {
@@ -347,8 +349,8 @@ void PoissonEquation::ConstructLinearSystem() {
   if (mpiRank_ == 0)
     printf("Start of building linear system of physics: Poisson\n");
 
-  auto &sourceCoords = particleMgr_.GetGhostParticleCoords();
-  auto &sourceIndex = particleMgr_.GetGhostParticleIndex();
+  auto &sourceCoords = hostGhostParticleCoords_;
+  auto &sourceIndex = hostGhostParticleIndex_;
   auto &coords = particleMgr_.GetParticleCoords();
   auto &spacing = particleMgr_.GetParticleSize();
   auto &particleType = particleMgr_.GetParticleType();
@@ -363,16 +365,18 @@ void PoissonEquation::ConstructLinearSystem() {
 
   const int dimension = particleMgr_.GetDimension();
 
-  auto &A = linearSystems_[refinementIteration_];
+  auto &A = *(linearSystemsPtr_[refinementIteration_]);
 
   const unsigned int batchSize = (dimension == 2) ? 5000 : 1000;
-  const unsigned int batchNum =
-      localParticleNum / batchSize + (localParticleNum % batchSize > 0) ? 1 : 0;
+  const unsigned int batchNum = localParticleNum / batchSize +
+                                ((localParticleNum % batchSize > 0) ? 1 : 0);
   for (int batch = 0; batch < batchNum; batch++) {
     const unsigned int startParticle = batch * batchSize;
     const unsigned int endParticle =
         std::min((batch + 1) * batchSize, localParticleNum);
     unsigned int interiorParticleNum, boundaryParticleNum;
+    interiorParticleNum = 0;
+    boundaryParticleNum = 0;
     for (int i = startParticle; i < endParticle; i++) {
       if (particleType(i) == 0)
         interiorParticleNum++;
@@ -537,23 +541,355 @@ void PoissonEquation::ConstructRhs() {
   MPI_Barrier(MPI_COMM_WORLD);
 
   auto &coords = particleMgr_.GetParticleCoords();
+  auto &particleType = particleMgr_.GetParticleType();
 
   const unsigned int localParticleNum = coords.extent(0);
+
+  Kokkos::resize(field_, localParticleNum);
+  Kokkos::resize(error_, localParticleNum);
+
+  std::vector<double> rhs(localParticleNum);
   for (int i = 0; i < localParticleNum; i++) {
+    if (particleType(i) != 0) {
+      rhs[i] = cos(coords(i, 0)) * cos(coords(i, 1));
+    } else {
+      rhs[i] = 2.0 * cos(coords(i, 0)) * cos(coords(i, 1));
+    }
   }
+  b_.Create(rhs);
+  x_.Create(field_);
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
     printf("Duration of building right hand side:%fs\n", tEnd - tStart);
   }
 }
 
-PoissonEquation::PoissonEquation() {}
+void PoissonEquation::SolveEquation() {
+  Equation::SolveEquation();
+  x_.Copy(field_);
+}
+
+void PoissonEquation::CalculateError() {
+  Equation::CalculateError();
+
+  auto &sourceCoords = hostGhostParticleCoords_;
+  auto &coords = particleMgr_.GetParticleCoords();
+  auto &particleType = particleMgr_.GetParticleType();
+  auto &spacing = particleMgr_.GetParticleSize();
+
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
+      "source coords", sourceCoords.extent(0), sourceCoords.extent(1));
+  Kokkos::deep_copy(sourceCoordsDevice, sourceCoords);
+
+  const unsigned int localParticleNum = particleMgr_.GetLocalParticleNum();
+
+  const int dimension = particleMgr_.GetDimension();
+
+  HostRealVector ghostField, ghostEpsilon, ghostSpacing;
+  ghost_.ApplyGhost(field_, ghostField);
+  ghost_.ApplyGhost(epsilon_, ghostEpsilon);
+  ghost_.ApplyGhost(spacing, ghostSpacing);
+
+  double localDirectGradientNorm = 0.0;
+  double globalDirectGradientNorm;
+
+  int coefficientSize;
+  {
+    Compadre::GMLS testBasis =
+        Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
+                       Compadre::StaggeredEdgeAnalyticGradientIntegralSample,
+                       polyOrder_, dimension, "LU", "STANDARD");
+    coefficientSize = testBasis.getPolynomialCoefficientsSize();
+  }
+
+  HostRealMatrix coefficientChunk("coefficient chunk", localParticleNum,
+                                  coefficientSize);
+  HostRealMatrix ghostCoefficientChunk;
+
+  // get coefficients and original gradients
+  const unsigned int batchSize = (dimension == 2) ? 5000 : 1000;
+  const unsigned int batchNum = localParticleNum / batchSize +
+                                ((localParticleNum % batchSize > 0) ? 1 : 0);
+  for (int batch = 0; batch < batchNum; batch++) {
+    const unsigned int startParticle = batch * batchSize;
+    const unsigned int endParticle =
+        std::min((batch + 1) * batchSize, localParticleNum);
+    const unsigned int batchParticleNum = endParticle - startParticle;
+
+    Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+        batchNeighborListsDevice("batch particle neighborlist",
+                                 batchParticleNum, neighborLists_.extent(1));
+    Kokkos::View<int **>::HostMirror batchNeighborListsHost =
+        Kokkos::create_mirror_view(batchNeighborListsDevice);
+
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> batchEpsilonDevice(
+        "batch particle epsilon", batchParticleNum);
+    Kokkos::View<double *>::HostMirror batchEpsilonHost =
+        Kokkos::create_mirror_view(batchEpsilonDevice);
+
+    Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+        batchParticleCoordsDevice("batch particle coord", batchParticleNum,
+                                  dimension);
+    Kokkos::View<double **>::HostMirror batchParticleCoordsHost =
+        Kokkos::create_mirror_view(batchParticleCoordsDevice);
+
+    int particleCounter = 0;
+    for (int i = startParticle; i < endParticle; i++) {
+      batchEpsilonHost(particleCounter) = epsilon_(i);
+      for (int j = 0; j <= neighborLists_(i, 0); j++) {
+        batchNeighborListsHost(particleCounter, j) = neighborLists_(i, j);
+      }
+      for (int j = 0; j < dimension; j++) {
+        batchParticleCoordsHost(particleCounter, j) = coords(i, j);
+      }
+
+      particleCounter++;
+    }
+
+    Kokkos::deep_copy(batchNeighborListsDevice, batchNeighborListsHost);
+    Kokkos::deep_copy(batchEpsilonDevice, batchEpsilonHost);
+    Kokkos::deep_copy(batchParticleCoordsDevice, batchParticleCoordsHost);
+
+    {
+      Compadre::GMLS batchBasis = Compadre::GMLS(
+          Compadre::ScalarTaylorPolynomial, Compadre::PointSample, polyOrder_,
+          dimension, "LU", "STANDARD");
+
+      batchBasis.setProblemData(batchNeighborListsDevice, sourceCoordsDevice,
+                                batchParticleCoordsDevice, batchEpsilonDevice);
+
+      batchBasis.addTargets(Compadre::GradientOfScalarPointEvaluation);
+
+      batchBasis.setWeightingType(Compadre::WeightingFunctionType::Power);
+      batchBasis.setWeightingParameter(4);
+      batchBasis.setOrderOfQuadraturePoints(2);
+      batchBasis.setDimensionOfQuadraturePoints(1);
+      batchBasis.setQuadratureType("LINE");
+
+      batchBasis.generateAlphas(1, true);
+
+      Compadre::Evaluator batchEvaluator(&batchBasis);
+
+      auto batchCoefficient =
+          batchEvaluator
+              .applyFullPolynomialCoefficientsBasisToDataAllComponents<
+                  double **, Kokkos::HostSpace>(ghostField);
+      // duplicate coefficients
+      particleCounter = 0;
+      for (int i = startParticle; i < endParticle; i++) {
+        for (int j = 0; j < coefficientSize; j++)
+          coefficientChunk(i, j) = batchCoefficient(particleCounter, j);
+        particleCounter++;
+      }
+
+      auto batchGradient =
+          batchEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
+              double **, Kokkos::HostSpace>(
+              ghostField, Compadre::GradientOfScalarPointEvaluation);
+
+      particleCounter = 0;
+      for (int i = startParticle; i < endParticle; i++) {
+        double localVolume = pow(spacing(i), dimension);
+        for (int j = 0; j < dimension; j++)
+          localDirectGradientNorm += pow(batchGradient(i, j), 2) * localVolume;
+        particleCounter++;
+      }
+    }
+  }
+
+  MPI_Allreduce(&localDirectGradientNorm, &globalDirectGradientNorm, 1,
+                MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  globalDirectGradientNorm = sqrt(globalDirectGradientNorm);
+
+  ghost_.ApplyGhost(coefficientChunk, ghostCoefficientChunk);
+
+  // estimate recovered gradient
+  Kokkos::resize(recoveredGradientChunk_, localParticleNum, dimension);
+  HostRealMatrix ghostRecoveredGradientChunk;
+
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
+                                                             coords.extent(0)),
+      KOKKOS_LAMBDA(const int i) {
+        for (int j = 0; j < dimension; j++)
+          recoveredGradientChunk_(i, j) = 0.0;
+        for (int j = 0; j < neighborLists_(i, 0); j++) {
+          const int neighborParticleIndex = neighborLists_(i, j + 1);
+          auto coeffView = Kokkos::subview(ghostCoefficientChunk,
+                                           neighborParticleIndex, Kokkos::ALL);
+
+          for (int axes = 0; axes < dimension; axes++)
+            recoveredGradientChunk_(i, axes) += CalScalarGrad(
+                axes, dimension,
+                coords(i, 0) - sourceCoords(neighborParticleIndex, 0),
+                coords(i, 1) - sourceCoords(neighborParticleIndex, 1),
+                coords(i, 2) - sourceCoords(neighborParticleIndex, 2),
+                polyOrder_, ghostEpsilon(neighborParticleIndex), coeffView);
+        }
+
+        for (int j = 0; j < dimension; j++)
+          recoveredGradientChunk_(i, j) /= neighborLists_(i, 0);
+      });
+
+  ghost_.ApplyGhost(recoveredGradientChunk_, ghostRecoveredGradientChunk);
+
+  // estimate error
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
+                                                             coords.extent(0)),
+      KOKKOS_LAMBDA(const int i) {
+        const double localVolume = pow(spacing(i), dimension);
+        double totalNeighborVolume = 0.0;
+        error_(i) = 0.0;
+        double reconstructedGradient;
+        for (int j = 0; j < neighborLists_(i, 0); j++) {
+          const int neighborParticleIndex = neighborLists_(i, j + 1);
+
+          double sourceVolume =
+              pow(ghostSpacing(neighborParticleIndex), dimension);
+          totalNeighborVolume += sourceVolume;
+
+          auto coeffView = Kokkos::subview(coefficientChunk, i, Kokkos::ALL);
+
+          for (int axes = 0; axes < dimension; axes++) {
+            reconstructedGradient = CalScalarGrad(
+                axes, dimension,
+                sourceCoords(neighborParticleIndex, 0) - coords(i, 0),
+                sourceCoords(neighborParticleIndex, 1) - coords(i, 1),
+                sourceCoords(neighborParticleIndex, 2) - coords(i, 2),
+                polyOrder_, epsilon_(i), coeffView);
+
+            error_(i) +=
+                pow(reconstructedGradient - ghostRecoveredGradientChunk(
+                                                neighborParticleIndex, axes),
+                    2) *
+                sourceVolume;
+          }
+        }
+
+        error_(i) /= totalNeighborVolume;
+        error_(i) = sqrt(error_(i) * localVolume);
+      });
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  double localError = 0.0;
+  double globalError;
+  Kokkos::parallel_reduce(
+      "get local error",
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
+                                                             coords.extent(0)),
+      [&](const int i, double &tLocalError) {
+        tLocalError += pow(error_(i), 2);
+      },
+      Kokkos::Sum<double>(localError));
+  Kokkos::fence();
+  MPI_Allreduce(&localError, &globalError, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  globalError = sqrt(globalError);
+
+  if (mpiRank_ == 0)
+    printf("Global error: %.4f\n", globalError / globalDirectGradientNorm);
+}
+
+void PoissonEquation::Output() {
+  Equation::Output();
+
+  auto globalParticleNum = particleMgr_.GetGlobalParticleNum();
+  const int dimension = particleMgr_.GetDimension();
+
+  std::ofstream vtkStream;
+  // output field value
+  if (mpiRank_ == 0) {
+    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                       ".vtk",
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS f float 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                         ".vtk",
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (int i = 0; i < field_.extent(0); i++) {
+        float x = field_(i);
+        SwapEnd(x);
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  // output recovered gradient
+  if (mpiRank_ == 0) {
+    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                       ".vtk",
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    if (dimension == 2)
+      vtkStream << "SCALARS grad float 2" << std::endl
+                << "LOOKUP_TABLE default" << std::endl;
+    if (dimension == 3)
+      vtkStream << "SCALARS grad float 3" << std::endl
+                << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                         ".vtk",
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (int i = 0; i < recoveredGradientChunk_.extent(0); i++) {
+        for (int j = 0; j < recoveredGradientChunk_.extent(1); j++) {
+          float x = recoveredGradientChunk_(i, j);
+          SwapEnd(x);
+          vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+        }
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  // output error
+  if (mpiRank_ == 0) {
+    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                       ".vtk",
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS error float 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                         ".vtk",
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (int i = 0; i < error_.extent(0); i++) {
+        float x = error_(i);
+        SwapEnd(x);
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+}
+
+PoissonEquation::PoissonEquation() : Equation() {}
 
 PoissonEquation::~PoissonEquation() {}
 
-void PoissonEquation::Init() {
-  Equation::Init();
-  field_ = HostRealVector("Host field", particleMgr_.GetLocalParticleNum());
-}
+void PoissonEquation::Init() { Equation::Init(); }
 
 HostRealVector &PoissonEquation::GetField() { return field_; }

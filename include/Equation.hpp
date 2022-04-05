@@ -2,6 +2,7 @@
 #define _EQUATION_HPP_
 
 #include "ParticleManager.hpp"
+#include "PetscKsp.hpp"
 #include "PetscMatrix.hpp"
 #include "Typedef.hpp"
 
@@ -24,9 +25,15 @@ protected:
   HostIntMatrix neighborLists_;
   HostRealVector epsilon_;
 
-  std::vector<PetscMatrix> linearSystems_;
-  std::vector<PetscVector> b_;
-  std::vector<PetscVector> x_;
+  std::vector<std::shared_ptr<PetscMatrix>> linearSystemsPtr_;
+  PetscVector b_;
+  PetscVector x_;
+
+  PetscKsp ksp_;
+
+  HostRealMatrix hostGhostParticleCoords_;
+  HostIntVector hostGhostParticleType_;
+  HostIndexVector hostGhostParticleIndex_;
 
   virtual void InitLinearSystem();
   virtual void ConstructLinearSystem();
@@ -38,6 +45,7 @@ protected:
   virtual void CalculateError();
   virtual void Refine();
 
+  virtual void BuildGhost();
   virtual void Output();
 
   virtual void ConstructNeighborLists(const int satisfiedNumNeighbor);
@@ -47,6 +55,9 @@ protected:
   int mpiRank_, mpiSize_;
 
   int outputLevel_, polyOrder_;
+
+  Ghost ghost_;
+  double ghostMultiplier_;
 
 public:
   Equation();
@@ -59,6 +70,8 @@ public:
   void SetErrorTolerance(const double errorTolerance);
   void SetRefinementMethod(const RefinementMethod refinementMethod);
   void SetMaxRefinementIteration(const int maxRefinementIteration);
+  void SetOutputLevel(const int outputLevel);
+  void SetGhostMultiplier(const double multiplier);
 
   virtual void Init();
   virtual void Update();

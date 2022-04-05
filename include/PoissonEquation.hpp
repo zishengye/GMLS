@@ -9,7 +9,14 @@ protected:
   virtual void ConstructLinearSystem();
   virtual void ConstructRhs();
 
+  virtual void SolveEquation();
+  virtual void CalculateError();
+
+  virtual void Output();
+
+  HostRealMatrix recoveredGradientChunk_;
   HostRealVector field_;
+  HostRealVector error_;
 
 public:
   PoissonEquation();
