@@ -68,6 +68,7 @@ void DomainGeometry::IsInterior(Kokkos::View<Scalar **> coords,
             else
               results(i) = false;
           });
+      Kokkos::fence();
     }
   }
 
@@ -86,6 +87,7 @@ void DomainGeometry::IsInterior(Kokkos::View<Scalar **> coords,
             else
               results(i) = false;
           });
+      Kokkos::fence();
     }
   }
 }

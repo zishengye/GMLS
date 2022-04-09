@@ -16,7 +16,6 @@ protected:
 
   HostRealMatrix recoveredGradientChunk_;
   HostRealVector field_;
-  HostRealVector error_;
 
 public:
   PoissonEquation();

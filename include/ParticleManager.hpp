@@ -81,10 +81,12 @@ public:
 
 class ParticleManager {
 protected:
-  DomainGeometry geometry_;
-  ParticleSet particleSet_;
+  std::shared_ptr<DomainGeometry> geometryPtr_;
+  std::shared_ptr<ParticleSet> particleSetPtr_;
   Scalar spacing_;
   int mpiSize_, mpiRank_;
+
+  void BalanceAndIndexInternal();
 
 public:
   ParticleManager();
@@ -99,8 +101,8 @@ public:
   virtual void Init();
   virtual void Clear();
 
-  const LocalIndex GetLocalParticleNum();
-  const GlobalIndex GetGlobalParticleNum();
+  virtual const LocalIndex GetLocalParticleNum();
+  virtual const GlobalIndex GetGlobalParticleNum();
 
   HostRealMatrix &GetParticleCoords();
   HostRealMatrix &GetParticleNormal();
@@ -113,13 +115,26 @@ public:
 
 class HierarchicalParticleManager : public ParticleManager {
 protected:
-  std::vector<ParticleSet> hierarchicalParticleSet_;
+  std::vector<std::shared_ptr<ParticleSet>> hierarchicalParticleSetPtr_;
+
+  int currentRefinementLevel_;
+
+  HostIntVector hostParticleRefinementLevel_;
+
+  virtual void RefineInternal(HostIndexVector &splitTag);
 
 public:
   HierarchicalParticleManager();
 
+  HostIntVector &GetParticleRefinementLevel();
+
   virtual void Init();
   virtual void Clear();
+
+  void Refine(HostIndexVector &splitTag);
+
+  virtual const LocalIndex GetLocalParticleNum();
+  virtual const GlobalIndex GetGlobalParticleNum();
 };
 
 #endif

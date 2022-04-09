@@ -1,4 +1,7 @@
+#include <algorithm>
+#include <execution>
 #include <iostream>
+#include <vector>
 
 #include "Equation.hpp"
 
@@ -38,16 +41,235 @@ void Equation::CalculateError() {
   Kokkos::resize(error_, localParticleNum);
 }
 
-void Equation::Refine() {}
+void Equation::Refine() {
+  if (mpiRank_ == 0)
+    printf("Global error: %.4f, with tolerance: %.4f\n", globalError_,
+           errorTolerance_);
+
+  std::vector<double> sortedError(error_.extent(0));
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
+                                                             error_.extent(0)),
+      [&](const int i) { sortedError[i] = pow(error_(i), 2); });
+  Kokkos::fence();
+  std::sort(std::execution::par_unseq, sortedError.begin(), sortedError.end());
+
+  double maxError = sortedError[error_.extent(0) - 1];
+  double minError = sortedError[0];
+
+  MPI_Allreduce(MPI_IN_PLACE, &maxError, 1, MPI_DOUBLE, MPI_MAX,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &minError, 1, MPI_DOUBLE, MPI_MIN,
+                MPI_COMM_WORLD);
+
+  double currentErrorSplit = (maxError + minError) / 2.0;
+  int iteCounter = 0;
+  bool isSplit = false;
+  while (!isSplit) {
+    iteCounter++;
+    auto result = std::lower_bound(sortedError.begin(), sortedError.end(),
+                                   currentErrorSplit);
+    double localError = 0.0;
+    double globalError;
+    for (auto iter = result; iter != sortedError.end(); iter++) {
+      localError += *iter;
+    }
+    MPI_Allreduce(&localError, &globalError, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+
+    double nextError;
+    if (result != sortedError.begin()) {
+      nextError = *(result - 1);
+    } else
+      nextError = 0.0;
+    MPI_Allreduce(MPI_IN_PLACE, &nextError, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
+
+    if (sqrt(globalError) <= markRatio_ * globalError_ &&
+        sqrt(globalError + nextError) > markRatio_ * globalError_)
+      isSplit = true;
+    else if (sqrt(globalError) <= markRatio_ * globalError_) {
+      maxError = currentErrorSplit;
+      currentErrorSplit = (maxError + minError) / 2.0;
+    } else {
+      minError = currentErrorSplit;
+      currentErrorSplit = (maxError + minError) / 2.0;
+    }
+  }
+
+  currentErrorSplit = sqrt(currentErrorSplit);
+
+  // mark particles
+  Kokkos::resize(splitTag_, error_.extent(0));
+  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+                           0, error_.extent(0)),
+                       [&](const int i) {
+                         if (error_(i) >= currentErrorSplit)
+                           splitTag_(i) = 1;
+                         else
+                           splitTag_(i) = 0;
+                       });
+  Kokkos::fence();
+
+  std::size_t markedParticleNum = 0;
+  Kokkos::parallel_reduce(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
+                                                             error_.extent(0)),
+      [&](const int i, std::size_t &tMarkedParticleNum) {
+        if (splitTag_(i) == 1)
+          tMarkedParticleNum++;
+      },
+      Kokkos::Sum<std::size_t>(markedParticleNum));
+  Kokkos::fence();
+  MPI_Allreduce(MPI_IN_PLACE, &markedParticleNum, 1, MPI_UNSIGNED_LONG, MPI_SUM,
+                MPI_COMM_WORLD);
+  if (mpiRank_ == 0)
+    printf("Marked %d particles with mark ratio: %.2f\n", markedParticleNum,
+           markRatio_);
+
+  // ensure quasiuniform
+  auto &coords = particleMgr_.GetParticleCoords();
+  auto &sourceCoords = hostGhostParticleCoords_;
+  auto &particleType = particleMgr_.GetParticleType();
+  auto &sourceParticleType = hostGhostParticleType_;
+
+  auto &particleRefinementLevel = particleMgr_.GetParticleRefinementLevel();
+  HostIntVector ghostParticleRefinementLevel;
+  ghost_.ApplyGhost(particleRefinementLevel, ghostParticleRefinementLevel);
+
+  HostIndexVector ghostSplitTag;
+  HostIntVector crossRefinementLevel, ghostCrossRefinementLevel;
+  Kokkos::resize(crossRefinementLevel, error_.extent(0));
+  int iterationFinished = 1;
+  iteCounter = 0;
+  while (iterationFinished != 0) {
+    iteCounter++;
+
+    ghost_.ApplyGhost(splitTag_, ghostSplitTag);
+    int localChange = 0;
+
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+                             0, crossRefinementLevel.extent(0)),
+                         [&](const int i) { crossRefinementLevel(i) = -1; });
+    Kokkos::fence();
+
+    // ensure boundary particles at least have the same level of refinement
+    // to their nearest interior particles after refinement
+    Kokkos::parallel_reduce(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+            0, coords.extent(0)),
+        [&](const int i, int &tLocalChange) {
+          if (particleType(i) != 0) {
+            double minDistance = 1e9;
+            int nearestIndex = 0;
+            for (int j = 1; j < neighborLists_(i, 0); j++) {
+              int neighborParticleIndex = neighborLists_(i, j + 1);
+              if (sourceParticleType(neighborParticleIndex) == 0) {
+                double x =
+                    coords(i, 0) - sourceCoords(neighborParticleIndex, 0);
+                double y =
+                    coords(i, 1) - sourceCoords(neighborParticleIndex, 1);
+                double z =
+                    coords(i, 2) - sourceCoords(neighborParticleIndex, 2);
+                double distance = sqrt(x * x + y * y + z * z);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  nearestIndex = neighborParticleIndex;
+                }
+              }
+            }
+
+            if (ghostSplitTag(nearestIndex) +
+                        ghostParticleRefinementLevel(nearestIndex) >
+                    particleRefinementLevel(i) &&
+                splitTag_(i) == 0) {
+              splitTag_(i) = 1;
+              tLocalChange++;
+            }
+          }
+        },
+        Kokkos::Sum<int>(localChange));
+
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+            0, crossRefinementLevel.extent(0)),
+        [&](const int i) {
+          int minRefinementLevel = 100;
+          int maxRefinementLevel = 0;
+          for (int j = 1; j < neighborLists_(i, 0); j++) {
+            int neighborParticleIndex = neighborLists_(i, j + 1);
+
+            int ghostRefinementLevel =
+                ghostParticleRefinementLevel[neighborParticleIndex] +
+                ghostSplitTag[neighborParticleIndex];
+            if (ghostRefinementLevel < minRefinementLevel)
+              minRefinementLevel = ghostRefinementLevel;
+            if (ghostRefinementLevel > maxRefinementLevel)
+              maxRefinementLevel = ghostRefinementLevel;
+          }
+
+          if (maxRefinementLevel - minRefinementLevel > 1)
+            crossRefinementLevel(i) = splitTag_(i) + particleRefinementLevel(i);
+        });
+    Kokkos::fence();
+
+    ghost_.ApplyGhost(crossRefinementLevel, ghostCrossRefinementLevel);
+
+    Kokkos::parallel_reduce(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+            0, crossRefinementLevel.extent(0)),
+        [&](const int i, int &tLocalChange) {
+          for (int j = 1; j < neighborLists_(i, 0); j++) {
+            int neighborParticleIndex = neighborLists_(i, j + 1);
+
+            if (ghostCrossRefinementLevel(neighborParticleIndex) >= 0) {
+              if ((particleRefinementLevel(i) <
+                   ghostCrossRefinementLevel(neighborParticleIndex)) &&
+                  splitTag_(i) == 0) {
+                splitTag_(i) = 1;
+                tLocalChange++;
+              }
+            }
+          }
+        },
+        Kokkos::Sum<int>(localChange));
+
+    MPI_Allreduce(MPI_IN_PLACE, &localChange, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+    if (localChange == 0) {
+      iterationFinished = 0;
+    }
+  }
+
+  markedParticleNum = 0;
+  Kokkos::parallel_reduce(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
+                                                             error_.extent(0)),
+      [&](const int i, std::size_t &tMarkedParticleNum) {
+        if (splitTag_(i) == 1)
+          tMarkedParticleNum++;
+      },
+      Kokkos::Sum<std::size_t>(markedParticleNum));
+  Kokkos::fence();
+  MPI_Allreduce(MPI_IN_PLACE, &markedParticleNum, 1, MPI_UNSIGNED_LONG, MPI_SUM,
+                MPI_COMM_WORLD);
+  if (mpiRank_ == 0)
+    printf("Marked %d particles after smoothing particles\n",
+           markedParticleNum);
+
+  particleMgr_.Refine(splitTag_);
+}
 
 void Equation::BuildGhost() {
   auto &particleCoords = particleMgr_.GetParticleCoords();
   auto &particleSize = particleMgr_.GetParticleSize();
   auto &particleIndex = particleMgr_.GetParticleIndex();
+  auto &particleType = particleMgr_.GetParticleType();
   ghost_.Init(particleCoords, particleSize, particleCoords, ghostMultiplier_,
               particleMgr_.GetDimension());
   ghost_.ApplyGhost(particleCoords, hostGhostParticleCoords_);
   ghost_.ApplyGhost(particleIndex, hostGhostParticleIndex_);
+  ghost_.ApplyGhost(particleType, hostGhostParticleType_);
 }
 
 void Equation::Output() {
@@ -105,6 +327,33 @@ void Equation::Output() {
                      std::ios::out | std::ios::app | std::ios::binary);
       for (int i = 0; i < neighborLists_.extent(0); i++) {
         int x = neighborLists_(i, 0);
+        SwapEnd(x);
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  // output marked particles
+  if (mpiRank_ == 0) {
+    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                       ".vtk",
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS mark int 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                         ".vtk",
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (int i = 0; i < splitTag_.extent(0); i++) {
+        int x = splitTag_(i);
         SwapEnd(x);
         vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
       }
@@ -241,6 +490,10 @@ void Equation::SetOutputLevel(const int outputLevel) {
 
 void Equation::SetGhostMultiplier(const double multiplier) {
   ghostMultiplier_ = multiplier;
+}
+
+void Equation::SetRefinementMarkRatio(const double ratio) {
+  markRatio_ = ratio;
 }
 
 void Equation::Init() {

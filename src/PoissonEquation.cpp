@@ -730,6 +730,7 @@ void PoissonEquation::CalculateError() {
         for (int j = 0; j < dimension; j++)
           recoveredGradientChunk_(i, j) /= neighborLists_(i, 0);
       });
+  Kokkos::fence();
 
   ghost_.ApplyGhost(recoveredGradientChunk_, ghostRecoveredGradientChunk);
 
@@ -770,6 +771,7 @@ void PoissonEquation::CalculateError() {
         error_(i) /= totalNeighborVolume;
         error_(i) = sqrt(error_(i) * localVolume);
       });
+  Kokkos::fence();
   MPI_Barrier(MPI_COMM_WORLD);
 
   double localError = 0.0;
@@ -785,10 +787,7 @@ void PoissonEquation::CalculateError() {
   Kokkos::fence();
   MPI_Allreduce(&localError, &globalError, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
-  globalError = sqrt(globalError);
-
-  if (mpiRank_ == 0)
-    printf("Global error: %.4f\n", globalError / globalDirectGradientNorm);
+  globalError_ = sqrt(globalError) / globalDirectGradientNorm;
 }
 
 void PoissonEquation::Output() {

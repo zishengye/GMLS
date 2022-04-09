@@ -119,6 +119,8 @@ void Partition::ConstructPartition(Kokkos::View<Scalar **> coords,
       localReserveMap_.push_back(i);
     }
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void Partition::ApplyPartition(Kokkos::View<Scalar **> data) {

@@ -1,6 +1,8 @@
 #ifndef _EQUATION_HPP_
 #define _EQUATION_HPP_
 
+#include <functional>
+
 #include "ParticleManager.hpp"
 #include "PetscKsp.hpp"
 #include "PetscMatrix.hpp"
@@ -16,7 +18,7 @@ enum RefinementMethod { UniformRefinement, AdaptiveRefinement };
 
 class Equation {
 protected:
-  double errorTolerance_;
+  double globalError_, errorTolerance_, markRatio_;
   int maxRefinementIteration_, refinementIteration_;
   RefinementMethod refinementMethod_;
 
@@ -24,6 +26,8 @@ protected:
 
   HostIntMatrix neighborLists_;
   HostRealVector epsilon_;
+
+  HostIndexVector splitTag_;
 
   std::vector<std::shared_ptr<PetscMatrix>> linearSystemsPtr_;
   PetscVector b_;
@@ -72,6 +76,7 @@ public:
   void SetMaxRefinementIteration(const int maxRefinementIteration);
   void SetOutputLevel(const int outputLevel);
   void SetGhostMultiplier(const double multiplier);
+  void SetRefinementMarkRatio(const double ratio = 0.8);
 
   virtual void Init();
   virtual void Update();

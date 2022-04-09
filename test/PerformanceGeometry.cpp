@@ -41,6 +41,7 @@ TEST(DomainGeometryTest, IsInterior2D) {
             coords(i, 1) =
                 2.0 * random_number[(2 * i + 1) % random_number_size] - 1.0;
           });
+      Kokkos::fence();
 
       geometry.IsInterior(coords, results);
 
@@ -48,6 +49,7 @@ TEST(DomainGeometryTest, IsInterior2D) {
           Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,
                                                              coords.extent(0)),
           KOKKOS_LAMBDA(const int i) { EXPECT_EQ(results(i), true); });
+      Kokkos::fence();
     }
   }
 
@@ -86,6 +88,7 @@ TEST(DomainGeometryTest, IsInterior3D) {
           coords(i, 2) =
               2.0 * random_number[(3 * i + 2) % random_number_size] - 1.0;
         });
+    Kokkos::fence();
 
     Kokkos::View<bool *, Kokkos::DefaultExecutionSpace> results(
         "interior check results", N);
@@ -95,6 +98,7 @@ TEST(DomainGeometryTest, IsInterior3D) {
     Kokkos::parallel_for(
         Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, coords.extent(0)),
         KOKKOS_LAMBDA(const int i) { EXPECT_EQ(results(i), true); });
+    Kokkos::fence();
   }
 
   Kokkos::finalize();
