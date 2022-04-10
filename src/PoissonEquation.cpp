@@ -282,6 +282,22 @@ void PoissonEquation::InitLinearSystem() {
     }
   }
 
+  // check if there are any duplicate particles
+  for (int i = 0; i < localParticleNum; i++) {
+    for (int j = 1; j < neighborLists_(i, 0); j++) {
+      int neighborIndex = neighborLists_(i, j + 1);
+      double x = coords(i, 0) - sourceCoords(neighborIndex, 0);
+      double y = coords(i, 1) - sourceCoords(neighborIndex, 1);
+      double dist = sqrt(x * x + y * y);
+      if (dist < 1e-6)
+        printf("mpi rank: %d, coord %d: (%f, %f), coord "
+               "%d: (%f, %f), %d\n",
+               mpiRank_, i, coords(i, 0), coords(i, 1), neighborLists_(i, 1),
+               sourceCoords(neighborIndex, 0), sourceCoords(neighborIndex, 1),
+               neighborIndex > localParticleNum);
+    }
+  }
+
   maxRatio = 0.0;
   minNeighbor = 1000;
   maxNeighbor = 0;
@@ -628,8 +644,7 @@ void PoissonEquation::CalculateError() {
         Kokkos::create_mirror_view(batchEpsilonDevice);
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-        batchParticleCoordsDevice("batch particle coord", batchParticleNum,
-                                  dimension);
+        batchParticleCoordsDevice("batch particle coord", batchParticleNum, 3);
     Kokkos::View<double **>::HostMirror batchParticleCoordsHost =
         Kokkos::create_mirror_view(batchParticleCoordsDevice);
 
@@ -639,7 +654,7 @@ void PoissonEquation::CalculateError() {
       for (int j = 0; j <= neighborLists_(i, 0); j++) {
         batchNeighborListsHost(particleCounter, j) = neighborLists_(i, j);
       }
-      for (int j = 0; j < dimension; j++) {
+      for (int j = 0; j < 3; j++) {
         batchParticleCoordsHost(particleCounter, j) = coords(i, j);
       }
 
@@ -691,7 +706,8 @@ void PoissonEquation::CalculateError() {
       for (int i = startParticle; i < endParticle; i++) {
         double localVolume = pow(spacing(i), dimension);
         for (int j = 0; j < dimension; j++)
-          localDirectGradientNorm += pow(batchGradient(i, j), 2) * localVolume;
+          localDirectGradientNorm +=
+              pow(batchGradient(particleCounter, j), 2) * localVolume;
         particleCounter++;
       }
     }
@@ -699,7 +715,7 @@ void PoissonEquation::CalculateError() {
 
   MPI_Allreduce(&localDirectGradientNorm, &globalDirectGradientNorm, 1,
                 MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  globalDirectGradientNorm = sqrt(globalDirectGradientNorm);
+  globalDirectGradientNorm = std::sqrt(globalDirectGradientNorm);
 
   ghost_.ApplyGhost(coefficientChunk, ghostCoefficientChunk);
 

@@ -79,7 +79,7 @@ void PetscMatrix::Increment(const PetscInt row, const PetscInt col,
         lower_bound(diagCol_.begin() + diagRow_[row],
                     diagCol_.begin() + diagRow_[row + 1], col - colRangeLow);
     if (it != diagCol_.begin() + diagRow_[row + 1] && *it == col - colRangeLow)
-      diagVal_[it - diagCol_.begin()] += value;
+      diagVal_[it - diagCol_.begin()] = value;
     else
       std::cout << row << ' ' << col << " diagonal increment misplacement"
                 << std::endl;
@@ -113,7 +113,7 @@ void PetscMatrix::Increment(const PetscInt row,
                       diagCol_.begin() + diagRow_[row + 1], col - colRangeLow);
       if (it != diagCol_.begin() + diagRow_[row + 1] &&
           *it == col - colRangeLow)
-        diagVal_[it - diagCol_.begin()] += value[i];
+        diagVal_[it - diagCol_.begin()] = value[i];
       else
         std::cout << row << ' ' << col << " diagonal increment misplacement"
                   << std::endl;

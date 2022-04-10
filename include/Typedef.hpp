@@ -11,10 +11,8 @@ typedef Kokkos::View<Scalar **, Kokkos::DefaultHostExecutionSpace>
     HostRealMatrix;
 typedef Kokkos::View<Scalar **, Kokkos::DefaultExecutionSpace> DeviceRealMatrix;
 
-typedef Kokkos::View<LocalIndex **, Kokkos::DefaultHostExecutionSpace>
-    HostIntMatrix;
-typedef Kokkos::View<LocalIndex **, Kokkos::DefaultExecutionSpace>
-    DeviceIntMatrix;
+typedef Kokkos::View<int **, Kokkos::DefaultHostExecutionSpace> HostIntMatrix;
+typedef Kokkos::View<int **, Kokkos::DefaultExecutionSpace> DeviceIntMatrix;
 
 typedef Kokkos::View<Scalar *, Kokkos::DefaultHostExecutionSpace>
     HostRealVector;

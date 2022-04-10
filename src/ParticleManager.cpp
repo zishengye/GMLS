@@ -261,7 +261,7 @@ void ParticleManager::BalanceAndIndexInternal() {
                        });
   Kokkos::fence();
 
-  particleSetPtr_->Balance();
+  // particleSetPtr_->Balance();
 
   // reindex
   for (int i = 0; i < mpiSize_; i++) {
@@ -416,6 +416,12 @@ void HierarchicalParticleManager::RefineInternal(HostIndexVector &splitTag) {
   Kokkos::resize(particleType, newParticleNum);
   Kokkos::resize(particleIndex, newParticleNum);
 
+  HostIntVector oldParticleRefinementLevel;
+  Kokkos::resize(oldParticleRefinementLevel,
+                 hostParticleRefinementLevel_.extent(0));
+  Kokkos::deep_copy(hostParticleRefinementLevel_, oldParticleRefinementLevel);
+  Kokkos::resize(hostParticleRefinementLevel_, newParticleNum);
+
   Kokkos::parallel_for(
       Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, splitTag.extent(0)),
       [&](const int i) {
@@ -426,6 +432,8 @@ void HierarchicalParticleManager::RefineInternal(HostIndexVector &splitTag) {
           }
           particleSize(newLocalParticleNum(i)) = oldParticleSize(i);
           particleType(newLocalParticleNum(i)) = oldParticleType(i);
+          hostParticleRefinementLevel_(newLocalParticleNum(i)) =
+              oldParticleRefinementLevel(i);
         } else {
           if (oldParticleType(i) == 0) {
             if (dimension == 2) {
@@ -446,6 +454,9 @@ void HierarchicalParticleManager::RefineInternal(HostIndexVector &splitTag) {
                   particleSize(newLocalParticleNum(i) + counter) = newSpacing;
                   particleType(newLocalParticleNum(i) + counter) =
                       oldParticleType(i);
+                  hostParticleRefinementLevel_(newLocalParticleNum(i) +
+                                               counter) =
+                      oldParticleRefinementLevel(i);
                   counter++;
                 }
               }
@@ -470,6 +481,8 @@ void HierarchicalParticleManager::RefineInternal(HostIndexVector &splitTag) {
                 particleSize(newLocalParticleNum(i) + counter) = newSpacing;
                 particleType(newLocalParticleNum(i) + counter) =
                     oldParticleType(i);
+                hostParticleRefinementLevel_(newLocalParticleNum(i) + counter) =
+                    oldParticleRefinementLevel(i);
                 counter++;
               }
             }

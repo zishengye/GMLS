@@ -159,7 +159,7 @@ void Equation::Refine() {
         Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, coords.extent(0)),
         [&](const int i, int &tLocalChange) {
-          if (particleType(i) != 0) {
+          if (particleType(i) != 0 && splitTag_(i) == 0) {
             double minDistance = 1e9;
             int nearestIndex = 0;
             for (int j = 1; j < neighborLists_(i, 0); j++) {
@@ -180,9 +180,8 @@ void Equation::Refine() {
             }
 
             if (ghostSplitTag(nearestIndex) +
-                        ghostParticleRefinementLevel(nearestIndex) >
-                    particleRefinementLevel(i) &&
-                splitTag_(i) == 0) {
+                    ghostParticleRefinementLevel(nearestIndex) >
+                particleRefinementLevel(i)) {
               splitTag_(i) = 1;
               tLocalChange++;
             }
@@ -327,33 +326,6 @@ void Equation::Output() {
                      std::ios::out | std::ios::app | std::ios::binary);
       for (int i = 0; i < neighborLists_.extent(0); i++) {
         int x = neighborLists_(i, 0);
-        SwapEnd(x);
-        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
-      }
-      vtkStream.close();
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-  }
-
-  // output marked particles
-  if (mpiRank_ == 0) {
-    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                       ".vtk",
-                   std::ios::out | std::ios::app | std::ios::binary);
-
-    vtkStream << "SCALARS mark int 1" << std::endl
-              << "LOOKUP_TABLE default" << std::endl;
-
-    vtkStream.close();
-  }
-  for (int rank = 0; rank < mpiSize_; rank++) {
-    if (rank == mpiRank_) {
-      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                         ".vtk",
-                     std::ios::out | std::ios::app | std::ios::binary);
-      for (int i = 0; i < splitTag_.extent(0); i++) {
-        int x = splitTag_(i);
         SwapEnd(x);
         vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
       }
@@ -510,7 +482,7 @@ void Equation::Update() {
   while (error > errorTolerance_ &&
          refinementIteration_ < maxRefinementIteration_) {
     if (mpiRank_ == 0) {
-      printf("Refinement iteration: %d\n", refinementIteration_);
+      printf("\nRefinement iteration: %d\n", refinementIteration_);
     }
     this->DiscretizeEquation();
     this->InitPreconditioner();
@@ -523,14 +495,15 @@ void Equation::Update() {
         printf("Duration of solving linear system: %fs\n", tEnd - tStart);
     }
     this->CalculateError();
-    this->Refine();
     this->Output();
+    this->Refine();
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (mpiRank_ == 0)
       printf("End of adaptive refinement iteration %d\n", refinementIteration_);
 
     refinementIteration_++;
+    error = globalError_;
   }
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
