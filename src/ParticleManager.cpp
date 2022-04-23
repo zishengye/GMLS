@@ -530,3 +530,28 @@ const GlobalIndex HierarchicalParticleManager::GetGlobalParticleNum() {
   return hierarchicalParticleSetPtr_[currentRefinementLevel_]
       ->GetGlobalParticleNum();
 }
+
+HostRealMatrix &
+HierarchicalParticleManager::GetParticleCoordsByLevel(const int level) {
+  return hierarchicalParticleSetPtr_[level]->GetParticleCoords();
+}
+
+HostRealMatrix &
+HierarchicalParticleManager::GetParticleNormalByLevel(const int level) {
+  return hierarchicalParticleSetPtr_[level]->GetParticleNormal();
+}
+
+HostRealVector &
+HierarchicalParticleManager::GetParticleSizeByLevel(const int level) {
+  return hierarchicalParticleSetPtr_[level]->GetParticleSize();
+}
+
+HostIntVector &
+HierarchicalParticleManager::GetParticleTypeByLevel(const int level) {
+  return hierarchicalParticleSetPtr_[level]->GetParticleType();
+}
+
+HostIndexVector &
+HierarchicalParticleManager::GetParticleIndexByLevel(const int level) {
+  return hierarchicalParticleSetPtr_[level]->GetParticleIndex();
+}

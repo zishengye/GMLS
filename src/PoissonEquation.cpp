@@ -905,6 +905,10 @@ PoissonEquation::PoissonEquation() : Equation() {}
 
 PoissonEquation::~PoissonEquation() {}
 
-void PoissonEquation::Init() { Equation::Init(); }
+void PoissonEquation::Init() {
+  Equation::Init();
+
+  preconditionerPtr_ = std::make_shared<PoissonEquationPreconditioning>();
+}
 
 HostRealVector &PoissonEquation::GetField() { return field_; }

@@ -3,6 +3,7 @@
 
 #include <functional>
 
+#include "MultilevelPreconditioning.hpp"
 #include "ParticleManager.hpp"
 #include "PetscKsp.hpp"
 #include "PetscMatrix.hpp"
@@ -30,6 +31,7 @@ protected:
   HostIndexVector splitTag_;
 
   std::vector<std::shared_ptr<PetscMatrix>> linearSystemsPtr_;
+  std::shared_ptr<MultilevelPreconditioning> preconditionerPtr_;
   PetscVector b_;
   PetscVector x_;
 

@@ -2,6 +2,7 @@
 #define _POISSON_EQUATION_HPP_
 
 #include "Equation.hpp"
+#include "PoissonEquationPreconditioning.hpp"
 
 class PoissonEquation : public Equation {
 protected:

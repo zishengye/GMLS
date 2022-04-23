@@ -13,7 +13,9 @@ void Equation::InitLinearSystem() {
     printf("Start of preparing linear system with %lu particles\n",
            globalParticleNum);
 
-  linearSystemsPtr_.push_back(std::make_shared<PetscMatrix>());
+  auto newMat = std::make_shared<PetscMatrix>();
+  linearSystemsPtr_.push_back(newMat);
+  preconditionerPtr_->AddLinearSystem(newMat);
 
   MPI_Barrier(MPI_COMM_WORLD);
 }
@@ -30,6 +32,10 @@ void Equation::DiscretizeEquation() {
 
 void Equation::InitPreconditioner() {
   ksp_.SetUp(*(linearSystemsPtr_[refinementIteration_]), KSPGMRES);
+
+  preconditionerPtr_->ConstructSmoother();
+  preconditionerPtr_->ConstructInterpolation(
+      std::make_shared<HierarchicalParticleManager>(particleMgr_));
 }
 
 void Equation::SolveEquation() {

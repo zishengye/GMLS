@@ -135,6 +135,12 @@ public:
 
   virtual const LocalIndex GetLocalParticleNum();
   virtual const GlobalIndex GetGlobalParticleNum();
+
+  HostRealMatrix &GetParticleCoordsByLevel(const int level);
+  HostRealMatrix &GetParticleNormalByLevel(const int level);
+  HostRealVector &GetParticleSizeByLevel(const int level);
+  HostIntVector &GetParticleTypeByLevel(const int level);
+  HostIndexVector &GetParticleIndexByLevel(const int level);
 };
 
 #endif
