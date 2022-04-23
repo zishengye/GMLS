@@ -1,5 +1,5 @@
-#ifndef _PETSCVECTOR_HPP_
-#define _PETSCVECTOR_HPP_
+#ifndef _PetscVector_Hpp_
+#define _PetscVector_Hpp_
 
 #include <vector>
 

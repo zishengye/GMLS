@@ -1,5 +1,5 @@
-#ifndef _DIVERGENCEFREE_HPP_
-#define _DIVERGENCEFREE_HPP_
+#ifndef _PolyBasis_HPP_
+#define _PolyBasis_HPP_
 
 #include <Compadre_GMLS.hpp>
 

@@ -1,5 +1,5 @@
-#ifndef _PETSC_SPARSE_MATRIX_HPP_
-#define _PETSC_SPARSE_MATRIX_HPP_
+#ifndef _PetscMatrix_Hpp_
+#define _PetscMatrix_Hpp_
 
 #include <algorithm>
 #include <assert.h>
@@ -13,11 +13,6 @@
 #include <vector>
 
 #include "PetscVector.hpp"
-typedef std::pair<PetscInt, PetscReal> Entry;
-
-inline bool CompareIndex(Entry entry1, Entry entry2) {
-  return (entry1.first < entry2.first);
-}
 
 class PetscMatrix {
 protected:

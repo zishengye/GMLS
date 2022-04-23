@@ -1,5 +1,5 @@
-#ifndef _GEOMETRY_DOMAIN_GEOMETRY_HPP_
-#define _GEOMETRY_DOMAIN_GEOMETRY_HPP_
+#ifndef _DomainGeometry_Hpp_
+#define _DomainGeometry_Hpp_
 
 #include <iostream>
 #include <vector>

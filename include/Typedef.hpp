@@ -1,5 +1,5 @@
-#ifndef _TYPEDEF_HPP_
-#define _TYPEDEF_HPP_
+#ifndef _Typedef_Hpp_
+#define _Typedef_Hpp_
 
 #include <Compadre_Typedefs.hpp>
 

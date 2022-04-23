@@ -1,5 +1,5 @@
-#ifndef _POISSON_EQUATION_HPP_
-#define _POISSON_EQUATION_HPP_
+#ifndef _PoissonEquation_Hpp_
+#define _PoissonEquation_Hpp_
 
 #include "Equation.hpp"
 #include "PoissonEquationPreconditioning.hpp"

@@ -1,5 +1,5 @@
-#ifndef _PETSCKSP_HPP_
-#define _PETSCKSP_HPP_
+#ifndef _PetscKsp_Hpp_
+#define _PetscKsp_Hpp_
 
 #include <petscksp.h>
 

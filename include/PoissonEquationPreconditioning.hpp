@@ -1,5 +1,5 @@
-#ifndef _POISSONEQUATIONPRECONDITIONING_HPP_
-#define _POISSONEQUATIONPRECONDITIONING_HPP_
+#ifndef _PoissonEquationPreconditioning_HPP_
+#define _PoissonEquationPreconditioning_HPP_
 
 #include "MultilevelPreconditioning.hpp"
 

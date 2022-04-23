@@ -1,5 +1,5 @@
-#ifndef _PARTICLE_MANAGER_PARTICLE_MANAGER_HPP_
-#define _PARTICLE_MANAGER_PARTICLE_MANAGER_HPP_
+#ifndef _ParticleManager_Hpp_
+#define _ParticleManager_Hpp_
 
 #include <memory>
 #include <string>

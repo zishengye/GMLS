@@ -1,5 +1,5 @@
-#ifndef _GHOST_HPP_
-#define _GHOST_HPP_
+#ifndef _Ghost_Hpp_
+#define _Ghost_Hpp_
 
 #include <vector>
 

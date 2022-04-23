@@ -1,5 +1,5 @@
-#ifndef _EQUATION_HPP_
-#define _EQUATION_HPP_
+#ifndef _Equation_Hpp_
+#define _Equation_Hpp_
 
 #include <functional>
 

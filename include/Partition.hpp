@@ -1,5 +1,5 @@
-#ifndef _PARTITION_HPP_
-#define _PARTITION_HPP_
+#ifndef _Partition_Hpp_
+#define _Partition_Hpp_
 
 #include <algorithm>
 #include <vector>
