@@ -59,25 +59,25 @@ TEST(PoissonEquationTest, AdaptiveRefinement) {
   PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.yaml",
                   PETSC_NULL);
 
-  // {
-  //   PoissonEquation equation;
-  //   equation.SetErrorTolerance(1e-3);
-  //   equation.SetInitialDiscretizationResolution(0.1);
+  {
+    PoissonEquation equation;
+    equation.SetErrorTolerance(1e-3);
+    equation.SetInitialDiscretizationResolution(0.1);
 
-  //   std::vector<double> size(2);
-  //   size[0] = 2.0;
-  //   size[1] = 2.0;
+    std::vector<double> size(2);
+    size[0] = 2.0;
+    size[1] = 2.0;
 
-  //   equation.SetDimension(2);
-  //   equation.SetDomainSize(size);
-  //   equation.SetDomainType(Box);
-  //   equation.SetMaxRefinementIteration(10);
-  //   equation.SetOutputLevel(1);
-  //   equation.SetRefinementMarkRatio();
+    equation.SetDimension(2);
+    equation.SetDomainSize(size);
+    equation.SetDomainType(Box);
+    equation.SetMaxRefinementIteration(2);
+    equation.SetOutputLevel(1);
+    equation.SetRefinementMarkRatio();
 
-  //   equation.Init();
-  //   equation.Update();
-  // }
+    equation.Init();
+    equation.Update();
+  }
 
   PetscFinalize();
   Kokkos::finalize();

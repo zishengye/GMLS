@@ -57,13 +57,13 @@ void PoissonEquation::InitLinearSystem() {
     iteCounter++;
 
     Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-        interiorNeighborListsDevice("interior particle neighborlist",
+        interiorNeighborListsDevice("interior particle neighborlists",
                                     interiorParticleNum,
                                     neighborLists_.extent(1));
     Kokkos::View<int **>::HostMirror interiorNeighborListsHost =
         Kokkos::create_mirror_view(interiorNeighborListsDevice);
     Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
-        boundaryNeighborListsDevice("boundary particle neighborlist",
+        boundaryNeighborListsDevice("boundary particle neighborlists",
                                     boundaryParticleNum,
                                     neighborLists_.extent(1));
     Kokkos::View<int **>::HostMirror boundaryNeighborListsHost =
@@ -354,7 +354,7 @@ void PoissonEquation::InitLinearSystem() {
            "neighbor: %.2f, max ratio: %.2f\n",
            iteCounter, minNeighbor, maxNeighbor,
            meanNeighbor / (double)globalParticleNum, maxRatio);
-    printf("Duration of initializing linear system:%fs\n", tEnd - tStart);
+    printf("Duration of initializing linear system:%.4fs\n", tEnd - tStart);
   }
 }
 
@@ -543,7 +543,7 @@ void PoissonEquation::ConstructLinearSystem() {
     printf("End of building linear system of physics: Poisson\nMax nonzeros: "
            "%lu, Min nonzeros: %lu\n",
            nnzMax, nnzMin);
-    printf("Duration of building linear system is:%fs\n", tEnd - tStart);
+    printf("Duration of building linear system is:%.4fs\n", tEnd - tStart);
   }
 }
 
@@ -576,7 +576,7 @@ void PoissonEquation::ConstructRhs() {
   x_.Create(field_);
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
-    printf("Duration of building right hand side:%fs\n", tEnd - tStart);
+    printf("Duration of building right hand side:%.4fs\n", tEnd - tStart);
   }
 }
 

@@ -517,7 +517,7 @@ void Equation::Update() {
       this->SolveEquation();
       tEnd = MPI_Wtime();
       if (mpiRank_ == 0)
-        printf("Duration of solving linear system: %fs\n", tEnd - tStart);
+        printf("Duration of solving linear system: %.4fs\n", tEnd - tStart);
     }
     this->CalculateError();
     this->Output();
@@ -532,7 +532,7 @@ void Equation::Update() {
   }
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
-    printf("End of updating physics\nDuration of updating is %fs\n",
+    printf("End of updating physics\nDuration of updating is %.4fs\n",
            tEnd - tStart);
   }
 }

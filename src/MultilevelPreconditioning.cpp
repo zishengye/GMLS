@@ -80,6 +80,7 @@ void MultilevelPreconditioning::PrepareVectors(const int localSize) {
 
 void MultilevelPreconditioning::ConstructInterpolation(
     std::shared_ptr<HierarchicalParticleManager> particleMgr) {
+  interpolationPtr_.push_back(std::make_shared<PetscMatrix>());
   const int currentLevel = linearSystemsPtr_.size() - 1;
   // build ghost
   if (currentLevel > 0) {
