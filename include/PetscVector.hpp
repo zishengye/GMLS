@@ -13,6 +13,7 @@ protected:
 
 public:
   PetscVector();
+  PetscVector(const PetscInt localSize);
 
   ~PetscVector();
 

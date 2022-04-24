@@ -2,6 +2,10 @@
 
 PetscVector::PetscVector() : vec_(PETSC_NULL) {}
 
+PetscVector::PetscVector(const int localSize) {
+  VecCreateMPI(MPI_COMM_WORLD, localSize, PETSC_DECIDE, &vec_);
+}
+
 PetscVector::~PetscVector() {
   if (vec_ != PETSC_NULL)
     VecDestroy(&vec_);

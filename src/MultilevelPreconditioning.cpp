@@ -72,13 +72,37 @@ void MultilevelPreconditioning::AddLinearSystem(
   linearSystemsPtr_.push_back(mat);
 }
 
-void MultilevelPreconditioning::ConstructInterpolation(
-    std::shared_ptr<HierarchicalParticleManager> particleMgr) {
-  // build ghost
-  Ghost ghost;
+void MultilevelPreconditioning::PrepareVectors(const int localSize) {
+  auxiliaryVectorXPtr_.push_back(std::make_shared<PetscVector>(localSize));
+  auxiliaryVectorRPtr_.push_back(std::make_shared<PetscVector>(localSize));
+  auxiliaryVectorBPtr_.push_back(std::make_shared<PetscVector>(localSize));
 }
 
-void MultilevelPreconditioning::ConstructRestriction() {}
+void MultilevelPreconditioning::ConstructInterpolation(
+    std::shared_ptr<HierarchicalParticleManager> particleMgr) {
+  const int currentLevel = linearSystemsPtr_.size() - 1;
+  // build ghost
+  if (currentLevel > 0) {
+    interpolationGhost_.Init(
+        particleMgr->GetParticleCoordsByLevel(currentLevel),
+        particleMgr->GetParticleSizeByLevel(currentLevel),
+        particleMgr->GetParticleCoordsByLevel(currentLevel - 1), 6.0,
+        particleMgr->GetDimension());
+  }
+}
+
+void MultilevelPreconditioning::ConstructRestriction(
+    std::shared_ptr<HierarchicalParticleManager> particleMgr) {
+  const int currentLevel = linearSystemsPtr_.size() - 1;
+  // build ghost
+  if (currentLevel > 0) {
+    restrictionGhost_.Init(
+        particleMgr->GetParticleCoordsByLevel(currentLevel - 1),
+        particleMgr->GetParticleSizeByLevel(currentLevel - 1),
+        particleMgr->GetParticleCoordsByLevel(currentLevel), 6.0,
+        particleMgr->GetDimension());
+  }
+}
 
 void MultilevelPreconditioning::ConstructSmoother() {
   smootherPtr_.push_back(std::make_shared<PetscKsp>());

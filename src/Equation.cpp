@@ -31,11 +31,30 @@ void Equation::DiscretizeEquation() {
 }
 
 void Equation::InitPreconditioner() {
-  ksp_.SetUp(*(linearSystemsPtr_[refinementIteration_]), KSPGMRES);
-
   preconditionerPtr_->ConstructSmoother();
   preconditionerPtr_->ConstructInterpolation(
       std::make_shared<HierarchicalParticleManager>(particleMgr_));
+
+  PetscInt localRow;
+  MatGetLocalSize(linearSystemsPtr_[refinementIteration_]->GetReference(),
+                  &localRow, PETSC_NULL);
+  preconditionerPtr_->PrepareVectors(localRow);
+
+  KSP &ksp = ksp_.GetReference();
+  KSPCreate(MPI_COMM_WORLD, &ksp);
+  KSPSetType(ksp, KSPGMRES);
+  KSPSetOperators(ksp, linearSystemsPtr_[refinementIteration_]->GetReference(),
+                  linearSystemsPtr_[refinementIteration_]->GetReference());
+  KSPSetFromOptions(ksp);
+
+  PC pc;
+  KSPGetPC(ksp, &pc);
+  PCSetType(pc, PCSHELL);
+
+  PCShellSetApply(pc, PreconditioningIterationWrapper);
+  PCShellSetContext(pc, preconditionerPtr_.get());
+
+  KSPSetUp(ksp);
 }
 
 void Equation::SolveEquation() {

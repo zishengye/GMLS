@@ -10,7 +10,8 @@ public:
 
   virtual void ConstructInterpolation(
       std::shared_ptr<HierarchicalParticleManager> particleMgr);
-  virtual void ConstructRestriction();
+  virtual void ConstructRestriction(
+      std::shared_ptr<HierarchicalParticleManager> particleMgr);
   virtual void ConstructSmoother();
 };
 

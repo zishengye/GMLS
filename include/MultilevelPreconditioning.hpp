@@ -22,8 +22,7 @@ protected:
 
   std::vector<std::shared_ptr<PetscKsp>> smootherPtr_;
 
-  HostRealMatrix interpolationSourceCoords;
-  HostRealMatrix restrictionSourceCoords;
+  Ghost interpolationGhost_, restrictionGhost_;
 
 public:
   MultilevelPreconditioning();
@@ -37,9 +36,11 @@ public:
   PetscKsp &GetSmoother(const int level);
 
   void AddLinearSystem(std::shared_ptr<PetscMatrix> &mat);
+  void PrepareVectors(const int localSize);
   virtual void ConstructInterpolation(
       std::shared_ptr<HierarchicalParticleManager> particleMgr);
-  virtual void ConstructRestriction();
+  virtual void ConstructRestriction(
+      std::shared_ptr<HierarchicalParticleManager> particleMgr);
   virtual void ConstructSmoother();
 };
 
