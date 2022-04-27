@@ -42,17 +42,17 @@ public:
 
   void Resize(const PetscInt m, const PetscInt n);
 
-  const int GetRowSize();
+  int GetRowSize();
 
   void SetColIndex(const PetscInt row, const std::vector<PetscInt> &index);
   void Increment(const PetscInt row, const PetscInt col, const PetscReal value);
   void Increment(const PetscInt row, const std::vector<PetscInt> &index,
                  const std::vector<PetscReal> &value);
 
-  const unsigned long GraphAssemble();
+  unsigned long GraphAssemble();
 
-  const unsigned long Assemble();
-  const unsigned long Assemble(const PetscInt blockSize);
+  unsigned long Assemble();
+  unsigned long Assemble(const PetscInt blockSize);
 
   Mat &GetReference();
 };

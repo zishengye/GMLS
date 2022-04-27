@@ -33,7 +33,7 @@ protected:
   HostRealMatrix hostParticleCoords_;
   HostRealMatrix hostParticleNormal_;
   HostRealVector hostParticleSize_;
-  HostIntVector hostParticleType_;
+  HostIndexVector hostParticleType_;
   HostIndexVector hostParticleIndex_;
 
   DeviceRealMatrix deviceCoords_;
@@ -52,7 +52,7 @@ public:
   HostRealMatrix &GetParticleCoords();
   HostRealMatrix &GetParticleNormal();
   HostRealVector &GetParticleSize();
-  HostIntVector &GetParticleType();
+  HostIndexVector &GetParticleType();
   HostIndexVector &GetParticleIndex();
 
   DeviceRealMatrix &PrepareDeviceCoords();
@@ -63,10 +63,10 @@ public:
   void GetBackParticleType();
   void GetBackParticleIndex();
 
-  const LocalIndex GetLocalParticleNum();
-  const GlobalIndex GetGlobalParticleNum();
+  LocalIndex GetLocalParticleNum();
+  GlobalIndex GetGlobalParticleNum();
 
-  const LocalIndex GetLocalGhostParticleNum();
+  LocalIndex GetLocalGhostParticleNum();
 
   Scalar GetParticleCoords(const int index, const int dimension);
   int GetParticleType(const int index);
@@ -96,21 +96,22 @@ public:
   void SetSize(const std::vector<Scalar> &size);
   void SetSpacing(const Scalar spacing);
 
-  const int GetDimension();
+  int GetDimension();
 
   virtual void Init();
   virtual void Clear();
 
-  virtual const LocalIndex GetLocalParticleNum();
-  virtual const GlobalIndex GetGlobalParticleNum();
+  virtual LocalIndex GetLocalParticleNum();
+  virtual GlobalIndex GetGlobalParticleNum();
 
   HostRealMatrix &GetParticleCoords();
   HostRealMatrix &GetParticleNormal();
   HostRealVector &GetParticleSize();
-  HostIntVector &GetParticleType();
+  HostIndexVector &GetParticleType();
   HostIndexVector &GetParticleIndex();
 
-  void Output(std::string outputFileName = "output.vtk", bool isBinary = true);
+  void Output(const std::string outputFileName = "output.vtk",
+              const bool isBinary = true);
 };
 
 class HierarchicalParticleManager : public ParticleManager {
@@ -119,27 +120,27 @@ protected:
 
   int currentRefinementLevel_;
 
-  HostIntVector hostParticleRefinementLevel_;
+  HostIndexVector hostParticleRefinementLevel_;
 
-  virtual void RefineInternal(HostIndexVector &splitTag);
+  virtual void RefineInternal(const HostIndexVector &splitTag);
 
 public:
   HierarchicalParticleManager();
 
-  HostIntVector &GetParticleRefinementLevel();
+  HostIndexVector &GetParticleRefinementLevel();
 
   virtual void Init();
   virtual void Clear();
 
-  void Refine(HostIndexVector &splitTag);
+  void Refine(const HostIndexVector &splitTag);
 
-  virtual const LocalIndex GetLocalParticleNum();
-  virtual const GlobalIndex GetGlobalParticleNum();
+  virtual LocalIndex GetLocalParticleNum();
+  virtual GlobalIndex GetGlobalParticleNum();
 
   HostRealMatrix &GetParticleCoordsByLevel(const int level);
   HostRealMatrix &GetParticleNormalByLevel(const int level);
   HostRealVector &GetParticleSizeByLevel(const int level);
-  HostIntVector &GetParticleTypeByLevel(const int level);
+  HostIndexVector &GetParticleTypeByLevel(const int level);
   HostIndexVector &GetParticleIndexByLevel(const int level);
 };
 

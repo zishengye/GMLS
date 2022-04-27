@@ -28,23 +28,23 @@ public:
   bool IsBoundary(Scalar x, Scalar y, Scalar z);
   void IsBoundary(Kokkos::View<Scalar **> coords, Kokkos::View<bool *> results);
   Scalar MeasureToBoundary(Scalar x, Scalar y, Scalar z);
-  void MeasusreToBoundary(Kokkos::View<Scalar **> coords,
-                          Kokkos::View<Scalar *> results);
+  void MeasureToBoundary(Kokkos::View<Scalar **> coords,
+                         Kokkos::View<Scalar *> results);
 
   void SetType(const SimpleDomainShape shape);
   void SetDimension(const int dimension);
   void SetGeometryFile(const std::string filename);
   void SetSize(const std::vector<Scalar> &size);
 
-  const SimpleDomainShape GetType();
-  const int GetDimension();
-  const Scalar GetSize(const int size_index);
+  SimpleDomainShape GetType();
+  int GetDimension();
+  Scalar GetSize(const int size_index);
 
-  const LocalIndex EstimateNodeNum(const Scalar spacing);
+  LocalIndex EstimateNodeNum(const Scalar spacing);
   void AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
                          Kokkos::View<Scalar **> nodeNormal,
                          Kokkos::View<Scalar *> nodeSize,
-                         Kokkos::View<LocalIndex *> nodeType,
+                         Kokkos::View<std::size_t *> nodeType,
                          const Scalar spacing);
 };
 

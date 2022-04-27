@@ -20,12 +20,12 @@ enum RefinementMethod { UniformRefinement, AdaptiveRefinement };
 class Equation {
 protected:
   double globalError_, errorTolerance_, markRatio_;
-  int maxRefinementIteration_, refinementIteration_;
+  unsigned int maxRefinementIteration_, refinementIteration_;
   RefinementMethod refinementMethod_;
 
   HostRealVector error_;
 
-  HostIntMatrix neighborLists_;
+  HostIndexMatrix neighborLists_;
   HostRealVector epsilon_;
 
   HostIndexVector splitTag_;
@@ -38,7 +38,7 @@ protected:
   PetscKsp ksp_;
 
   HostRealMatrix hostGhostParticleCoords_;
-  HostIntVector hostGhostParticleType_;
+  HostIndexVector hostGhostParticleType_;
   HostIndexVector hostGhostParticleIndex_;
 
   virtual void InitLinearSystem();
@@ -54,13 +54,13 @@ protected:
   virtual void BuildGhost();
   virtual void Output();
 
-  virtual void ConstructNeighborLists(const int satisfiedNumNeighbor);
+  virtual void ConstructNeighborLists(const unsigned int satisfiedNumNeighbor);
 
   HierarchicalParticleManager particleMgr_;
 
   int mpiRank_, mpiSize_;
 
-  int outputLevel_, polyOrder_;
+  unsigned int outputLevel_, polyOrder_;
 
   Ghost ghost_;
   double ghostMultiplier_;
@@ -68,22 +68,20 @@ protected:
 public:
   Equation();
 
-  void SetPolyOrder(const int polyOrder);
-  void SetDimension(const int dimension);
+  void SetPolyOrder(const unsigned int polyOrder);
+  void SetDimension(const unsigned int dimension);
   void SetDomainType(const SimpleDomainShape shape);
   void SetDomainSize(const std::vector<Scalar> &size);
   void SetInitialDiscretizationResolution(const double spacing);
   void SetErrorTolerance(const double errorTolerance);
   void SetRefinementMethod(const RefinementMethod refinementMethod);
-  void SetMaxRefinementIteration(const int maxRefinementIteration);
-  void SetOutputLevel(const int outputLevel);
+  void SetMaxRefinementIteration(const unsigned int maxRefinementIteration);
+  void SetOutputLevel(const unsigned int outputLevel);
   void SetGhostMultiplier(const double multiplier);
   void SetRefinementMarkRatio(const double ratio = 0.8);
 
   virtual void Init();
   virtual void Update();
-  const double GetError();
-  const int GetRefinementIteration();
 };
 
 #endif

@@ -52,7 +52,7 @@ void PetscMatrix::Resize(const PetscInt m, const PetscInt n) {
   colRangeHigh = colRangeLow + rankColSize[mpiRank_];
 }
 
-const int PetscMatrix::GetRowSize() { return diagMatrixCol_.size(); }
+int PetscMatrix::GetRowSize() { return diagMatrixCol_.size(); }
 
 void PetscMatrix::SetColIndex(const PetscInt row,
                               const std::vector<PetscInt> &index) {
@@ -105,7 +105,7 @@ void PetscMatrix::Increment(const PetscInt row,
     std::cout << "Wrong increment setup in row: " << row << std::endl;
     return;
   }
-  for (int i = 0; i < index.size(); i++) {
+  for (std::size_t i = 0; i < index.size(); i++) {
     PetscInt col = index[i];
     if (col >= colRangeLow && col < colRangeHigh) {
       auto it =
@@ -129,7 +129,7 @@ void PetscMatrix::Increment(const PetscInt row,
   }
 }
 
-const unsigned long PetscMatrix::GraphAssemble() {
+unsigned long PetscMatrix::GraphAssemble() {
   unsigned long diagNumNonzero = 0;
   unsigned long offDiagNumNonzero = 0;
   for (int i = 0; i < localRowSize_; i++) {
@@ -167,7 +167,7 @@ const unsigned long PetscMatrix::GraphAssemble() {
   return diagNumNonzero + offDiagNumNonzero;
 }
 
-const unsigned long PetscMatrix::Assemble() {
+unsigned long PetscMatrix::Assemble() {
   MatCreateMPIAIJWithSplitArrays(
       PETSC_COMM_WORLD, localRowSize_, localColSize_, globalRowSize_,
       globalColSize_, diagRow_.data(), diagCol_.data(), diagVal_.data(),

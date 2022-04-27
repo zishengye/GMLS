@@ -17,15 +17,15 @@ HostRealMatrix &ParticleSet::GetParticleNormal() { return hostParticleNormal_; }
 
 HostRealVector &ParticleSet::GetParticleSize() { return hostParticleSize_; }
 
-HostIntVector &ParticleSet::GetParticleType() { return hostParticleType_; }
+HostIndexVector &ParticleSet::GetParticleType() { return hostParticleType_; }
 
 HostIndexVector &ParticleSet::GetParticleIndex() { return hostParticleIndex_; }
 
-const LocalIndex ParticleSet::GetLocalParticleNum() {
+LocalIndex ParticleSet::GetLocalParticleNum() {
   return hostParticleCoords_.extent(0);
 }
 
-const GlobalIndex ParticleSet::GetGlobalParticleNum() {
+GlobalIndex ParticleSet::GetGlobalParticleNum() {
   GlobalIndex globalSize;
   globalSize = hostParticleCoords_.extent(0);
   MPI_Allreduce(MPI_IN_PLACE, &globalSize, 1, MPI_UNSIGNED_LONG, MPI_SUM,
@@ -53,7 +53,7 @@ void ParticleSet::Balance() {
   partition_.ApplyPartition(hostParticleType_);
 }
 
-void ParticleSet::Output(std::string outputFileName, bool isBinary) {
+void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
   std::size_t globalParticleNum = GetGlobalParticleNum();
   std::ofstream vtkStream;
 
@@ -90,8 +90,8 @@ void ParticleSet::Output(std::string outputFileName, bool isBinary) {
       else
         vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
 
-      for (int i = 0; i < hostParticleCoords_.extent(0); i++) {
-        for (int j = 0; j < hostParticleCoords_.extent(1); j++) {
+      for (std::size_t i = 0; i < hostParticleCoords_.extent(0); i++) {
+        for (std::size_t j = 0; j < hostParticleCoords_.extent(1); j++) {
           float x = hostParticleCoords_(i, j);
           if (isBinary) {
             SwapEnd(x);
@@ -142,8 +142,8 @@ void ParticleSet::Output(std::string outputFileName, bool isBinary) {
       else
         vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
 
-      for (int i = 0; i < hostParticleNormal_.extent(0); i++) {
-        for (int j = 0; j < hostParticleNormal_.extent(1); j++) {
+      for (std::size_t i = 0; i < hostParticleNormal_.extent(0); i++) {
+        for (std::size_t j = 0; j < hostParticleNormal_.extent(1); j++) {
           float x = hostParticleNormal_(i, j);
           if (isBinary) {
             SwapEnd(x);
@@ -182,7 +182,7 @@ void ParticleSet::Output(std::string outputFileName, bool isBinary) {
       else
         vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
 
-      for (int i = 0; i < hostParticleSize_.extent(0); i++) {
+      for (std::size_t i = 0; i < hostParticleSize_.extent(0); i++) {
         float x = hostParticleSize_(i);
         if (isBinary) {
           SwapEnd(x);
@@ -220,7 +220,7 @@ void ParticleSet::Output(std::string outputFileName, bool isBinary) {
       else
         vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
 
-      for (int i = 0; i < hostParticleType_.extent(0); i++) {
+      for (std::size_t i = 0; i < hostParticleType_.extent(0); i++) {
         int x = hostParticleType_(i);
         if (isBinary) {
           SwapEnd(x);
@@ -312,9 +312,7 @@ void ParticleManager::SetSize(const std::vector<Scalar> &size) {
 
 void ParticleManager::SetSpacing(const Scalar spacing) { spacing_ = spacing; }
 
-const int ParticleManager::GetDimension() {
-  return geometryPtr_->GetDimension();
-}
+int ParticleManager::GetDimension() { return geometryPtr_->GetDimension(); }
 
 void ParticleManager::Init() {
   assert(geometryPtr_->GetType() != UndefinedDomain);
@@ -332,11 +330,11 @@ void ParticleManager::Init() {
 
 void ParticleManager::Clear() {}
 
-const LocalIndex ParticleManager::GetLocalParticleNum() {
+LocalIndex ParticleManager::GetLocalParticleNum() {
   return particleSetPtr_->GetLocalParticleNum();
 }
 
-const GlobalIndex ParticleManager::GetGlobalParticleNum() {
+GlobalIndex ParticleManager::GetGlobalParticleNum() {
   return particleSetPtr_->GetGlobalParticleNum();
 }
 
@@ -352,7 +350,7 @@ HostRealVector &ParticleManager::GetParticleSize() {
   return particleSetPtr_->GetParticleSize();
 }
 
-HostIntVector &ParticleManager::GetParticleType() {
+HostIndexVector &ParticleManager::GetParticleType() {
   return particleSetPtr_->GetParticleType();
 }
 
@@ -360,11 +358,13 @@ HostIndexVector &ParticleManager::GetParticleIndex() {
   return particleSetPtr_->GetParticleIndex();
 }
 
-void ParticleManager::Output(std::string outputFileName, bool isBinary) {
+void ParticleManager::Output(const std::string outputFileName,
+                             const bool isBinary) {
   particleSetPtr_->Output(outputFileName, isBinary);
 }
 
-void HierarchicalParticleManager::RefineInternal(HostIndexVector &splitTag) {
+void HierarchicalParticleManager::RefineInternal(
+    const HostIndexVector &splitTag) {
   int dimension = GetDimension();
   // estimate new number of particles
   auto &oldParticleCoords = GetParticleCoords();
@@ -416,7 +416,7 @@ void HierarchicalParticleManager::RefineInternal(HostIndexVector &splitTag) {
   Kokkos::resize(particleType, newParticleNum);
   Kokkos::resize(particleIndex, newParticleNum);
 
-  HostIntVector oldParticleRefinementLevel;
+  HostIndexVector oldParticleRefinementLevel;
   Kokkos::resize(oldParticleRefinementLevel,
                  hostParticleRefinementLevel_.extent(0));
   Kokkos::deep_copy(hostParticleRefinementLevel_, oldParticleRefinementLevel);
@@ -500,7 +500,7 @@ HierarchicalParticleManager::HierarchicalParticleManager()
   particleSetPtr_ = hierarchicalParticleSetPtr_[0];
 }
 
-HostIntVector &HierarchicalParticleManager::GetParticleRefinementLevel() {
+HostIndexVector &HierarchicalParticleManager::GetParticleRefinementLevel() {
   return hostParticleRefinementLevel_;
 }
 
@@ -517,16 +517,16 @@ void HierarchicalParticleManager::Init() {
 
 void HierarchicalParticleManager::Clear() { ParticleManager::Clear(); }
 
-void HierarchicalParticleManager::Refine(HostIndexVector &splitTag) {
+void HierarchicalParticleManager::Refine(const HostIndexVector &splitTag) {
   RefineInternal(splitTag);
 }
 
-const LocalIndex HierarchicalParticleManager::GetLocalParticleNum() {
+LocalIndex HierarchicalParticleManager::GetLocalParticleNum() {
   return hierarchicalParticleSetPtr_[currentRefinementLevel_]
       ->GetLocalParticleNum();
 }
 
-const GlobalIndex HierarchicalParticleManager::GetGlobalParticleNum() {
+GlobalIndex HierarchicalParticleManager::GetGlobalParticleNum() {
   return hierarchicalParticleSetPtr_[currentRefinementLevel_]
       ->GetGlobalParticleNum();
 }
@@ -546,7 +546,7 @@ HierarchicalParticleManager::GetParticleSizeByLevel(const int level) {
   return hierarchicalParticleSetPtr_[level]->GetParticleSize();
 }
 
-HostIntVector &
+HostIndexVector &
 HierarchicalParticleManager::GetParticleTypeByLevel(const int level) {
   return hierarchicalParticleSetPtr_[level]->GetParticleType();
 }

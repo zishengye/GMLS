@@ -1,4 +1,5 @@
 #include "Ghost.hpp"
+#include "Typedef.hpp"
 
 Ghost::Ghost() {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);
@@ -16,10 +17,10 @@ void Ghost::Init(const HostRealMatrix &targetCoords,
     domainHigh[i] = -1e9;
   }
 
-  const int localSourceNum = sourceCoords.extent(0);
-  const int localTargetNum = targetCoords.extent(0);
+  const std::size_t localSourceNum = sourceCoords.extent(0);
+  const std::size_t localTargetNum = targetCoords.extent(0);
 
-  for (int i = 0; i < localTargetNum; i++) {
+  for (std::size_t i = 0; i < localTargetNum; i++) {
     const double offset = multiplier * targetSpacing(i);
     if (domainHigh[0] < targetCoords(i, 0) + offset) {
       domainHigh[0] = targetCoords(i, 0) + offset;
@@ -67,7 +68,7 @@ void Ghost::Init(const HostRealMatrix &targetCoords,
 
   std::vector<std::vector<int>> rankGhostOutMap;
   rankGhostOutMap.resize(mpiSize_);
-  for (int i = 0; i < localSourceNum; i++) {
+  for (std::size_t i = 0; i < localSourceNum; i++) {
     for (int j = 0; j < mpiSize_; j++) {
       if (dimension == 2) {
         if (sourceCoords(i, 0) > rankGhostDomainLow[j][0] &&
@@ -89,10 +90,11 @@ void Ghost::Init(const HostRealMatrix &targetCoords,
     }
   }
 
-  std::vector<int> rankGhostInNum(mpiSize_);
+  std::vector<std::size_t> rankGhostInNum(mpiSize_);
   for (int i = 0; i < mpiSize_; i++) {
-    int outNum = (i != mpiRank_) ? (int)(rankGhostOutMap[i].size()) : 0;
-    MPI_Gather(&outNum, 1, MPI_INT, rankGhostInNum.data(), 1, MPI_INT, i,
+    std::size_t outNum =
+        (i != mpiRank_) ? (std::size_t)(rankGhostOutMap[i].size()) : 0;
+    MPI_Gather(&outNum, 1, MPI_SIZE_T, rankGhostInNum.data(), 1, MPI_SIZE_T, i,
                MPI_COMM_WORLD);
   }
 
@@ -124,11 +126,11 @@ void Ghost::Init(const HostRealMatrix &targetCoords,
   ghostOutOffset_.resize(ghostOutGraph_.size() + 1);
   ghostInOffset_.resize(ghostInGraph_.size() + 1);
   ghostOutOffset_[0] = 0;
-  for (int i = 0; i < ghostOutGraph_.size(); i++) {
+  for (std::size_t i = 0; i < ghostOutGraph_.size(); i++) {
     ghostOutOffset_[i + 1] = ghostOutOffset_[i] + ghostOutNum_[i];
   }
   ghostInOffset_[0] = 0;
-  for (int i = 0; i < ghostInGraph_.size(); i++) {
+  for (std::size_t i = 0; i < ghostInGraph_.size(); i++) {
     ghostInOffset_[i + 1] = ghostInOffset_[i] + ghostInNum_[i];
   }
 
@@ -139,11 +141,11 @@ void Ghost::Init(const HostRealMatrix &targetCoords,
         std::lower_bound(ghostOutGraph_.begin(), ghostOutGraph_.end(), i) -
         ghostOutGraph_.begin());
     if (i != mpiRank_) {
-      for (int j = 0; j < rankGhostOutMap[i].size(); j++) {
+      for (std::size_t j = 0; j < rankGhostOutMap[i].size(); j++) {
         ghostMap_[ghostOutOffset_[ite] + j] = rankGhostOutMap[i][j];
       }
     } else {
-      for (int j = 0; j < rankGhostOutMap[i].size(); j++) {
+      for (std::size_t j = 0; j < rankGhostOutMap[i].size(); j++) {
         reserveMap_[j] = rankGhostOutMap[i][j];
       }
     }
@@ -152,7 +154,7 @@ void Ghost::Init(const HostRealMatrix &targetCoords,
 
 void Ghost::ApplyGhost(const HostRealMatrix &sourceData,
                        HostRealMatrix &ghostData) {
-  unsigned int unitLength = sourceData.extent(1);
+  const std::size_t unitLength = sourceData.extent(1);
 
   std::vector<MPI_Request> sendRequest(ghostOutGraph_.size());
   std::vector<MPI_Request> recvRequest(ghostInGraph_.size());
@@ -165,21 +167,21 @@ void Ghost::ApplyGhost(const HostRealMatrix &sourceData,
                                         unitLength);
 
   // prepare send data
-  for (int i = 0; i < ghostMap_.size(); i++) {
-    for (int j = 0; j < unitLength; j++) {
+  for (std::size_t i = 0; i < ghostMap_.size(); i++) {
+    for (std::size_t j = 0; j < unitLength; j++) {
       flattenedSendData[i * unitLength + j] = sourceData(ghostMap_[i], j);
     }
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
   // send and recv data
-  for (int i = 0; i < ghostOutGraph_.size(); i++) {
+  for (std::size_t i = 0; i < ghostOutGraph_.size(); i++) {
     MPI_Isend(flattenedSendData.data() + ghostOutOffset_[i] * unitLength,
               ghostOutNum_[i] * unitLength, MPI_DOUBLE, ghostOutGraph_[i], 0,
               MPI_COMM_WORLD, sendRequest.data() + i);
   }
 
-  for (int i = 0; i < ghostInGraph_.size(); i++) {
+  for (std::size_t i = 0; i < ghostInGraph_.size(); i++) {
     MPI_Irecv(flattenedRecvData.data() + ghostInOffset_[i] * unitLength,
               ghostInNum_[i] * unitLength, MPI_DOUBLE, ghostInGraph_[i], 0,
               MPI_COMM_WORLD, recvRequest.data() + i);
@@ -191,15 +193,15 @@ void Ghost::ApplyGhost(const HostRealMatrix &sourceData,
 
   Kokkos::resize(ghostData, localReserveNum_ + remoteInNum_, unitLength);
   // store reserved local data
-  for (int i = 0; i < localReserveNum_; i++) {
-    for (int j = 0; j < unitLength; j++) {
+  for (std::size_t i = 0; i < localReserveNum_; i++) {
+    for (std::size_t j = 0; j < unitLength; j++) {
       ghostData(i, j) = sourceData(reserveMap_[i], j);
     }
   }
 
   // store remote data
-  for (int i = 0; i < remoteInNum_; i++) {
-    for (int j = 0; j < unitLength; j++) {
+  for (std::size_t i = 0; i < remoteInNum_; i++) {
+    for (std::size_t j = 0; j < unitLength; j++) {
       ghostData(localReserveNum_ + i, j) =
           flattenedRecvData[i * unitLength + j];
     }
@@ -217,19 +219,19 @@ void Ghost::ApplyGhost(const HostRealVector &sourceData,
   std::vector<double> flattenedRecvData(ghostInOffset_[ghostInGraph_.size()]);
 
   // prepare send data
-  for (int i = 0; i < ghostMap_.size(); i++) {
+  for (std::size_t i = 0; i < ghostMap_.size(); i++) {
     flattenedSendData[i] = sourceData(ghostMap_[i]);
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
   // send and recv data
-  for (int i = 0; i < ghostOutGraph_.size(); i++) {
+  for (std::size_t i = 0; i < ghostOutGraph_.size(); i++) {
     MPI_Isend(flattenedSendData.data() + ghostOutOffset_[i], ghostOutNum_[i],
               MPI_DOUBLE, ghostOutGraph_[i], 0, MPI_COMM_WORLD,
               sendRequest.data() + i);
   }
 
-  for (int i = 0; i < ghostInGraph_.size(); i++) {
+  for (std::size_t i = 0; i < ghostInGraph_.size(); i++) {
     MPI_Irecv(flattenedRecvData.data() + ghostInOffset_[i], ghostInNum_[i],
               MPI_DOUBLE, ghostInGraph_[i], 0, MPI_COMM_WORLD,
               recvRequest.data() + i);
@@ -241,12 +243,12 @@ void Ghost::ApplyGhost(const HostRealVector &sourceData,
 
   Kokkos::resize(ghostData, localReserveNum_ + remoteInNum_);
   // store reserved local data
-  for (int i = 0; i < localReserveNum_; i++) {
+  for (std::size_t i = 0; i < localReserveNum_; i++) {
     ghostData(i) = sourceData(reserveMap_[i]);
   }
 
   // store remote data
-  for (int i = 0; i < remoteInNum_; i++) {
+  for (std::size_t i = 0; i < remoteInNum_; i++) {
     ghostData(localReserveNum_ + i) = flattenedRecvData[i];
   }
 }
@@ -262,19 +264,19 @@ void Ghost::ApplyGhost(const HostIntVector &sourceData,
   std::vector<int> flattenedRecvData(ghostInOffset_[ghostInGraph_.size()]);
 
   // prepare send data
-  for (int i = 0; i < ghostMap_.size(); i++) {
+  for (std::size_t i = 0; i < ghostMap_.size(); i++) {
     flattenedSendData[i] = sourceData(ghostMap_[i]);
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
   // send and recv data
-  for (int i = 0; i < ghostOutGraph_.size(); i++) {
+  for (std::size_t i = 0; i < ghostOutGraph_.size(); i++) {
     MPI_Isend(flattenedSendData.data() + ghostOutOffset_[i], ghostOutNum_[i],
               MPI_INT, ghostOutGraph_[i], 0, MPI_COMM_WORLD,
               sendRequest.data() + i);
   }
 
-  for (int i = 0; i < ghostInGraph_.size(); i++) {
+  for (std::size_t i = 0; i < ghostInGraph_.size(); i++) {
     MPI_Irecv(flattenedRecvData.data() + ghostInOffset_[i], ghostInNum_[i],
               MPI_INT, ghostInGraph_[i], 0, MPI_COMM_WORLD,
               recvRequest.data() + i);
@@ -286,12 +288,12 @@ void Ghost::ApplyGhost(const HostIntVector &sourceData,
 
   Kokkos::resize(ghostData, localReserveNum_ + remoteInNum_);
   // store reserved local data
-  for (int i = 0; i < localReserveNum_; i++) {
+  for (std::size_t i = 0; i < localReserveNum_; i++) {
     ghostData(i) = sourceData(reserveMap_[i]);
   }
 
   // store remote data
-  for (int i = 0; i < remoteInNum_; i++) {
+  for (std::size_t i = 0; i < remoteInNum_; i++) {
     ghostData(localReserveNum_ + i) = flattenedRecvData[i];
   }
 }
@@ -309,19 +311,19 @@ void Ghost::ApplyGhost(const HostIndexVector &sourceData,
       ghostInOffset_[ghostInGraph_.size()]);
 
   // prepare send data
-  for (int i = 0; i < ghostMap_.size(); i++) {
+  for (std::size_t i = 0; i < ghostMap_.size(); i++) {
     flattenedSendData[i] = sourceData(ghostMap_[i]);
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
   // send and recv data
-  for (int i = 0; i < ghostOutGraph_.size(); i++) {
+  for (std::size_t i = 0; i < ghostOutGraph_.size(); i++) {
     MPI_Isend(flattenedSendData.data() + ghostOutOffset_[i], ghostOutNum_[i],
               MPI_UNSIGNED_LONG, ghostOutGraph_[i], 0, MPI_COMM_WORLD,
               sendRequest.data() + i);
   }
 
-  for (int i = 0; i < ghostInGraph_.size(); i++) {
+  for (std::size_t i = 0; i < ghostInGraph_.size(); i++) {
     MPI_Irecv(flattenedRecvData.data() + ghostInOffset_[i], ghostInNum_[i],
               MPI_UNSIGNED_LONG, ghostInGraph_[i], 0, MPI_COMM_WORLD,
               recvRequest.data() + i);
@@ -333,12 +335,12 @@ void Ghost::ApplyGhost(const HostIndexVector &sourceData,
 
   Kokkos::resize(ghostData, localReserveNum_ + remoteInNum_);
   // store reserved local data
-  for (int i = 0; i < localReserveNum_; i++) {
+  for (std::size_t i = 0; i < localReserveNum_; i++) {
     ghostData(i) = sourceData(reserveMap_[i]);
   }
 
   // store remote data
-  for (int i = 0; i < remoteInNum_; i++) {
+  for (std::size_t i = 0; i < remoteInNum_; i++) {
     ghostData(localReserveNum_ + i) = flattenedRecvData[i];
   }
 }

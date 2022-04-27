@@ -51,6 +51,8 @@ bool DomainGeometry::IsInterior(Scalar x, Scalar y, Scalar z) {
       return false;
     }
   }
+
+  return false;
 }
 
 void DomainGeometry::IsInterior(Kokkos::View<Scalar **> coords,
@@ -100,16 +102,16 @@ void DomainGeometry::SetDimension(const int dimension) {
 
 void DomainGeometry::SetSize(const std::vector<Scalar> &size) { size_ = size; }
 
-const SimpleDomainShape DomainGeometry::GetType() { return shape_; }
+SimpleDomainShape DomainGeometry::GetType() { return shape_; }
 
-const int DomainGeometry::GetDimension() { return dimension_; }
+int DomainGeometry::GetDimension() { return dimension_; }
 
-const Scalar DomainGeometry::GetSize(const int size_index) {
+Scalar DomainGeometry::GetSize(const int size_index) {
   return size_[size_index];
 }
 
-const LocalIndex DomainGeometry::EstimateNodeNum(const Scalar spacing) {
-  GlobalIndex globalBoundaryNodeNum, globalInteriorNodeNum;
+LocalIndex DomainGeometry::EstimateNodeNum(const Scalar spacing) {
+  GlobalIndex globalBoundaryNodeNum = 0, globalInteriorNodeNum = 0;
 
   if (dimension_ == 2) {
     if (shape_ == Box) {
@@ -123,10 +125,16 @@ const LocalIndex DomainGeometry::EstimateNodeNum(const Scalar spacing) {
   LocalIndex localBoundaryNodeNum, localInteriorNodeNum;
   localBoundaryNodeNum =
       globalBoundaryNodeNum / mpiSize_ +
-      ((globalBoundaryNodeNum % mpiSize_ > mpiRank_) ? 1 : 0);
+      ((globalBoundaryNodeNum % static_cast<GlobalIndex>(mpiSize_) >
+        static_cast<GlobalIndex>(mpiRank_))
+           ? 1
+           : 0);
   localInteriorNodeNum =
       globalInteriorNodeNum / mpiSize_ +
-      ((globalInteriorNodeNum % mpiSize_ > mpiRank_) ? 1 : 0);
+      ((globalInteriorNodeNum % static_cast<GlobalIndex>(mpiSize_) >
+        static_cast<GlobalIndex>(mpiRank_))
+           ? 1
+           : 0);
 
   return localBoundaryNodeNum + localInteriorNodeNum;
 }
@@ -134,7 +142,7 @@ const LocalIndex DomainGeometry::EstimateNodeNum(const Scalar spacing) {
 void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
                                        Kokkos::View<Scalar **> nodeNormal,
                                        Kokkos::View<Scalar *> nodeSize,
-                                       Kokkos::View<LocalIndex *> nodeType,
+                                       Kokkos::View<std::size_t *> nodeType,
                                        const Scalar spacing) {
   if (dimension_ == 2) {
     if (shape_ == Box) {
@@ -160,7 +168,10 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
       for (int rank = 0; rank < mpiSize_; rank++) {
         rankBoundaryNodeNumList[rank] =
             globalBoundaryNodeNum / mpiSize_ +
-            ((globalBoundaryNodeNum % mpiSize_ > rank) ? 1 : 0);
+            ((globalBoundaryNodeNum % static_cast<GlobalIndex>(mpiSize_) >
+              static_cast<GlobalIndex>(rank))
+                 ? 1
+                 : 0);
       }
       rankBoundaryNodeOffsetList[0] = 0;
       for (int rank = 0; rank < mpiSize_; rank++) {
@@ -257,7 +268,10 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
       for (int rank = 0; rank < mpiSize_; rank++) {
         rankInteriorNodeNumList[rank] =
             globalInteriorNodeNum / mpiSize_ +
-            ((globalInteriorNodeNum % mpiSize_ > rank) ? 1 : 0);
+            ((globalInteriorNodeNum % static_cast<GlobalIndex>(mpiSize_) >
+              static_cast<GlobalIndex>(rank))
+                 ? 1
+                 : 0);
       }
       rankInteriorNodeOffsetList[0] = 0;
       for (int rank = 0; rank < mpiSize_; rank++) {
@@ -265,7 +279,7 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
             rankInteriorNodeOffsetList[rank] + rankInteriorNodeNumList[rank];
       }
 
-      for (int i = rankInteriorNodeOffsetList[mpiRank_] / yNodeNum;
+      for (GlobalIndex i = rankInteriorNodeOffsetList[mpiRank_] / yNodeNum;
            i <= rankInteriorNodeOffsetList[mpiRank_ + 1] / yNodeNum + 1; i++) {
         for (int j = 0; j < yNodeNum; j++) {
           GlobalIndex globalIndex = i * yNodeNum + j;

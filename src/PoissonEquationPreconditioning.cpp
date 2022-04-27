@@ -68,7 +68,7 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
     iteCounter = 0;
     while (!isNeighborSearchPassed) {
       iteCounter++;
-      int minNeighborLists =
+      unsigned int minNeighborLists =
           1 + pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
                   true, targetParticleCoordsHost, neighborListsHost,
                   epsilonHost, 0.0, 0.0);
@@ -280,15 +280,27 @@ void PoissonEquationPreconditioning::ConstructRestriction(
   const int currentLevel = linearSystemsPtr_.size() - 1;
 
   if (currentLevel > 0) {
-    HostRealMatrix restrictionSourceParticleCoords;
-    restrictionGhost_.ApplyGhost(
-        particleMgr->GetParticleCoordsByLevel(currentLevel),
-        restrictionSourceParticleCoords);
+    // HostRealMatrix restrictionSourceParticleCoords;
+    // HostIndexVector restrictionSourceParticleIndex;
+    // HostIntVector restrictionSourceParticleType;
+    // restrictionGhost_.ApplyGhost(
+    //     particleMgr->GetParticleCoordsByLevel(currentLevel),
+    //     restrictionSourceParticleCoords);
+    // restrictionGhost_.ApplyGhost(
+    //     particleMgr->GetParticleIndexByLevel(currentLevel),
+    //     restrictionSourceParticleIndex);
+    // restrictionGhost_.ApplyGhost(
+    //     particleMgr->GetParticleTypeByLevel(currentLevel),
+    //     restrictionSourceParticleType);
 
-    HostIntVector restrictionSourceParticleType;
-    restrictionGhost_.ApplyGhost(
-        particleMgr->GetParticleTypeByLevel(currentLevel),
-        restrictionSourceParticleType);
+    // const int dimension = particleMgr->GetDimension();
+
+    // search neighbor based on particle type
+    // int localInteriorParticleNum = 0;
+    // int localBoundaryParticleNum = 0;
+    // const int localTargetParticleNum = targetParticleCoordsHost.extent(0);
+    // const int localSourceParticleNum =
+    //     GetParticleCoordsByLevel(currentLevel).extent(0);
   }
 }
 

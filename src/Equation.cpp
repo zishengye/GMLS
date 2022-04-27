@@ -149,7 +149,7 @@ void Equation::Refine() {
   MPI_Allreduce(MPI_IN_PLACE, &markedParticleNum, 1, MPI_UNSIGNED_LONG, MPI_SUM,
                 MPI_COMM_WORLD);
   if (mpiRank_ == 0)
-    printf("Marked %d particles with mark ratio: %.2f\n", markedParticleNum,
+    printf("Marked %ld particles with mark ratio: %.2f\n", markedParticleNum,
            markRatio_);
 
   // ensure quasiuniform
@@ -159,11 +159,11 @@ void Equation::Refine() {
   auto &sourceParticleType = hostGhostParticleType_;
 
   auto &particleRefinementLevel = particleMgr_.GetParticleRefinementLevel();
-  HostIntVector ghostParticleRefinementLevel;
+  HostIndexVector ghostParticleRefinementLevel;
   ghost_.ApplyGhost(particleRefinementLevel, ghostParticleRefinementLevel);
 
   HostIndexVector ghostSplitTag;
-  HostIntVector crossRefinementLevel, ghostCrossRefinementLevel;
+  HostIndexVector crossRefinementLevel, ghostCrossRefinementLevel;
   Kokkos::resize(crossRefinementLevel, error_.extent(0));
   int iterationFinished = 1;
   iteCounter = 0;
@@ -171,7 +171,7 @@ void Equation::Refine() {
     iteCounter++;
 
     ghost_.ApplyGhost(splitTag_, ghostSplitTag);
-    int localChange = 0;
+    unsigned int localChange = 0;
 
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
                              0, crossRefinementLevel.extent(0)),
@@ -183,12 +183,12 @@ void Equation::Refine() {
     Kokkos::parallel_reduce(
         Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, coords.extent(0)),
-        [&](const int i, int &tLocalChange) {
+        [&](const int i, unsigned int &tLocalChange) {
           if (particleType(i) != 0 && splitTag_(i) == 0) {
             double minDistance = 1e9;
             int nearestIndex = 0;
-            for (int j = 1; j < neighborLists_(i, 0); j++) {
-              int neighborParticleIndex = neighborLists_(i, j + 1);
+            for (std::size_t j = 1; j < neighborLists_(i, 0); j++) {
+              std::size_t neighborParticleIndex = neighborLists_(i, j + 1);
               if (sourceParticleType(neighborParticleIndex) == 0) {
                 double x =
                     coords(i, 0) - sourceCoords(neighborParticleIndex, 0);
@@ -212,18 +212,18 @@ void Equation::Refine() {
             }
           }
         },
-        Kokkos::Sum<int>(localChange));
+        Kokkos::Sum<unsigned int>(localChange));
 
     Kokkos::parallel_for(
         Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, crossRefinementLevel.extent(0)),
         [&](const int i) {
-          int minRefinementLevel = 100;
-          int maxRefinementLevel = 0;
-          for (int j = 1; j < neighborLists_(i, 0); j++) {
-            int neighborParticleIndex = neighborLists_(i, j + 1);
+          std::size_t minRefinementLevel = 100;
+          std::size_t maxRefinementLevel = 0;
+          for (std::size_t j = 1; j < neighborLists_(i, 0); j++) {
+            std::size_t neighborParticleIndex = neighborLists_(i, j + 1);
 
-            int ghostRefinementLevel =
+            std::size_t ghostRefinementLevel =
                 ghostParticleRefinementLevel[neighborParticleIndex] +
                 ghostSplitTag[neighborParticleIndex];
             if (ghostRefinementLevel < minRefinementLevel)
@@ -234,6 +234,8 @@ void Equation::Refine() {
 
           if (maxRefinementLevel - minRefinementLevel > 1)
             crossRefinementLevel(i) = splitTag_(i) + particleRefinementLevel(i);
+          else
+            crossRefinementLevel(i) = 0;
         });
     Kokkos::fence();
 
@@ -242,23 +244,21 @@ void Equation::Refine() {
     Kokkos::parallel_reduce(
         Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, crossRefinementLevel.extent(0)),
-        [&](const int i, int &tLocalChange) {
-          for (int j = 1; j < neighborLists_(i, 0); j++) {
-            int neighborParticleIndex = neighborLists_(i, j + 1);
+        [&](const int i, unsigned int &tLocalChange) {
+          for (std::size_t j = 1; j < neighborLists_(i, 0); j++) {
+            std::size_t neighborParticleIndex = neighborLists_(i, j + 1);
 
-            if (ghostCrossRefinementLevel(neighborParticleIndex) >= 0) {
-              if ((particleRefinementLevel(i) <
-                   ghostCrossRefinementLevel(neighborParticleIndex)) &&
-                  splitTag_(i) == 0) {
-                splitTag_(i) = 1;
-                tLocalChange++;
-              }
+            if ((particleRefinementLevel(i) <
+                 ghostCrossRefinementLevel(neighborParticleIndex)) &&
+                splitTag_(i) == 0) {
+              splitTag_(i) = 1;
+              tLocalChange++;
             }
           }
         },
-        Kokkos::Sum<int>(localChange));
+        Kokkos::Sum<unsigned int>(localChange));
 
-    MPI_Allreduce(MPI_IN_PLACE, &localChange, 1, MPI_INT, MPI_SUM,
+    MPI_Allreduce(MPI_IN_PLACE, &localChange, 1, MPI_UNSIGNED, MPI_SUM,
                   MPI_COMM_WORLD);
     if (localChange == 0) {
       iterationFinished = 0;
@@ -278,7 +278,7 @@ void Equation::Refine() {
   MPI_Allreduce(MPI_IN_PLACE, &markedParticleNum, 1, MPI_UNSIGNED_LONG, MPI_SUM,
                 MPI_COMM_WORLD);
   if (mpiRank_ == 0)
-    printf("Marked %d particles after smoothing particles\n",
+    printf("Marked %ld particles after smoothing particles\n",
            markedParticleNum);
 
   particleMgr_.Refine(splitTag_);
@@ -322,7 +322,7 @@ void Equation::Output() {
       vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
                          ".vtk",
                      std::ios::out | std::ios::app | std::ios::binary);
-      for (int i = 0; i < epsilon_.extent(0); i++) {
+      for (std::size_t i = 0; i < epsilon_.extent(0); i++) {
         float x = epsilon_(i);
         SwapEnd(x);
         vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
@@ -349,10 +349,10 @@ void Equation::Output() {
       vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
                          ".vtk",
                      std::ios::out | std::ios::app | std::ios::binary);
-      for (int i = 0; i < neighborLists_.extent(0); i++) {
+      for (std::size_t i = 0; i < neighborLists_.extent(0); i++) {
         int x = neighborLists_(i, 0);
         SwapEnd(x);
-        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(int));
       }
       vtkStream.close();
     }
@@ -361,7 +361,7 @@ void Equation::Output() {
   }
 }
 
-void Equation::ConstructNeighborLists(const int satisfiedNumNeighbor) {
+void Equation::ConstructNeighborLists(const unsigned int satisfiedNumNeighbor) {
   auto &sourceCoords = hostGhostParticleCoords_;
   auto &coords = particleMgr_.GetParticleCoords();
   auto &spacing = particleMgr_.GetParticleSize();
@@ -373,7 +373,7 @@ void Equation::ConstructNeighborLists(const int satisfiedNumNeighbor) {
   Kokkos::resize(neighborLists_, localParticleNum, 1);
   Kokkos::resize(epsilon_, localParticleNum);
 
-  for (int i = 0; i < localParticleNum; i++) {
+  for (std::size_t i = 0; i < localParticleNum; i++) {
     epsilon_(i) = 1.50005 * spacing(i);
   }
 
@@ -382,11 +382,11 @@ void Equation::ConstructNeighborLists(const int satisfiedNumNeighbor) {
   bool isNeighborSearchPassed = false;
 
   double maxRatio, meanNeighbor;
-  int minNeighbor, maxNeighbor, iteCounter;
+  unsigned int minNeighbor, maxNeighbor, iteCounter;
   iteCounter = 0;
   while (!isNeighborSearchPassed) {
     iteCounter++;
-    int minNeighborLists =
+    unsigned int minNeighborLists =
         1 + pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
                 true, coords, neighborLists_, epsilon_, 0.0, 0.0);
     if (minNeighborLists > neighborLists_.extent(1))
@@ -400,7 +400,7 @@ void Equation::ConstructNeighborLists(const int satisfiedNumNeighbor) {
     minNeighbor = 1000;
     maxNeighbor = 0;
     meanNeighbor = 0;
-    for (int i = 0; i < localParticleNum; i++) {
+    for (std::size_t i = 0; i < localParticleNum; i++) {
       if (neighborLists_(i, 0) <= satisfiedNumNeighbor) {
         epsilon_(i) += 0.25 * spacing(i);
         passNeighborNumCheck = false;
@@ -416,20 +416,20 @@ void Equation::ConstructNeighborLists(const int satisfiedNumNeighbor) {
       }
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &minNeighbor, 1, MPI_INT, MPI_MIN,
+    MPI_Allreduce(MPI_IN_PLACE, &minNeighbor, 1, MPI_UNSIGNED, MPI_MIN,
                   MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &maxNeighbor, 1, MPI_INT, MPI_MAX,
+    MPI_Allreduce(MPI_IN_PLACE, &maxNeighbor, 1, MPI_UNSIGNED, MPI_MAX,
                   MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &meanNeighbor, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &maxRatio, 1, MPI_DOUBLE, MPI_MAX,
                   MPI_COMM_WORLD);
 
-    int corePassCheck = 0;
+    unsigned int corePassCheck = 0;
     if (!passNeighborNumCheck)
       corePassCheck = 1;
 
-    MPI_Allreduce(MPI_IN_PLACE, &corePassCheck, 1, MPI_INT, MPI_SUM,
+    MPI_Allreduce(MPI_IN_PLACE, &corePassCheck, 1, MPI_UNSIGNED, MPI_SUM,
                   MPI_COMM_WORLD);
     if (corePassCheck == 0)
       isNeighborSearchPassed = true;
@@ -451,9 +451,11 @@ Equation::Equation()
   MPI_Comm_size(MPI_COMM_WORLD, &mpiSize_);
 }
 
-void Equation::SetPolyOrder(const int polyOrder) { polyOrder_ = polyOrder; }
+void Equation::SetPolyOrder(const unsigned int polyOrder) {
+  polyOrder_ = polyOrder;
+}
 
-void Equation::SetDimension(const int dimension) {
+void Equation::SetDimension(const unsigned int dimension) {
   particleMgr_.SetDimension(dimension);
 }
 
@@ -477,11 +479,12 @@ void Equation::SetRefinementMethod(const RefinementMethod refinementMethod) {
   refinementMethod_ = refinementMethod;
 }
 
-void Equation::SetMaxRefinementIteration(const int maxRefinementIteration) {
+void Equation::SetMaxRefinementIteration(
+    const unsigned int maxRefinementIteration) {
   maxRefinementIteration_ = maxRefinementIteration;
 }
 
-void Equation::SetOutputLevel(const int outputLevel) {
+void Equation::SetOutputLevel(const unsigned int outputLevel) {
   outputLevel_ = outputLevel;
 }
 

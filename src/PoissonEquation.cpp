@@ -22,23 +22,23 @@ void PoissonEquation::InitLinearSystem() {
   const unsigned int localParticleNum = coords.extent(0);
   const unsigned long globalParticleNum = particleMgr_.GetGlobalParticleNum();
 
-  const int dimension = particleMgr_.GetDimension();
+  const unsigned int dimension = particleMgr_.GetDimension();
 
-  unsigned int interiorParticleNum, boundaryParticleNum;
-  for (int i = 0; i < localParticleNum; i++) {
+  unsigned int interiorParticleNum = 0, boundaryParticleNum = 0;
+  for (std::size_t i = 0; i < localParticleNum; i++) {
     if (particleType(i) == 0)
       interiorParticleNum++;
     else
       boundaryParticleNum++;
   }
 
-  const int satisfiedNumNeighbor =
+  const unsigned satisfiedNumNeighbor =
       2 * Compadre::GMLS::getNP(polyOrder_, dimension);
 
   Equation::ConstructNeighborLists(satisfiedNumNeighbor);
 
   std::vector<bool> discretizationCheck(localParticleNum);
-  for (int i = 0; i < localParticleNum; i++) {
+  for (std::size_t i = 0; i < localParticleNum; i++) {
     discretizationCheck[i] = false;
   }
 
@@ -51,22 +51,22 @@ void PoissonEquation::InitLinearSystem() {
   Kokkos::deep_copy(sourceCoordsDevice, sourceCoords);
 
   double maxRatio, meanNeighbor;
-  int minNeighbor, maxNeighbor, iteCounter;
+  unsigned int minNeighbor, maxNeighbor, iteCounter;
   iteCounter = 0;
   while (!isNeighborSearchPassed) {
     iteCounter++;
 
-    Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+    Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
         interiorNeighborListsDevice("interior particle neighborlists",
                                     interiorParticleNum,
                                     neighborLists_.extent(1));
-    Kokkos::View<int **>::HostMirror interiorNeighborListsHost =
+    Kokkos::View<std::size_t **>::HostMirror interiorNeighborListsHost =
         Kokkos::create_mirror_view(interiorNeighborListsDevice);
-    Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+    Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
         boundaryNeighborListsDevice("boundary particle neighborlists",
                                     boundaryParticleNum,
                                     neighborLists_.extent(1));
-    Kokkos::View<int **>::HostMirror boundaryNeighborListsHost =
+    Kokkos::View<std::size_t **>::HostMirror boundaryNeighborListsHost =
         Kokkos::create_mirror_view(boundaryNeighborListsDevice);
 
     Kokkos::View<double *, Kokkos::DefaultExecutionSpace> interiorEpsilonDevice(
@@ -89,28 +89,28 @@ void PoissonEquation::InitLinearSystem() {
     Kokkos::View<double **>::HostMirror boundaryParticleCoordsHost =
         Kokkos::create_mirror_view(boundaryParticleCoordsDevice);
 
-    int interiorCounter = 0;
-    int boundaryCounter = 0;
-    for (int i = 0; i < localParticleNum; i++) {
+    unsigned int interiorCounter = 0;
+    unsigned int boundaryCounter = 0;
+    for (std::size_t i = 0; i < localParticleNum; i++) {
       if (!discretizationCheck[i]) {
         if (particleType(i) == 0) {
           interiorEpsilonHost(interiorCounter) = epsilon_(i);
-          for (int j = 0; j <= neighborLists_(i, 0); j++) {
+          for (std::size_t j = 0; j <= neighborLists_(i, 0); j++) {
             interiorNeighborListsHost(interiorCounter, j) =
                 neighborLists_(i, j);
           }
-          for (int j = 0; j < dimension; j++) {
+          for (unsigned int j = 0; j < dimension; j++) {
             interiorParticleCoordsHost(interiorCounter, j) = coords(i, j);
           }
 
           interiorCounter++;
         } else {
           boundaryEpsilonHost(boundaryCounter) = epsilon_(i);
-          for (int j = 0; j <= neighborLists_(i, 0); j++) {
+          for (std::size_t j = 0; j <= neighborLists_(i, 0); j++) {
             boundaryNeighborListsHost(boundaryCounter, j) =
                 neighborLists_(i, j);
           }
-          for (int j = 0; j < dimension; j++) {
+          for (unsigned int j = 0; j < dimension; j++) {
             boundaryParticleCoordsHost(boundaryCounter, j) = coords(i, j);
           }
 
@@ -149,15 +149,16 @@ void PoissonEquation::InitLinearSystem() {
       auto solutionSet = interiorBasis.getSolutionSetHost();
       auto interiorAlpha = solutionSet->getAlphas();
 
-      const int interiorLaplacianIndex = solutionSet->getAlphaColumnOffset(
-          Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
+      const unsigned int interiorLaplacianIndex =
+          solutionSet->getAlphaColumnOffset(
+              Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
 
       interiorCounter = 0;
-      for (int i = 0; i < localParticleNum; i++) {
+      for (std::size_t i = 0; i < localParticleNum; i++) {
         if (particleType(i) == 0 && discretizationCheck[i] == false) {
           double Aij = 0.0;
-          for (int j = 0; j < interiorNeighborListsHost(interiorCounter, 0);
-               j++) {
+          for (std::size_t j = 0;
+               j < interiorNeighborListsHost(interiorCounter, 0); j++) {
             auto alphaIndex = solutionSet->getAlphaIndex(
                 interiorCounter, interiorLaplacianIndex);
             Aij -= interiorAlpha(alphaIndex + j);
@@ -171,7 +172,7 @@ void PoissonEquation::InitLinearSystem() {
     }
 
     interiorParticleNum = 0;
-    for (int i = 0; i < localParticleNum; i++) {
+    for (std::size_t i = 0; i < localParticleNum; i++) {
       if (particleType(i) == 0 && discretizationCheck[i] == false) {
         interiorParticleNum++;
         epsilon_(i) += 0.25 * spacing(i);
@@ -184,7 +185,7 @@ void PoissonEquation::InitLinearSystem() {
         Kokkos::create_mirror_view(tangentBundleDevice);
 
     boundaryCounter = 0;
-    for (int i = 0; i < localParticleNum; i++) {
+    for (std::size_t i = 0; i < localParticleNum; i++) {
       if (particleType(i) != 0 && discretizationCheck[i] == false) {
         if (dimension == 3) {
           tangentBundleHost(boundaryCounter, 0, 0) = 0.0;
@@ -234,15 +235,16 @@ void PoissonEquation::InitLinearSystem() {
       auto solutionSet = boundaryBasis.getSolutionSetHost();
       auto boundaryAlpha = solutionSet->getAlphas();
 
-      const int boundaryLaplacianIndex = solutionSet->getAlphaColumnOffset(
-          Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
+      const unsigned int boundaryLaplacianIndex =
+          solutionSet->getAlphaColumnOffset(
+              Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
 
       boundaryCounter = 0;
-      for (int i = 0; i < localParticleNum; i++) {
+      for (std::size_t i = 0; i < localParticleNum; i++) {
         if (particleType(i) != 0 && discretizationCheck[i] == false) {
           double Aij = 0.0;
-          for (int j = 0; j < boundaryNeighborListsHost(boundaryCounter, 0);
-               j++) {
+          for (std::size_t j = 0;
+               j < boundaryNeighborListsHost(boundaryCounter, 0); j++) {
             auto alphaIndex = solutionSet->getAlphaIndex(
                 boundaryCounter, boundaryLaplacianIndex);
             Aij -= boundaryAlpha(alphaIndex + j);
@@ -256,7 +258,7 @@ void PoissonEquation::InitLinearSystem() {
     }
 
     boundaryParticleNum = 0;
-    for (int i = 0; i < localParticleNum; i++) {
+    for (std::size_t i = 0; i < localParticleNum; i++) {
       if (particleType(i) != 0 && discretizationCheck[i] == false) {
         boundaryParticleNum++;
         epsilon_(i) += 0.25 * spacing(i);
@@ -272,7 +274,7 @@ void PoissonEquation::InitLinearSystem() {
     if (corePassCheck == 0)
       isNeighborSearchPassed = true;
     else {
-      int minNeighborLists =
+      unsigned int minNeighborLists =
           1 + pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
                   true, coords, neighborLists_, epsilon_, 0.0, 0.0);
       if (minNeighborLists > neighborLists_.extent(1))
@@ -283,15 +285,15 @@ void PoissonEquation::InitLinearSystem() {
   }
 
   // check if there are any duplicate particles
-  for (int i = 0; i < localParticleNum; i++) {
-    for (int j = 1; j < neighborLists_(i, 0); j++) {
-      int neighborIndex = neighborLists_(i, j + 1);
+  for (std::size_t i = 0; i < localParticleNum; i++) {
+    for (std::size_t j = 1; j < neighborLists_(i, 0); j++) {
+      std::size_t neighborIndex = neighborLists_(i, j + 1);
       double x = coords(i, 0) - sourceCoords(neighborIndex, 0);
       double y = coords(i, 1) - sourceCoords(neighborIndex, 1);
       double dist = sqrt(x * x + y * y);
       if (dist < 1e-6)
-        printf("mpi rank: %d, coord %d: (%f, %f), coord "
-               "%d: (%f, %f), %d\n",
+        printf("mpi rank: %d, coord %ld: (%f, %f), coord "
+               "%ld: (%f, %f), %d\n",
                mpiRank_, i, coords(i, 0), coords(i, 1), neighborLists_(i, 1),
                sourceCoords(neighborIndex, 0), sourceCoords(neighborIndex, 1),
                neighborIndex > localParticleNum);
@@ -302,7 +304,7 @@ void PoissonEquation::InitLinearSystem() {
   minNeighbor = 1000;
   maxNeighbor = 0;
   meanNeighbor = 0;
-  for (int i = 0; i < localParticleNum; i++) {
+  for (std::size_t i = 0; i < localParticleNum; i++) {
     if (neighborLists_(i, 0) < minNeighbor)
       minNeighbor = neighborLists_(i, 0);
     if (neighborLists_(i, 0) > maxNeighbor)
@@ -314,9 +316,9 @@ void PoissonEquation::InitLinearSystem() {
     }
   }
   MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Allreduce(MPI_IN_PLACE, &minNeighbor, 1, MPI_INT, MPI_MIN,
+  MPI_Allreduce(MPI_IN_PLACE, &minNeighbor, 1, MPI_UNSIGNED, MPI_MIN,
                 MPI_COMM_WORLD);
-  MPI_Allreduce(MPI_IN_PLACE, &maxNeighbor, 1, MPI_INT, MPI_MAX,
+  MPI_Allreduce(MPI_IN_PLACE, &maxNeighbor, 1, MPI_UNSIGNED, MPI_MAX,
                 MPI_COMM_WORLD);
   MPI_Allreduce(MPI_IN_PLACE, &meanNeighbor, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
@@ -328,11 +330,11 @@ void PoissonEquation::InitLinearSystem() {
   auto &A = *(linearSystemsPtr_[refinementIteration_]);
   A.Resize(localParticleNum, localParticleNum);
   std::vector<PetscInt> index;
-  for (int i = 0; i < localParticleNum; i++) {
+  for (std::size_t i = 0; i < localParticleNum; i++) {
     const PetscInt currentParticleIndex = i;
     if (particleType[i] == 0) {
       index.resize(neighborLists_(i, 0));
-      for (int j = 0; j < neighborLists_(i, 0); j++) {
+      for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
         const PetscInt neighborParticleIndex =
             sourceIndex(neighborLists_(i, j + 1));
         index[j] = neighborParticleIndex;
@@ -368,49 +370,47 @@ void PoissonEquation::ConstructLinearSystem() {
   auto &sourceCoords = hostGhostParticleCoords_;
   auto &sourceIndex = hostGhostParticleIndex_;
   auto &coords = particleMgr_.GetParticleCoords();
-  auto &spacing = particleMgr_.GetParticleSize();
   auto &particleType = particleMgr_.GetParticleType();
-  auto &normal = particleMgr_.GetParticleNormal();
+  // auto &normal = particleMgr_.GetParticleNormal();
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
       "source coords", sourceCoords.extent(0), sourceCoords.extent(1));
   Kokkos::deep_copy(sourceCoordsDevice, sourceCoords);
 
   const unsigned int localParticleNum = coords.extent(0);
-  const unsigned long globalParticleNum = particleMgr_.GetGlobalParticleNum();
 
-  const int dimension = particleMgr_.GetDimension();
+  const unsigned int dimension = particleMgr_.GetDimension();
 
   auto &A = *(linearSystemsPtr_[refinementIteration_]);
 
   const unsigned int batchSize = (dimension == 2) ? 5000 : 1000;
   const unsigned int batchNum = localParticleNum / batchSize +
                                 ((localParticleNum % batchSize > 0) ? 1 : 0);
-  for (int batch = 0; batch < batchNum; batch++) {
+  for (unsigned int batch = 0; batch < batchNum; batch++) {
     const unsigned int startParticle = batch * batchSize;
     const unsigned int endParticle =
         std::min((batch + 1) * batchSize, localParticleNum);
     unsigned int interiorParticleNum, boundaryParticleNum;
     interiorParticleNum = 0;
     boundaryParticleNum = 0;
-    for (int i = startParticle; i < endParticle; i++) {
+    for (unsigned int i = startParticle; i < endParticle; i++) {
       if (particleType(i) == 0)
         interiorParticleNum++;
       else
         boundaryParticleNum++;
     }
 
-    Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+    Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
         interiorNeighborListsDevice("interior particle neighborlist",
                                     interiorParticleNum,
                                     neighborLists_.extent(1));
-    Kokkos::View<int **>::HostMirror interiorNeighborListsHost =
+    Kokkos::View<std::size_t **>::HostMirror interiorNeighborListsHost =
         Kokkos::create_mirror_view(interiorNeighborListsDevice);
-    Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+    Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
         boundaryNeighborListsDevice("boundary particle neighborlist",
                                     boundaryParticleNum,
                                     neighborLists_.extent(1));
-    Kokkos::View<int **>::HostMirror boundaryNeighborListsHost =
+    Kokkos::View<std::size_t **>::HostMirror boundaryNeighborListsHost =
         Kokkos::create_mirror_view(boundaryNeighborListsDevice);
 
     Kokkos::View<double *, Kokkos::DefaultExecutionSpace> interiorEpsilonDevice(
@@ -433,27 +433,27 @@ void PoissonEquation::ConstructLinearSystem() {
     Kokkos::View<double **>::HostMirror boundaryParticleCoordsHost =
         Kokkos::create_mirror_view(boundaryParticleCoordsDevice);
 
-    int boundaryCounter, interiorCounter;
+    unsigned int boundaryCounter, interiorCounter;
 
     boundaryCounter = 0;
     interiorCounter = 0;
-    for (int i = startParticle; i < endParticle; i++) {
+    for (unsigned int i = startParticle; i < endParticle; i++) {
       if (particleType(i) == 0) {
         interiorEpsilonHost(interiorCounter) = epsilon_(i);
-        for (int j = 0; j <= neighborLists_(i, 0); j++) {
+        for (std::size_t j = 0; j <= neighborLists_(i, 0); j++) {
           interiorNeighborListsHost(interiorCounter, j) = neighborLists_(i, j);
         }
-        for (int j = 0; j < dimension; j++) {
+        for (unsigned int j = 0; j < dimension; j++) {
           interiorParticleCoordsHost(interiorCounter, j) = coords(i, j);
         }
 
         interiorCounter++;
       } else {
         boundaryEpsilonHost(boundaryCounter) = epsilon_(i);
-        for (int j = 0; j <= neighborLists_(i, 0); j++) {
+        for (std::size_t j = 0; j <= neighborLists_(i, 0); j++) {
           boundaryNeighborListsHost(boundaryCounter, j) = neighborLists_(i, j);
         }
-        for (int j = 0; j < dimension; j++) {
+        for (unsigned int j = 0; j < dimension; j++) {
           boundaryParticleCoordsHost(boundaryCounter, j) = coords(i, j);
         }
 
@@ -491,20 +491,21 @@ void PoissonEquation::ConstructLinearSystem() {
       auto solutionSet = interiorBasis.getSolutionSetHost();
       auto interiorAlpha = solutionSet->getAlphas();
 
-      const int interiorLaplacianIndex = solutionSet->getAlphaColumnOffset(
-          Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
+      const unsigned int interiorLaplacianIndex =
+          solutionSet->getAlphaColumnOffset(
+              Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
 
       interiorCounter = 0;
       std::vector<PetscInt> index;
       std::vector<PetscReal> value;
-      for (int i = startParticle; i < endParticle; i++) {
+      for (unsigned int i = startParticle; i < endParticle; i++) {
         const PetscInt currentParticleIndex = i;
         if (particleType(i) == 0) {
           double Aij = 0.0;
           index.resize(interiorNeighborListsHost(interiorCounter, 0));
           value.resize(interiorNeighborListsHost(interiorCounter, 0));
-          for (int j = 0; j < interiorNeighborListsHost(interiorCounter, 0);
-               j++) {
+          for (std::size_t j = 0;
+               j < interiorNeighborListsHost(interiorCounter, 0); j++) {
             const PetscInt neighborParticleIndex =
                 sourceIndex(neighborLists_(i, j + 1));
             auto alphaIndex = solutionSet->getAlphaIndex(
@@ -524,7 +525,7 @@ void PoissonEquation::ConstructLinearSystem() {
 
     {
       // Dirichlet boundary condition
-      for (int i = startParticle; i < endParticle; i++) {
+      for (unsigned int i = startParticle; i < endParticle; i++) {
         if (particleType(i) != 0) {
           A.Increment(i, sourceIndex(i), 1.0);
         }
@@ -565,7 +566,7 @@ void PoissonEquation::ConstructRhs() {
   Kokkos::resize(error_, localParticleNum);
 
   std::vector<double> rhs(localParticleNum);
-  for (int i = 0; i < localParticleNum; i++) {
+  for (std::size_t i = 0; i < localParticleNum; i++) {
     if (particleType(i) != 0) {
       rhs[i] = cos(coords(i, 0)) * cos(coords(i, 1));
     } else {
@@ -590,7 +591,6 @@ void PoissonEquation::CalculateError() {
 
   auto &sourceCoords = hostGhostParticleCoords_;
   auto &coords = particleMgr_.GetParticleCoords();
-  auto &particleType = particleMgr_.GetParticleType();
   auto &spacing = particleMgr_.GetParticleSize();
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
@@ -599,7 +599,7 @@ void PoissonEquation::CalculateError() {
 
   const unsigned int localParticleNum = particleMgr_.GetLocalParticleNum();
 
-  const int dimension = particleMgr_.GetDimension();
+  const unsigned int dimension = particleMgr_.GetDimension();
 
   HostRealVector ghostField, ghostEpsilon, ghostSpacing;
   ghost_.ApplyGhost(field_, ghostField);
@@ -609,7 +609,7 @@ void PoissonEquation::CalculateError() {
   double localDirectGradientNorm = 0.0;
   double globalDirectGradientNorm;
 
-  int coefficientSize;
+  unsigned int coefficientSize;
   {
     Compadre::GMLS testBasis =
         Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
@@ -626,16 +626,16 @@ void PoissonEquation::CalculateError() {
   const unsigned int batchSize = (dimension == 2) ? 5000 : 1000;
   const unsigned int batchNum = localParticleNum / batchSize +
                                 ((localParticleNum % batchSize > 0) ? 1 : 0);
-  for (int batch = 0; batch < batchNum; batch++) {
+  for (unsigned int batch = 0; batch < batchNum; batch++) {
     const unsigned int startParticle = batch * batchSize;
     const unsigned int endParticle =
         std::min((batch + 1) * batchSize, localParticleNum);
     const unsigned int batchParticleNum = endParticle - startParticle;
 
-    Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+    Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
         batchNeighborListsDevice("batch particle neighborlist",
                                  batchParticleNum, neighborLists_.extent(1));
-    Kokkos::View<int **>::HostMirror batchNeighborListsHost =
+    Kokkos::View<std::size_t **>::HostMirror batchNeighborListsHost =
         Kokkos::create_mirror_view(batchNeighborListsDevice);
 
     Kokkos::View<double *, Kokkos::DefaultExecutionSpace> batchEpsilonDevice(
@@ -648,13 +648,13 @@ void PoissonEquation::CalculateError() {
     Kokkos::View<double **>::HostMirror batchParticleCoordsHost =
         Kokkos::create_mirror_view(batchParticleCoordsDevice);
 
-    int particleCounter = 0;
-    for (int i = startParticle; i < endParticle; i++) {
+    std::size_t particleCounter = 0;
+    for (std::size_t i = startParticle; i < endParticle; i++) {
       batchEpsilonHost(particleCounter) = epsilon_(i);
-      for (int j = 0; j <= neighborLists_(i, 0); j++) {
+      for (std::size_t j = 0; j <= neighborLists_(i, 0); j++) {
         batchNeighborListsHost(particleCounter, j) = neighborLists_(i, j);
       }
-      for (int j = 0; j < 3; j++) {
+      for (unsigned int j = 0; j < 3; j++) {
         batchParticleCoordsHost(particleCounter, j) = coords(i, j);
       }
 
@@ -691,8 +691,8 @@ void PoissonEquation::CalculateError() {
                   double **, Kokkos::HostSpace>(ghostField);
       // duplicate coefficients
       particleCounter = 0;
-      for (int i = startParticle; i < endParticle; i++) {
-        for (int j = 0; j < coefficientSize; j++)
+      for (std::size_t i = startParticle; i < endParticle; i++) {
+        for (unsigned int j = 0; j < coefficientSize; j++)
           coefficientChunk(i, j) = batchCoefficient(particleCounter, j);
         particleCounter++;
       }
@@ -703,9 +703,9 @@ void PoissonEquation::CalculateError() {
               ghostField, Compadre::GradientOfScalarPointEvaluation);
 
       particleCounter = 0;
-      for (int i = startParticle; i < endParticle; i++) {
+      for (std::size_t i = startParticle; i < endParticle; i++) {
         double localVolume = pow(spacing(i), dimension);
-        for (int j = 0; j < dimension; j++)
+        for (unsigned int j = 0; j < dimension; j++)
           localDirectGradientNorm +=
               pow(batchGradient(particleCounter, j), 2) * localVolume;
         particleCounter++;
@@ -726,15 +726,15 @@ void PoissonEquation::CalculateError() {
   Kokkos::parallel_for(
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              coords.extent(0)),
-      KOKKOS_LAMBDA(const int i) {
-        for (int j = 0; j < dimension; j++)
+      KOKKOS_LAMBDA(const std::size_t i) {
+        for (unsigned int j = 0; j < dimension; j++)
           recoveredGradientChunk_(i, j) = 0.0;
-        for (int j = 0; j < neighborLists_(i, 0); j++) {
-          const int neighborParticleIndex = neighborLists_(i, j + 1);
+        for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
+          const std::size_t neighborParticleIndex = neighborLists_(i, j + 1);
           auto coeffView = Kokkos::subview(ghostCoefficientChunk,
                                            neighborParticleIndex, Kokkos::ALL);
 
-          for (int axes = 0; axes < dimension; axes++)
+          for (unsigned int axes = 0; axes < dimension; axes++)
             recoveredGradientChunk_(i, axes) += CalScalarGrad(
                 axes, dimension,
                 coords(i, 0) - sourceCoords(neighborParticleIndex, 0),
@@ -743,7 +743,7 @@ void PoissonEquation::CalculateError() {
                 polyOrder_, ghostEpsilon(neighborParticleIndex), coeffView);
         }
 
-        for (int j = 0; j < dimension; j++)
+        for (unsigned int j = 0; j < dimension; j++)
           recoveredGradientChunk_(i, j) /= neighborLists_(i, 0);
       });
   Kokkos::fence();
@@ -754,13 +754,13 @@ void PoissonEquation::CalculateError() {
   Kokkos::parallel_for(
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              coords.extent(0)),
-      KOKKOS_LAMBDA(const int i) {
+      KOKKOS_LAMBDA(const std::size_t i) {
         const double localVolume = pow(spacing(i), dimension);
         double totalNeighborVolume = 0.0;
         error_(i) = 0.0;
         double reconstructedGradient;
-        for (int j = 0; j < neighborLists_(i, 0); j++) {
-          const int neighborParticleIndex = neighborLists_(i, j + 1);
+        for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
+          const std::size_t neighborParticleIndex = neighborLists_(i, j + 1);
 
           double sourceVolume =
               pow(ghostSpacing(neighborParticleIndex), dimension);
@@ -768,7 +768,7 @@ void PoissonEquation::CalculateError() {
 
           auto coeffView = Kokkos::subview(coefficientChunk, i, Kokkos::ALL);
 
-          for (int axes = 0; axes < dimension; axes++) {
+          for (unsigned int axes = 0; axes < dimension; axes++) {
             reconstructedGradient = CalScalarGrad(
                 axes, dimension,
                 sourceCoords(neighborParticleIndex, 0) - coords(i, 0),
@@ -796,7 +796,7 @@ void PoissonEquation::CalculateError() {
       "get local error",
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              coords.extent(0)),
-      [&](const int i, double &tLocalError) {
+      [&](const std::size_t i, double &tLocalError) {
         tLocalError += pow(error_(i), 2);
       },
       Kokkos::Sum<double>(localError));
@@ -809,8 +809,7 @@ void PoissonEquation::CalculateError() {
 void PoissonEquation::Output() {
   Equation::Output();
 
-  auto globalParticleNum = particleMgr_.GetGlobalParticleNum();
-  const int dimension = particleMgr_.GetDimension();
+  const unsigned int dimension = particleMgr_.GetDimension();
 
   std::ofstream vtkStream;
   // output field value
@@ -829,7 +828,7 @@ void PoissonEquation::Output() {
       vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
                          ".vtk",
                      std::ios::out | std::ios::app | std::ios::binary);
-      for (int i = 0; i < field_.extent(0); i++) {
+      for (std::size_t i = 0; i < field_.extent(0); i++) {
         float x = field_(i);
         SwapEnd(x);
         vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
@@ -860,8 +859,8 @@ void PoissonEquation::Output() {
       vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
                          ".vtk",
                      std::ios::out | std::ios::app | std::ios::binary);
-      for (int i = 0; i < recoveredGradientChunk_.extent(0); i++) {
-        for (int j = 0; j < recoveredGradientChunk_.extent(1); j++) {
+      for (std::size_t i = 0; i < recoveredGradientChunk_.extent(0); i++) {
+        for (std::size_t j = 0; j < recoveredGradientChunk_.extent(1); j++) {
           float x = recoveredGradientChunk_(i, j);
           SwapEnd(x);
           vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
@@ -889,7 +888,7 @@ void PoissonEquation::Output() {
       vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
                          ".vtk",
                      std::ios::out | std::ios::app | std::ios::binary);
-      for (int i = 0; i < error_.extent(0); i++) {
+      for (std::size_t i = 0; i < error_.extent(0); i++) {
         float x = error_(i);
         SwapEnd(x);
         vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));

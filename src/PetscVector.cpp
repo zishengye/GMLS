@@ -18,7 +18,7 @@ void PetscVector::Create(std::vector<double> &vec) {
 
   PetscScalar *a;
   VecGetArray(vec_, &a);
-  for (int i = 0; i < vec.size(); i++) {
+  for (std::size_t i = 0; i < vec.size(); i++) {
     a[i] = vec[i];
   }
   VecRestoreArray(vec_, &a);
@@ -35,7 +35,7 @@ void PetscVector::Create(HostRealVector &vec) {
 
   PetscScalar *a;
   VecGetArray(vec_, &a);
-  for (int i = 0; i < vec.extent(0); i++) {
+  for (std::size_t i = 0; i < vec.extent(0); i++) {
     a[i] = vec(i);
   }
   VecRestoreArray(vec_, &a);

@@ -10,11 +10,12 @@ class Ghost {
 private:
   int mpiRank_, mpiSize_;
 
-  int localReserveNum_, remoteInNum_;
+  std::size_t localReserveNum_, remoteInNum_;
 
-  std::vector<int> ghostOutGraph_, ghostInGraph_, ghostOutNum_, ghostInNum_;
-  std::vector<int> ghostOutOffset_, ghostInOffset_;
-  std::vector<int> ghostMap_, reserveMap_;
+  std::vector<std::size_t> ghostOutGraph_, ghostInGraph_, ghostOutNum_,
+      ghostInNum_;
+  std::vector<std::size_t> ghostOutOffset_, ghostInOffset_;
+  std::vector<std::size_t> ghostMap_, reserveMap_;
 
 public:
   Ghost();
