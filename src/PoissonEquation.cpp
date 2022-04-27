@@ -6,6 +6,33 @@
 #include <Compadre_PointCloudSearch.hpp>
 
 void PoissonEquation::InitLinearSystem() {
+  /*! \brief initialize the operating matrix of Poisson equation
+   *! \date Apr 27, 2022
+   *! \author Zisheng Ye <zisheng_ye@outlook.com>
+   *
+   * The initialization of the linear system prepares the assembly of the final
+   * operator.  An important part in the function is to construct a neighbor
+   * list for each particle site.  Such neighbor list has to satisfy two
+   * requirements.  One is the minimum number of neighbors depending on the
+   * order of polynomials used.  Another one is the quality of discretization
+   * required by the preconditioning.  The positivity of the diagonal entry of
+   * the discretized operator is necessary for a good convergence for the linear
+   * system solving stage.  Once all neighbor lists for each particle have
+   * satisfied the two requirements, a graph assembly of the final linear system
+   * is performed at the end of the function.  The final graph depends on the
+   * exact boundary conditions for each particles.
+   *
+   * The general workflow of the function is as follows:
+   * 1. Construct a neighbor list for each particle site with the given minimum
+   *    number of neighbors requirement.
+   * 2. Enlarge the neighbor radius for each particle site until it satisfies
+   *    the quality requirement.
+   * 3. Do the graph assembly.
+   */
+
+  /*!
+   * TODO: add support for Neumann BCs.
+   */
   double tStart, tEnd;
   tStart = MPI_Wtime();
   Equation::InitLinearSystem();
@@ -361,6 +388,23 @@ void PoissonEquation::InitLinearSystem() {
 }
 
 void PoissonEquation::ConstructLinearSystem() {
+  /*! \brief construct the linear system
+   *! \date Apr 27, 2022
+   *! \author Zisheng Ye <zisheng_ye@outlook.com>
+   *
+   * Perform the GMLS discretization for each particle and assemble the linear
+   * system.  In order to reduce the peak memory usage and take advantage of
+   * thread-level parallism, the GMLS discretization and assembly operation is
+   * split into several batches.  Each batch contains several particles.  In
+   * each batch, GMLS discretization is performed first and the generated
+   * coefficients are assembled into the linear system then.
+   *
+   * The general workflow of the function is as follows:
+   * 1. Loop over all batches:
+   *    a. Perform the GMLS discretization;
+   *    b. Insert the generated coefficients into the final linear system.
+   * 2. Assemble the linear system.
+   */
   double tStart, tEnd;
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
@@ -587,6 +631,31 @@ void PoissonEquation::SolveEquation() {
 }
 
 void PoissonEquation::CalculateError() {
+  /*! \brief calculate the recovered error for each particle
+   *! \date Apr 27, 2022
+   *! \author Zisheng Ye <zisheng_ye@outlook.com>
+   *
+   * The recovered error for each particle is calculated based on the recovered
+   * gradient and reconstructed gradient.  In order to reduce the peak usage of
+   * memory, the discretization coefficients generated in the linear system
+   * construction stage has been dropped.  Those coeffcients have to be
+   * regenerated in this stage.  For the same reason, the entire workload has
+   * been split into several batches when working with GMLS discretization.  In
+   * each batch, the direct gradient is evaluated for each particle and the
+   * polynomial coefficients at each particle site is evaluated as well.  Once
+   * all polynomial coefficients have been generated, the recovered and
+   * reconstructed gradient is evaluated based these coefficients and the
+   * recovered error is estimated based on the difference between the recovered
+   * and reconstructed gradients.
+   *
+   * The general workflow of the function is as follows:
+   * 1. Loop over all batches:
+   *    a. Evaluate the direct gradient for each particle;
+   *    b. Evaluate the polynomial coefficients for each particle.
+   * 2. Evaluate the recovered gradient for each particle.
+   * 3. Evaluate the reconstructed gradient and the recovered error for each
+   *    particle.
+   */
   Equation::CalculateError();
 
   auto &sourceCoords = hostGhostParticleCoords_;
@@ -622,7 +691,7 @@ void PoissonEquation::CalculateError() {
                                   coefficientSize);
   HostRealMatrix ghostCoefficientChunk;
 
-  // get coefficients and original gradients
+  // get polynomial coefficients and direct gradients
   const unsigned int batchSize = (dimension == 2) ? 5000 : 1000;
   const unsigned int batchNum = localParticleNum / batchSize +
                                 ((localParticleNum % batchSize > 0) ? 1 : 0);
@@ -750,7 +819,7 @@ void PoissonEquation::CalculateError() {
 
   ghost_.ApplyGhost(recoveredGradientChunk_, ghostRecoveredGradientChunk);
 
-  // estimate error
+  // estimate the reconstructed gradient and the recovered error
   Kokkos::parallel_for(
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              coords.extent(0)),

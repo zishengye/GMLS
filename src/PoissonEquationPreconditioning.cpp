@@ -7,6 +7,29 @@ PoissonEquationPreconditioning::PoissonEquationPreconditioning() {}
 
 void PoissonEquationPreconditioning::ConstructInterpolation(
     std::shared_ptr<HierarchicalParticleManager> particleMgr) {
+  /*! \brief construct interpolation operator for multilevel preconditioning of
+   *         Poisson equation
+   *! \date Apr 27, 2022
+   *! \author Zisheng Ye <zisheng_ye@outlook.com>
+   *
+   * Interpolation operator is constructed based on GMLS discretization.  The
+   * source particle sites are the coarse level particles and the target
+   * particle sites are the fine level particles.  Since the interpolation
+   * operator works on the field values, there is no need to distinguish
+   * boundary or interior particles.  2nd order polynomials are enough for
+   * discretization.
+   *
+   * The general workflow of the function is as follows:
+   * 1. Do neighbor search for target particle sites in the source particle site
+   *    set.
+   * 2. Calculate the distance between the first element in the target
+   *    particle's neighbor list and the target particle itself.  If these two
+   *    particles are at the same site, no discretization is needed at this site
+   *    and the particle is marked as false in the vector refinedParticle.
+   * 3. Do GMLS discretization for all particles marked as true in the vector
+   *    refinedParticle.
+   * 4. Assemble the interpolation operator into a matrix.
+   */
   double tStart, tEnd;
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
@@ -275,32 +298,93 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
 
 void PoissonEquationPreconditioning::ConstructRestriction(
     std::shared_ptr<HierarchicalParticleManager> particleMgr) {
+  /*! \brief construct restriction operator for multilevel preconditioning of
+   *         Poisson equations
+   *! \date Apr 27, 2022
+   *! \author Zisheng Ye <zisheng_ye@outlook.com>
+   *
+   * Restriction operator is constructed based on GMLS discretization.  The
+   * source particle sites are the fine level particles and the target
+   * particle sites are the coarse level particles.  However the restriction
+   * operator deals with the rhs (adjoint operator), it is necessary to
+   * distinguish boundary and interior particles.  GMLS discretization is done
+   * separately for these particles.  2nd order polynomials are enough for
+   * discretization.
+   *
+   * The general workflow for the function is as follows:
+   * 1. Split the target and source targets into interior and boundary
+   *    particles.
+   * 2. Do neighbor search for both boundary and interior target particle sites
+   *    in the boundary and interior source particle site set, respectively.
+   * 3. Calculate the distance between the first element in the target
+   *    particle's neighbor list and the target particle itself.  If these two
+   *    particles are at the same site, no discretization is needed at this site
+   *    and the particle is marked as false in the vector restrictedParticle.
+   * 4. Do GMLS discretization for all particles marked as true in the vector
+   *    restricedParticle.
+   * 5. Assemble the restriction operator into a matrix.
+   */
   MultilevelPreconditioning::ConstructRestriction(particleMgr);
 
   const int currentLevel = linearSystemsPtr_.size() - 1;
 
   if (currentLevel > 0) {
-    // HostRealMatrix restrictionSourceParticleCoords;
-    // HostIndexVector restrictionSourceParticleIndex;
-    // HostIntVector restrictionSourceParticleType;
-    // restrictionGhost_.ApplyGhost(
-    //     particleMgr->GetParticleCoordsByLevel(currentLevel),
-    //     restrictionSourceParticleCoords);
-    // restrictionGhost_.ApplyGhost(
-    //     particleMgr->GetParticleIndexByLevel(currentLevel),
-    //     restrictionSourceParticleIndex);
-    // restrictionGhost_.ApplyGhost(
-    //     particleMgr->GetParticleTypeByLevel(currentLevel),
-    //     restrictionSourceParticleType);
+    HostRealMatrix restrictionSourceParticleCoords;
+    HostIndexVector restrictionSourceParticleIndex;
+    HostIndexVector restrictionSourceParticleType;
+    restrictionGhost_.ApplyGhost(
+        particleMgr->GetParticleCoordsByLevel(currentLevel),
+        restrictionSourceParticleCoords);
+    restrictionGhost_.ApplyGhost(
+        particleMgr->GetParticleIndexByLevel(currentLevel),
+        restrictionSourceParticleIndex);
+    restrictionGhost_.ApplyGhost(
+        particleMgr->GetParticleTypeByLevel(currentLevel),
+        restrictionSourceParticleType);
 
-    // const int dimension = particleMgr->GetDimension();
+    const unsigned int dimension = particleMgr->GetDimension();
 
     // search neighbor based on particle type
-    // int localInteriorParticleNum = 0;
-    // int localBoundaryParticleNum = 0;
-    // const int localTargetParticleNum = targetParticleCoordsHost.extent(0);
-    // const int localSourceParticleNum =
+    std::size_t localInteriorParticleNum = 0;
+    std::size_t localBoundaryParticleNum = 0;
+
+    auto &targetParticleCoordsHost =
+        particleMgr->GetParticleCoordsByLevel(currentLevel - 1);
+    auto &targetParticleType =
+        particleMgr->GetParticleTypeByLevel(currentLevel - 1);
+
+    const std::size_t localTargetParticleNum =
+        targetParticleCoordsHost.extent(0);
+    // const std::size_t localSourceParticleNum =
     //     GetParticleCoordsByLevel(currentLevel).extent(0);
+
+    for (std::size_t i = 0; i < localTargetParticleNum; i++) {
+      if (targetParticleType(i) == 0)
+        localInteriorParticleNum++;
+      else
+        localBoundaryParticleNum++;
+    }
+
+    auto pointCloudSearch(Compadre::CreatePointCloudSearch(
+        restrictionSourceParticleCoords, dimension));
+
+    DeviceIndexMatrix interiorNeighborListsDevice(
+        "interior particle neighborlists", localInteriorParticleNum, 1);
+    Kokkos::View<std::size_t **>::HostMirror interiorNeighborListsHost =
+        Kokkos::create_mirror_view(interiorNeighborListsDevice);
+    DeviceIndexMatrix boundaryNeighborListsDevice(
+        "boundary particle neighborlist", localBoundaryParticleNum, 1);
+    Kokkos::View<std::size_t **>::HostMirror boundaryNeighborListsHost =
+        Kokkos::create_mirror_view(boundaryNeighborListsDevice);
+
+    unsigned int minNeighborLists;
+    minNeighborLists =
+        1 + pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+                true, coords, interiorNeighborListsHost, epsilon_, 0.0, 0.0);
+    if (minNeighborLists > interiorNeighborListsHost.extent(1))
+      Kokkos::resize(neighborLists_, localParticleNum, minNeighborLists);
+    pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+        false, coords, neighborLists_, epsilon_, 0.0, 0.0);
   }
 }
 

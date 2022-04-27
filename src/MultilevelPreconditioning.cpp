@@ -11,6 +11,13 @@ MultilevelPreconditioning::MultilevelPreconditioning() {}
 
 PetscErrorCode MultilevelPreconditioning::ApplyPreconditioningIteration(Vec x,
                                                                         Vec y) {
+  /*! \brief multilevel preconditioning iteration
+   *! \date Apr 27, 2022
+   *! \author Zisheng Ye <zisheng_ye@Outlook.com>
+   *
+   * The preconditioning stage for multilevel preconditioners. It implements a
+   * single V-cycle multilevel iteration through all accessible levels.
+   */
   const int numLevel = linearSystemsPtr_.size();
   // sweep down
   VecCopy(x, auxiliaryVectorBPtr_[numLevel - 1]->GetReference());
