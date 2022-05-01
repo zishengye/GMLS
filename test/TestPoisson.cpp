@@ -71,7 +71,7 @@ TEST(PoissonEquationTest, AdaptiveRefinement) {
     equation.SetDimension(2);
     equation.SetDomainSize(size);
     equation.SetDomainType(Box);
-    equation.SetMaxRefinementIteration(2);
+    equation.SetMaxRefinementIteration(10);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio();
 

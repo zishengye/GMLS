@@ -34,6 +34,8 @@ void Equation::InitPreconditioner() {
   preconditionerPtr_->ConstructSmoother();
   preconditionerPtr_->ConstructInterpolation(
       std::make_shared<HierarchicalParticleManager>(particleMgr_));
+  preconditionerPtr_->ConstructRestriction(
+      std::make_shared<HierarchicalParticleManager>(particleMgr_));
 
   PetscInt localRow;
   MatGetLocalSize(linearSystemsPtr_[refinementIteration_]->GetReference(),
