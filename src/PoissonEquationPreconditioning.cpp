@@ -490,8 +490,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
     bool isNeighborSearchPassed;
 
     isNeighborSearchPassed = false;
-    const unsigned int satisfiedNumNeighbor =
-        2 * Compadre::GMLS::getNP(2, dimension);
+    unsigned int satisfiedNumNeighbor = 2 * Compadre::GMLS::getNP(2, dimension);
 
     double maxRatio, meanNeighbor;
     unsigned int minNeighbor, maxNeighbor, iteCounter;
@@ -559,6 +558,8 @@ void PoissonEquationPreconditioning::ConstructRestriction(
         "neighbor: %.2f, max ratio: %.2f\n",
         iteCounter, minNeighbor, maxNeighbor,
         meanNeighbor / (double)globalInteriorParticleNum, maxRatio);
+
+    satisfiedNumNeighbor = 2 * Compadre::GMLS::getNP(2, dimension - 1);
 
     iteCounter = 0;
     isNeighborSearchPassed = false;
@@ -712,8 +713,8 @@ void PoissonEquationPreconditioning::ConstructRestriction(
     }
 
     R.GraphAssemble();
-    MPI_Barrier(MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD, "flag\n");
+
+    // build interior restriction basis
 
     interiorCounter = 0;
     boundaryCounter = 0;
@@ -757,7 +758,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
         }
         boundaryCounter++;
       }
-      R.Increment(i, index, value);
+      // R.Increment(i, index, value);
     }
 
     const unsigned long nnz = R.Assemble();
