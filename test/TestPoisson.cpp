@@ -25,6 +25,10 @@ TEST(PoissonEquationTest, LinearSystemSovling) {
     equation.SetMaxRefinementIteration(1);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio();
+    equation.SetInteriorRhs(
+        [](double x, double y, double z) { return 2.0 * cos(x) * cos(y); });
+    equation.SetBoundaryRhs(
+        [](double x, double y, double z) { return cos(x) * cos(y); });
 
     equation.Init();
     equation.Update();
@@ -45,6 +49,10 @@ TEST(PoissonEquationTest, LinearSystemSovling) {
     equation.SetMaxRefinementIteration(1);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio();
+    equation.SetInteriorRhs(
+        [](double x, double y, double z) { return 2.0 * cos(x) * cos(y); });
+    equation.SetBoundaryRhs(
+        [](double x, double y, double z) { return cos(x) * cos(y); });
 
     equation.Init();
     equation.Update();
@@ -74,6 +82,10 @@ TEST(PoissonEquationTest, AdaptiveRefinement) {
     equation.SetMaxRefinementIteration(10);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio();
+    equation.SetInteriorRhs(
+        [](double x, double y, double z) { return 2.0 * cos(x) * cos(y); });
+    equation.SetBoundaryRhs(
+        [](double x, double y, double z) { return cos(x) * cos(y); });
 
     equation.Init();
     equation.Update();
