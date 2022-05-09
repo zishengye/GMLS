@@ -1,5 +1,5 @@
-#ifndef _PoissonEquationPreconditioning_HPP_
-#define _PoissonEquationPreconditioning_HPP_
+#ifndef _PoissonEquationPreconditioning_Hpp_
+#define _PoissonEquationPreconditioning_Hpp_
 
 #include "MultilevelPreconditioning.hpp"
 
@@ -12,7 +12,8 @@ public:
       std::shared_ptr<HierarchicalParticleManager> particleMgr);
   virtual void ConstructRestriction(
       std::shared_ptr<HierarchicalParticleManager> particleMgr);
-  virtual void ConstructSmoother();
+  virtual void
+  ConstructSmoother(std::shared_ptr<HierarchicalParticleManager> particleMgr);
 };
 
 #endif

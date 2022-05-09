@@ -612,9 +612,9 @@ void PoissonEquation::ConstructRhs() {
   std::vector<double> rhs(localParticleNum);
   for (std::size_t i = 0; i < localParticleNum; i++) {
     if (particleType(i) != 0) {
-      rhs[i] = cos(coords(i, 0)) * cos(coords(i, 1));
+      rhs[i] = boundaryRhs_(coords(i, 0), coords(i, 1), coords(i, 2));
     } else {
-      rhs[i] = 2.0 * cos(coords(i, 0)) * cos(coords(i, 1));
+      rhs[i] = interiorRhs_(coords(i, 0), coords(i, 1), coords(i, 2));
     }
   }
   b_.Create(rhs);
@@ -980,3 +980,13 @@ void PoissonEquation::Init() {
 }
 
 HostRealVector &PoissonEquation::GetField() { return field_; }
+
+void PoissonEquation::SetInteriorRhs(
+    const std::function<double(double, double, double)> &func) {
+  interiorRhs_ = func;
+}
+
+void PoissonEquation::SetBoundaryRhs(
+    const std::function<double(double, double, double)> &func) {
+  boundaryRhs_ = func;
+}

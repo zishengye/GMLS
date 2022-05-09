@@ -778,10 +778,11 @@ void PoissonEquationPreconditioning::ConstructRestriction(
   }
 }
 
-void PoissonEquationPreconditioning::ConstructSmoother() {
+void PoissonEquationPreconditioning::ConstructSmoother(
+    std::shared_ptr<HierarchicalParticleManager> particleMgr) {
   PetscPrintf(PETSC_COMM_WORLD,
               "Start of constructing Poisson equation smoother\n");
-  MultilevelPreconditioning::ConstructSmoother();
+  MultilevelPreconditioning::ConstructSmoother(particleMgr);
 
   const int currentLevel = linearSystemsPtr_.size() - 1;
   KSP &ksp = smootherPtr_[currentLevel]->GetReference();

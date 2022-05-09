@@ -4,6 +4,8 @@
 #include "Equation.hpp"
 #include "PoissonEquationPreconditioning.hpp"
 
+#include <functional>
+
 class PoissonEquation : public Equation {
 protected:
   virtual void InitLinearSystem();
@@ -18,6 +20,9 @@ protected:
   HostRealMatrix recoveredGradientChunk_;
   HostRealVector field_;
 
+  std::function<double(double, double, double)> interiorRhs_;
+  std::function<double(double, double, double)> boundaryRhs_;
+
 public:
   PoissonEquation();
   ~PoissonEquation();
@@ -25,6 +30,11 @@ public:
   virtual void Init();
 
   HostRealVector &GetField();
+
+  virtual void
+  SetInteriorRhs(const std::function<double(double, double, double)> &func);
+  virtual void
+  SetBoundaryRhs(const std::function<double(double, double, double)> &func);
 };
 
 #endif

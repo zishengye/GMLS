@@ -1,5 +1,5 @@
-#ifndef _MultilevelPreconditioning_HPP_
-#define _MultilevelPreconditioning_HPP_
+#ifndef _MultilevelPreconditioning_Hpp_
+#define _MultilevelPreconditioning_Hpp_
 
 #include <vector>
 
@@ -41,7 +41,8 @@ public:
       std::shared_ptr<HierarchicalParticleManager> particleMgr);
   virtual void ConstructRestriction(
       std::shared_ptr<HierarchicalParticleManager> particleMgr);
-  virtual void ConstructSmoother();
+  virtual void
+  ConstructSmoother(std::shared_ptr<HierarchicalParticleManager> particleMgr);
 };
 
 #endif
