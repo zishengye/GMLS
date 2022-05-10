@@ -85,6 +85,7 @@ protected:
   std::shared_ptr<ParticleSet> particleSetPtr_;
   Scalar spacing_;
   int mpiSize_, mpiRank_;
+  bool isPeriodicBCs_;
 
   void BalanceAndIndexInternal();
 
@@ -95,6 +96,7 @@ public:
   void SetDomainType(const SimpleDomainShape shape);
   void SetSize(const std::vector<Scalar> &size);
   void SetSpacing(const Scalar spacing);
+  void SetPeriodicBCs();
 
   int GetDimension();
 

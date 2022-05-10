@@ -27,7 +27,8 @@ void Partition::ConstructPartition(Kokkos::View<Scalar **> coords,
     z[i] = coords(i, 2);
   }
 
-  std::vector<long long> idx(index.extent(0));
+  std::vector<long long> idx;
+  idx.resize(index.extent(0));
   for (std::size_t i = 0; i < index.extent(0); i++) {
     idx[i] = index(i);
   }

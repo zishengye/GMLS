@@ -5,7 +5,7 @@
 int globalArgc;
 char **globalArgv;
 
-TEST(PoissonEquationTest, LinearSystemSovling) {
+TEST(PoissonEquationTest, 2DLinearSystemSolving) {
   Kokkos::initialize(globalArgc, globalArgv);
   PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.yaml",
                   PETSC_NULL);
@@ -62,7 +62,7 @@ TEST(PoissonEquationTest, LinearSystemSovling) {
   Kokkos::finalize();
 }
 
-TEST(PoissonEquationTest, AdaptiveRefinement) {
+TEST(PoissonEquationTest, 2DAdaptiveRefinement) {
   Kokkos::initialize(globalArgc, globalArgv);
   PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.yaml",
                   PETSC_NULL);
@@ -86,6 +86,82 @@ TEST(PoissonEquationTest, AdaptiveRefinement) {
         [](double x, double y, double z) { return 2.0 * cos(x) * cos(y); });
     equation.SetBoundaryRhs(
         [](double x, double y, double z) { return cos(x) * cos(y); });
+
+    equation.Init();
+    equation.Update();
+  }
+
+  PetscFinalize();
+  Kokkos::finalize();
+}
+
+TEST(PoissonEquationTest, 2DPeriodicBoundaryCondition) {
+  Kokkos::initialize(globalArgc, globalArgv);
+  PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.yaml",
+                  PETSC_NULL);
+}
+
+TEST(PoissonEquationTest, 3DLinearSystemSolving) {
+  Kokkos::initialize(globalArgc, globalArgv);
+  PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.yaml",
+                  PETSC_NULL);
+
+  {
+    PoissonEquation equation;
+    equation.SetErrorTolerance(1e-3);
+    equation.SetInitialDiscretizationResolution(0.1);
+
+    std::vector<double> size(3);
+    size[0] = 2.0;
+    size[1] = 2.0;
+    size[2] = 2.0;
+
+    equation.SetDimension(3);
+    equation.SetDomainSize(size);
+    equation.SetDomainType(Box);
+    equation.SetMaxRefinementIteration(1);
+    equation.SetOutputLevel(1);
+    equation.SetRefinementMarkRatio();
+    equation.SetInteriorRhs([](double x, double y, double z) {
+      return 3.0 * cos(x) * cos(y) * cos(z);
+    });
+    equation.SetBoundaryRhs(
+        [](double x, double y, double z) { return cos(x) * cos(y) * cos(z); });
+
+    equation.Init();
+    equation.Update();
+  }
+
+  PetscFinalize();
+  Kokkos::finalize();
+}
+
+TEST(PoissonEquationTest, 3DAdaptiveRefinement) {
+  Kokkos::initialize(globalArgc, globalArgv);
+  PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.yaml",
+                  PETSC_NULL);
+
+  {
+    PoissonEquation equation;
+    equation.SetErrorTolerance(1e-3);
+    equation.SetInitialDiscretizationResolution(0.1);
+
+    std::vector<double> size(3);
+    size[0] = 2.0;
+    size[1] = 2.0;
+    size[2] = 2.0;
+
+    equation.SetDimension(3);
+    equation.SetDomainSize(size);
+    equation.SetDomainType(Box);
+    equation.SetMaxRefinementIteration(2);
+    equation.SetOutputLevel(1);
+    equation.SetRefinementMarkRatio();
+    equation.SetInteriorRhs([](double x, double y, double z) {
+      return 3.0 * cos(x) * cos(y) * cos(z);
+    });
+    equation.SetBoundaryRhs(
+        [](double x, double y, double z) { return cos(x) * cos(y) * cos(z); });
 
     equation.Init();
     equation.Update();

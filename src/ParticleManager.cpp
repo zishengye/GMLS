@@ -261,7 +261,7 @@ void ParticleManager::BalanceAndIndexInternal() {
                        });
   Kokkos::fence();
 
-  // particleSetPtr_->Balance();
+  particleSetPtr_->Balance();
 
   // reindex
   for (int i = 0; i < mpiSize_; i++) {
@@ -286,7 +286,7 @@ void ParticleManager::BalanceAndIndexInternal() {
   Kokkos::fence();
 }
 
-ParticleManager::ParticleManager() {
+ParticleManager::ParticleManager() : isPeriodicBCs_(false) {
   geometryPtr_ = std::make_shared<DomainGeometry>();
   particleSetPtr_ = std::make_shared<ParticleSet>();
 

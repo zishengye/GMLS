@@ -168,7 +168,7 @@ void PoissonEquation::InitLinearSystem() {
       interiorBasis.setWeightingType(Compadre::WeightingFunctionType::Power);
       interiorBasis.setWeightingParameter(4);
       interiorBasis.setOrderOfQuadraturePoints(2);
-      interiorBasis.setDimensionOfQuadraturePoints(1);
+      interiorBasis.setDimensionOfQuadraturePoints(dimension - 1);
       interiorBasis.setQuadratureType("LINE");
 
       interiorBasis.generateAlphas(1, false);
@@ -203,6 +203,10 @@ void PoissonEquation::InitLinearSystem() {
       if (particleType(i) == 0 && discretizationCheck[i] == false) {
         interiorParticleNum++;
         epsilon_(i) += 0.25 * spacing(i);
+        if (dimension == 3)
+          std::cout << interiorParticleCoordsHost(i, 0) << ' '
+                    << interiorParticleCoordsHost(i, 1) << ' '
+                    << interiorParticleCoordsHost(i, 2) << std::endl;
       }
     }
 
@@ -254,7 +258,7 @@ void PoissonEquation::InitLinearSystem() {
       boundaryBasis.setWeightingType(Compadre::WeightingFunctionType::Power);
       boundaryBasis.setWeightingParameter(4);
       boundaryBasis.setOrderOfQuadraturePoints(2);
-      boundaryBasis.setDimensionOfQuadraturePoints(1);
+      boundaryBasis.setDimensionOfQuadraturePoints(dimension - 1);
       boundaryBasis.setQuadratureType("LINE");
 
       boundaryBasis.generateAlphas(1, false);
@@ -311,21 +315,33 @@ void PoissonEquation::InitLinearSystem() {
     }
   }
 
-  // check if there are any duplicate particles
-  for (std::size_t i = 0; i < localParticleNum; i++) {
-    for (std::size_t j = 1; j < neighborLists_(i, 0); j++) {
-      std::size_t neighborIndex = neighborLists_(i, j + 1);
-      double x = coords(i, 0) - sourceCoords(neighborIndex, 0);
-      double y = coords(i, 1) - sourceCoords(neighborIndex, 1);
-      double dist = sqrt(x * x + y * y);
-      if (dist < 1e-6)
-        printf("mpi rank: %d, coord %ld: (%f, %f), coord "
-               "%ld: (%f, %f), %d\n",
-               mpiRank_, i, coords(i, 0), coords(i, 1), neighborLists_(i, 1),
-               sourceCoords(neighborIndex, 0), sourceCoords(neighborIndex, 1),
-               neighborIndex > localParticleNum);
+  /*
+    // check if there are any duplicate particles
+    for (std::size_t i = 0; i < localParticleNum; i++) {
+      for (std::size_t j = 1; j < neighborLists_(i, 0); j++) {
+        std::size_t neighborIndex = neighborLists_(i, j + 1);
+        double x = coords(i, 0) - sourceCoords(neighborIndex, 0);
+        double y = coords(i, 1) - sourceCoords(neighborIndex, 1);
+        double z = coords(i, 2) - sourceCoords(neighborIndex, 2);
+        double dist = sqrt(x * x + y * y + z * z);
+        if (dist < 1e-6) {
+          if (dimension == 2)
+            printf("mpi rank: %d, coord %ld: (%f, %f), coord "
+                   "%ld: (%f, %f), %d\n",
+                   mpiRank_, i, coords(i, 0), coords(i, 1), neighborLists_(i,
+    1), sourceCoords(neighborIndex, 0), sourceCoords(neighborIndex, 1),
+                   neighborIndex > localParticleNum);
+          if (dimension == 3)
+            printf("mpi rank: %d, coord %ld: (%f, %f, %f), coord "
+                   "%ld: (%f, %f, %f), %d\n",
+                   mpiRank_, i, coords(i, 0), coords(i, 1), coords(i, 2),
+                   neighborLists_(i, 1), sourceCoords(neighborIndex, 0),
+                   sourceCoords(neighborIndex, 1), sourceCoords(neighborIndex,
+    2), neighborIndex > localParticleNum); break;
+        }
+      }
     }
-  }
+    */
 
   maxRatio = 0.0;
   minNeighbor = 1000;

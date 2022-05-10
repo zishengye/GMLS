@@ -31,7 +31,8 @@ void Equation::DiscretizeEquation() {
 }
 
 void Equation::InitPreconditioner() {
-  preconditionerPtr_->ConstructSmoother();
+  preconditionerPtr_->ConstructSmoother(
+      std::make_shared<HierarchicalParticleManager>(particleMgr_));
   preconditionerPtr_->ConstructInterpolation(
       std::make_shared<HierarchicalParticleManager>(particleMgr_));
   preconditionerPtr_->ConstructRestriction(
