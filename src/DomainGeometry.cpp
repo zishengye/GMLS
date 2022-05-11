@@ -478,7 +478,7 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
           GlobalIndex globalIndex = boundaryNodeIndex[4] + i * xNodeNum + j;
           if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
               globalIndex < rankBoundaryNodeOffsetList[mpiRank_ + 1]) {
-            nodeCoords(nodeIndex, 0) = (i + 0.5) * spacing - size_[1] / 2.0;
+            nodeCoords(nodeIndex, 0) = (j + 0.5) * spacing - size_[1] / 2.0;
             nodeCoords(nodeIndex, 1) = -size_[1] / 2.0;
             nodeCoords(nodeIndex, 2) = (i + 0.5) * spacing - size_[2] / 2.0;
             nodeNormal(nodeIndex, 0) = 0.0;
@@ -506,7 +506,7 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
           GlobalIndex globalIndex = boundaryNodeIndex[5] + i * xNodeNum + j;
           if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
               globalIndex < rankBoundaryNodeOffsetList[mpiRank_ + 1]) {
-            nodeCoords(nodeIndex, 0) = (i + 0.5) * spacing - size_[1] / 2.0;
+            nodeCoords(nodeIndex, 0) = (j + 0.5) * spacing - size_[1] / 2.0;
             nodeCoords(nodeIndex, 1) = size_[1] / 2.0;
             nodeCoords(nodeIndex, 2) = (i + 0.5) * spacing - size_[2] / 2.0;
             nodeNormal(nodeIndex, 0) = 0.0;

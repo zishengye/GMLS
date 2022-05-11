@@ -128,14 +128,7 @@ void Partition::ConstructPartition(Kokkos::View<Scalar **> coords,
 
 void Partition::ApplyPartition(Kokkos::View<Scalar **> data) {
   // migrate particles
-  std::size_t newDataSize = data.extent(0);
   const std::size_t unitLength = data.extent(1);
-  for (std::size_t i = 0; i < migrationInGraphNum_.size(); i++) {
-    newDataSize += migrationInGraphNum_[i];
-  }
-  for (std::size_t i = 0; i < migrationOutGraphNum_.size(); i++) {
-    newDataSize -= migrationOutGraphNum_[i];
-  }
   std::vector<MPI_Request> sendRequest(migrationOutGraph_.size());
   std::vector<MPI_Request> recvRequest(migrationInGraph_.size());
   std::vector<MPI_Status> sendStatus(migrationOutGraph_.size());
@@ -180,6 +173,7 @@ void Partition::ApplyPartition(Kokkos::View<Scalar **> data) {
     }
   }
 
+  std::size_t newDataSize = localReserveNum + inNum;
   Kokkos::resize(data, newDataSize, unitLength);
   // move reserved local data to new array
   for (std::size_t i = 0; i < localReserveNum; i++) {
@@ -198,13 +192,6 @@ void Partition::ApplyPartition(Kokkos::View<Scalar **> data) {
 
 void Partition::ApplyPartition(Kokkos::View<Scalar *> data) {
   // migrate particles
-  std::size_t newDataSize = data.extent(0);
-  for (std::size_t i = 0; i < migrationInGraphNum_.size(); i++) {
-    newDataSize += migrationInGraphNum_[i];
-  }
-  for (std::size_t i = 0; i < migrationOutGraphNum_.size(); i++) {
-    newDataSize -= migrationOutGraphNum_[i];
-  }
   std::vector<MPI_Request> sendRequest(migrationOutGraph_.size());
   std::vector<MPI_Request> recvRequest(migrationInGraph_.size());
   std::vector<MPI_Status> sendStatus(migrationOutGraph_.size());
@@ -245,6 +232,7 @@ void Partition::ApplyPartition(Kokkos::View<Scalar *> data) {
     flattenedReservedData[i] = data(localReserveMap_[i]);
   }
 
+  std::size_t newDataSize = localReserveNum + inNum;
   Kokkos::resize(data, newDataSize);
   // move reserved local data to new array
   for (std::size_t i = 0; i < localReserveNum; i++) {
@@ -259,13 +247,6 @@ void Partition::ApplyPartition(Kokkos::View<Scalar *> data) {
 
 void Partition::ApplyPartition(Kokkos::View<std::size_t *> data) {
   // migrate particles
-  std::size_t newDataSize = data.extent(0);
-  for (std::size_t i = 0; i < migrationInGraphNum_.size(); i++) {
-    newDataSize += migrationInGraphNum_[i];
-  }
-  for (std::size_t i = 0; i < migrationOutGraphNum_.size(); i++) {
-    newDataSize -= migrationOutGraphNum_[i];
-  }
   std::vector<MPI_Request> sendRequest(migrationOutGraph_.size());
   std::vector<MPI_Request> recvRequest(migrationInGraph_.size());
   std::vector<MPI_Status> sendStatus(migrationOutGraph_.size());
@@ -306,6 +287,7 @@ void Partition::ApplyPartition(Kokkos::View<std::size_t *> data) {
     flattenedReservedData[i] = data(localReserveMap_[i]);
   }
 
+  std::size_t newDataSize = localReserveNum + inNum;
   Kokkos::resize(data, newDataSize);
   // move reserved local data to new array
   for (std::size_t i = 0; i < localReserveNum; i++) {
@@ -320,13 +302,6 @@ void Partition::ApplyPartition(Kokkos::View<std::size_t *> data) {
 
 void Partition::ApplyPartition(Kokkos::View<int *> data) {
   // migrate particles
-  std::size_t newDataSize = data.extent(0);
-  for (std::size_t i = 0; i < migrationInGraphNum_.size(); i++) {
-    newDataSize += migrationInGraphNum_[i];
-  }
-  for (std::size_t i = 0; i < migrationOutGraphNum_.size(); i++) {
-    newDataSize -= migrationOutGraphNum_[i];
-  }
   std::vector<MPI_Request> sendRequest(migrationOutGraph_.size());
   std::vector<MPI_Request> recvRequest(migrationInGraph_.size());
   std::vector<MPI_Status> sendStatus(migrationOutGraph_.size());
@@ -367,6 +342,7 @@ void Partition::ApplyPartition(Kokkos::View<int *> data) {
     flattenedReservedData[i] = data(localReserveMap_[i]);
   }
 
+  std::size_t newDataSize = localReserveNum + inNum;
   Kokkos::resize(data, newDataSize);
   // move reserved local data to new array
   for (std::size_t i = 0; i < localReserveNum; i++) {

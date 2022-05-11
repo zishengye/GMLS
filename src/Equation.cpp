@@ -71,7 +71,7 @@ void Equation::CalculateError() {
 
 void Equation::Refine() {
   if (mpiRank_ == 0)
-    printf("Global error: %.4f, with tolerance: %.4f\n", globalError_,
+    printf("Global error: %.4f, with tolerance: %.4f\n", globalNormalizedError_,
            errorTolerance_);
 
   std::vector<double> sortedError(error_.extent(0));
@@ -300,19 +300,19 @@ void Equation::BuildGhost() {
 }
 
 void Equation::Output() {
+  std::string outputFileName =
+      "vtk/AdaptiveStep" + std::to_string(refinementIteration_) + ".vtk";
   if (outputLevel_ > 0) {
     if (mpiRank_ == 0)
       printf("Start of writing adaptive step output file\n");
     // write particles
-    particleMgr_.Output(
-        "AdaptiveStep" + std::to_string(refinementIteration_) + ".vtk", true);
+    particleMgr_.Output(outputFileName, true);
   }
 
   std::ofstream vtkStream;
   // output epsilon
   if (mpiRank_ == 0) {
-    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                       ".vtk",
+    vtkStream.open(outputFileName,
                    std::ios::out | std::ios::app | std::ios::binary);
 
     vtkStream << "SCALARS epsilon float 1" << std::endl
@@ -322,8 +322,7 @@ void Equation::Output() {
   }
   for (int rank = 0; rank < mpiSize_; rank++) {
     if (rank == mpiRank_) {
-      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                         ".vtk",
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::app | std::ios::binary);
       for (std::size_t i = 0; i < epsilon_.extent(0); i++) {
         float x = epsilon_(i);
@@ -338,8 +337,7 @@ void Equation::Output() {
 
   // output number of neighbor
   if (mpiRank_ == 0) {
-    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                       ".vtk",
+    vtkStream.open(outputFileName,
                    std::ios::out | std::ios::app | std::ios::binary);
 
     vtkStream << "SCALARS nn int 1" << std::endl
@@ -349,8 +347,7 @@ void Equation::Output() {
   }
   for (int rank = 0; rank < mpiSize_; rank++) {
     if (rank == mpiRank_) {
-      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                         ".vtk",
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::app | std::ios::binary);
       for (std::size_t i = 0; i < neighborLists_.extent(0); i++) {
         int x = neighborLists_(i, 0);
@@ -534,7 +531,7 @@ void Equation::Update() {
       printf("End of adaptive refinement iteration %d\n", refinementIteration_);
 
     refinementIteration_++;
-    error = globalError_;
+    error = globalNormalizedError_;
   }
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {

@@ -60,10 +60,10 @@ void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
   // particle positions
   if (mpiRank_ == 0) {
     if (isBinary)
-      vtkStream.open("vtk/" + outputFileName,
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::trunc | std::ios::binary);
     else
-      vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::trunc);
+      vtkStream.open(outputFileName, std::ios::out | std::ios::trunc);
 
     assert(vtkStream.is_open() == true);
 
@@ -85,10 +85,10 @@ void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
   for (int rank = 0; rank < mpiSize_; rank++) {
     if (rank == mpiRank_) {
       if (isBinary)
-        vtkStream.open("vtk/" + outputFileName,
+        vtkStream.open(outputFileName,
                        std::ios::out | std::ios::app | std::ios::binary);
       else
-        vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
+        vtkStream.open(outputFileName, std::ios::out | std::ios::app);
 
       for (std::size_t i = 0; i < hostParticleCoords_.extent(0); i++) {
         for (std::size_t j = 0; j < hostParticleCoords_.extent(1); j++) {
@@ -110,10 +110,10 @@ void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
 
   if (mpiRank_ == 0) {
     if (isBinary)
-      vtkStream.open("vtk/" + outputFileName,
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::app | std::ios::binary);
     else
-      vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
+      vtkStream.open(outputFileName, std::ios::out | std::ios::app);
 
     vtkStream << "POINT_DATA " << globalParticleNum << std::endl;
 
@@ -123,10 +123,10 @@ void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
   // particle normal
   if (mpiRank_ == 0) {
     if (isBinary)
-      vtkStream.open("vtk/" + outputFileName,
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::app | std::ios::binary);
     else
-      vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
+      vtkStream.open(outputFileName, std::ios::out | std::ios::app);
 
     vtkStream << "SCALARS n float 3" << std::endl
               << "LOOKUP_TABLE default" << std::endl;
@@ -137,10 +137,10 @@ void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
   for (int rank = 0; rank < mpiSize_; rank++) {
     if (rank == mpiRank_) {
       if (isBinary)
-        vtkStream.open("vtk/" + outputFileName,
+        vtkStream.open(outputFileName,
                        std::ios::out | std::ios::app | std::ios::binary);
       else
-        vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
+        vtkStream.open(outputFileName, std::ios::out | std::ios::app);
 
       for (std::size_t i = 0; i < hostParticleNormal_.extent(0); i++) {
         for (std::size_t j = 0; j < hostParticleNormal_.extent(1); j++) {
@@ -163,10 +163,10 @@ void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
   // particle size
   if (mpiRank_ == 0) {
     if (isBinary)
-      vtkStream.open("vtk/" + outputFileName,
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::app | std::ios::binary);
     else
-      vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
+      vtkStream.open(outputFileName, std::ios::out | std::ios::app);
 
     vtkStream << "SCALARS h float 1" << std::endl
               << "LOOKUP_TABLE default" << std::endl;
@@ -177,10 +177,10 @@ void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
   for (int rank = 0; rank < mpiSize_; rank++) {
     if (rank == mpiRank_) {
       if (isBinary)
-        vtkStream.open("vtk/" + outputFileName,
+        vtkStream.open(outputFileName,
                        std::ios::out | std::ios::app | std::ios::binary);
       else
-        vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
+        vtkStream.open(outputFileName, std::ios::out | std::ios::app);
 
       for (std::size_t i = 0; i < hostParticleSize_.extent(0); i++) {
         float x = hostParticleSize_(i);
@@ -201,10 +201,10 @@ void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
   // particle type
   if (mpiRank_ == 0) {
     if (isBinary)
-      vtkStream.open("vtk/" + outputFileName,
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::app | std::ios::binary);
     else
-      vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
+      vtkStream.open(outputFileName, std::ios::out | std::ios::app);
 
     vtkStream << "SCALARS ID int 1" << std::endl
               << "LOOKUP_TABLE default" << std::endl;
@@ -215,10 +215,10 @@ void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
   for (int rank = 0; rank < mpiSize_; rank++) {
     if (rank == mpiRank_) {
       if (isBinary)
-        vtkStream.open("vtk/" + outputFileName,
+        vtkStream.open(outputFileName,
                        std::ios::out | std::ios::app | std::ios::binary);
       else
-        vtkStream.open("vtk/" + outputFileName, std::ios::out | std::ios::app);
+        vtkStream.open(outputFileName, std::ios::out | std::ios::app);
 
       for (std::size_t i = 0; i < hostParticleType_.extent(0); i++) {
         int x = hostParticleType_(i);
@@ -261,7 +261,7 @@ void ParticleManager::BalanceAndIndexInternal() {
                        });
   Kokkos::fence();
 
-  particleSetPtr_->Balance();
+  // particleSetPtr_->Balance();
 
   // reindex
   for (int i = 0; i < mpiSize_; i++) {
@@ -375,6 +375,9 @@ void HierarchicalParticleManager::RefineInternal(
                                           splitTag.extent(0));
   int newParticleNum = 0;
 
+  int newInteriorParticleNum = pow(2, dimension);
+  int newBoundaryParticleNum = pow(2, dimension - 1);
+
   // esimate number of particles in the next refinement iteration
   Kokkos::parallel_scan(
       Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, splitTag.extent(0)),
@@ -385,9 +388,9 @@ void HierarchicalParticleManager::RefineInternal(
           tNewLocalParticleNum++;
         else {
           if (oldParticleType(i) == 0)
-            tNewLocalParticleNum += 4;
+            tNewLocalParticleNum += newInteriorParticleNum;
           else
-            tNewLocalParticleNum += 2;
+            tNewLocalParticleNum += newBoundaryParticleNum;
         }
       },
       newParticleNum);
@@ -456,8 +459,36 @@ void HierarchicalParticleManager::RefineInternal(
                       oldParticleType(i);
                   hostParticleRefinementLevel_(newLocalParticleNum(i) +
                                                counter) =
-                      oldParticleRefinementLevel(i);
+                      oldParticleRefinementLevel(i) + 1;
                   counter++;
+                }
+              }
+            }
+            if (dimension == 3) {
+              double newSpacing = oldParticleSize(i) / 2.0;
+              int counter = 0;
+              for (int axes1 = -1; axes1 < 2; axes1 += 2) {
+                for (int axes2 = -1; axes2 < 2; axes2 += 2) {
+                  for (int axes3 = -1; axes3 < 2; axes3 += 2) {
+                    particleCoords(newLocalParticleNum(i) + counter, 0) =
+                        oldParticleCoords(i, 0) + 0.5 * axes1 * newSpacing;
+                    particleCoords(newLocalParticleNum(i) + counter, 1) =
+                        oldParticleCoords(i, 1) + 0.5 * axes2 * newSpacing;
+                    particleCoords(newLocalParticleNum(i) + counter, 2) =
+                        oldParticleCoords(i, 2) + 0.5 * axes3 * newSpacing;
+
+                    for (int j = 0; j < 3; j++) {
+                      particleNormal(newLocalParticleNum(i) + counter, j) =
+                          oldParticleNormal(i, j);
+                    }
+                    particleSize(newLocalParticleNum(i) + counter) = newSpacing;
+                    particleType(newLocalParticleNum(i) + counter) =
+                        oldParticleType(i);
+                    hostParticleRefinementLevel_(newLocalParticleNum(i) +
+                                                 counter) =
+                        oldParticleRefinementLevel(i) + 1;
+                    counter++;
+                  }
                 }
               }
             }
@@ -482,8 +513,73 @@ void HierarchicalParticleManager::RefineInternal(
                 particleType(newLocalParticleNum(i) + counter) =
                     oldParticleType(i);
                 hostParticleRefinementLevel_(newLocalParticleNum(i) + counter) =
-                    oldParticleRefinementLevel(i);
+                    oldParticleRefinementLevel(i) + 1;
                 counter++;
+              }
+            }
+
+            if (dimension == 3) {
+              double newSpacing = oldParticleSize(i) / 2.0;
+              int counter = 0;
+              std::vector<double> normal1(3);
+              std::vector<double> normal2(3);
+              if (abs(oldParticleNormal(i, 0)) > 1e-3) {
+                normal1[0] = 0;
+                normal1[1] = 1;
+                normal1[2] = 0;
+
+                normal2[0] = 0;
+                normal2[1] = 0;
+                normal2[2] = 1;
+              }
+
+              if (abs(oldParticleNormal(i, 1)) > 1e-3) {
+                normal1[0] = 1;
+                normal1[1] = 0;
+                normal1[2] = 0;
+
+                normal2[0] = 0;
+                normal2[1] = 0;
+                normal2[2] = 1;
+              }
+
+              if (abs(oldParticleNormal(i, 2)) > 1e-3) {
+                normal1[0] = 1;
+                normal1[1] = 0;
+                normal1[2] = 0;
+
+                normal2[0] = 0;
+                normal2[1] = 1;
+                normal2[2] = 0;
+              }
+
+              for (int axes1 = -1; axes1 < 2; axes1 += 2) {
+                for (int axes2 = -1; axes2 < 2; axes2 += 2) {
+                  particleCoords(newLocalParticleNum(i) + counter, 0) =
+                      oldParticleCoords(i, 0) +
+                      0.5 * axes1 * newSpacing * normal1[0] +
+                      0.5 * axes2 * newSpacing * normal2[0];
+                  particleCoords(newLocalParticleNum(i) + counter, 1) =
+                      oldParticleCoords(i, 1) +
+                      0.5 * axes1 * newSpacing * normal1[1] +
+                      0.5 * axes2 * newSpacing * normal2[1];
+                  particleCoords(newLocalParticleNum(i) + counter, 2) =
+                      oldParticleCoords(i, 2) +
+                      0.5 * axes1 * newSpacing * normal1[2] +
+                      0.5 * axes2 * newSpacing * normal2[2];
+
+                  for (int j = 0; j < 3; j++) {
+                    particleNormal(newLocalParticleNum(i) + counter, j) =
+                        oldParticleNormal(i, j);
+                  }
+                  particleSize(newLocalParticleNum(i) + counter) = newSpacing;
+                  particleType(newLocalParticleNum(i) + counter) =
+                      oldParticleType(i);
+                  hostParticleRefinementLevel_(newLocalParticleNum(i) +
+                                               counter) =
+                      oldParticleRefinementLevel(i) + 1;
+                  counter++;
+                }
               }
             }
           }
@@ -554,4 +650,60 @@ HierarchicalParticleManager::GetParticleTypeByLevel(const int level) {
 HostIndexVector &
 HierarchicalParticleManager::GetParticleIndexByLevel(const int level) {
   return hierarchicalParticleSetPtr_[level]->GetParticleIndex();
+}
+
+void HierarchicalParticleManager::Output(const std::string outputFileName,
+                                         const bool isBinary) {
+  ParticleManager::Output(outputFileName, isBinary);
+
+  std::ofstream vtkStream;
+  // output refinement level
+  if (mpiRank_ == 0) {
+    vtkStream.open(outputFileName,
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS level int 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open(outputFileName,
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (std::size_t i = 0; i < hostParticleRefinementLevel_.extent(0); i++) {
+        int x = hostParticleRefinementLevel_(i);
+        SwapEnd(x);
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(int));
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  // output domain ID
+  if (mpiRank_ == 0) {
+    vtkStream.open(outputFileName,
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS domain int 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open(outputFileName,
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (std::size_t i = 0; i < hostParticleRefinementLevel_.extent(0); i++) {
+        int x = mpiRank_;
+        SwapEnd(x);
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(int));
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
 }

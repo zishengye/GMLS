@@ -112,8 +112,8 @@ public:
   HostIndexVector &GetParticleType();
   HostIndexVector &GetParticleIndex();
 
-  void Output(const std::string outputFileName = "output.vtk",
-              const bool isBinary = true);
+  virtual void Output(const std::string outputFileName = "output.vtk",
+                      const bool isBinary = true);
 };
 
 class HierarchicalParticleManager : public ParticleManager {
@@ -144,6 +144,9 @@ public:
   HostRealVector &GetParticleSizeByLevel(const int level);
   HostIndexVector &GetParticleTypeByLevel(const int level);
   HostIndexVector &GetParticleIndexByLevel(const int level);
+
+  virtual void Output(const std::string outputFileName = "output.vtk",
+                      const bool isBinary = true);
 };
 
 #endif

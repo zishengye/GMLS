@@ -109,7 +109,7 @@ TEST(PoissonEquationTest, 3DLinearSystemSolving) {
   {
     PoissonEquation equation;
     equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.1);
+    equation.SetInitialDiscretizationResolution(0.05);
 
     std::vector<double> size(3);
     size[0] = 2.0;
@@ -144,7 +144,7 @@ TEST(PoissonEquationTest, 3DAdaptiveRefinement) {
   {
     PoissonEquation equation;
     equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.1);
+    equation.SetInitialDiscretizationResolution(0.05);
 
     std::vector<double> size(3);
     size[0] = 2.0;
@@ -154,8 +154,8 @@ TEST(PoissonEquationTest, 3DAdaptiveRefinement) {
     equation.SetDimension(3);
     equation.SetDomainSize(size);
     equation.SetDomainType(Box);
-    equation.SetMaxRefinementIteration(2);
-    equation.SetOutputLevel(1);
+    equation.SetMaxRefinementIteration(10);
+    equation.SetOutputLevel(0);
     equation.SetRefinementMarkRatio();
     equation.SetInteriorRhs([](double x, double y, double z) {
       return 3.0 * cos(x) * cos(y) * cos(z);

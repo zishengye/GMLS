@@ -19,7 +19,7 @@ enum RefinementMethod { UniformRefinement, AdaptiveRefinement };
 
 class Equation {
 protected:
-  double globalError_, errorTolerance_, markRatio_;
+  double globalError_, globalNormalizedError_, errorTolerance_, markRatio_;
   unsigned int maxRefinementIteration_, refinementIteration_;
   RefinementMethod refinementMethod_;
 

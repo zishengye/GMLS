@@ -480,10 +480,10 @@ void PoissonEquationPreconditioning::ConstructRestriction(
     interiorCounter = 0;
     boundaryCounter = 0;
     for (std::size_t i = 0; i < localInteriorParticleNum; i++) {
-      interiorEpsilonHost(i) = 2.00005 * interiorTargetParticleSize(i);
+      interiorEpsilonHost(i) = 1.00005 * interiorTargetParticleSize(i);
     }
     for (std::size_t i = 0; i < localBoundaryParticleNum; i++) {
-      boundaryEpsilonHost(i) = 2.00005 * boundaryTargetParticleSize(i);
+      boundaryEpsilonHost(i) = 1.00005 * boundaryTargetParticleSize(i);
     }
 
     unsigned int minNeighborLists;
@@ -785,16 +785,32 @@ void PoissonEquationPreconditioning::ConstructSmoother(
   MultilevelPreconditioning::ConstructSmoother(particleMgr);
 
   const int currentLevel = linearSystemsPtr_.size() - 1;
-  KSP &ksp = smootherPtr_[currentLevel]->GetReference();
-  KSPCreate(MPI_COMM_WORLD, &ksp);
-  KSPSetType(ksp, KSPPREONLY);
-  KSPSetOperators(ksp, linearSystemsPtr_[currentLevel]->GetReference(),
-                  linearSystemsPtr_[currentLevel]->GetReference());
+  if (currentLevel > 0) {
+    KSP &ksp = smootherPtr_[currentLevel]->GetReference();
+    KSPCreate(MPI_COMM_WORLD, &ksp);
+    KSPSetType(ksp, KSPPREONLY);
+    KSPSetOperators(ksp, linearSystemsPtr_[currentLevel]->GetReference(),
+                    linearSystemsPtr_[currentLevel]->GetReference());
 
-  PC pc;
-  KSPGetPC(ksp, &pc);
-  PCSetFromOptions(pc);
-  PCSetUp(pc);
+    PC pc;
+    KSPGetPC(ksp, &pc);
+    PCSetFromOptions(pc);
+    PCSetUp(pc);
 
-  KSPSetUp(ksp);
+    KSPSetUp(ksp);
+  } else {
+    KSP &ksp = smootherPtr_[currentLevel]->GetReference();
+    KSPCreate(MPI_COMM_WORLD, &ksp);
+    KSPSetType(ksp, KSPFGMRES);
+    KSPSetTolerances(ksp, 1e-3, 1e-50, 1e20, 100);
+    KSPSetOperators(ksp, linearSystemsPtr_[currentLevel]->GetReference(),
+                    linearSystemsPtr_[currentLevel]->GetReference());
+
+    PC pc;
+    KSPGetPC(ksp, &pc);
+    PCSetFromOptions(pc);
+    PCSetUp(pc);
+
+    KSPSetUp(ksp);
+  }
 }
