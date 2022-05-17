@@ -480,10 +480,10 @@ void PoissonEquationPreconditioning::ConstructRestriction(
     interiorCounter = 0;
     boundaryCounter = 0;
     for (std::size_t i = 0; i < localInteriorParticleNum; i++) {
-      interiorEpsilonHost(i) = 1.00005 * interiorTargetParticleSize(i);
+      interiorEpsilonHost(i) = 0.250005 * interiorTargetParticleSize(i);
     }
     for (std::size_t i = 0; i < localBoundaryParticleNum; i++) {
-      boundaryEpsilonHost(i) = 1.00005 * boundaryTargetParticleSize(i);
+      boundaryEpsilonHost(i) = 0.250005 * boundaryTargetParticleSize(i);
     }
 
     unsigned int minNeighborLists;
@@ -516,7 +516,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
       for (unsigned int i = 0; i < localInteriorParticleNum; i++) {
         const std::size_t numNeighbor = interiorNeighborListsHost(i, 0);
         if (numNeighbor <= satisfiedNumNeighbor) {
-          interiorEpsilonHost(i) += 0.5 * interiorTargetParticleSize(i);
+          interiorEpsilonHost(i) += 0.05 * interiorTargetParticleSize(i);
           passNeighborNumCheck = false;
         }
 
@@ -584,7 +584,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
       for (unsigned int i = 0; i < localBoundaryParticleNum; i++) {
         const std::size_t numNeighbor = boundaryNeighborListsHost(i, 0);
         if (numNeighbor <= satisfiedNumNeighbor) {
-          boundaryEpsilonHost(i) += 0.5 * boundaryTargetParticleSize(i);
+          boundaryEpsilonHost(i) += 0.05 * boundaryTargetParticleSize(i);
           passNeighborNumCheck = false;
         }
 
@@ -625,7 +625,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
         "min neighbor: %d, max neighbor: %d , mean "
         "neighbor: %.2f, max ratio: %.2f\n",
         iteCounter, minNeighbor, maxNeighbor,
-        meanNeighbor / (double)globalInteriorParticleNum, maxRatio);
+        meanNeighbor / (double)globalBoundaryParticleNum, maxRatio);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -714,8 +714,50 @@ void PoissonEquationPreconditioning::ConstructRestriction(
 
     R.GraphAssemble();
 
-    // build interior restriction basis
+    // Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
+    //     restrictedInteriorNeighborListsDevice(
+    //         "restricted interior particle neighborlists",
+    //         numRestrictedInteriorParticle, neighborListsHost.extent(1));
+    // Kokkos::View<std::size_t **>::HostMirror
+    //     restrictedInteriorNeighborListsHost =
+    //         Kokkos::create_mirror_view(restrictedInteriorNeighborListsDevice);
 
+    // Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
+    // refinedEpsilonDevice(
+    //     "refined particle epsilon", refinedParticleNum);
+    // Kokkos::View<double *>::HostMirror refinedEpsilonHost =
+    //     Kokkos::create_mirror_view(refinedEpsilonDevice);
+
+    // Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
+    //     refinedParticleCoordsDevice("refined particle coord",
+    //                                 refinedParticleNum, dimension);
+    // Kokkos::View<double **>::HostMirror refinedParticleCoordsHost =
+    //     Kokkos::create_mirror_view(refinedParticleCoordsDevice);
+
+    // unsigned int refinedCounter;
+    // refinedCounter = 0;
+    // for (unsigned int i = 0; i < localTargetParticleNum; i++) {
+    //   if (refinedParticle[i]) {
+    //     refinedEpsilonHost(refinedCounter) = epsilonHost(i);
+    //     for (unsigned int j = 0; j <= neighborListsHost(i, 0); j++) {
+    //       refinedNeighborListsHost(refinedCounter, j) = neighborListsHost(i,
+    //       j);
+    //     }
+    //     for (unsigned int j = 0; j < dimension; j++) {
+    //       refinedParticleCoordsHost(refinedCounter, j) =
+    //           targetParticleCoordsHost(i, j);
+    //     }
+
+    //     refinedCounter++;
+    //   }
+    // }
+
+    // Kokkos::deep_copy(refinedParticleCoordsDevice,
+    // refinedParticleCoordsHost); Kokkos::deep_copy(refinedEpsilonDevice,
+    // refinedEpsilonHost); Kokkos::deep_copy(refinedNeighborListsDevice,
+    // refinedNeighborListsHost);
+
+    // build interior restriction basis
     interiorCounter = 0;
     boundaryCounter = 0;
     for (unsigned int i = 0; i < localTargetParticleNum; i++) {
@@ -758,7 +800,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
         }
         boundaryCounter++;
       }
-      // R.Increment(i, index, value);
+      R.Increment(i, index, value);
     }
 
     const unsigned long nnz = R.Assemble();
@@ -773,7 +815,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
                 "%lu, Min nonzeros: %lu\n",
                 nnzMax, nnzMin);
     PetscPrintf(PETSC_COMM_WORLD,
-                "Duration of building Poisson equation interpolation:%.4fs\n",
+                "Duration of building Poisson equation restriction:%.4fs\n",
                 tEnd - tStart);
   }
 }
@@ -802,7 +844,7 @@ void PoissonEquationPreconditioning::ConstructSmoother(
     KSP &ksp = smootherPtr_[currentLevel]->GetReference();
     KSPCreate(MPI_COMM_WORLD, &ksp);
     KSPSetType(ksp, KSPFGMRES);
-    KSPSetTolerances(ksp, 1e-3, 1e-50, 1e20, 100);
+    KSPSetTolerances(ksp, 1e-6, 1e-50, 1e20, 500);
     KSPSetOperators(ksp, linearSystemsPtr_[currentLevel]->GetReference(),
                     linearSystemsPtr_[currentLevel]->GetReference());
 

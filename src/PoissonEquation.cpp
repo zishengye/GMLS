@@ -60,7 +60,7 @@ void PoissonEquation::InitLinearSystem() {
   }
 
   const unsigned satisfiedNumNeighbor =
-      2 * Compadre::GMLS::getNP(polyOrder_ + 1, dimension);
+      2 * Compadre::GMLS::getNP(polyOrder_, dimension);
 
   Equation::ConstructNeighborLists(satisfiedNumNeighbor);
 
@@ -618,6 +618,12 @@ void PoissonEquation::ConstructRhs() {
 
   const unsigned int localParticleNum = coords.extent(0);
 
+  // copy old field value
+  Kokkos::resize(oldField_, field_.extent(0));
+  for (unsigned int i = 0; i < field_.extent(0); i++) {
+    oldField_(i) = field_(i);
+  }
+
   Kokkos::resize(field_, localParticleNum);
   Kokkos::resize(error_, localParticleNum);
 
@@ -638,6 +644,22 @@ void PoissonEquation::ConstructRhs() {
 }
 
 void PoissonEquation::SolveEquation() {
+  unsigned int currentRefinementLevel = linearSystemsPtr_.size() - 1;
+  const unsigned int localParticleNum =
+      particleMgr_.GetParticleCoords().extent(0);
+  // interpolation previous result
+  if (currentRefinementLevel == 0) {
+    for (unsigned int i = 0; i < localParticleNum; i++) {
+      field_(i) = 0.0;
+    }
+    x_.Copy(field_);
+  } else {
+    PetscVector y;
+    y.Create(oldField_);
+    MatMult(preconditionerPtr_->GetInterpolation(currentRefinementLevel)
+                .GetReference(),
+            y.GetReference(), x_.GetReference());
+  }
   Equation::SolveEquation();
   x_.Copy(field_);
 }
@@ -645,12 +667,13 @@ void PoissonEquation::SolveEquation() {
 void PoissonEquation::CalculateError() {
   /*! \brief calculate the recovered error for each particle
    *! \date Apr 27, 2022
+   *! Last modified: \date May 17, 2022
    *! \author Zisheng Ye <zisheng_ye@outlook.com>
    *
    * The recovered error for each particle is calculated based on the recovered
    * gradient and reconstructed gradient.  In order to reduce the peak usage of
    * memory, the discretization coefficients generated in the linear system
-   * construction stage has been dropped.  Those coeffcients have to be
+   * construction stage has been dropped.  Those coefficients have to be
    * regenerated in this stage.  For the same reason, the entire workload has
    * been split into several batches when working with GMLS discretization.  In
    * each batch, the direct gradient is evaluated for each particle and the
@@ -658,7 +681,8 @@ void PoissonEquation::CalculateError() {
    * all polynomial coefficients have been generated, the recovered and
    * reconstructed gradient is evaluated based these coefficients and the
    * recovered error is estimated based on the difference between the recovered
-   * and reconstructed gradients.
+   * and reconstructed gradients.  Finally, if the analytical solution is
+   * provided, the error compared to analytical solution is calculated.
    *
    * The general workflow of the function is as follows:
    * 1. Loop over all batches:
@@ -667,6 +691,7 @@ void PoissonEquation::CalculateError() {
    * 2. Evaluate the recovered gradient for each particle.
    * 3. Evaluate the reconstructed gradient and the recovered error for each
    *    particle.
+   * 4. Evaluate the error compared to the analytical solution is provided.
    */
   Equation::CalculateError();
 
@@ -693,8 +718,7 @@ void PoissonEquation::CalculateError() {
   unsigned int coefficientSize;
   {
     Compadre::GMLS testBasis =
-        Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
-                       Compadre::StaggeredEdgeAnalyticGradientIntegralSample,
+        Compadre::GMLS(Compadre::ScalarTaylorPolynomial, Compadre::PointSample,
                        polyOrder_, dimension, "LU", "STANDARD");
     coefficientSize = testBasis.getPolynomialCoefficientsSize();
   }
@@ -886,6 +910,92 @@ void PoissonEquation::CalculateError() {
                 MPI_COMM_WORLD);
   globalError_ = sqrt(globalError);
   globalNormalizedError_ = globalError_ / globalDirectGradientNorm;
+
+  if (isFieldAnalyticalSolutionSet_) {
+    double fieldAnalyticalError = 0.0;
+    double fieldNorm = 0.0;
+    Kokkos::parallel_reduce(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+            0, field_.extent(0)),
+        [&](const int i, double &tFieldAnalyticalError) {
+          const double x = coords(i, 0);
+          const double y = coords(i, 1);
+          const double z = coords(i, 2);
+
+          double difference = analyticalFieldSolution_(x, y, z) - field_(i);
+          tFieldAnalyticalError += pow(difference, 2);
+        },
+        Kokkos::Sum<double>(fieldAnalyticalError));
+    Kokkos::fence();
+
+    Kokkos::parallel_reduce(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+            0, field_.extent(0)),
+        [&](const int i, double &tFieldNorm) {
+          const double x = coords(i, 0);
+          const double y = coords(i, 1);
+          const double z = coords(i, 2);
+
+          tFieldNorm += pow(analyticalFieldSolution_(x, y, z), 2);
+        },
+        Kokkos::Sum<double>(fieldNorm));
+    Kokkos::fence();
+
+    MPI_Allreduce(MPI_IN_PLACE, &fieldAnalyticalError, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &fieldNorm, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    fieldAnalyticalError = sqrt(fieldAnalyticalError / fieldNorm);
+    PetscPrintf(PETSC_COMM_WORLD, "Field analytical solution error: %.6f\n",
+                fieldAnalyticalError);
+  }
+
+  if (isFieldGradientAnalyticalSolutionSet_) {
+    double fieldGradientAnalyticalError = 0.0;
+    double fieldGradientNorm = 0.0;
+
+    for (unsigned int axes = 0; axes < dimension; axes++) {
+      Kokkos::parallel_reduce(
+          Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+              0, field_.extent(0)),
+          [&](const int i, double &tFieldGradientAnalyticalError) {
+            const double x = coords(i, 0);
+            const double y = coords(i, 1);
+            const double z = coords(i, 2);
+
+            double difference =
+                analyticalFieldGradientSolution_(x, y, z, axes) -
+                recoveredGradientChunk_(i, axes);
+            tFieldGradientAnalyticalError += pow(difference, 2);
+          },
+          Kokkos::Sum<double>(fieldGradientAnalyticalError));
+      Kokkos::fence();
+
+      Kokkos::parallel_reduce(
+          Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+              0, field_.extent(0)),
+          [&](const int i, double &tFieldGradientNorm) {
+            const double x = coords(i, 0);
+            const double y = coords(i, 1);
+            const double z = coords(i, 2);
+
+            tFieldGradientNorm +=
+                pow(analyticalFieldGradientSolution_(x, y, z, axes), 2);
+          },
+          Kokkos::Sum<double>(fieldGradientNorm));
+      Kokkos::fence();
+    }
+
+    MPI_Allreduce(MPI_IN_PLACE, &fieldGradientAnalyticalError, 1, MPI_DOUBLE,
+                  MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &fieldGradientNorm, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    fieldGradientAnalyticalError =
+        sqrt(fieldGradientAnalyticalError / fieldGradientNorm);
+    PetscPrintf(PETSC_COMM_WORLD,
+                "Field gradient analytical solution error: %.6f\n",
+                fieldGradientAnalyticalError);
+  }
 }
 
 void PoissonEquation::Output() {
@@ -982,7 +1092,9 @@ void PoissonEquation::Output() {
   }
 }
 
-PoissonEquation::PoissonEquation() : Equation() {}
+PoissonEquation::PoissonEquation()
+    : Equation(), isFieldAnalyticalSolutionSet_(false),
+      isFieldGradientAnalyticalSolutionSet_(false) {}
 
 PoissonEquation::~PoissonEquation() {}
 
@@ -995,11 +1107,27 @@ void PoissonEquation::Init() {
 HostRealVector &PoissonEquation::GetField() { return field_; }
 
 void PoissonEquation::SetInteriorRhs(
-    const std::function<double(double, double, double)> &func) {
+    const std::function<double(const double, const double, const double)>
+        &func) {
   interiorRhs_ = func;
 }
 
 void PoissonEquation::SetBoundaryRhs(
-    const std::function<double(double, double, double)> &func) {
+    const std::function<double(const double, const double, const double)>
+        &func) {
   boundaryRhs_ = func;
+}
+
+void PoissonEquation::SetAnalyticalFieldSolution(
+    const std::function<double(const double, const double, const double)>
+        &func) {
+  analyticalFieldSolution_ = func;
+  isFieldAnalyticalSolutionSet_ = true;
+}
+
+void PoissonEquation::SetAnalyticalFieldGradientSolution(
+    const std::function<double(const double, const double, const double,
+                               const unsigned int)> &func) {
+  analyticalFieldGradientSolution_ = func;
+  isFieldGradientAnalyticalSolutionSet_ = true;
 }

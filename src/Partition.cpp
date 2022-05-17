@@ -7,8 +7,8 @@ Partition::Partition() {
 
 Partition::~Partition() {}
 
-void Partition::ConstructPartition(Kokkos::View<Scalar **> coords,
-                                   Kokkos::View<GlobalIndex *> index) {
+void Partition::ConstructPartition(const HostRealMatrix &coords,
+                                   const HostIndexVector &index) {
   // use Zoltan2 to partition
   Teuchos::ParameterList params("zoltan2 params");
   params.set("algorithm", "multijagged");
@@ -126,7 +126,7 @@ void Partition::ConstructPartition(Kokkos::View<Scalar **> coords,
   MPI_Barrier(MPI_COMM_WORLD);
 }
 
-void Partition::ApplyPartition(Kokkos::View<Scalar **> data) {
+void Partition::ApplyPartition(HostRealMatrix &data) {
   // migrate particles
   const std::size_t unitLength = data.extent(1);
   std::vector<MPI_Request> sendRequest(migrationOutGraph_.size());
@@ -190,7 +190,7 @@ void Partition::ApplyPartition(Kokkos::View<Scalar **> data) {
   }
 }
 
-void Partition::ApplyPartition(Kokkos::View<Scalar *> data) {
+void Partition::ApplyPartition(HostRealVector &data) {
   // migrate particles
   std::vector<MPI_Request> sendRequest(migrationOutGraph_.size());
   std::vector<MPI_Request> recvRequest(migrationInGraph_.size());
@@ -245,7 +245,7 @@ void Partition::ApplyPartition(Kokkos::View<Scalar *> data) {
   }
 }
 
-void Partition::ApplyPartition(Kokkos::View<std::size_t *> data) {
+void Partition::ApplyPartition(HostIndexVector &data) {
   // migrate particles
   std::vector<MPI_Request> sendRequest(migrationOutGraph_.size());
   std::vector<MPI_Request> recvRequest(migrationInGraph_.size());
@@ -300,7 +300,7 @@ void Partition::ApplyPartition(Kokkos::View<std::size_t *> data) {
   }
 }
 
-void Partition::ApplyPartition(Kokkos::View<int *> data) {
+void Partition::ApplyPartition(HostIntVector &data) {
   // migrate particles
   std::vector<MPI_Request> sendRequest(migrationOutGraph_.size());
   std::vector<MPI_Request> recvRequest(migrationInGraph_.size());

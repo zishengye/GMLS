@@ -62,6 +62,14 @@ void Equation::InitPreconditioner() {
 
 void Equation::SolveEquation() {
   ksp_.Solve(b_.GetReference(), x_.GetReference());
+
+  PetscLogDouble mem, maxMem;
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(&mem, &maxMem, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage %.2f GB, maximum memory usage: %.2f GB\n",
+              mem / 1e9, maxMem / 1e9);
 }
 
 void Equation::CalculateError() {
@@ -69,9 +77,9 @@ void Equation::CalculateError() {
   Kokkos::resize(error_, localParticleNum);
 }
 
-void Equation::Refine() {
+void Equation::Mark() {
   if (mpiRank_ == 0)
-    printf("Global error: %.4f, with tolerance: %.4f\n", globalNormalizedError_,
+    printf("Global error: %.6f, with tolerance: %.4f\n", globalNormalizedError_,
            errorTolerance_);
 
   std::vector<double> sortedError(error_.extent(0));
@@ -144,7 +152,7 @@ void Equation::Refine() {
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              error_.extent(0)),
       [&](const int i, std::size_t &tMarkedParticleNum) {
-        if (splitTag_(i) == 1)
+        if (splitTag_(i) != 0)
           tMarkedParticleNum++;
       },
       Kokkos::Sum<std::size_t>(markedParticleNum));
@@ -207,10 +215,10 @@ void Equation::Refine() {
               }
             }
 
-            if (ghostSplitTag(nearestIndex) +
+            if ((ghostSplitTag(nearestIndex) != 0) +
                     ghostParticleRefinementLevel(nearestIndex) >
                 particleRefinementLevel(i)) {
-              splitTag_(i) = 1;
+              splitTag_(i) = 2;
               tLocalChange++;
             }
           }
@@ -236,7 +244,8 @@ void Equation::Refine() {
           }
 
           if (maxRefinementLevel - minRefinementLevel > 1)
-            crossRefinementLevel(i) = splitTag_(i) + particleRefinementLevel(i);
+            crossRefinementLevel(i) =
+                (splitTag_(i) != 0) + particleRefinementLevel(i);
           else
             crossRefinementLevel(i) = 0;
         });
@@ -254,7 +263,7 @@ void Equation::Refine() {
             if ((particleRefinementLevel(i) <
                  ghostCrossRefinementLevel(neighborParticleIndex)) &&
                 splitTag_(i) == 0) {
-              splitTag_(i) = 1;
+              splitTag_(i) = 3;
               tLocalChange++;
             }
           }
@@ -273,7 +282,7 @@ void Equation::Refine() {
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              error_.extent(0)),
       [&](const int i, std::size_t &tMarkedParticleNum) {
-        if (splitTag_(i) == 1)
+        if (splitTag_(i) != 0)
           tMarkedParticleNum++;
       },
       Kokkos::Sum<std::size_t>(markedParticleNum));
@@ -283,8 +292,6 @@ void Equation::Refine() {
   if (mpiRank_ == 0)
     printf("Marked %ld particles after smoothing particles\n",
            markedParticleNum);
-
-  particleMgr_.Refine(splitTag_);
 }
 
 void Equation::BuildGhost() {
@@ -351,6 +358,31 @@ void Equation::Output() {
                      std::ios::out | std::ios::app | std::ios::binary);
       for (std::size_t i = 0; i < neighborLists_.extent(0); i++) {
         int x = neighborLists_(i, 0);
+        SwapEnd(x);
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(int));
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  // output split tag
+  if (mpiRank_ == 0) {
+    vtkStream.open(outputFileName,
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS split int 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open(outputFileName,
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (std::size_t i = 0; i < splitTag_.extent(0); i++) {
+        int x = splitTag_(i);
         SwapEnd(x);
         vtkStream.write(reinterpret_cast<char *>(&x), sizeof(int));
       }
@@ -523,8 +555,9 @@ void Equation::Update() {
         printf("Duration of solving linear system: %.4fs\n", tEnd - tStart);
     }
     this->CalculateError();
+    this->Mark();
     this->Output();
-    this->Refine();
+    particleMgr_.Refine(splitTag_);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (mpiRank_ == 0)

@@ -4,7 +4,6 @@
 #include "MultilevelPreconditioning.hpp"
 
 class PoissonEquationPreconditioning : public MultilevelPreconditioning {
-
 public:
   PoissonEquationPreconditioning();
 

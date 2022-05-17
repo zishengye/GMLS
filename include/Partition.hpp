@@ -35,12 +35,12 @@ public:
 
   ~Partition();
 
-  void ConstructPartition(Kokkos::View<Scalar **> coords,
-                          Kokkos::View<GlobalIndex *> index);
-  void ApplyPartition(Kokkos::View<Scalar **> data);
-  void ApplyPartition(Kokkos::View<Scalar *> data);
-  void ApplyPartition(Kokkos::View<std::size_t *> data);
-  void ApplyPartition(Kokkos::View<int *> data);
+  void ConstructPartition(const HostRealMatrix &coords,
+                          const HostIndexVector &index);
+  void ApplyPartition(HostRealMatrix &data);
+  void ApplyPartition(HostRealVector &data);
+  void ApplyPartition(HostIndexVector &data);
+  void ApplyPartition(HostIntVector &data);
 };
 
 #endif

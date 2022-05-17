@@ -49,7 +49,7 @@ protected:
   virtual void InitPreconditioner();
   virtual void SolveEquation();
   virtual void CalculateError();
-  virtual void Refine();
+  virtual void Mark();
 
   virtual void BuildGhost();
   virtual void Output();

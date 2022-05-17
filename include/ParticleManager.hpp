@@ -74,9 +74,10 @@ public:
 
   void Resize(const int newLocalSize);
   void Balance();
-  void BuildGhost();
 
   void Output(std::string outputFileName = "output.vtk", bool isBinary = true);
+
+  Partition &GetPartition();
 };
 
 class ParticleManager {

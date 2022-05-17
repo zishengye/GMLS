@@ -18,10 +18,18 @@ protected:
   virtual void Output();
 
   HostRealMatrix recoveredGradientChunk_;
-  HostRealVector field_;
+  HostRealVector field_, oldField_;
 
-  std::function<double(double, double, double)> interiorRhs_;
-  std::function<double(double, double, double)> boundaryRhs_;
+  std::function<double(const double, const double, const double)> interiorRhs_;
+  std::function<double(const double, const double, const double)> boundaryRhs_;
+  std::function<double(const double, const double, const double)>
+      analyticalFieldSolution_;
+  std::function<double(const double, const double, const double,
+                       const unsigned int)>
+      analyticalFieldGradientSolution_;
+
+  bool isFieldAnalyticalSolutionSet_;
+  bool isFieldGradientAnalyticalSolutionSet_;
 
 public:
   PoissonEquation();
@@ -31,10 +39,18 @@ public:
 
   HostRealVector &GetField();
 
-  virtual void
-  SetInteriorRhs(const std::function<double(double, double, double)> &func);
-  virtual void
-  SetBoundaryRhs(const std::function<double(double, double, double)> &func);
+  virtual void SetInteriorRhs(
+      const std::function<double(const double, const double, const double)>
+          &func);
+  virtual void SetBoundaryRhs(
+      const std::function<double(const double, const double, const double)>
+          &func);
+  virtual void SetAnalyticalFieldSolution(
+      const std::function<double(const double, const double, const double)>
+          &func);
+  virtual void SetAnalyticalFieldGradientSolution(
+      const std::function<double(const double, const double, const double,
+                                 const unsigned int)> &func);
 };
 
 #endif

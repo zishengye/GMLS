@@ -237,9 +237,11 @@ void ParticleSet::Output(const std::string outputFileName, bool isBinary) {
   }
 }
 
+Partition &ParticleSet::GetPartition() { return partition_; }
+
 void ParticleManager::BalanceAndIndexInternal() {
   // repartition for load balancing
-  auto particleIndex = particleSetPtr_->GetParticleIndex();
+  auto &particleIndex = particleSetPtr_->GetParticleIndex();
   std::vector<GlobalIndex> rankParticleNumOffset(mpiSize_ + 1);
   std::vector<LocalIndex> rankParticleNum(mpiSize_);
   for (int i = 0; i < mpiSize_; i++) {
@@ -261,9 +263,10 @@ void ParticleManager::BalanceAndIndexInternal() {
                        });
   Kokkos::fence();
 
-  // particleSetPtr_->Balance();
+  particleSetPtr_->Balance();
 
   // reindex
+  Kokkos::resize(particleIndex, particleSetPtr_->GetParticleCoords().extent(0));
   for (int i = 0; i < mpiSize_; i++) {
     rankParticleNum[i] = 0;
   }
@@ -422,7 +425,9 @@ void HierarchicalParticleManager::RefineInternal(
   HostIndexVector oldParticleRefinementLevel;
   Kokkos::resize(oldParticleRefinementLevel,
                  hostParticleRefinementLevel_.extent(0));
-  Kokkos::deep_copy(hostParticleRefinementLevel_, oldParticleRefinementLevel);
+  for (unsigned int i = 0; i < hostParticleRefinementLevel_.extent(0); i++) {
+    oldParticleRefinementLevel(i) = hostParticleRefinementLevel_(i);
+  }
   Kokkos::resize(hostParticleRefinementLevel_, newParticleNum);
 
   Kokkos::parallel_for(
@@ -609,12 +614,20 @@ void HierarchicalParticleManager::Init() {
           0, hostParticleRefinementLevel_.extent(0)),
       KOKKOS_LAMBDA(const int i) { hostParticleRefinementLevel_(i) = 0; });
   Kokkos::fence();
+
+  // repartition objects defined in hierarchical scheme
+  auto &partition = particleSetPtr_->GetPartition();
+  partition.ApplyPartition(hostParticleRefinementLevel_);
 }
 
 void HierarchicalParticleManager::Clear() { ParticleManager::Clear(); }
 
 void HierarchicalParticleManager::Refine(const HostIndexVector &splitTag) {
   RefineInternal(splitTag);
+
+  // repartition objects defined in hierarchical scheme
+  auto &partition = particleSetPtr_->GetPartition();
+  partition.ApplyPartition(hostParticleRefinementLevel_);
 }
 
 LocalIndex HierarchicalParticleManager::GetLocalParticleNum() {

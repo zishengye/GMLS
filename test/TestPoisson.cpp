@@ -25,10 +25,12 @@ TEST(PoissonEquationTest, 2DLinearSystemSolving) {
     equation.SetMaxRefinementIteration(1);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio();
-    equation.SetInteriorRhs(
-        [](double x, double y, double z) { return 2.0 * cos(x) * cos(y); });
-    equation.SetBoundaryRhs(
-        [](double x, double y, double z) { return cos(x) * cos(y); });
+    equation.SetInteriorRhs([](const double x, const double y, const double z) {
+      return 2.0 * cos(x) * cos(y);
+    });
+    equation.SetBoundaryRhs([](const double x, const double y, const double z) {
+      return cos(x) * cos(y);
+    });
 
     equation.Init();
     equation.Update();
@@ -49,10 +51,12 @@ TEST(PoissonEquationTest, 2DLinearSystemSolving) {
     equation.SetMaxRefinementIteration(1);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio();
-    equation.SetInteriorRhs(
-        [](double x, double y, double z) { return 2.0 * cos(x) * cos(y); });
-    equation.SetBoundaryRhs(
-        [](double x, double y, double z) { return cos(x) * cos(y); });
+    equation.SetInteriorRhs([](const double x, const double y, const double z) {
+      return 2.0 * cos(x) * cos(y);
+    });
+    equation.SetBoundaryRhs([](const double x, const double y, const double z) {
+      return cos(x) * cos(y);
+    });
 
     equation.Init();
     equation.Update();
@@ -70,7 +74,7 @@ TEST(PoissonEquationTest, 2DAdaptiveRefinement) {
   {
     PoissonEquation equation;
     equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.1);
+    equation.SetInitialDiscretizationResolution(0.2);
 
     std::vector<double> size(2);
     size[0] = 2.0;
@@ -82,10 +86,24 @@ TEST(PoissonEquationTest, 2DAdaptiveRefinement) {
     equation.SetMaxRefinementIteration(10);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio();
-    equation.SetInteriorRhs(
-        [](double x, double y, double z) { return 2.0 * cos(x) * cos(y); });
-    equation.SetBoundaryRhs(
-        [](double x, double y, double z) { return cos(x) * cos(y); });
+    equation.SetInteriorRhs([](const double x, const double y, const double z) {
+      return 2.0 * cos(x) * cos(y);
+    });
+    equation.SetBoundaryRhs([](const double x, const double y, const double z) {
+      return cos(x) * cos(y);
+    });
+    equation.SetAnalyticalFieldSolution(
+        [](const double x, const double y, const double z) {
+          return cos(x) * cos(y);
+        });
+    equation.SetAnalyticalFieldGradientSolution(
+        [](const double x, const double y, const double z,
+           const unsigned int i) {
+          double grad[2];
+          grad[0] = -sin(x) * cos(y);
+          grad[1] = -cos(x) * sin(y);
+          return grad[i];
+        });
 
     equation.Init();
     equation.Update();
@@ -120,13 +138,14 @@ TEST(PoissonEquationTest, 3DLinearSystemSolving) {
     equation.SetDomainSize(size);
     equation.SetDomainType(Box);
     equation.SetMaxRefinementIteration(1);
-    equation.SetOutputLevel(1);
+    equation.SetOutputLevel(0);
     equation.SetRefinementMarkRatio();
-    equation.SetInteriorRhs([](double x, double y, double z) {
+    equation.SetInteriorRhs([](const double x, const double y, const double z) {
       return 3.0 * cos(x) * cos(y) * cos(z);
     });
-    equation.SetBoundaryRhs(
-        [](double x, double y, double z) { return cos(x) * cos(y) * cos(z); });
+    equation.SetBoundaryRhs([](const double x, const double y, const double z) {
+      return cos(x) * cos(y) * cos(z);
+    });
 
     equation.Init();
     equation.Update();
@@ -144,7 +163,7 @@ TEST(PoissonEquationTest, 3DAdaptiveRefinement) {
   {
     PoissonEquation equation;
     equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.05);
+    equation.SetInitialDiscretizationResolution(0.2);
 
     std::vector<double> size(3);
     size[0] = 2.0;
@@ -157,11 +176,25 @@ TEST(PoissonEquationTest, 3DAdaptiveRefinement) {
     equation.SetMaxRefinementIteration(10);
     equation.SetOutputLevel(0);
     equation.SetRefinementMarkRatio();
-    equation.SetInteriorRhs([](double x, double y, double z) {
+    equation.SetInteriorRhs([](const double x, const double y, const double z) {
       return 3.0 * cos(x) * cos(y) * cos(z);
     });
-    equation.SetBoundaryRhs(
-        [](double x, double y, double z) { return cos(x) * cos(y) * cos(z); });
+    equation.SetBoundaryRhs([](const double x, const double y, const double z) {
+      return cos(x) * cos(y) * cos(z);
+    });
+    equation.SetAnalyticalFieldSolution(
+        [](const double x, const double y, const double z) {
+          return cos(x) * cos(y) * cos(z);
+        });
+    equation.SetAnalyticalFieldGradientSolution(
+        [](const double x, const double y, const double z,
+           const unsigned int i) {
+          double grad[3];
+          grad[0] = -sin(x) * cos(y) * cos(z);
+          grad[1] = -cos(x) * sin(y) * cos(z);
+          grad[2] = -cos(x) * cos(y) * sin(z);
+          return grad[i];
+        });
 
     equation.Init();
     equation.Update();
