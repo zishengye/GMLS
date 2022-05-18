@@ -87,7 +87,7 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
     bool isNeighborSearchPassed = false;
 
     const unsigned int satisfiedNumNeighbor =
-        2 * Compadre::GMLS::getNP(2, dimension);
+        2 * Compadre::GMLS::getNP(3, dimension);
 
     double maxRatio, meanNeighbor;
     unsigned int minNeighbor, maxNeighbor, iteCounter;
@@ -196,7 +196,7 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
     I.GraphAssemble();
 
     Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
-        refinedNeighborListsDevice("refined particle neighborlists",
+        refinedNeighborListsDevice("refined particle neighbor lists",
                                    refinedParticleNum,
                                    neighborListsHost.extent(1));
     Kokkos::View<std::size_t **>::HostMirror refinedNeighborListsHost =
@@ -236,7 +236,7 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
 
     Compadre::GMLS interpolationBasis =
         Compadre::GMLS(Compadre::ScalarTaylorPolynomial, Compadre::PointSample,
-                       2, dimension, "LU", "STANDARD");
+                       3, dimension, "LU", "STANDARD");
 
     interpolationBasis.setProblemData(
         refinedNeighborListsDevice, sourceParticleCoordsDevice,
@@ -460,11 +460,11 @@ void PoissonEquationPreconditioning::ConstructRestriction(
     }
 
     DeviceIndexMatrix interiorNeighborListsDevice(
-        "interior particle neighborlists", localInteriorParticleNum, 1);
+        "interior particle neighbor lists", localInteriorParticleNum, 1);
     Kokkos::View<std::size_t **>::HostMirror interiorNeighborListsHost =
         Kokkos::create_mirror_view(interiorNeighborListsDevice);
     DeviceIndexMatrix boundaryNeighborListsDevice(
-        "boundary particle neighborlist", localBoundaryParticleNum, 1);
+        "boundary particle neighbor list", localBoundaryParticleNum, 1);
     Kokkos::View<std::size_t **>::HostMirror boundaryNeighborListsHost =
         Kokkos::create_mirror_view(boundaryNeighborListsDevice);
 
@@ -716,7 +716,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
 
     // Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
     //     restrictedInteriorNeighborListsDevice(
-    //         "restricted interior particle neighborlists",
+    //         "restricted interior particle neighbor lists",
     //         numRestrictedInteriorParticle, neighborListsHost.extent(1));
     // Kokkos::View<std::size_t **>::HostMirror
     //     restrictedInteriorNeighborListsHost =

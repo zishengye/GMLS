@@ -44,6 +44,8 @@ void Equation::InitPreconditioner() {
   preconditionerPtr_->PrepareVectors(localRow);
 
   KSP &ksp = ksp_.GetReference();
+  if (ksp != PETSC_NULL)
+    KSPDestroy(&ksp);
   KSPCreate(MPI_COMM_WORLD, &ksp);
   KSPSetType(ksp, KSPGMRES);
   KSPSetOperators(ksp, linearSystemsPtr_[refinementIteration_]->GetReference(),

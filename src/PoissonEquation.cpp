@@ -60,7 +60,7 @@ void PoissonEquation::InitLinearSystem() {
   }
 
   const unsigned satisfiedNumNeighbor =
-      2 * Compadre::GMLS::getNP(polyOrder_, dimension);
+      2 * Compadre::GMLS::getNP(polyOrder_ + 1, dimension);
 
   Equation::ConstructNeighborLists(satisfiedNumNeighbor);
 
