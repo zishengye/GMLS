@@ -3,6 +3,8 @@
 
 #include "Equation.hpp"
 
+#include <functional>
+
 class StokesEquation : public Equation {
 protected:
   virtual void InitLinearSystem();
@@ -18,6 +20,17 @@ protected:
   HostRealMatrix velocity_;
   HostRealVector pressure_;
 
+  std::function<double(const double, const double, const double,
+                       const unsigned int)>
+      interiorVelocityRhs_;
+  std::function<double(const double, const double, const double,
+                       const unsigned int)>
+      boundaryVelocityRhs_;
+  std::function<double(const double, const double, const double)>
+      interiorPressureRhs_;
+  std::function<double(const double, const double, const double)>
+      boundaryPressureRhs_;
+
 public:
   StokesEquation();
   ~StokesEquation();
@@ -26,6 +39,20 @@ public:
 
   HostRealMatrix &GetVelocity();
   HostRealVector &GetPressure();
+
+  virtual void SetVelocityInteriorRhs(
+      const std::function<double(const double, const double, const double,
+                                 const unsigned int)> &func);
+  virtual void SetVelocityBoundaryRhs(
+      const std::function<double(const double, const double, const double,
+                                 const unsigned int)> &func);
+
+  virtual void SetPressureInteriorRhs(
+      const std::function<double(const double, const double, const double)>
+          &func);
+  virtual void SetPressureBoundaryRhs(
+      const std::function<double(const double, const double, const double)>
+          &func);
 };
 
 #endif

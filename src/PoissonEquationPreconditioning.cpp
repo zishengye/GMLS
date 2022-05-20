@@ -63,7 +63,7 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
     Kokkos::deep_copy(sourceParticleCoordsDevice, sourceParticleCoordsHost);
 
     Kokkos::View<std::size_t **, Kokkos::DefaultHostExecutionSpace>
-        neighborListsHost("interpolation neighborlists",
+        neighborListsHost("interpolation neighbor lists",
                           targetParticleCoordsHost.extent(0), 1);
     Kokkos::View<double *, Kokkos::DefaultHostExecutionSpace> epsilonHost(
         "interpolation epsilon", targetParticleCoordsHost.extent(0));
@@ -87,7 +87,7 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
     bool isNeighborSearchPassed = false;
 
     const unsigned int satisfiedNumNeighbor =
-        2 * Compadre::GMLS::getNP(3, dimension);
+        2 * Compadre::GMLS::getNP(2, dimension);
 
     double maxRatio, meanNeighbor;
     unsigned int minNeighbor, maxNeighbor, iteCounter;
@@ -236,7 +236,7 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
 
     Compadre::GMLS interpolationBasis =
         Compadre::GMLS(Compadre::ScalarTaylorPolynomial, Compadre::PointSample,
-                       3, dimension, "LU", "STANDARD");
+                       2, dimension, "LU", "STANDARD");
 
     interpolationBasis.setProblemData(
         refinedNeighborListsDevice, sourceParticleCoordsDevice,
@@ -324,7 +324,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
    *    particles are at the same site, no discretization is needed at this site
    *    and the particle is marked as false in the vector restrictedParticle.
    * 4. Do GMLS discretization for all particles marked as true in the vector
-   *    restricedParticle.
+   *    restricted particle.
    * 5. Assemble the restriction operator into a matrix.
    */
   double tStart, tEnd;
@@ -679,10 +679,10 @@ void PoissonEquationPreconditioning::ConstructRestriction(
     for (unsigned int i = 0; i < localTargetParticleNum; i++) {
       if (targetParticleType(i) == 0) {
         if (restrictedInteriorParticle[interiorCounter]) {
-          unsigned int numNeighborNum =
+          unsigned int numNeighbor =
               interiorNeighborListsHost(interiorCounter, 0);
-          index.resize(numNeighborNum);
-          for (unsigned int j = 0; j < numNeighborNum; j++) {
+          index.resize(numNeighbor);
+          for (unsigned int j = 0; j < numNeighbor; j++) {
             index[j] = interiorSourceParticleIndexHost(
                 interiorNeighborListsHost(interiorCounter, j + 1));
           }
@@ -694,10 +694,10 @@ void PoissonEquationPreconditioning::ConstructRestriction(
         interiorCounter++;
       } else {
         if (restrictedBoundaryParticle[boundaryCounter]) {
-          unsigned int numNeighborNum =
+          unsigned int numNeighbor =
               boundaryNeighborListsHost(boundaryCounter, 0);
-          index.resize(numNeighborNum);
-          for (unsigned int j = 0; j < numNeighborNum; j++) {
+          index.resize(numNeighbor);
+          for (unsigned int j = 0; j < numNeighbor; j++) {
             index[j] = boundarySourceParticleIndexHost(
                 boundaryNeighborListsHost(boundaryCounter, j + 1));
           }
@@ -717,61 +717,108 @@ void PoissonEquationPreconditioning::ConstructRestriction(
     // Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
     //     restrictedInteriorNeighborListsDevice(
     //         "restricted interior particle neighbor lists",
-    //         numRestrictedInteriorParticle, neighborListsHost.extent(1));
+    //         numRestrictedInteriorParticle,
+    //         interiorNeighborListsHost.extent(1));
     // Kokkos::View<std::size_t **>::HostMirror
     //     restrictedInteriorNeighborListsHost =
     //         Kokkos::create_mirror_view(restrictedInteriorNeighborListsDevice);
 
     // Kokkos::View<double *, Kokkos::DefaultExecutionSpace>
-    // refinedEpsilonDevice(
-    //     "refined particle epsilon", refinedParticleNum);
-    // Kokkos::View<double *>::HostMirror refinedEpsilonHost =
-    //     Kokkos::create_mirror_view(refinedEpsilonDevice);
+    //     restrictedInteriorEpsilonDevice("restricted interior particle
+    //     epsilon",
+    //                                     numRestrictedInteriorParticle);
+    // Kokkos::View<double *>::HostMirror restrictedInteriorEpsilonHost =
+    //     Kokkos::create_mirror_view(restrictedInteriorEpsilonDevice);
 
     // Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-    //     refinedParticleCoordsDevice("refined particle coord",
-    //                                 refinedParticleNum, dimension);
-    // Kokkos::View<double **>::HostMirror refinedParticleCoordsHost =
-    //     Kokkos::create_mirror_view(refinedParticleCoordsDevice);
+    //     restrictedInteriorParticleCoordsDevice(
+    //         "restricted interior particle coord",
+    //         numRestrictedInteriorParticle, dimension);
+    // Kokkos::View<double **>::HostMirror restrictedInteriorParticleCoordsHost
+    // =
+    //     Kokkos::create_mirror_view(restrictedInteriorParticleCoordsDevice);
 
-    // unsigned int refinedCounter;
-    // refinedCounter = 0;
+    // interiorCounter = 0;
+    // unsigned int restrictedInteriorCounter = 0;
     // for (unsigned int i = 0; i < localTargetParticleNum; i++) {
-    //   if (refinedParticle[i]) {
-    //     refinedEpsilonHost(refinedCounter) = epsilonHost(i);
-    //     for (unsigned int j = 0; j <= neighborListsHost(i, 0); j++) {
-    //       refinedNeighborListsHost(refinedCounter, j) = neighborListsHost(i,
-    //       j);
+    //   if (targetParticleType(i) == 0) {
+    //     if (restrictedInteriorParticle[interiorCounter]) {
+    //       restrictedInteriorEpsilonHost(restrictedInteriorCounter) =
+    //           interiorEpsilonHost(interiorCounter);
+    //       for (unsigned int j = 0;
+    //            j <= interiorNeighborListsHost(interiorCounter, 0); j++) {
+    //         restrictedInteriorNeighborListsHost(restrictedInteriorCounter, j)
+    //         =
+    //             interiorNeighborListsHost(interiorCounter, j);
+    //       }
+    //       for (unsigned int j = 0; j < dimension; j++) {
+    //         restrictedInteriorParticleCoordsHost(restrictedInteriorCounter,
+    //         j) =
+    //             interiorTargetParticleCoordsHost(interiorCounter, j);
+    //       }
+    //       restrictedInteriorCounter++;
     //     }
-    //     for (unsigned int j = 0; j < dimension; j++) {
-    //       refinedParticleCoordsHost(refinedCounter, j) =
-    //           targetParticleCoordsHost(i, j);
-    //     }
-
-    //     refinedCounter++;
+    //     interiorCounter++;
     //   }
     // }
 
-    // Kokkos::deep_copy(refinedParticleCoordsDevice,
-    // refinedParticleCoordsHost); Kokkos::deep_copy(refinedEpsilonDevice,
-    // refinedEpsilonHost); Kokkos::deep_copy(refinedNeighborListsDevice,
-    // refinedNeighborListsHost);
+    // Kokkos::deep_copy(restrictedInteriorNeighborListsDevice,
+    //                   restrictedInteriorNeighborListsHost);
+    // Kokkos::deep_copy(restrictedInteriorEpsilonDevice,
+    //                   restrictedInteriorEpsilonHost);
+    // Kokkos::deep_copy(restrictedInteriorParticleCoordsDevice,
+    //                   restrictedInteriorParticleCoordsHost);
+
+    // Compadre::GMLS restrictionInteriorBasis =
+    //     Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
+    //     Compadre::PointSample,
+    //                    2, dimension, "LU", "STANDARD");
+
+    // restrictionInteriorBasis.setProblemData(
+    //     restrictedInteriorNeighborListsDevice,
+    //     interiorSourceParticleCoordsHost,
+    //     restrictedInteriorParticleCoordsDevice,
+    //     restrictedInteriorEpsilonDevice);
+
+    // restrictionInteriorBasis.addTargets(Compadre::ScalarPointEvaluation);
+
+    // restrictionInteriorBasis.setWeightingType(
+    //     Compadre::WeightingFunctionType::Power);
+    // restrictionInteriorBasis.setWeightingParameter(4);
+    // restrictionInteriorBasis.setOrderOfQuadraturePoints(2);
+    // restrictionInteriorBasis.setDimensionOfQuadraturePoints(1);
+    // restrictionInteriorBasis.setQuadratureType("LINE");
+
+    // restrictionInteriorBasis.generateAlphas(1, false);
+
+    // auto solutionSet = restrictionInteriorBasis.getSolutionSetHost();
+    // auto restrictionInteriorAlpha = solutionSet->getAlphas();
+
+    // const unsigned int scalarIndex = solutionSet->getAlphaColumnOffset(
+    //     Compadre::ScalarPointEvaluation, 0, 0, 0, 0);
 
     // build interior restriction basis
     interiorCounter = 0;
     boundaryCounter = 0;
+    // restrictedInteriorCounter = 0;
     for (unsigned int i = 0; i < localTargetParticleNum; i++) {
       if (targetParticleType(i) == 0) {
         if (restrictedInteriorParticle[interiorCounter]) {
-          unsigned int numNeighborNum =
+          unsigned int numNeighbor =
               interiorNeighborListsHost(interiorCounter, 0);
-          index.resize(numNeighborNum);
-          value.resize(numNeighborNum);
-          for (unsigned int j = 0; j < numNeighborNum; j++) {
+          index.resize(numNeighbor);
+          value.resize(numNeighbor);
+          for (unsigned int j = 0; j < numNeighbor; j++) {
             index[j] = interiorSourceParticleIndexHost(
                 interiorNeighborListsHost(interiorCounter, j + 1));
-            value[j] = 1.0 / (double)numNeighborNum;
+
+            // auto alphaIndex = solutionSet->getAlphaIndex(
+            //     restrictedInteriorCounter, scalarIndex);
+            // value[j] = restrictionInteriorAlpha(alphaIndex + j);
+            value[j] = 1.0 / (double)numNeighbor;
           }
+
+          // restrictedInteriorCounter++;
         } else {
           index.resize(1);
           value.resize(1);
@@ -782,14 +829,14 @@ void PoissonEquationPreconditioning::ConstructRestriction(
         interiorCounter++;
       } else {
         if (restrictedBoundaryParticle[boundaryCounter]) {
-          unsigned int numNeighborNum =
+          unsigned int numNeighbor =
               boundaryNeighborListsHost(boundaryCounter, 0);
-          index.resize(numNeighborNum);
-          value.resize(numNeighborNum);
-          for (unsigned int j = 0; j < numNeighborNum; j++) {
+          index.resize(numNeighbor);
+          value.resize(numNeighbor);
+          for (unsigned int j = 0; j < numNeighbor; j++) {
             index[j] = boundarySourceParticleIndexHost(
                 boundaryNeighborListsHost(boundaryCounter, j + 1));
-            value[j] = 1.0 / (double)numNeighborNum;
+            value[j] = 1.0 / (double)numNeighbor;
           }
         } else {
           index.resize(1);

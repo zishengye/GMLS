@@ -11,3 +11,7 @@ target_link_libraries(test_particle ${GTEST_LIBRARIES} -pthread gmls_module)
 add_executable(test_poisson ${TEST_SOURCE_DIR}/TestPoisson.cpp)
 target_include_directories(test_poisson PUBLIC ${GTEST_INCLUDE_DIRS})
 target_link_libraries(test_poisson ${GTEST_LIBRARIES} -pthread gmls_module)
+
+add_executable(test_stokes ${TEST_SOURCE_DIR}/TestStokes.cpp)
+target_include_directories(test_stokes PUBLIC ${GTEST_INCLUDE_DIRS})
+target_link_libraries(test_stokes ${GTEST_LIBRARIES} -pthread gmls_module)

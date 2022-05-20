@@ -61,7 +61,7 @@ link_libraries(${MPI_CXX_LIBRARIES})
 
 file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
-add_compile_options(-O3 -Werror -Wall -Wextra -Wwrite-strings -Wno-unused-function -Wno-unused-parameter -Wno-deprecated-copy -fopenmp -fPIC)
+add_compile_options(-O3 -DNDEBUG -Werror -Wall -Wextra -Wwrite-strings -Wno-unused-function -Wno-unused-parameter -Wno-deprecated-copy -fopenmp -fPIC)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 

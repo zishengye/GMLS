@@ -31,6 +31,8 @@ TEST(PoissonEquationTest, 2DLinearSystemSolving) {
     equation.SetBoundaryRhs([](const double x, const double y, const double z) {
       return cos(x) * cos(y);
     });
+    equation.SetKappa(
+        [](const double x, const double y, const double z) { return 1.0; });
 
     equation.Init();
     equation.Update();
@@ -57,6 +59,8 @@ TEST(PoissonEquationTest, 2DLinearSystemSolving) {
     equation.SetBoundaryRhs([](const double x, const double y, const double z) {
       return cos(x) * cos(y);
     });
+    equation.SetKappa(
+        [](const double x, const double y, const double z) { return 1.0; });
 
     equation.Init();
     equation.Update();
@@ -92,6 +96,8 @@ TEST(PoissonEquationTest, 2DAdaptiveRefinement) {
     equation.SetBoundaryRhs([](const double x, const double y, const double z) {
       return cos(x) * cos(y);
     });
+    equation.SetKappa(
+        [](const double x, const double y, const double z) { return 1.0; });
     equation.SetAnalyticalFieldSolution(
         [](const double x, const double y, const double z) {
           return cos(x) * cos(y);
@@ -146,6 +152,8 @@ TEST(PoissonEquationTest, 3DLinearSystemSolving) {
     equation.SetBoundaryRhs([](const double x, const double y, const double z) {
       return cos(x) * cos(y) * cos(z);
     });
+    equation.SetKappa(
+        [](const double x, const double y, const double z) { return 1.0; });
 
     equation.Init();
     equation.Update();
@@ -174,7 +182,7 @@ TEST(PoissonEquationTest, 3DAdaptiveRefinement) {
     equation.SetDomainSize(size);
     equation.SetDomainType(Box);
     equation.SetMaxRefinementIteration(10);
-    equation.SetOutputLevel(0);
+    equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio();
     equation.SetInteriorRhs([](const double x, const double y, const double z) {
       return 3.0 * cos(x) * cos(y) * cos(z);
@@ -182,6 +190,8 @@ TEST(PoissonEquationTest, 3DAdaptiveRefinement) {
     equation.SetBoundaryRhs([](const double x, const double y, const double z) {
       return cos(x) * cos(y) * cos(z);
     });
+    equation.SetKappa(
+        [](const double x, const double y, const double z) { return 1.0; });
     equation.SetAnalyticalFieldSolution(
         [](const double x, const double y, const double z) {
           return cos(x) * cos(y) * cos(z);
