@@ -5,6 +5,11 @@
 
 #include "Equation.hpp"
 
+void Equation::AddLinearSystem(std::shared_ptr<PetscMatrix> &mat) {
+  linearSystemsPtr_.push_back(mat);
+  preconditionerPtr_->AddLinearSystem(mat);
+}
+
 void Equation::InitLinearSystem() {
   BuildGhost();
 
@@ -12,10 +17,6 @@ void Equation::InitLinearSystem() {
   if (mpiRank_ == 0)
     printf("Start of preparing linear system with %lu particles\n",
            globalParticleNum);
-
-  auto newMat = std::make_shared<PetscMatrix>();
-  linearSystemsPtr_.push_back(newMat);
-  preconditionerPtr_->AddLinearSystem(newMat);
 
   MPI_Barrier(MPI_COMM_WORLD);
 }
@@ -47,7 +48,7 @@ void Equation::InitPreconditioner() {
   if (ksp != PETSC_NULL)
     KSPDestroy(&ksp);
   KSPCreate(MPI_COMM_WORLD, &ksp);
-  KSPSetType(ksp, KSPGMRES);
+  KSPSetType(ksp, KSPFGMRES);
   KSPSetOperators(ksp, linearSystemsPtr_[refinementIteration_]->GetReference(),
                   linearSystemsPtr_[refinementIteration_]->GetReference());
   KSPSetFromOptions(ksp);
@@ -165,7 +166,7 @@ void Equation::Mark() {
     printf("Marked %ld particles with mark ratio: %.2f\n", markedParticleNum,
            markRatio_);
 
-  // ensure quasiuniform
+  // ensure quasi-uniform
   auto &coords = particleMgr_.GetParticleCoords();
   auto &sourceCoords = hostGhostParticleCoords_;
   auto &particleType = particleMgr_.GetParticleType();
@@ -238,7 +239,7 @@ void Equation::Mark() {
 
             std::size_t ghostRefinementLevel =
                 ghostParticleRefinementLevel[neighborParticleIndex] +
-                ghostSplitTag[neighborParticleIndex];
+                (ghostSplitTag[neighborParticleIndex] != 0);
             if (ghostRefinementLevel < minRefinementLevel)
               minRefinementLevel = ghostRefinementLevel;
             if (ghostRefinementLevel > maxRefinementLevel)
@@ -319,31 +320,6 @@ void Equation::Output() {
   }
 
   std::ofstream vtkStream;
-  // output epsilon
-  if (mpiRank_ == 0) {
-    vtkStream.open(outputFileName,
-                   std::ios::out | std::ios::app | std::ios::binary);
-
-    vtkStream << "SCALARS epsilon float 1" << std::endl
-              << "LOOKUP_TABLE default" << std::endl;
-
-    vtkStream.close();
-  }
-  for (int rank = 0; rank < mpiSize_; rank++) {
-    if (rank == mpiRank_) {
-      vtkStream.open(outputFileName,
-                     std::ios::out | std::ios::app | std::ios::binary);
-      for (std::size_t i = 0; i < epsilon_.extent(0); i++) {
-        float x = epsilon_(i);
-        SwapEnd(x);
-        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
-      }
-      vtkStream.close();
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-  }
-
   // output number of neighbor
   if (mpiRank_ == 0) {
     vtkStream.open(outputFileName,
@@ -549,12 +525,13 @@ void Equation::Update() {
     this->DiscretizeEquation();
     this->InitPreconditioner();
     {
-      double tStart, tEnd;
-      tStart = MPI_Wtime();
+      double tLinearSystemStart, tLinearSystemEnd;
+      tLinearSystemStart = MPI_Wtime();
       this->SolveEquation();
-      tEnd = MPI_Wtime();
+      tLinearSystemEnd = MPI_Wtime();
       if (mpiRank_ == 0)
-        printf("Duration of solving linear system: %.4fs\n", tEnd - tStart);
+        printf("Duration of solving linear system: %.4fs\n",
+               tLinearSystemEnd - tLinearSystemStart);
     }
     this->CalculateError();
     this->Mark();

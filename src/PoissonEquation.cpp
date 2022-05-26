@@ -39,6 +39,9 @@ void PoissonEquation::InitLinearSystem() {
   if (mpiRank_ == 0)
     printf("Start of initializing physics: Poisson\n");
 
+  auto newMat = std::make_shared<PetscMatrix>();
+  AddLinearSystem(newMat);
+
   auto &sourceCoords = hostGhostParticleCoords_;
   auto &sourceIndex = hostGhostParticleIndex_;
   auto &coords = particleMgr_.GetParticleCoords();
@@ -437,6 +440,17 @@ void PoissonEquation::ConstructLinearSystem() {
 
   const unsigned int dimension = particleMgr_.GetDimension();
 
+  Kokkos::resize(kappa_, localParticleNum);
+
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, localParticleNum),
+      KOKKOS_LAMBDA(const int i) {
+        kappa_(i) = kappaFunc_(coords(i, 0), coords(i, 1), coords(i, 2));
+      });
+  Kokkos::fence();
+  HostRealVector sourceKappa;
+  ghost_.ApplyGhost(kappa_, sourceKappa);
+
   auto &A = *(linearSystemsPtr_[refinementIteration_]);
 
   const unsigned int batchSize = (dimension == 2) ? 5000 : 1000;
@@ -566,9 +580,11 @@ void PoissonEquation::ConstructLinearSystem() {
                 sourceIndex(neighborLists_(i, j + 1));
             auto alphaIndex = solutionSet->getAlphaIndex(
                 interiorCounter, interiorLaplacianIndex);
+            double kappaIJ =
+                0.5 * (kappa_(i) + sourceKappa(neighborLists_(i, j + 1)));
             index[j] = neighborParticleIndex;
-            value[j] = interiorAlpha(alphaIndex + j);
-            Aij -= interiorAlpha(alphaIndex + j);
+            value[j] = kappaIJ * interiorAlpha(alphaIndex + j);
+            Aij -= kappaIJ * interiorAlpha(alphaIndex + j);
           }
           value[0] = Aij;
 
@@ -1064,6 +1080,33 @@ void PoissonEquation::Output() {
     MPI_Barrier(MPI_COMM_WORLD);
   }
 
+  // output kappa
+  if (mpiRank_ == 0) {
+    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                       ".vtk",
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS kappa float 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                         ".vtk",
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (std::size_t i = 0; i < kappa_.extent(0); i++) {
+        float x = kappa_(i);
+        SwapEnd(x);
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
   // output error
   if (mpiRank_ == 0) {
     vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
@@ -1130,4 +1173,10 @@ void PoissonEquation::SetAnalyticalFieldGradientSolution(
                                const unsigned int)> &func) {
   analyticalFieldGradientSolution_ = func;
   isFieldGradientAnalyticalSolutionSet_ = true;
+}
+
+void PoissonEquation::SetKappa(
+    const std::function<double(const double, const double, const double)>
+        &func) {
+  kappaFunc_ = func;
 }

@@ -41,6 +41,7 @@ protected:
   HostIndexVector hostGhostParticleType_;
   HostIndexVector hostGhostParticleIndex_;
 
+  void AddLinearSystem(std::shared_ptr<PetscMatrix> &mat);
   virtual void InitLinearSystem();
   virtual void ConstructLinearSystem();
   virtual void ConstructRhs();

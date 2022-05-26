@@ -23,7 +23,7 @@ protected:
   virtual void Output();
 
   HostRealMatrix recoveredGradientChunk_;
-  HostRealVector field_, oldField_;
+  HostRealVector field_, oldField_, kappa_;
 
   std::function<double(const double, const double, const double)> interiorRhs_;
   std::function<double(const double, const double, const double)> boundaryRhs_;
@@ -32,6 +32,7 @@ protected:
   std::function<double(const double, const double, const double,
                        const unsigned int)>
       analyticalFieldGradientSolution_;
+  std::function<double(const double, const double, const double)> kappaFunc_;
 
   bool isFieldAnalyticalSolutionSet_;
   bool isFieldGradientAnalyticalSolutionSet_;
