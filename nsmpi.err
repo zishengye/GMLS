@@ -2052,3 +2052,331 @@ Consolidate compiler generated dependencies of target test_poisson
 [ 94%] Building CXX object CMakeFiles/test_poisson.dir/test/TestPoisson.cpp.o
 [100%] Linking CXX executable bin/test_poisson
 [100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp: In lambda function:
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:175:24: error: assignment of read-only location ‘diagNonzero.std::vector<int>::operator[](((std::vector<int>::size_type)((unsigned int)i)))’
+  175 |         diagNonzero[i] = diagMatrixCol_[i].size();
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:176:27: error: assignment of read-only location ‘offDiagNonzero.std::vector<int>::operator[](((std::vector<int>::size_type)((unsigned int)i)))’
+  176 |         offDiagNonzero[i] = offDiagMatrixCol_[i].size();
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp: In member function ‘virtual long unsigned int PetscMatrix::GraphAssemble()’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:180:3: error: ‘MatCreteAIJ’ was not declared in this scope; did you mean ‘MatCreateAIJ’?
+  180 |   MatCreteAIJ(MPI_COMM_WORLD, localRowSize_, localColSize_, PETSC_DECIDE,
+      |   ^~~~~~~~~~~
+      |   MatCreateAIJ
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:174: CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp: In lambda function:
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:174:20: error: expected ‘{’ before ‘[’ token
+  174 |       KOKKOS_LAMBDA[=](const unsigned int i) {
+      |                    ^
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp: In member function ‘virtual long unsigned int PetscMatrix::GraphAssemble()’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:174:21: error: expected primary-expression before ‘=’ token
+  174 |       KOKKOS_LAMBDA[=](const unsigned int i) {
+      |                     ^
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:174:22: error: expected primary-expression before ‘]’ token
+  174 |       KOKKOS_LAMBDA[=](const unsigned int i) {
+      |                      ^
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:174:24: error: expected primary-expression before ‘const’
+  174 |       KOKKOS_LAMBDA[=](const unsigned int i) {
+      |                        ^~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:180:3: error: ‘MatCreteAIJ’ was not declared in this scope; did you mean ‘MatCreateAIJ’?
+  180 |   MatCreteAIJ(MPI_COMM_WORLD, localRowSize_, localColSize_, PETSC_DECIDE,
+      |   ^~~~~~~~~~~
+      |   MatCreateAIJ
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:174: CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp: In member function ‘virtual long unsigned int PetscMatrix::GraphAssemble()’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:180:3: error: ‘MatCreteAIJ’ was not declared in this scope; did you mean ‘MatCreateAIJ’?
+  180 |   MatCreteAIJ(MPI_COMM_WORLD, localRowSize_, localColSize_, PETSC_DECIDE,
+      |   ^~~~~~~~~~~
+      |   MatCreateAIJ
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:174: CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/Equation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/MultilevelPreconditioning.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 23%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 29%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 35%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 41%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 47%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp: In member function ‘void PetscMatrix::Resize(PetscInt, PetscInt, PetscInt)’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:50:3: error: ‘rankRowSize_’ was not declared in this scope; did you mean ‘rankColSize_’?
+   50 |   rankRowSize_.resize(mpiSize_);
+      |   ^~~~~~~~~~~~
+      |   rankColSize_
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp: In member function ‘void PetscMatrix::Increment(PetscInt, const std::vector<int>&, const std::vector<double>&)’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:159:23: error: ‘rankRowSize_’ was not declared in this scope; did you mean ‘rankColSize_’?
+  159 |   rowIndex[0] = row + rankRowSize_[mpiRank_];
+      |                       ^~~~~~~~~~~~
+      |                       rankColSize_
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:174: CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/Equation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/MultilevelPreconditioning.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 23%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 29%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 35%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 41%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 47%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+[ 52%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Building CXX object CMakeFiles/test_poisson.dir/test/TestPoisson.cpp.o
+[100%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp: In member function ‘void PetscMatrix::Increment(PetscInt, PetscInt, PetscReal)’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:108:79: error: cannot resolve overloaded function ‘index’ based on conversion to type ‘const PetscInt*’ {aka ‘const int*’}
+  108 |   MatSetValues(mat_, row + rankRowSize_[mpiRank_], index, value, INSERT_VALUES);
+      |                                                                               ^
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:174: CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp: In member function ‘void PetscMatrix::Increment(PetscInt, PetscInt, PetscReal)’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:108:52: error: invalid conversion from ‘PetscInt’ {aka ‘int’} to ‘const PetscInt*’ {aka ‘const int*’} [-fpermissive]
+  108 |   MatSetValues(mat_, row + rankRowSize_[mpiRank_], col, value, INSERT_VALUES);
+      |                                                    ^~~
+      |                                                    |
+      |                                                    PetscInt {aka int}
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:108:64: error: cannot convert ‘InsertMode’ to ‘const PetscInt*’ {aka ‘const int*’}
+  108 |   MatSetValues(mat_, row + rankRowSize_[mpiRank_], col, value, INSERT_VALUES);
+      |                                                                ^~~~~~~~~~~~~
+      |                                                                |
+      |                                                                InsertMode
+In file included from /opt/petsc/include/petscpc.h:6,
+                 from /opt/petsc/include/petscksp.h:6,
+                 from /home/zishengy/Projects/GMLS_Solver/include/PetscVector.hpp:6,
+                 from /home/zishengy/Projects/GMLS_Solver/include/PetscMatrixBase.hpp:4,
+                 from /home/zishengy/Projects/GMLS_Solver/include/PetscMatrix.hpp:11,
+                 from /home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:1:
+/opt/petsc/include/petscmat.h:413:81: note:   initializing argument 5 of ‘PetscErrorCode MatSetValues(Mat, PetscInt, const PetscInt*, PetscInt, const PetscInt*, const PetscScalar*, InsertMode)’
+  413 | PETSC_EXTERN PetscErrorCode MatSetValues(Mat,PetscInt,const PetscInt[],PetscInt,const PetscInt[],const PetscScalar[],InsertMode);
+      |                                                                                 ^~~~~~~~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:174: CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/Equation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/MultilevelPreconditioning.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 23%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 29%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 35%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 41%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 47%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+[ 52%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Building CXX object CMakeFiles/test_poisson.dir/test/TestPoisson.cpp.o
+[100%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Building CXX object CMakeFiles/test_poisson.dir/test/TestPoisson.cpp.o
+[100%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Building CXX object CMakeFiles/test_poisson.dir/test/TestPoisson.cpp.o
+[100%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_geometry
+[ 94%] Building CXX object CMakeFiles/test_geometry.dir/test/TestGeometry.cpp.o
+[100%] Linking CXX executable bin/test_geometry
+[100%] Built target test_geometry
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_particle
+[ 94%] Building CXX object CMakeFiles/test_particle.dir/test/TestParticle.cpp.o
+[100%] Linking CXX executable bin/test_particle
+[100%] Built target test_particle
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/ParticleManager.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_particle
+[ 94%] Linking CXX executable bin/test_particle
+[100%] Built target test_particle
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/ParticleManager.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_particle
+[ 94%] Linking CXX executable bin/test_particle
+[100%] Built target test_particle
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/ParticleManager.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_particle
+[ 94%] Linking CXX executable bin/test_particle
+[100%] Built target test_particle
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/ParticleManager.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_particle
+[ 94%] Linking CXX executable bin/test_particle
+[100%] Built target test_particle
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/ParticleManager.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_particle
+[ 94%] Linking CXX executable bin/test_particle
+[100%] Built target test_particle
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_particle
+[100%] Built target test_particle
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/ParticleManager.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_particle
+[ 94%] Linking CXX executable bin/test_particle
+[100%] Built target test_particle
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/ParticleManager.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_particle
+[ 94%] Linking CXX executable bin/test_particle
+[100%] Built target test_particle
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson

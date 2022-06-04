@@ -614,10 +614,6 @@ void HierarchicalParticleManager::Init() {
           0, hostParticleRefinementLevel_.extent(0)),
       KOKKOS_LAMBDA(const int i) { hostParticleRefinementLevel_(i) = 0; });
   Kokkos::fence();
-
-  // repartition objects defined in hierarchical scheme
-  auto &partition = particleSetPtr_->GetPartition();
-  partition.ApplyPartition(hostParticleRefinementLevel_);
 }
 
 void HierarchicalParticleManager::Clear() { ParticleManager::Clear(); }

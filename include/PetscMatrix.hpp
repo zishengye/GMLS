@@ -20,9 +20,12 @@ protected:
   std::vector<PetscInt> offDiagCol_;
   std::vector<PetscReal> offDiagVal_;
 
+  std::vector<unsigned long> rankColSize_, rankRowSize_;
+
   PetscInt localRowSize_, localColSize_;
   PetscInt globalRowSize_, globalColSize_;
   PetscInt colRangeLow_, colRangeHigh_;
+  PetscInt rowRangeLow_, rowRangeHigh_;
   PetscInt blockSize_, blockStorage_;
 
   std::vector<std::vector<PetscInt>> diagMatrixCol_, offDiagMatrixCol_;
