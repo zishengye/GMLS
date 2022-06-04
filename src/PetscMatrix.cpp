@@ -114,9 +114,9 @@ unsigned long PetscMatrix::GraphAssemble() {
       });
   Kokkos::fence();
 
-  MatCreateAIJ(MPI_COMM_WORLD, localRowSize_, localColSize_, PETSC_DECIDE,
-               PETSC_DECIDE, 0, diagNonzero.data(), 0, offDiagNonzero.data(),
-               &mat_);
+  MatCreateMPIAIJMKL(MPI_COMM_WORLD, localRowSize_, localColSize_, PETSC_DECIDE,
+                     PETSC_DECIDE, 0, diagNonzero.data(), 0,
+                     offDiagNonzero.data(), &mat_);
 
   return diagNumNonzero + offDiagNumNonzero;
 }

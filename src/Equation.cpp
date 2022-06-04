@@ -143,7 +143,7 @@ void Equation::Mark() {
   Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
                            0, error_.extent(0)),
                        [&](const int i) {
-                         if (error_(i) >= currentErrorSplit)
+                         if (error_(i) > currentErrorSplit)
                            splitTag_(i) = 1;
                          else
                            splitTag_(i) = 0;
@@ -380,78 +380,71 @@ void Equation::ConstructNeighborLists(const unsigned int satisfiedNumNeighbor) {
   const unsigned long globalParticleNum = particleMgr_.GetGlobalParticleNum();
 
   // construct neighbor lists
-  Kokkos::resize(neighborLists_, localParticleNum, 1);
+  Kokkos::resize(neighborLists_, localParticleNum, satisfiedNumNeighbor + 1);
   Kokkos::resize(epsilon_, localParticleNum);
-
-  for (std::size_t i = 0; i < localParticleNum; i++) {
-    epsilon_(i) = 1.50005 * spacing(i);
-  }
 
   auto pointCloudSearch(Compadre::CreatePointCloudSearch(
       sourceCoords, particleMgr_.GetDimension()));
-  bool isNeighborSearchPassed = false;
 
+  // initialize epsilon
+  pointCloudSearch.generate2DNeighborListsFromKNNSearch(
+      true, coords, neighborLists_, epsilon_, satisfiedNumNeighbor, 1.0);
+
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, localParticleNum),
+      [&](const int i) {
+        double minEpsilon = 1.50005 * spacing(i);
+        double minSpacing = 0.25 * spacing(i);
+        epsilon_(i) = std::max(minEpsilon, epsilon_(i));
+        unsigned int scaling =
+            std::ceil((epsilon_(i) - minEpsilon) / minSpacing);
+        epsilon_(i) = minEpsilon + scaling * minSpacing;
+      });
+  Kokkos::fence();
+
+  // perform neighbor search by epsilon size
   double maxRatio, meanNeighbor;
-  unsigned int minNeighbor, maxNeighbor, iteCounter;
-  iteCounter = 0;
-  while (!isNeighborSearchPassed) {
-    iteCounter++;
-    unsigned int minNeighborLists =
-        1 + pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
-                true, coords, neighborLists_, epsilon_, 0.0, 0.0);
-    if (minNeighborLists > neighborLists_.extent(1))
-      Kokkos::resize(neighborLists_, localParticleNum, minNeighborLists);
-    pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
-        false, coords, neighborLists_, epsilon_, 0.0, 0.0);
+  unsigned int minNeighbor, maxNeighbor;
+  unsigned int minNeighborLists =
+      1 + pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+              true, coords, neighborLists_, epsilon_, 0.0, 0.0);
+  if (minNeighborLists > neighborLists_.extent(1))
+    Kokkos::resize(neighborLists_, localParticleNum, minNeighborLists);
+  pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+      false, coords, neighborLists_, epsilon_, 0.0, 0.0);
 
-    bool passNeighborNumCheck = true;
+  maxRatio = 0.0;
+  minNeighbor = 1000;
+  maxNeighbor = 0;
+  meanNeighbor = 0;
+  for (std::size_t i = 0; i < localParticleNum; i++) {
+    if (neighborLists_(i, 0) < minNeighbor)
+      minNeighbor = neighborLists_(i, 0);
+    if (neighborLists_(i, 0) > maxNeighbor)
+      maxNeighbor = neighborLists_(i, 0);
+    meanNeighbor += neighborLists_(i, 0);
 
-    maxRatio = 0.0;
-    minNeighbor = 1000;
-    maxNeighbor = 0;
-    meanNeighbor = 0;
-    for (std::size_t i = 0; i < localParticleNum; i++) {
-      if (neighborLists_(i, 0) <= satisfiedNumNeighbor) {
-        epsilon_(i) += 0.25 * spacing(i);
-        passNeighborNumCheck = false;
-      }
-      if (neighborLists_(i, 0) < minNeighbor)
-        minNeighbor = neighborLists_(i, 0);
-      if (neighborLists_(i, 0) > maxNeighbor)
-        maxNeighbor = neighborLists_(i, 0);
-      meanNeighbor += neighborLists_(i, 0);
-
-      if (maxRatio < epsilon_(i) / spacing(i)) {
-        maxRatio = epsilon_(i) / spacing(i);
-      }
+    if (maxRatio < epsilon_(i) / spacing(i)) {
+      maxRatio = epsilon_(i) / spacing(i);
     }
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &minNeighbor, 1, MPI_UNSIGNED, MPI_MIN,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &maxNeighbor, 1, MPI_UNSIGNED, MPI_MAX,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &meanNeighbor, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &maxRatio, 1, MPI_DOUBLE, MPI_MAX,
-                  MPI_COMM_WORLD);
-
-    unsigned int corePassCheck = 0;
-    if (!passNeighborNumCheck)
-      corePassCheck = 1;
-
-    MPI_Allreduce(MPI_IN_PLACE, &corePassCheck, 1, MPI_UNSIGNED, MPI_SUM,
-                  MPI_COMM_WORLD);
-    if (corePassCheck == 0)
-      isNeighborSearchPassed = true;
   }
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &minNeighbor, 1, MPI_UNSIGNED, MPI_MIN,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &maxNeighbor, 1, MPI_UNSIGNED, MPI_MAX,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &meanNeighbor, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &maxRatio, 1, MPI_DOUBLE, MPI_MAX,
+                MPI_COMM_WORLD);
 
   MPI_Barrier(MPI_COMM_WORLD);
   if (mpiRank_ == 0)
-    printf("\nAfter satisfying least number of neighbors\niteration count: %d "
-           "min neighbor: %d, max neighbor: %d , mean "
+    printf("\nAfter satisfying least number of neighbors\nmin neighbor: %d, "
+           "max neighbor: %d , mean "
            "neighbor: %.2f, max ratio: %.2f\n",
-           iteCounter, minNeighbor, maxNeighbor,
-           meanNeighbor / (double)globalParticleNum, maxRatio);
+           minNeighbor, maxNeighbor, meanNeighbor / (double)globalParticleNum,
+           maxRatio);
 }
 
 Equation::Equation()

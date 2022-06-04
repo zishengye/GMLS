@@ -56,6 +56,14 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
     HostRealVector &targetParticleSizeHost =
         particleMgr->GetParticleSizeByLevel(currentLevel);
 
+    const unsigned int dimension = particleMgr->GetDimension();
+
+    auto pointCloudSearch(
+        Compadre::CreatePointCloudSearch(sourceParticleCoordsHost, dimension));
+
+    const unsigned int satisfiedNumNeighbor =
+        2 * Compadre::GMLS::getNP(2, dimension);
+
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
         sourceParticleCoordsDevice("interpolation source particle coords",
                                    sourceParticleCoordsHost.extent(0),
@@ -64,11 +72,10 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
 
     Kokkos::View<std::size_t **, Kokkos::DefaultHostExecutionSpace>
         neighborListsHost("interpolation neighbor lists",
-                          targetParticleCoordsHost.extent(0), 1);
+                          targetParticleCoordsHost.extent(0),
+                          satisfiedNumNeighbor + 1);
     Kokkos::View<double *, Kokkos::DefaultHostExecutionSpace> epsilonHost(
         "interpolation epsilon", targetParticleCoordsHost.extent(0));
-
-    const unsigned int dimension = particleMgr->GetDimension();
 
     const unsigned int localTargetParticleNum =
         targetParticleCoordsHost.extent(0);
@@ -78,62 +85,51 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
     MPI_Allreduce(MPI_IN_PLACE, &globalTargetParticleNum, 1, MPI_UNSIGNED_LONG,
                   MPI_SUM, MPI_COMM_WORLD);
 
-    for (unsigned int i = 0; i < localTargetParticleNum; i++) {
-      epsilonHost(i) = 1.50005 * targetParticleSizeHost(i);
-    }
+    // initialize epsilon
+    pointCloudSearch.generate2DNeighborListsFromKNNSearch(
+        true, targetParticleCoordsHost, neighborListsHost, epsilonHost,
+        satisfiedNumNeighbor, 1.0);
 
-    auto pointCloudSearch(
-        Compadre::CreatePointCloudSearch(sourceParticleCoordsHost, dimension));
-    bool isNeighborSearchPassed = false;
-
-    const unsigned int satisfiedNumNeighbor =
-        2 * Compadre::GMLS::getNP(2, dimension);
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+            0, localTargetParticleNum),
+        [&](const int i) {
+          double minEpsilon = 1.50005 * targetParticleSizeHost(i);
+          double minSpacing = 0.25 * targetParticleSizeHost(i);
+          epsilonHost(i) = std::max(minEpsilon, epsilonHost(i));
+          unsigned int scaling =
+              std::ceil((epsilonHost(i) - minEpsilon) / minSpacing);
+          epsilonHost(i) = minEpsilon + scaling * minSpacing;
+        });
+    Kokkos::fence();
 
     double maxRatio, meanNeighbor;
-    unsigned int minNeighbor, maxNeighbor, iteCounter;
-    iteCounter = 0;
-    while (!isNeighborSearchPassed) {
-      iteCounter++;
-      unsigned int minNeighborLists =
-          1 + pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
-                  true, targetParticleCoordsHost, neighborListsHost,
-                  epsilonHost, 0.0, 0.0);
-      if (minNeighborLists > neighborListsHost.extent(1))
-        Kokkos::resize(neighborListsHost, localTargetParticleNum,
-                       minNeighborLists);
-      pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
-          false, targetParticleCoordsHost, neighborListsHost, epsilonHost, 0.0,
-          0.0);
+    unsigned int minNeighbor, maxNeighbor;
+    unsigned int minNeighborLists =
+        1 + pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+                true, targetParticleCoordsHost, neighborListsHost, epsilonHost,
+                0.0, 0.0);
+    if (minNeighborLists > neighborListsHost.extent(1))
+      Kokkos::resize(neighborListsHost, localTargetParticleNum,
+                     minNeighborLists);
+    pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+        false, targetParticleCoordsHost, neighborListsHost, epsilonHost, 0.0,
+        0.0);
 
-      bool passNeighborNumCheck = true;
+    maxRatio = 0.0;
+    minNeighbor = 1000;
+    maxNeighbor = 0;
+    meanNeighbor = 0;
+    for (unsigned int i = 0; i < localTargetParticleNum; i++) {
+      if (neighborListsHost(i, 0) < minNeighbor)
+        minNeighbor = neighborListsHost(i, 0);
+      if (neighborListsHost(i, 0) > maxNeighbor)
+        maxNeighbor = neighborListsHost(i, 0);
+      meanNeighbor += neighborListsHost(i, 0);
 
-      maxRatio = 0.0;
-      minNeighbor = 1000;
-      maxNeighbor = 0;
-      meanNeighbor = 0;
-      for (unsigned int i = 0; i < localTargetParticleNum; i++) {
-        if (neighborListsHost(i, 0) <= satisfiedNumNeighbor) {
-          epsilonHost(i) += 0.25 * targetParticleSizeHost(i);
-          passNeighborNumCheck = false;
-        }
-        if (neighborListsHost(i, 0) < minNeighbor)
-          minNeighbor = neighborListsHost(i, 0);
-        if (neighborListsHost(i, 0) > maxNeighbor)
-          maxNeighbor = neighborListsHost(i, 0);
-        meanNeighbor += neighborListsHost(i, 0);
-
-        if (maxRatio < epsilonHost(i) / targetParticleSizeHost(i)) {
-          maxRatio = epsilonHost(i) / targetParticleSizeHost(i);
-        }
+      if (maxRatio < epsilonHost(i) / targetParticleSizeHost(i)) {
+        maxRatio = epsilonHost(i) / targetParticleSizeHost(i);
       }
-      int corePassCheck = 0;
-      if (!passNeighborNumCheck)
-        corePassCheck = 1;
-
-      MPI_Allreduce(MPI_IN_PLACE, &corePassCheck, 1, MPI_INT, MPI_SUM,
-                    MPI_COMM_WORLD);
-      if (corePassCheck == 0)
-        isNeighborSearchPassed = true;
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -147,52 +143,60 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
                   MPI_COMM_WORLD);
 
     MPI_Barrier(MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD,
-                "\nAfter satisfying least number of neighbors when building "
-                "interpolation operator\niteration count: %d "
-                "min neighbor: %d, max neighbor: %d , mean "
-                "neighbor: %.2f, max ratio: %.2f\n",
-                iteCounter, minNeighbor, maxNeighbor,
-                meanNeighbor / (double)globalTargetParticleNum, maxRatio);
+    PetscPrintf(
+        PETSC_COMM_WORLD,
+        "\nAfter satisfying least number of neighbors when building "
+        "interpolation operator\nmin neighbor: %d, max neighbor: %d , mean "
+        "neighbor: %.2f, max ratio: %.2f\n",
+        minNeighbor, maxNeighbor,
+        meanNeighbor / (double)globalTargetParticleNum, maxRatio);
 
     int refinedParticleNum = 0;
     std::vector<bool> refinedParticle(localTargetParticleNum);
-    for (unsigned int i = 0; i < localTargetParticleNum; i++) {
-      double x, y, z;
-      x = targetParticleCoordsHost(i, 0) -
-          sourceParticleCoordsHost(neighborListsHost(i, 1), 0);
-      y = targetParticleCoordsHost(i, 1) -
-          sourceParticleCoordsHost(neighborListsHost(i, 1), 1);
-      z = targetParticleCoordsHost(i, 2) -
-          sourceParticleCoordsHost(neighborListsHost(i, 1), 2);
-      double distance = sqrt(x * x + y * y + z * z);
-      if (distance < 1e-3 * targetParticleSizeHost(i))
-        refinedParticle[i] = false;
-      else {
-        refinedParticle[i] = true;
-        refinedParticleNum++;
-      }
-    }
+    Kokkos::parallel_reduce(
+        "find refined particles",
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+            0, localTargetParticleNum),
+        [&](const std::size_t i, int &tRefinedParticleNum) {
+          double x, y, z;
+          x = targetParticleCoordsHost(i, 0) -
+              sourceParticleCoordsHost(neighborListsHost(i, 1), 0);
+          y = targetParticleCoordsHost(i, 1) -
+              sourceParticleCoordsHost(neighborListsHost(i, 1), 1);
+          z = targetParticleCoordsHost(i, 2) -
+              sourceParticleCoordsHost(neighborListsHost(i, 1), 2);
+          double distance = sqrt(x * x + y * y + z * z);
+          if (distance < 1e-3 * targetParticleSizeHost(i))
+            refinedParticle[i] = false;
+          else {
+            refinedParticle[i] = true;
+            tRefinedParticleNum++;
+          }
+        },
+        Kokkos::Sum<int>(refinedParticleNum));
+    Kokkos::fence();
 
     PetscMatrix &I = *(
         std::static_pointer_cast<PetscMatrix>(interpolationPtr_[currentLevel]));
     I.Resize(localTargetParticleNum, localSourceParticleNum);
-    std::vector<PetscInt> index;
-    std::vector<PetscReal> value;
-    for (unsigned int i = 0; i < localTargetParticleNum; i++) {
-      const PetscInt currentParticleIndex = i;
-      if (refinedParticle[i]) {
-        index.resize(neighborListsHost(i, 0));
-        for (unsigned int j = 0; j < neighborListsHost(i, 0); j++) {
-          index[j] = sourceParticleIndexHost(neighborListsHost(i, j + 1));
-        }
-      } else {
-        index.resize(1);
-        index[0] = sourceParticleIndexHost(neighborListsHost(i, 1));
-      }
-      std::sort(index.begin(), index.end());
-      I.SetColIndex(currentParticleIndex, index);
-    }
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+            0, localTargetParticleNum),
+        [&](const int i) {
+          std::vector<PetscInt> index;
+          const PetscInt currentParticleIndex = i;
+          if (refinedParticle[i]) {
+            index.resize(neighborListsHost(i, 0));
+            for (unsigned int j = 0; j < neighborListsHost(i, 0); j++) {
+              index[j] = sourceParticleIndexHost(neighborListsHost(i, j + 1));
+            }
+          } else {
+            index.resize(1);
+            index[0] = sourceParticleIndexHost(neighborListsHost(i, 1));
+          }
+          std::sort(index.begin(), index.end());
+          I.SetColIndex(currentParticleIndex, index);
+        });
 
     I.GraphAssemble();
 
@@ -259,6 +263,8 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
     const unsigned int scalarIndex = solutionSet->getAlphaColumnOffset(
         Compadre::ScalarPointEvaluation, 0, 0, 0, 0);
 
+    std::vector<PetscInt> index;
+    std::vector<PetscReal> value;
     refinedCounter = 0;
     for (unsigned int i = 0; i < localTargetParticleNum; i++) {
       if (refinedParticle[i]) {
@@ -461,84 +467,142 @@ void PoissonEquationPreconditioning::ConstructRestriction(
       }
     }
 
+    unsigned int minNeighborLists;
+    unsigned int satisfiedNumNeighbor = 2 * Compadre::GMLS::getNP(2, dimension);
+
     DeviceIndexMatrix interiorNeighborListsDevice(
-        "interior particle neighbor lists", localInteriorParticleNum, 1);
+        "interior particle neighbor lists", localInteriorParticleNum,
+        satisfiedNumNeighbor + 1);
     Kokkos::View<std::size_t **>::HostMirror interiorNeighborListsHost =
         Kokkos::create_mirror_view(interiorNeighborListsDevice);
-    DeviceIndexMatrix boundaryNeighborListsDevice(
-        "boundary particle neighbor list", localBoundaryParticleNum, 1);
-    Kokkos::View<std::size_t **>::HostMirror boundaryNeighborListsHost =
-        Kokkos::create_mirror_view(boundaryNeighborListsDevice);
 
     DeviceRealVector interiorEpsilonDevice("interior epsilon",
                                            localInteriorParticleNum);
     Kokkos::View<double *>::HostMirror interiorEpsilonHost =
         Kokkos::create_mirror_view(interiorEpsilonDevice);
+
+    // initialize epsilon
+    interiorPointCloudSearch.generate2DNeighborListsFromKNNSearch(
+        true, interiorTargetParticleCoordsHost, interiorNeighborListsHost,
+        interiorEpsilonHost, satisfiedNumNeighbor, 1.0);
+
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+            0, localInteriorParticleNum),
+        [&](const int i) {
+          double minEpsilon = 0.250005 * interiorTargetParticleSize(i);
+          double minSpacing = 0.05 * interiorTargetParticleSize(i);
+          interiorEpsilonHost(i) = std::max(minEpsilon, interiorEpsilonHost(i));
+          unsigned int scaling =
+              std::ceil((interiorEpsilonHost(i) - minEpsilon) / minSpacing);
+          interiorEpsilonHost(i) = minEpsilon + scaling * minSpacing;
+        });
+    Kokkos::fence();
+
+    double maxRatio, meanNeighbor;
+    unsigned int minNeighbor, maxNeighbor;
+
+    minNeighborLists =
+        1 + interiorPointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+                true, interiorTargetParticleCoordsHost,
+                interiorNeighborListsHost, interiorEpsilonHost, 0.0, 0.0);
+    if (minNeighborLists > interiorNeighborListsHost.extent(1))
+      Kokkos::resize(interiorNeighborListsHost, localInteriorParticleNum,
+                     minNeighborLists);
+    interiorPointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+        false, interiorTargetParticleCoordsHost, interiorNeighborListsHost,
+        interiorEpsilonHost, 0.0, 0.0);
+
+    minNeighbor = 1000;
+    maxNeighbor = 0;
+    maxRatio = 0;
+    meanNeighbor = 0;
+    for (unsigned int i = 0; i < localInteriorParticleNum; i++) {
+      const std::size_t numNeighbor = interiorNeighborListsHost(i, 0);
+      if (numNeighbor < minNeighbor)
+        minNeighbor = numNeighbor;
+      if (numNeighbor > maxNeighbor)
+        maxNeighbor = numNeighbor;
+      meanNeighbor += numNeighbor;
+
+      if (maxRatio < interiorEpsilonHost(i) / interiorTargetParticleSize(i))
+        maxRatio = interiorEpsilonHost(i) / interiorTargetParticleSize(i);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &minNeighbor, 1, MPI_UNSIGNED, MPI_MIN,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &maxNeighbor, 1, MPI_UNSIGNED, MPI_MAX,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &meanNeighbor, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &maxRatio, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD,
+                "\nAfter satisfying least number of neighbors when building "
+                "restriction operator for interior particles\nmin neighbor: "
+                "%d, max neighbor: %d , mean "
+                "neighbor: %.2f, max ratio: %.2f\n",
+                minNeighbor, maxNeighbor,
+                meanNeighbor / (double)globalInteriorParticleNum, maxRatio);
+
+    satisfiedNumNeighbor = 2 * Compadre::GMLS::getNP(2, dimension - 1);
+
+    DeviceIndexMatrix boundaryNeighborListsDevice(
+        "boundary particle neighbor list", localBoundaryParticleNum,
+        satisfiedNumNeighbor + 1);
+    Kokkos::View<std::size_t **>::HostMirror boundaryNeighborListsHost =
+        Kokkos::create_mirror_view(boundaryNeighborListsDevice);
+
     DeviceRealVector boundaryEpsilonDevice("boundary epsilon",
                                            localBoundaryParticleNum);
     Kokkos::View<double *>::HostMirror boundaryEpsilonHost =
         Kokkos::create_mirror_view(boundaryEpsilonDevice);
 
-    interiorCounter = 0;
-    boundaryCounter = 0;
-    for (std::size_t i = 0; i < localInteriorParticleNum; i++) {
-      interiorEpsilonHost(i) = 0.250005 * interiorTargetParticleSize(i);
-    }
-    for (std::size_t i = 0; i < localBoundaryParticleNum; i++) {
-      boundaryEpsilonHost(i) = 0.250005 * boundaryTargetParticleSize(i);
-    }
+    boundaryPointCloudSearch.generate2DNeighborListsFromKNNSearch(
+        true, boundaryTargetParticleCoordsHost, boundaryNeighborListsHost,
+        boundaryEpsilonHost, satisfiedNumNeighbor, 1.0);
 
-    unsigned int minNeighborLists;
-    bool isNeighborSearchPassed;
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+            0, localBoundaryParticleNum),
+        [&](const int i) {
+          double minEpsilon = 0.250005 * boundaryTargetParticleSize(i);
+          double minSpacing = 0.05 * boundaryTargetParticleSize(i);
+          boundaryEpsilonHost(i) = std::max(minEpsilon, boundaryEpsilonHost(i));
+          unsigned int scaling =
+              std::ceil((boundaryEpsilonHost(i) - minEpsilon) / minSpacing);
+          boundaryEpsilonHost(i) = minEpsilon + scaling * minSpacing;
+        });
+    Kokkos::fence();
 
-    isNeighborSearchPassed = false;
-    unsigned int satisfiedNumNeighbor = 2 * Compadre::GMLS::getNP(2, dimension);
+    minNeighborLists =
+        1 + boundaryPointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+                true, boundaryTargetParticleCoordsHost,
+                boundaryNeighborListsHost, boundaryEpsilonHost, 0.0, 0.0);
+    if (minNeighborLists > boundaryNeighborListsHost.extent(1))
+      Kokkos::resize(boundaryNeighborListsHost, localBoundaryParticleNum,
+                     minNeighborLists);
+    boundaryPointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+        false, boundaryTargetParticleCoordsHost, boundaryNeighborListsHost,
+        boundaryEpsilonHost, 0.0, 0.0);
 
-    double maxRatio, meanNeighbor;
-    unsigned int minNeighbor, maxNeighbor, iteCounter;
-    iteCounter = 0;
-    while (!isNeighborSearchPassed) {
-      iteCounter++;
-      minNeighborLists =
-          1 + interiorPointCloudSearch.generate2DNeighborListsFromRadiusSearch(
-                  true, interiorTargetParticleCoordsHost,
-                  interiorNeighborListsHost, interiorEpsilonHost, 0.0, 0.0);
-      if (minNeighborLists > interiorNeighborListsHost.extent(1))
-        Kokkos::resize(interiorNeighborListsHost, localInteriorParticleNum,
-                       minNeighborLists);
-      interiorPointCloudSearch.generate2DNeighborListsFromRadiusSearch(
-          false, interiorTargetParticleCoordsHost, interiorNeighborListsHost,
-          interiorEpsilonHost, 0.0, 0.0);
+    minNeighbor = 1000;
+    maxNeighbor = 0;
+    maxRatio = 0;
+    meanNeighbor = 0;
+    for (unsigned int i = 0; i < localBoundaryParticleNum; i++) {
+      const std::size_t numNeighbor = boundaryNeighborListsHost(i, 0);
+      if (numNeighbor < minNeighbor)
+        minNeighbor = numNeighbor;
+      if (numNeighbor > maxNeighbor)
+        maxNeighbor = numNeighbor;
+      meanNeighbor += numNeighbor;
 
-      bool passNeighborNumCheck = true;
-      minNeighbor = 1000;
-      maxNeighbor = 0;
-      maxRatio = 0;
-      meanNeighbor = 0;
-      for (unsigned int i = 0; i < localInteriorParticleNum; i++) {
-        const std::size_t numNeighbor = interiorNeighborListsHost(i, 0);
-        if (numNeighbor <= satisfiedNumNeighbor) {
-          interiorEpsilonHost(i) += 0.05 * interiorTargetParticleSize(i);
-          passNeighborNumCheck = false;
-        }
-
-        if (numNeighbor < minNeighbor)
-          minNeighbor = numNeighbor;
-        if (numNeighbor > maxNeighbor)
-          maxNeighbor = numNeighbor;
-        meanNeighbor += numNeighbor;
-
-        if (maxRatio < interiorEpsilonHost(i) / interiorTargetParticleSize(i))
-          maxRatio = interiorEpsilonHost(i) / interiorTargetParticleSize(i);
-      }
-      int corePassCheck = 0;
-      if (!passNeighborNumCheck)
-        corePassCheck = 1;
-
-      MPI_Allreduce(MPI_IN_PLACE, &corePassCheck, 1, MPI_INT, MPI_SUM,
-                    MPI_COMM_WORLD);
-      if (corePassCheck == 0)
-        isNeighborSearchPassed = true;
+      if (maxRatio < boundaryEpsilonHost(i) / boundaryTargetParticleSize(i))
+        maxRatio = boundaryEpsilonHost(i) / boundaryTargetParticleSize(i);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -552,82 +616,13 @@ void PoissonEquationPreconditioning::ConstructRestriction(
                   MPI_COMM_WORLD);
 
     MPI_Barrier(MPI_COMM_WORLD);
-    PetscPrintf(
-        PETSC_COMM_WORLD,
-        "\nAfter satisfying least number of neighbors when building "
-        "restriction operator for interior particles\niteration count: %d "
-        "min neighbor: %d, max neighbor: %d , mean "
-        "neighbor: %.2f, max ratio: %.2f\n",
-        iteCounter, minNeighbor, maxNeighbor,
-        meanNeighbor / (double)globalInteriorParticleNum, maxRatio);
-
-    satisfiedNumNeighbor = 2 * Compadre::GMLS::getNP(2, dimension - 1);
-
-    iteCounter = 0;
-    isNeighborSearchPassed = false;
-    while (!isNeighborSearchPassed) {
-      iteCounter++;
-      minNeighborLists =
-          1 + boundaryPointCloudSearch.generate2DNeighborListsFromRadiusSearch(
-                  true, boundaryTargetParticleCoordsHost,
-                  boundaryNeighborListsHost, boundaryEpsilonHost, 0.0, 0.0);
-      if (minNeighborLists > boundaryNeighborListsHost.extent(1))
-        Kokkos::resize(boundaryNeighborListsHost, localBoundaryParticleNum,
-                       minNeighborLists);
-      boundaryPointCloudSearch.generate2DNeighborListsFromRadiusSearch(
-          false, boundaryTargetParticleCoordsHost, boundaryNeighborListsHost,
-          boundaryEpsilonHost, 0.0, 0.0);
-
-      bool passNeighborNumCheck = true;
-      minNeighbor = 1000;
-      maxNeighbor = 0;
-      maxRatio = 0;
-      meanNeighbor = 0;
-      for (unsigned int i = 0; i < localBoundaryParticleNum; i++) {
-        const std::size_t numNeighbor = boundaryNeighborListsHost(i, 0);
-        if (numNeighbor <= satisfiedNumNeighbor) {
-          boundaryEpsilonHost(i) += 0.05 * boundaryTargetParticleSize(i);
-          passNeighborNumCheck = false;
-        }
-
-        if (numNeighbor < minNeighbor)
-          minNeighbor = numNeighbor;
-        if (numNeighbor > maxNeighbor)
-          maxNeighbor = numNeighbor;
-        meanNeighbor += numNeighbor;
-
-        if (maxRatio < boundaryEpsilonHost(i) / boundaryTargetParticleSize(i))
-          maxRatio = boundaryEpsilonHost(i) / boundaryTargetParticleSize(i);
-      }
-      int corePassCheck = 0;
-      if (!passNeighborNumCheck)
-        corePassCheck = 1;
-
-      MPI_Allreduce(MPI_IN_PLACE, &corePassCheck, 1, MPI_INT, MPI_SUM,
-                    MPI_COMM_WORLD);
-      if (corePassCheck == 0)
-        isNeighborSearchPassed = true;
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &minNeighbor, 1, MPI_UNSIGNED, MPI_MIN,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &maxNeighbor, 1, MPI_UNSIGNED, MPI_MAX,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &meanNeighbor, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &maxRatio, 1, MPI_DOUBLE, MPI_MAX,
-                  MPI_COMM_WORLD);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    PetscPrintf(
-        PETSC_COMM_WORLD,
-        "\nAfter satisfying least number of neighbors when building "
-        "restriction operator for boundary particles\niteration count: %d "
-        "min neighbor: %d, max neighbor: %d , mean "
-        "neighbor: %.2f, max ratio: %.2f\n",
-        iteCounter, minNeighbor, maxNeighbor,
-        meanNeighbor / (double)globalBoundaryParticleNum, maxRatio);
+    PetscPrintf(PETSC_COMM_WORLD,
+                "\nAfter satisfying least number of neighbors when building "
+                "restriction operator for boundary particles\nmin neighbor: "
+                "%d, max neighbor: %d , mean "
+                "neighbor: %.2f, max ratio: %.2f\n",
+                minNeighbor, maxNeighbor,
+                meanNeighbor / (double)globalBoundaryParticleNum, maxRatio);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
