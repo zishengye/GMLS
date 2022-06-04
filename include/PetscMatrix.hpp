@@ -2,19 +2,15 @@
 #define _PetscMatrix_Hpp_
 
 #include <algorithm>
-#include <assert.h>
-#include <cmath>
 #include <cstdlib>
-#include <fstream>
-#include <iostream>
 #include <list>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "PetscVector.hpp"
+#include "PetscMatrixBase.hpp"
 
-class PetscMatrix {
+class PetscMatrix : public PetscMatrixBase {
 protected:
   std::vector<PetscInt> diagRow_;
   std::vector<PetscInt> diagCol_;
@@ -26,23 +22,21 @@ protected:
 
   PetscInt localRowSize_, localColSize_;
   PetscInt globalRowSize_, globalColSize_;
-  PetscInt colRangeLow, colRangeHigh;
+  PetscInt colRangeLow_, colRangeHigh_;
+  PetscInt blockSize_, blockStorage_;
 
   std::vector<std::vector<PetscInt>> diagMatrixCol_, offDiagMatrixCol_;
 
-  int mpiRank_, mpiSize_;
-
-  Mat mat_;
-
 public:
   PetscMatrix();
-  PetscMatrix(const PetscInt m, const PetscInt n);
+  PetscMatrix(const PetscInt m, const PetscInt n, const PetscInt blockSize = 1);
 
   ~PetscMatrix();
 
-  void Resize(const PetscInt m, const PetscInt n);
+  void Resize(const PetscInt m, const PetscInt n, const PetscInt blockSize = 1);
 
-  int GetRowSize();
+  PetscInt GetRowSize();
+  PetscInt GetColSize();
 
   void SetColIndex(const PetscInt row, const std::vector<PetscInt> &index);
   void Increment(const PetscInt row, const PetscInt col, const PetscReal value);
@@ -52,9 +46,6 @@ public:
   unsigned long GraphAssemble();
 
   unsigned long Assemble();
-  unsigned long Assemble(const PetscInt blockSize);
-
-  Mat &GetReference();
 };
 
 #endif

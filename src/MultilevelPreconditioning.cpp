@@ -74,16 +74,16 @@ PetscErrorCode MultilevelPreconditioning::ApplyPreconditioningIteration(Vec x,
   return 0;
 }
 
-PetscMatrix &MultilevelPreconditioning::GetInterpolation(const int level) {
+PetscMatrixBase &MultilevelPreconditioning::GetInterpolation(const int level) {
   return *interpolationPtr_[level];
 }
 
-PetscMatrix &MultilevelPreconditioning::GetRestriction(const int level) {
+PetscMatrixBase &MultilevelPreconditioning::GetRestriction(const int level) {
   return *restrictionPtr_[level];
 }
 
 void MultilevelPreconditioning::AddLinearSystem(
-    std::shared_ptr<PetscMatrix> &mat) {
+    std::shared_ptr<PetscMatrixBase> &mat) {
   linearSystemsPtr_.push_back(mat);
 }
 

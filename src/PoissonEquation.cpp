@@ -40,7 +40,7 @@ void PoissonEquation::InitLinearSystem() {
     printf("Start of initializing physics: Poisson\n");
 
   auto newMat = std::make_shared<PetscMatrix>();
-  AddLinearSystem(newMat);
+  AddLinearSystem(std::static_pointer_cast<PetscMatrixBase>(newMat));
 
   auto &sourceCoords = hostGhostParticleCoords_;
   auto &sourceIndex = hostGhostParticleIndex_;
@@ -87,13 +87,13 @@ void PoissonEquation::InitLinearSystem() {
     iteCounter++;
 
     Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
-        interiorNeighborListsDevice("interior particle neighborlists",
+        interiorNeighborListsDevice("interior particle neighbor lists",
                                     interiorParticleNum,
                                     neighborLists_.extent(1));
     Kokkos::View<std::size_t **>::HostMirror interiorNeighborListsHost =
         Kokkos::create_mirror_view(interiorNeighborListsDevice);
     Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
-        boundaryNeighborListsDevice("boundary particle neighborlists",
+        boundaryNeighborListsDevice("boundary particle neighbor lists",
                                     boundaryParticleNum,
                                     neighborLists_.extent(1));
     Kokkos::View<std::size_t **>::HostMirror boundaryNeighborListsHost =
@@ -369,7 +369,8 @@ void PoissonEquation::InitLinearSystem() {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  auto &A = *(linearSystemsPtr_[refinementIteration_]);
+  PetscMatrix &A = *(std::static_pointer_cast<PetscMatrix>(
+      linearSystemsPtr_[refinementIteration_]));
   A.Resize(localParticleNum, localParticleNum);
   std::vector<PetscInt> index;
   for (std::size_t i = 0; i < localParticleNum; i++) {
@@ -409,7 +410,7 @@ void PoissonEquation::ConstructLinearSystem() {
    *
    * Perform the GMLS discretization for each particle and assemble the linear
    * system.  In order to reduce the peak memory usage and take advantage of
-   * thread-level parallism, the GMLS discretization and assembly operation is
+   * thread-level parallelism, the GMLS discretization and assembly operation is
    * split into several batches.  Each batch contains several particles.  In
    * each batch, GMLS discretization is performed first and the generated
    * coefficients are assembled into the linear system then.
@@ -451,7 +452,8 @@ void PoissonEquation::ConstructLinearSystem() {
   HostRealVector sourceKappa;
   ghost_.ApplyGhost(kappa_, sourceKappa);
 
-  auto &A = *(linearSystemsPtr_[refinementIteration_]);
+  PetscMatrix &A = *(std::static_pointer_cast<PetscMatrix>(
+      linearSystemsPtr_[refinementIteration_]));
 
   const unsigned int batchSize = (dimension == 2) ? 5000 : 1000;
   const unsigned int batchNum = localParticleNum / batchSize +
@@ -471,13 +473,13 @@ void PoissonEquation::ConstructLinearSystem() {
     }
 
     Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
-        interiorNeighborListsDevice("interior particle neighborlist",
+        interiorNeighborListsDevice("interior particle neighbor list",
                                     interiorParticleNum,
                                     neighborLists_.extent(1));
     Kokkos::View<std::size_t **>::HostMirror interiorNeighborListsHost =
         Kokkos::create_mirror_view(interiorNeighborListsDevice);
     Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
-        boundaryNeighborListsDevice("boundary particle neighborlist",
+        boundaryNeighborListsDevice("boundary particle neighbor list",
                                     boundaryParticleNum,
                                     neighborLists_.extent(1));
     Kokkos::View<std::size_t **>::HostMirror boundaryNeighborListsHost =
@@ -754,7 +756,7 @@ void PoissonEquation::CalculateError() {
     const unsigned int batchParticleNum = endParticle - startParticle;
 
     Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
-        batchNeighborListsDevice("batch particle neighborlist",
+        batchNeighborListsDevice("batch particle neighbor list",
                                  batchParticleNum, neighborLists_.extent(1));
     Kokkos::View<std::size_t **>::HostMirror batchNeighborListsHost =
         Kokkos::create_mirror_view(batchNeighborListsDevice);

@@ -12,9 +12,9 @@ PetscErrorCode PreconditioningIterationWrapper(PC pc, Vec x, Vec y);
 
 class MultilevelPreconditioning {
 protected:
-  std::vector<std::shared_ptr<PetscMatrix>> linearSystemsPtr_;
-  std::vector<std::shared_ptr<PetscMatrix>> interpolationPtr_;
-  std::vector<std::shared_ptr<PetscMatrix>> restrictionPtr_;
+  std::vector<std::shared_ptr<PetscMatrixBase>> linearSystemsPtr_;
+  std::vector<std::shared_ptr<PetscMatrixBase>> interpolationPtr_;
+  std::vector<std::shared_ptr<PetscMatrixBase>> restrictionPtr_;
 
   std::vector<std::shared_ptr<PetscVector>> auxiliaryVectorXPtr_;
   std::vector<std::shared_ptr<PetscVector>> auxiliaryVectorRPtr_;
@@ -31,11 +31,11 @@ public:
 
   friend PetscErrorCode PreconditioningIterationWrapper(PC, Vec, Vec);
 
-  PetscMatrix &GetInterpolation(const int level);
-  PetscMatrix &GetRestriction(const int level);
+  PetscMatrixBase &GetInterpolation(const int level);
+  PetscMatrixBase &GetRestriction(const int level);
   PetscKsp &GetSmoother(const int level);
 
-  void AddLinearSystem(std::shared_ptr<PetscMatrix> &mat);
+  void AddLinearSystem(std::shared_ptr<PetscMatrixBase> &mat);
   void PrepareVectors(const int localSize);
   virtual void ConstructInterpolation(
       std::shared_ptr<HierarchicalParticleManager> particleMgr);

@@ -2,6 +2,7 @@
 #define _StokesEquation_Hpp_
 
 #include "Equation.hpp"
+#include "StokesEquationPreconditioning.hpp"
 
 #include <functional>
 
@@ -17,8 +18,9 @@ protected:
   virtual void Output();
 
   HostRealMatrix recoveredGradientChunk_;
-  HostRealMatrix velocity_;
-  HostRealVector pressure_;
+  HostRealMatrix velocity_, oldVelocity_;
+  HostRealVector pressure_, oldPressure_;
+  HostRealVector bi_;
 
   std::function<double(const double, const double, const double,
                        const unsigned int)>
@@ -28,8 +30,6 @@ protected:
       boundaryVelocityRhs_;
   std::function<double(const double, const double, const double)>
       interiorPressureRhs_;
-  std::function<double(const double, const double, const double)>
-      boundaryPressureRhs_;
 
 public:
   StokesEquation();
@@ -48,9 +48,6 @@ public:
                                  const unsigned int)> &func);
 
   virtual void SetPressureInteriorRhs(
-      const std::function<double(const double, const double, const double)>
-          &func);
-  virtual void SetPressureBoundaryRhs(
       const std::function<double(const double, const double, const double)>
           &func);
 };

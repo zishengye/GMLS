@@ -6,7 +6,7 @@
 #include "MultilevelPreconditioning.hpp"
 #include "ParticleManager.hpp"
 #include "PetscKsp.hpp"
-#include "PetscMatrix.hpp"
+#include "PetscMatrixBase.hpp"
 #include "Typedef.hpp"
 
 #include <Compadre_PointCloudSearch.hpp>
@@ -30,7 +30,7 @@ protected:
 
   HostIndexVector splitTag_;
 
-  std::vector<std::shared_ptr<PetscMatrix>> linearSystemsPtr_;
+  std::vector<std::shared_ptr<PetscMatrixBase>> linearSystemsPtr_;
   std::shared_ptr<MultilevelPreconditioning> preconditionerPtr_;
   PetscVector b_;
   PetscVector x_;
@@ -41,7 +41,7 @@ protected:
   HostIndexVector hostGhostParticleType_;
   HostIndexVector hostGhostParticleIndex_;
 
-  void AddLinearSystem(std::shared_ptr<PetscMatrix> &mat);
+  void AddLinearSystem(std::shared_ptr<PetscMatrixBase> mat);
   virtual void InitLinearSystem();
   virtual void ConstructLinearSystem();
   virtual void ConstructRhs();

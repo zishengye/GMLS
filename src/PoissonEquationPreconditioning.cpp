@@ -174,7 +174,8 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
       }
     }
 
-    PetscMatrix &I = *(interpolationPtr_[currentLevel]);
+    PetscMatrix &I = *(
+        std::static_pointer_cast<PetscMatrix>(interpolationPtr_[currentLevel]));
     I.Resize(localTargetParticleNum, localSourceParticleNum);
     std::vector<PetscInt> index;
     std::vector<PetscReal> value;
@@ -287,16 +288,17 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
     MPI_Allreduce(&nnz, &nnzMax, 1, MPI_UNSIGNED_LONG, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&nnz, &nnzMin, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    tEnd = MPI_Wtime();
     PetscPrintf(PETSC_COMM_WORLD,
                 "End of building Poisson equation interpolation\nMax nonzeros: "
                 "%lu, Min nonzeros: %lu\n",
                 nnzMax, nnzMin);
-    PetscPrintf(PETSC_COMM_WORLD,
-                "Duration of building Poisson equation interpolation:%.4fs\n",
-                tEnd - tStart);
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  tEnd = MPI_Wtime();
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Duration of building Poisson equation interpolation:%.4fs\n",
+              tEnd - tStart);
 }
 
 void PoissonEquationPreconditioning::ConstructRestriction(
@@ -670,7 +672,8 @@ void PoissonEquationPreconditioning::ConstructRestriction(
     }
 
     // TODO: change to GMLS basis (Currently, restriction is done by average)
-    PetscMatrix &R = *(restrictionPtr_[currentLevel]);
+    PetscMatrix &R =
+        *(std::static_pointer_cast<PetscMatrix>(restrictionPtr_[currentLevel]));
     R.Resize(localTargetParticleNum, localSourceParticleNum);
     std::vector<PetscInt> index;
     std::vector<PetscReal> value;
@@ -855,16 +858,17 @@ void PoissonEquationPreconditioning::ConstructRestriction(
     MPI_Allreduce(&nnz, &nnzMax, 1, MPI_UNSIGNED_LONG, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&nnz, &nnzMin, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    tEnd = MPI_Wtime();
     PetscPrintf(PETSC_COMM_WORLD,
                 "End of building Poisson equation restriction\nMax nonzeros: "
                 "%lu, Min nonzeros: %lu\n",
                 nnzMax, nnzMin);
-    PetscPrintf(PETSC_COMM_WORLD,
-                "Duration of building Poisson equation restriction:%.4fs\n",
-                tEnd - tStart);
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  tEnd = MPI_Wtime();
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Duration of building Poisson equation restriction:%.4fs\n",
+              tEnd - tStart);
 }
 
 void PoissonEquationPreconditioning::ConstructSmoother(

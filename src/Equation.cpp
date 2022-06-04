@@ -5,7 +5,7 @@
 
 #include "Equation.hpp"
 
-void Equation::AddLinearSystem(std::shared_ptr<PetscMatrix> &mat) {
+void Equation::AddLinearSystem(std::shared_ptr<PetscMatrixBase> mat) {
   linearSystemsPtr_.push_back(mat);
   preconditionerPtr_->AddLinearSystem(mat);
 }

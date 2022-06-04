@@ -1,0 +1,2054 @@
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructInterpolation(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:177:22: error: invalid initialization of reference of type ‘PetscMatrix&’ from expression of type ‘std::__shared_ptr_access<PetscMatrixBase, __gnu_cxx::_S_atomic, false, false>::element_type’ {aka ‘PetscMatrixBase’}
+  177 |     PetscMatrix &I = *(interpolationPtr_[currentLevel]);
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructRestriction(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:673:22: error: invalid initialization of reference of type ‘PetscMatrix&’ from expression of type ‘std::__shared_ptr_access<PetscMatrixBase, __gnu_cxx::_S_atomic, false, false>::element_type’ {aka ‘PetscMatrixBase’}
+  673 |     PetscMatrix &R = *(restrictionPtr_[currentLevel]);
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:17:60: error: cannot bind non-const lvalue reference of type ‘std::shared_ptr<PetscMatrixBase>&’ to an rvalue of type ‘std::shared_ptr<PetscMatrixBase>’
+   17 |   AddLinearSystem(std::static_pointer_cast<PetscMatrixBase>(newMat));
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~
+In file included from /home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:4,
+                 from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/Equation.hpp:44:58: note:   initializing argument 1 of ‘void Equation::AddLinearSystem(std::shared_ptr<PetscMatrixBase>&)’
+   44 |   void AddLinearSystem(std::shared_ptr<PetscMatrixBase> &mat);
+      |                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquation.cpp: In member function ‘virtual void PoissonEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquation.cpp:43:60: error: cannot bind non-const lvalue reference of type ‘std::shared_ptr<PetscMatrixBase>&’ to an rvalue of type ‘std::shared_ptr<PetscMatrixBase>’
+   43 |   AddLinearSystem(std::static_pointer_cast<PetscMatrixBase>(newMat));
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~
+In file included from /home/zishengy/Projects/GMLS_Solver/include/PoissonEquation.hpp:4,
+                 from /home/zishengy/Projects/GMLS_Solver/src/PoissonEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/Equation.hpp:44:58: note:   initializing argument 1 of ‘void Equation::AddLinearSystem(std::shared_ptr<PetscMatrixBase>&)’
+   44 |   void AddLinearSystem(std::shared_ptr<PetscMatrixBase> &mat);
+      |                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:363:7: error: ‘class PetscMatrixBase’ has no member named ‘SetColIndex’
+  363 |     A.SetColIndex(currentParticleIndex, index);
+      |       ^~~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:230: CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:216: CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructInterpolation(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:177:22: error: invalid initialization of reference of type ‘PetscMatrix&’ from expression of type ‘std::__shared_ptr_access<PetscMatrixBase, __gnu_cxx::_S_atomic, false, false>::element_type’ {aka ‘PetscMatrixBase’}
+  177 |     PetscMatrix &I = *(interpolationPtr_[currentLevel]);
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquation.cpp: In member function ‘virtual void PoissonEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquation.cpp:43:61: error: cannot bind non-const lvalue reference of type ‘std::shared_ptr<PetscMatrixBase>&’ to an rvalue of type ‘std::shared_ptr<PetscMatrixBase>’
+   43 |   AddLinearSystem(std::dynamic_pointer_cast<PetscMatrixBase>(newMat));
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~
+In file included from /home/zishengy/Projects/GMLS_Solver/include/PoissonEquation.hpp:4,
+                 from /home/zishengy/Projects/GMLS_Solver/src/PoissonEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/Equation.hpp:44:58: note:   initializing argument 1 of ‘void Equation::AddLinearSystem(std::shared_ptr<PetscMatrixBase>&)’
+   44 |   void AddLinearSystem(std::shared_ptr<PetscMatrixBase> &mat);
+      |                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructRestriction(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:673:22: error: invalid initialization of reference of type ‘PetscMatrix&’ from expression of type ‘std::__shared_ptr_access<PetscMatrixBase, __gnu_cxx::_S_atomic, false, false>::element_type’ {aka ‘PetscMatrixBase’}
+  673 |     PetscMatrix &R = *(restrictionPtr_[currentLevel]);
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:17:60: error: cannot bind non-const lvalue reference of type ‘std::shared_ptr<PetscMatrixBase>&’ to an rvalue of type ‘std::shared_ptr<PetscMatrixBase>’
+   17 |   AddLinearSystem(std::static_pointer_cast<PetscMatrixBase>(newMat));
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~
+In file included from /home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:4,
+                 from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/Equation.hpp:44:58: note:   initializing argument 1 of ‘void Equation::AddLinearSystem(std::shared_ptr<PetscMatrixBase>&)’
+   44 |   void AddLinearSystem(std::shared_ptr<PetscMatrixBase> &mat);
+      |                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:363:7: error: ‘class PetscMatrixBase’ has no member named ‘SetColIndex’
+  363 |     A.SetColIndex(currentParticleIndex, index);
+      |       ^~~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:230: CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:216: CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/Equation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 23%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:363:7: error: ‘class PetscMatrixBase’ has no member named ‘SetColIndex’
+  363 |     A.SetColIndex(currentParticleIndex, index);
+      |       ^~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructInterpolation(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:177:22: error: invalid initialization of reference of type ‘PetscMatrix&’ from expression of type ‘std::__shared_ptr_access<PetscMatrixBase, __gnu_cxx::_S_atomic, false, false>::element_type’ {aka ‘PetscMatrixBase’}
+  177 |     PetscMatrix &I = *(interpolationPtr_[currentLevel]);
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructRestriction(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:673:22: error: invalid initialization of reference of type ‘PetscMatrix&’ from expression of type ‘std::__shared_ptr_access<PetscMatrixBase, __gnu_cxx::_S_atomic, false, false>::element_type’ {aka ‘PetscMatrixBase’}
+  673 |     PetscMatrix &R = *(restrictionPtr_[currentLevel]);
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:230: CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:363:7: error: ‘class PetscMatrixBase’ has no member named ‘SetColIndex’
+  363 |     A.SetColIndex(currentParticleIndex, index);
+      |       ^~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructInterpolation(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:178:11: error: ‘static_pointer_cast’ was not declared in this scope; did you mean ‘std::static_pointer_cast’?
+  178 |         *(static_pointer_cast<PetscMatrix>(interpolationPtr_[currentLevel]));
+      |           ^~~~~~~~~~~~~~~~~~~
+      |           std::static_pointer_cast
+In file included from /usr/include/c++/9/memory:81,
+                 from /opt/trilinos/include/Kokkos_Core.hpp:75,
+                 from /home/zishengy/Projects/GMLS_Solver/include/Parallel.hpp:5,
+                 from /home/zishengy/Projects/GMLS_Solver/include/Ghost.hpp:6,
+                 from /home/zishengy/Projects/GMLS_Solver/include/MultilevelPreconditioning.hpp:6,
+                 from /home/zishengy/Projects/GMLS_Solver/include/PoissonEquationPreconditioning.hpp:4,
+                 from /home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:1:
+/usr/include/c++/9/bits/shared_ptr.h:491:5: note: ‘std::static_pointer_cast’ declared here
+  491 |     static_pointer_cast(const shared_ptr<_Up>& __r) noexcept
+      |     ^~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:178:42: error: expected primary-expression before ‘>’ token
+  178 |         *(static_pointer_cast<PetscMatrix>(interpolationPtr_[currentLevel]));
+      |                                          ^
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructRestriction(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:675:11: error: ‘static_pointer_cast’ was not declared in this scope; did you mean ‘std::static_pointer_cast’?
+  675 |         *(static_pointer_cast<PetscMatrix>(restrictionPtr_[currentLevel]));
+      |           ^~~~~~~~~~~~~~~~~~~
+      |           std::static_pointer_cast
+In file included from /usr/include/c++/9/memory:81,
+                 from /opt/trilinos/include/Kokkos_Core.hpp:75,
+                 from /home/zishengy/Projects/GMLS_Solver/include/Parallel.hpp:5,
+                 from /home/zishengy/Projects/GMLS_Solver/include/Ghost.hpp:6,
+                 from /home/zishengy/Projects/GMLS_Solver/include/MultilevelPreconditioning.hpp:6,
+                 from /home/zishengy/Projects/GMLS_Solver/include/PoissonEquationPreconditioning.hpp:4,
+                 from /home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:1:
+/usr/include/c++/9/bits/shared_ptr.h:491:5: note: ‘std::static_pointer_cast’ declared here
+  491 |     static_pointer_cast(const shared_ptr<_Up>& __r) noexcept
+      |     ^~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:675:42: error: expected primary-expression before ‘>’ token
+  675 |         *(static_pointer_cast<PetscMatrix>(restrictionPtr_[currentLevel]));
+      |                                          ^
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:230: CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:363:7: error: ‘class PetscMatrixBase’ has no member named ‘SetColIndex’
+  363 |     A.SetColIndex(currentParticleIndex, index);
+      |       ^~~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:364:7: error: ‘class PetscBlockMatrix’ has no member named ‘SetColIndex’
+  364 |     A.SetColIndex(currentParticleIndex, index);
+      |       ^~~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:351:20: error: unused variable ‘currentParticleIndex’ [-Werror=unused-variable]
+  351 |     const PetscInt currentParticleIndex = i;
+      |                    ^~~~~~~~~~~~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Building CXX object CMakeFiles/test_poisson.dir/test/TestPoisson.cpp.o
+[100%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Building CXX object CMakeFiles/test_stokes.dir/test/TestStokes.cpp.o
+[100%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 17%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Building CXX object CMakeFiles/test_stokes.dir/test/TestStokes.cpp.o
+[100%] Linking CXX executable bin/test_stokes
+/usr/bin/ld: libgmls_module.so: undefined reference to `StokesEquationPreconditioning::~StokesEquationPreconditioning()'
+/usr/bin/ld: libgmls_module.so: undefined reference to `StokesEquationPreconditioning::StokesEquationPreconditioning()'
+collect2: error: ld returned 1 exit status
+make[3]: *** [CMakeFiles/test_stokes.dir/build.make:166: bin/test_stokes] Error 1
+make[2]: *** [CMakeFiles/Makefile2:145: CMakeFiles/test_stokes.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquationPreconditioning.cpp: In member function ‘virtual void StokesEquationPreconditioning::ConstructInterpolation(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquationPreconditioning.cpp:23:14: error: ‘tEnd’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+   23 |   PetscPrintf(PETSC_COMM_WORLD,
+      |   ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+   24 |               "Duration of building Stokes equation interpolation:%.4fs\n",
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   25 |               tEnd - tStart);
+      |               ~~~~~~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:258: CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructInterpolation(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:299:14: error: ‘tEnd’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+  299 |   PetscPrintf(PETSC_COMM_WORLD,
+      |   ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+  300 |               "Duration of building Poisson equation interpolation:%.4fs\n",
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  301 |               tEnd - tStart);
+      |               ~~~~~~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:230: CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquationPreconditioning.cpp:46:6: error: ‘PoissonEquationPreconditioning’ has not been declared
+   46 | void PoissonEquationPreconditioning::ConstructSmoother(
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquationPreconditioning.cpp: In function ‘void ConstructSmoother(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquationPreconditioning.cpp:50:59: error: cannot call member function ‘virtual void MultilevelPreconditioning::ConstructSmoother(std::shared_ptr<HierarchicalParticleManager>)’ without object
+   50 |   MultilevelPreconditioning::ConstructSmoother(particleMgr);
+      |                                                           ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquationPreconditioning.cpp:52:28: error: ‘linearSystemsPtr_’ was not declared in this scope
+   52 |   const int currentLevel = linearSystemsPtr_.size() - 1;
+      |                            ^~~~~~~~~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:230: CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o] Interrupt
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:258: CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o] Interrupt
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Interrupt
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Interrupt
+make: *** [Makefile:150: test_stokes] Interrupt
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquationPreconditioning.cpp: In member function ‘virtual void StokesEquationPreconditioning::ConstructInterpolation(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquationPreconditioning.cpp:23:14: error: ‘tEnd’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+   23 |   PetscPrintf(PETSC_COMM_WORLD,
+      |   ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+   24 |               "Duration of building Stokes equation interpolation:%.4fs\n",
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   25 |               tEnd - tStart);
+      |               ~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquationPreconditioning.cpp: In member function ‘virtual void StokesEquationPreconditioning::ConstructRestriction(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquationPreconditioning.cpp:41:14: error: ‘tEnd’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+   41 |   PetscPrintf(PETSC_COMM_WORLD,
+      |   ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+   42 |               "Duration of building Poisson equation restriction:%.4fs\n",
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   43 |               tEnd - tStart);
+      |               ~~~~~~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:258: CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructInterpolation(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:299:14: error: ‘tEnd’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+  299 |   PetscPrintf(PETSC_COMM_WORLD,
+      |   ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+  300 |               "Duration of building Poisson equation interpolation:%.4fs\n",
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  301 |               tEnd - tStart);
+      |               ~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp: In member function ‘virtual void PoissonEquationPreconditioning::ConstructRestriction(std::shared_ptr<HierarchicalParticleManager>)’:
+/home/zishengy/Projects/GMLS_Solver/src/PoissonEquationPreconditioning.cpp:869:14: error: ‘tEnd’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+  869 |   PetscPrintf(PETSC_COMM_WORLD,
+      |   ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+  870 |               "Duration of building Poisson equation restriction:%.4fs\n",
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  871 |               tEnd - tStart);
+      |               ~~~~~~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:230: CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+[ 17%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:19:11: error: ‘using element_type = class PetscMatrix’ {aka ‘class PetscMatrix’} has no member named ‘SetSubMat’
+   19 |   newMat->SetSubMat(0, 0,
+      |           ^~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:22:11: error: ‘using element_type = class PetscMatrix’ {aka ‘class PetscMatrix’} has no member named ‘SetSubMat’
+   22 |   newMat->SetSubMat(0, 1,
+      |           ^~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:25:11: error: ‘using element_type = class PetscMatrix’ {aka ‘class PetscMatrix’} has no member named ‘SetSubMat’
+   25 |   newMat->SetSubMat(1, 0,
+      |           ^~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:28:11: error: ‘using element_type = class PetscMatrix’ {aka ‘class PetscMatrix’} has no member named ‘SetSubMat’
+   28 |   newMat->SetSubMat(1, 1,
+      |           ^~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::InitLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:16:34: error: ‘PetscMatrixBlock’ was not declared in this scope; did you mean ‘PetscMatrixBase’?
+   16 |   auto newMat = std::make_shared<PetscMatrixBlock>();
+      |                                  ^~~~~~~~~~~~~~~~
+      |                                  PetscMatrixBase
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:16:52: error: no matching function for call to ‘make_shared<<expression error> >()’
+   16 |   auto newMat = std::make_shared<PetscMatrixBlock>();
+      |                                                    ^
+In file included from /usr/include/c++/9/memory:81,
+                 from /opt/trilinos/include/Kokkos_Core.hpp:75,
+                 from /home/zishengy/Projects/GMLS_Solver/include/Parallel.hpp:5,
+                 from /home/zishengy/Projects/GMLS_Solver/include/Ghost.hpp:6,
+                 from /home/zishengy/Projects/GMLS_Solver/include/MultilevelPreconditioning.hpp:6,
+                 from /home/zishengy/Projects/GMLS_Solver/include/Equation.hpp:6,
+                 from /home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:4,
+                 from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/usr/include/c++/9/bits/shared_ptr.h:714:5: note: candidate: ‘template<class _Tp, class ... _Args> std::shared_ptr<_Tp> std::make_shared(_Args&& ...)’
+  714 |     make_shared(_Args&&... __args)
+      |     ^~~~~~~~~~~
+/usr/include/c++/9/bits/shared_ptr.h:714:5: note:   template argument deduction/substitution failed:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:16:52: error: template argument 1 is invalid
+   16 |   auto newMat = std::make_shared<PetscMatrixBlock>();
+      |                                                    ^
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/Equation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/MultilevelPreconditioning.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 23%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 29%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 35%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 41%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 47%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+[ 52%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Building CXX object CMakeFiles/test_stokes.dir/test/TestStokes.cpp.o
+[100%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp: In member function ‘void PetscMatrix::Increment(PetscInt, PetscInt, PetscReal)’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscMatrix.cpp:94:49: error: invalid type argument of unary ‘*’ (have ‘PetscInt’ {aka ‘int’})
+   94 |       offDiagVal_[(it - offDiagCol_.begin()) * *blockStorage_ +
+      |                                                 ^~~~~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:174: CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Building CXX object CMakeFiles/test_poisson.dir/test/TestPoisson.cpp.o
+[100%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Interrupt
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Interrupt
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Interrupt
+make: *** [Makefile:150: test_stokes] Interrupt
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:458:9: error: unused variable ‘sourceIndex’ [-Werror=unused-variable]
+  458 |   auto &sourceIndex = hostGhostParticleIndex_;
+      |         ^~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:460:9: error: unused variable ‘particleType’ [-Werror=unused-variable]
+  460 |   auto &particleType = particleMgr_.GetParticleType();
+      |         ^~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:466:22: error: unused variable ‘localParticleNum’ [-Werror=unused-variable]
+  466 |   const unsigned int localParticleNum = coords.extent(0);
+      |                      ^~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:468:22: error: unused variable ‘dimension’ [-Werror=unused-variable]
+  468 |   const unsigned int dimension = particleMgr_.GetDimension();
+      |                      ^~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:458:9: error: unused variable ‘sourceIndex’ [-Werror=unused-variable]
+  458 |   auto &sourceIndex = hostGhostParticleIndex_;
+      |         ^~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:473:9: error: unused variable ‘uu’ [-Werror=unused-variable]
+  473 |   auto &uu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:474:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  474 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:475:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  475 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  476 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:621:26: error: ‘currenParticleIndex’ was not declared in this scope; did you mean ‘currentParticleIndex’?
+  621 |             uu.Increment(currenParticleIndex, index, value);
+      |                          ^~~~~~~~~~~~~~~~~~~
+      |                          currentParticleIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:474:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  474 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:475:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  475 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  476 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:474:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  474 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:475:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  475 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  476 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:613:33: error: ‘solutionSet’ was not declared in this scope
+  613 |               auto alphaIndex = solutionSet->getAlphaIndex(
+      |                                 ^~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:614:36: error: ‘interiorLaplacianIndex’ was not declared in this scope
+  614 |                   interiorCounter, interiorLaplacianIndex);
+      |                                    ^~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:616:42: error: ‘interiorAlpha’ was not declared in this scope
+  616 |               value[j * dimension + k] = interiorAlpha(alphaIndex + j);
+      |                                          ^~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  476 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:477:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  477 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:478:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  478 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:617:64: error: ‘k’ was not declared in this scope
+  617 |                 index[j] = dimension * neighborParticleIndex + k;
+      |                                                                ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:618:44: error: ‘interiorAlpha’ was not declared in this scope
+  618 |                 value[j * dimension + k] = interiorAlpha(alphaIndex + j);
+      |                                            ^~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  476 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:477:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  477 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:478:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  478 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:619:39: error: ‘k’ was not declared in this scope
+  619 |                 value[j * dimension + k] =
+      |                                       ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  476 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:477:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  477 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:478:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  478 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  476 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:477:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  477 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:478:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  478 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  476 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:477:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  477 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:478:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  478 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  476 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:477:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  477 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:478:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  478 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/DomainGeometry.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/Equation.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/Ghost.cpp.o
+[ 23%] Building CXX object CMakeFiles/gmls_module.dir/src/MultilevelPreconditioning.cpp.o
+[ 29%] Building CXX object CMakeFiles/gmls_module.dir/src/ParticleManager.cpp.o
+[ 35%] Building CXX object CMakeFiles/gmls_module.dir/src/Partition.cpp.o
+[ 41%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 47%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 52%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrixBase.cpp.o
+[ 58%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscVector.cpp.o
+In file included from /home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/PetscBlockMatrix.hpp:8:20: error: ‘shared_ptr’ is not a member of ‘std’
+    8 |   std::vector<std::shared_ptr<PetscMatrixBase>> subMat_;
+      |                    ^~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/include/PetscBlockMatrix.hpp:5:1: note: ‘std::shared_ptr’ is defined in header ‘<memory>’; did you forget to ‘#include <memory>’?
+    4 | #include "PetscMatrix.hpp"
+  +++ |+#include <memory>
+    5 | 
+/home/zishengy/Projects/GMLS_Solver/include/PetscBlockMatrix.hpp:8:31: error: template argument 1 is invalid
+    8 |   std::vector<std::shared_ptr<PetscMatrixBase>> subMat_;
+      |                               ^~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/include/PetscBlockMatrix.hpp:8:31: error: template argument 2 is invalid
+/home/zishengy/Projects/GMLS_Solver/include/PetscBlockMatrix.hpp:8:46: error: expected unqualified-id before ‘>’ token
+    8 |   std::vector<std::shared_ptr<PetscMatrixBase>> subMat_;
+      |                                              ^~
+/home/zishengy/Projects/GMLS_Solver/include/PetscBlockMatrix.hpp:20:8: error: ‘shared_ptr’ in namespace ‘std’ does not name a template type
+   20 |   std::shared_ptr<PetscMatrixBase> &GetSubMat(const PetscInt blockI,
+      |        ^~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/include/PetscBlockMatrix.hpp:20:3: note: ‘std::shared_ptr’ is defined in header ‘<memory>’; did you forget to ‘#include <memory>’?
+   20 |   std::shared_ptr<PetscMatrixBase> &GetSubMat(const PetscInt blockI,
+      |   ^~~
+/home/zishengy/Projects/GMLS_Solver/include/PetscBlockMatrix.hpp:23:18: error: ‘std::shared_ptr’ has not been declared
+   23 |                  std::shared_ptr<PetscMatrixBase> mat);
+      |                  ^~~
+/home/zishengy/Projects/GMLS_Solver/include/PetscBlockMatrix.hpp:23:33: error: expected ‘,’ or ‘...’ before ‘<’ token
+   23 |                  std::shared_ptr<PetscMatrixBase> mat);
+      |                                 ^
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp: In constructor ‘PetscBlockMatrix::PetscBlockMatrix(PetscInt, PetscInt)’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:7:3: error: ‘subMat_’ was not declared in this scope
+    7 |   subMat_.resize(blockM * blockN);
+      |   ^~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp: In member function ‘virtual void PetscBlockMatrix::Resize(PetscInt, PetscInt)’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:16:3: error: ‘subMat_’ was not declared in this scope
+   16 |   subMat_.resize(blockM * blockN);
+      |   ^~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp: At global scope:
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:19:6: error: ‘shared_ptr’ in namespace ‘std’ does not name a template type
+   19 | std::shared_ptr<PetscMatrixBase> &
+      |      ^~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:2:1: note: ‘std::shared_ptr’ is defined in header ‘<memory>’; did you forget to ‘#include <memory>’?
+    1 | #include "PetscBlockMatrix.hpp"
+  +++ |+#include <memory>
+    2 | 
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:25:34: error: ‘std::shared_ptr’ has not been declared
+   25 |                                  std::shared_ptr<PetscMatrixBase> mat) {
+      |                                  ^~~
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:25:49: error: expected ‘,’ or ‘...’ before ‘<’ token
+   25 |                                  std::shared_ptr<PetscMatrixBase> mat) {
+      |                                                 ^
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp: In member function ‘void PetscBlockMatrix::SetSubMat(PetscInt, PetscInt, int)’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:26:3: error: ‘subMat_’ was not declared in this scope
+   26 |   subMat_[blockI * blockN_ + blockJ] = mat;
+      |   ^~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:26:40: error: ‘mat’ was not declared in this scope; did you mean ‘mat_’?
+   26 |   subMat_[blockI * blockN_ + blockJ] = mat;
+      |                                        ^~~
+      |                                        mat_
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp: In member function ‘virtual long unsigned int PetscBlockMatrix::Assemble()’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:31:32: error: ‘subMat_’ was not declared in this scope
+   31 |   for (unsigned int i = 0; i < subMat_.size(); i++) {
+      |                                ^~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:160: CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/DomainGeometry.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/Equation.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/MultilevelPreconditioning.cpp.o
+[ 23%] Building CXX object CMakeFiles/gmls_module.dir/src/Ghost.cpp.o
+[ 29%] Building CXX object CMakeFiles/gmls_module.dir/src/ParticleManager.cpp.o
+[ 35%] Building CXX object CMakeFiles/gmls_module.dir/src/Partition.cpp.o
+[ 47%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 47%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 52%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrixBase.cpp.o
+[ 58%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscVector.cpp.o
+[ 64%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 70%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 76%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 82%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  476 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:477:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  477 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:478:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  478 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Building CXX object CMakeFiles/test_poisson.dir/test/TestPoisson.cpp.o
+[100%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:654:36: error: ‘LaplacianOfScalarPointEvaluation’ was not declared in this scope; did you mean ‘Compadre::LaplacianOfScalarPointEvaluation’?
+  654 |       interiorPressureOptions[0] = LaplacianOfScalarPointEvaluation;
+      |                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                    Compadre::LaplacianOfScalarPointEvaluation
+In file included from /opt/compadre/include/Compadre_Misc.hpp:4,
+                 from /opt/compadre/include/Compadre_GMLS.hpp:7,
+                 from /home/zishengy/Projects/GMLS_Solver/include/PolyBasis.hpp:4,
+                 from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:3:
+/opt/compadre/include/Compadre_Operators.hpp:18:9: note: ‘Compadre::LaplacianOfScalarPointEvaluation’ declared here
+   18 |         LaplacianOfScalarPointEvaluation,
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:655:36: error: ‘GradientOfScalarPointEvaluation’ was not declared in this scope; did you mean ‘Compadre::GradientOfScalarPointEvaluation’?
+  655 |       interiorPressureOptions[1] = GradientOfScalarPointEvaluation;
+      |                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                    Compadre::GradientOfScalarPointEvaluation
+In file included from /opt/compadre/include/Compadre_Misc.hpp:4,
+                 from /opt/compadre/include/Compadre_GMLS.hpp:7,
+                 from /home/zishengy/Projects/GMLS_Solver/include/PolyBasis.hpp:4,
+                 from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:3:
+/opt/compadre/include/Compadre_Operators.hpp:22:9: note: ‘Compadre::GradientOfScalarPointEvaluation’ declared here
+   22 |         GradientOfScalarPointEvaluation,
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:656:31: error: ‘class std::vector<Compadre::TargetOperation>’ has no member named ‘addTargets’
+  656 |       interiorPressureOptions.addTargets(interiorPressureOptions);
+      |                               ^~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:658:31: error: ‘class std::vector<Compadre::TargetOperation>’ has no member named ‘setWeightingType’
+  658 |       interiorPressureOptions.setWeightingType(
+      |                               ^~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:660:31: error: ‘class std::vector<Compadre::TargetOperation>’ has no member named ‘setWeightingParameter’
+  660 |       interiorPressureOptions.setWeightingParameter(4);
+      |                               ^~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:661:31: error: ‘class std::vector<Compadre::TargetOperation>’ has no member named ‘setOrderOfQuadraturePoints’
+  661 |       interiorPressureOptions.setOrderOfQuadraturePoints(2);
+      |                               ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:662:31: error: ‘class std::vector<Compadre::TargetOperation>’ has no member named ‘setDimensionOfQuadraturePoints’
+  662 |       interiorPressureOptions.setDimensionOfQuadraturePoints(1);
+      |                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:663:31: error: ‘class std::vector<Compadre::TargetOperation>’ has no member named ‘setQuadratureType’
+  663 |       interiorPressureOptions.setQuadratureType("LINE");
+      |                               ^~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:665:31: error: ‘class std::vector<Compadre::TargetOperation>’ has no member named ‘generateAlphas’
+  665 |       interiorPressureOptions.generateAlphas(1, false);
+      |                               ^~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:667:58: error: ‘class std::vector<Compadre::TargetOperation>’ has no member named ‘getSolutionSetHost’
+  667 |       auto pressureSolutionSet = interiorPressureOptions.getSolutionSetHost();
+      |                                                          ^~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:670:26: error: unused variable ‘interiorPressureLaplacianIndex’ [-Werror=unused-variable]
+  670 |       const unsigned int interiorPressureLaplacianIndex =
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  476 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:478:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  478 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:670:26: error: unused variable ‘interiorPressureLaplacianIndex’ [-Werror=unused-variable]
+  670 |       const unsigned int interiorPressureLaplacianIndex =
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:476:9: error: unused variable ‘up’ [-Werror=unused-variable]
+  476 |   auto &up = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(0, 1)));
+      |         ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:478:9: error: unused variable ‘pp’ [-Werror=unused-variable]
+  478 |   auto &pp = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 1)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:710:26: error: ‘interiorAlpha’ was not declared in this scope
+  710 |               value[j] = interiorAlpha(alphaIndex + j);
+      |                          ^~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:706:30: error: unused variable ‘neighborParticleIndex’ [-Werror=unused-variable]
+  706 |               const PetscInt neighborParticleIndex =
+      |                              ^~~~~~~~~~~~~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:681:24: error: unused variable ‘currentParticleIndex’ [-Werror=unused-variable]
+  681 |         const PetscInt currentParticleIndex = i;
+      |                        ^~~~~~~~~~~~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:633:13: error: ‘uu’ was not declared in this scope
+  633 |             uu.Increment(dimension * currentParticleIndex + j, index, value);
+      |             ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:698:11: error: ‘pp’ was not declared in this scope
+  698 |           pp.Increment(currentParticleIndex, index, value);
+      |           ^~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:698:24: error: ‘currentParticleIndex’ was not declared in this scope
+  698 |           pp.Increment(currentParticleIndex, index, value);
+      |                        ^~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:707:13: error: ‘up’ was not declared in this scope; did you mean ‘dup’?
+  707 |             up.Increment(currentParticleIndex * dimension + k, index, value);
+      |             ^~
+      |             dup
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:698:24: error: ‘currentParticleIndex’ was not declared in this scope
+  698 |           pp.Increment(currentParticleIndex, index, value);
+      |                        ^~~~~~~~~~~~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:600:24: error: unused variable ‘currentParticleIndex’ [-Werror=unused-variable]
+  600 |         const PetscInt currentParticleIndex = i;
+      |                        ^~~~~~~~~~~~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:562:54: error: ‘normal’ was not declared in this scope
+  562 |           tangentBundleHost(boundaryCounter, 2, 0) = normal(i, 0);
+      |                                                      ^~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:569:54: error: ‘normal’ was not declared in this scope
+  569 |           tangentBundleHost(boundaryCounter, 1, 0) = normal(i, 0);
+      |                                                      ^~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:767:26: error: unused variable ‘boundaryPressureLaplacianIndex’ [-Werror=unused-variable]
+  767 |       const unsigned int boundaryPressureLaplacianIndex =
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:768:26: error: unused variable ‘boundaryPressureLaplacianIndex’ [-Werror=unused-variable]
+  768 |       const unsigned int boundaryPressureLaplacianIndex =
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:204: CMakeFiles/test_poisson.dir/rule] Error 2
+make: *** [Makefile:176: test_poisson] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/Equation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/MultilevelPreconditioning.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 23%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 29%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 35%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 41%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 47%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp: In member function ‘virtual long unsigned int PetscBlockMatrix::Assemble()’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:36:32: error: ‘blocKM_’ was not declared in this scope; did you mean ‘blockM_’?
+   36 |   for (unsigned int i = 0; i < blocKM_; i++) {
+      |                                ^~~~~~~
+      |                                blockM_
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:37:43: error: ‘using element_type = class PetscMatrixBase’ {aka ‘class PetscMatrixBase’} has no member named ‘GetRowSize’
+   37 |     localRow += subMat_[i * blockN_ + i]->GetRowSize();
+      |                                           ^~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:38:43: error: ‘using element_type = class PetscMatrixBase’ {aka ‘class PetscMatrixBase’} has no member named ‘GetColSize’
+   38 |     localCol += subMat_[i * blockN_ + i]->GetColSize();
+      |                                           ^~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:160: CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:756:50: error: ‘boundaryPressureOptions’ is not a member of ‘Compadre’
+  756 |       boundaryPressureBasis.addTargets(Compadre::boundaryPressureOptions);
+      |                                                  ^~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:794:34: error: ‘interiorPressureLaplacianIndex’ was not declared in this scope; did you mean ‘boundaryPressureLaplacianIndex’?
+  794 |                 interiorCounter, interiorPressureLaplacianIndex);
+      |                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                  boundaryPressureLaplacianIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:796:24: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  796 |             value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                        ^~~~~~~~~~~~~~~~~~~~~
+      |                        interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:807:36: error: ‘interiorPressureGradientIndex’ was not declared in this scope; did you mean ‘boundaryPressureGradientIndex’?
+  807 |                   interiorCounter, interiorPressureGradientIndex[k]);
+      |                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                    boundaryPressureGradientIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:808:26: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  808 |               value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                          ^~~~~~~~~~~~~~~~~~~~~
+      |                          interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:770:26: error: unused variable ‘boundaryPressureLaplacianIndex’ [-Werror=unused-variable]
+  770 |       const unsigned int boundaryPressureLaplacianIndex =
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:833:36: error: qualified-id in declaration before ‘(’ token
+  833 |   void StokesEquation::ConstructRhs() {
+      |                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:888:37: error: qualified-id in declaration before ‘(’ token
+  888 |   void StokesEquation::SolveEquation() { Equation::SolveEquation(); }
+      |                                     ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:890:38: error: qualified-id in declaration before ‘(’ token
+  890 |   void StokesEquation::CalculateError() {}
+      |                                      ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:892:30: error: qualified-id in declaration before ‘(’ token
+  892 |   void StokesEquation::Output() {}
+      |                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: error: cannot call constructor ‘StokesEquation::StokesEquation’ directly [-fpermissive]
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                  ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: note: for a function-style cast, remove the redundant ‘::StokesEquation’
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:35: error: expected ‘;’ before ‘:’ token
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                   ^~
+      |                                   ;
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:896:35: error: no matching function for call to ‘StokesEquation::~StokesEquation()’
+  896 |   StokesEquation::~StokesEquation() {}
+      |                                   ^
+In file included from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note: candidate: ‘StokesEquation::~StokesEquation()’
+   35 |   ~StokesEquation();
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note:   candidate expects 1 argument, 0 provided
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:898:28: error: qualified-id in declaration before ‘(’ token
+  898 |   void StokesEquation::Init() {
+      |                            ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:904:46: error: qualified-id in declaration before ‘(’ token
+  904 |   HostRealMatrix &StokesEquation::GetVelocity() { return velocity_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:906:46: error: qualified-id in declaration before ‘(’ token
+  906 |   HostRealVector &StokesEquation::GetPressure() { return pressure_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:908:46: error: qualified-id in declaration before ‘(’ token
+  908 |   void StokesEquation::SetVelocityInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:914:46: error: qualified-id in declaration before ‘(’ token
+  914 |   void StokesEquation::SetVelocityBoundaryRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:920:46: error: qualified-id in declaration before ‘(’ token
+  920 |   void StokesEquation::SetPressureInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:924:3: error: expected ‘}’ at end of input
+  924 |   }
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:449:46: note: to match this ‘{’
+  449 | void StokesEquation::ConstructLinearSystem() {
+      |                                              ^
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp: In member function ‘virtual long unsigned int PetscBlockMatrix::Assemble()’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:36:30: error: comparison of integer expressions of different signedness: ‘unsigned int’ and ‘PetscInt’ {aka ‘int’} [-Werror=sign-compare]
+   36 |   for (unsigned int i = 0; i < blockM_; i++) {
+      |                            ~~^~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:37:43: error: ‘using element_type = class PetscMatrixBase’ {aka ‘class PetscMatrixBase’} has no member named ‘GetRowSize’
+   37 |     localRow += subMat_[i * blockN_ + i]->GetRowSize();
+      |                                           ^~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:38:43: error: ‘using element_type = class PetscMatrixBase’ {aka ‘class PetscMatrixBase’} has no member named ‘GetColSize’
+   38 |     localCol += subMat_[i * blockN_ + i]->GetColSize();
+      |                                           ^~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:160: CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:756:50: error: ‘boundaryPressureOptions’ is not a member of ‘Compadre’
+  756 |       boundaryPressureBasis.addTargets(Compadre::boundaryPressureOptions);
+      |                                                  ^~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:794:34: error: ‘interiorPressureLaplacianIndex’ was not declared in this scope; did you mean ‘boundaryPressureLaplacianIndex’?
+  794 |                 interiorCounter, interiorPressureLaplacianIndex);
+      |                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                  boundaryPressureLaplacianIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:796:24: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  796 |             value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                        ^~~~~~~~~~~~~~~~~~~~~
+      |                        interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:807:36: error: ‘interiorPressureGradientIndex’ was not declared in this scope; did you mean ‘boundaryPressureGradientIndex’?
+  807 |                   interiorCounter, interiorPressureGradientIndex[k]);
+      |                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                    boundaryPressureGradientIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:808:26: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  808 |               value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                          ^~~~~~~~~~~~~~~~~~~~~
+      |                          interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:770:26: error: unused variable ‘boundaryPressureLaplacianIndex’ [-Werror=unused-variable]
+  770 |       const unsigned int boundaryPressureLaplacianIndex =
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:833:36: error: qualified-id in declaration before ‘(’ token
+  833 |   void StokesEquation::ConstructRhs() {
+      |                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:888:37: error: qualified-id in declaration before ‘(’ token
+  888 |   void StokesEquation::SolveEquation() { Equation::SolveEquation(); }
+      |                                     ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:890:38: error: qualified-id in declaration before ‘(’ token
+  890 |   void StokesEquation::CalculateError() {}
+      |                                      ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:892:30: error: qualified-id in declaration before ‘(’ token
+  892 |   void StokesEquation::Output() {}
+      |                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: error: cannot call constructor ‘StokesEquation::StokesEquation’ directly [-fpermissive]
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                  ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: note: for a function-style cast, remove the redundant ‘::StokesEquation’
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:35: error: expected ‘;’ before ‘:’ token
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                   ^~
+      |                                   ;
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:896:35: error: no matching function for call to ‘StokesEquation::~StokesEquation()’
+  896 |   StokesEquation::~StokesEquation() {}
+      |                                   ^
+In file included from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note: candidate: ‘StokesEquation::~StokesEquation()’
+   35 |   ~StokesEquation();
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note:   candidate expects 1 argument, 0 provided
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:898:28: error: qualified-id in declaration before ‘(’ token
+  898 |   void StokesEquation::Init() {
+      |                            ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:904:46: error: qualified-id in declaration before ‘(’ token
+  904 |   HostRealMatrix &StokesEquation::GetVelocity() { return velocity_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:906:46: error: qualified-id in declaration before ‘(’ token
+  906 |   HostRealVector &StokesEquation::GetPressure() { return pressure_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:908:46: error: qualified-id in declaration before ‘(’ token
+  908 |   void StokesEquation::SetVelocityInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:914:46: error: qualified-id in declaration before ‘(’ token
+  914 |   void StokesEquation::SetVelocityBoundaryRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:920:46: error: qualified-id in declaration before ‘(’ token
+  920 |   void StokesEquation::SetPressureInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:924:3: error: expected ‘}’ at end of input
+  924 |   }
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:449:46: note: to match this ‘{’
+  449 | void StokesEquation::ConstructLinearSystem() {
+      |                                              ^
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp: In member function ‘virtual long unsigned int PetscBlockMatrix::Assemble()’:
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:37:43: error: ‘using element_type = class PetscMatrixBase’ {aka ‘class PetscMatrixBase’} has no member named ‘GetRowSize’
+   37 |     localRow += subMat_[i * blockN_ + i]->GetRowSize();
+      |                                           ^~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/PetscBlockMatrix.cpp:38:43: error: ‘using element_type = class PetscMatrixBase’ {aka ‘class PetscMatrixBase’} has no member named ‘GetColSize’
+   38 |     localCol += subMat_[i * blockN_ + i]->GetColSize();
+      |                                           ^~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:160: CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:756:50: error: ‘boundaryPressureOptions’ is not a member of ‘Compadre’
+  756 |       boundaryPressureBasis.addTargets(Compadre::boundaryPressureOptions);
+      |                                                  ^~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:794:34: error: ‘interiorPressureLaplacianIndex’ was not declared in this scope; did you mean ‘boundaryPressureLaplacianIndex’?
+  794 |                 interiorCounter, interiorPressureLaplacianIndex);
+      |                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                  boundaryPressureLaplacianIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:796:24: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  796 |             value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                        ^~~~~~~~~~~~~~~~~~~~~
+      |                        interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:807:36: error: ‘interiorPressureGradientIndex’ was not declared in this scope; did you mean ‘boundaryPressureGradientIndex’?
+  807 |                   interiorCounter, interiorPressureGradientIndex[k]);
+      |                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                    boundaryPressureGradientIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:808:26: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  808 |               value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                          ^~~~~~~~~~~~~~~~~~~~~
+      |                          interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:770:26: error: unused variable ‘boundaryPressureLaplacianIndex’ [-Werror=unused-variable]
+  770 |       const unsigned int boundaryPressureLaplacianIndex =
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:833:36: error: qualified-id in declaration before ‘(’ token
+  833 |   void StokesEquation::ConstructRhs() {
+      |                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:888:37: error: qualified-id in declaration before ‘(’ token
+  888 |   void StokesEquation::SolveEquation() { Equation::SolveEquation(); }
+      |                                     ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:890:38: error: qualified-id in declaration before ‘(’ token
+  890 |   void StokesEquation::CalculateError() {}
+      |                                      ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:892:30: error: qualified-id in declaration before ‘(’ token
+  892 |   void StokesEquation::Output() {}
+      |                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: error: cannot call constructor ‘StokesEquation::StokesEquation’ directly [-fpermissive]
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                  ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: note: for a function-style cast, remove the redundant ‘::StokesEquation’
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:35: error: expected ‘;’ before ‘:’ token
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                   ^~
+      |                                   ;
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:896:35: error: no matching function for call to ‘StokesEquation::~StokesEquation()’
+  896 |   StokesEquation::~StokesEquation() {}
+      |                                   ^
+In file included from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note: candidate: ‘StokesEquation::~StokesEquation()’
+   35 |   ~StokesEquation();
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note:   candidate expects 1 argument, 0 provided
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:898:28: error: qualified-id in declaration before ‘(’ token
+  898 |   void StokesEquation::Init() {
+      |                            ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:904:46: error: qualified-id in declaration before ‘(’ token
+  904 |   HostRealMatrix &StokesEquation::GetVelocity() { return velocity_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:906:46: error: qualified-id in declaration before ‘(’ token
+  906 |   HostRealVector &StokesEquation::GetPressure() { return pressure_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:908:46: error: qualified-id in declaration before ‘(’ token
+  908 |   void StokesEquation::SetVelocityInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:914:46: error: qualified-id in declaration before ‘(’ token
+  914 |   void StokesEquation::SetVelocityBoundaryRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:920:46: error: qualified-id in declaration before ‘(’ token
+  920 |   void StokesEquation::SetPressureInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:924:3: error: expected ‘}’ at end of input
+  924 |   }
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:449:46: note: to match this ‘{’
+  449 | void StokesEquation::ConstructLinearSystem() {
+      |                                              ^
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/Equation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/MultilevelPreconditioning.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 23%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 29%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrixBase.cpp.o
+[ 35%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 41%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 47%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 52%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:756:50: error: ‘boundaryPressureOptions’ is not a member of ‘Compadre’
+  756 |       boundaryPressureBasis.addTargets(Compadre::boundaryPressureOptions);
+      |                                                  ^~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:794:34: error: ‘interiorPressureLaplacianIndex’ was not declared in this scope; did you mean ‘boundaryPressureLaplacianIndex’?
+  794 |                 interiorCounter, interiorPressureLaplacianIndex);
+      |                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                  boundaryPressureLaplacianIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:796:24: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  796 |             value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                        ^~~~~~~~~~~~~~~~~~~~~
+      |                        interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:807:36: error: ‘interiorPressureGradientIndex’ was not declared in this scope; did you mean ‘boundaryPressureGradientIndex’?
+  807 |                   interiorCounter, interiorPressureGradientIndex[k]);
+      |                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                    boundaryPressureGradientIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:808:26: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  808 |               value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                          ^~~~~~~~~~~~~~~~~~~~~
+      |                          interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:770:26: error: unused variable ‘boundaryPressureLaplacianIndex’ [-Werror=unused-variable]
+  770 |       const unsigned int boundaryPressureLaplacianIndex =
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:833:36: error: qualified-id in declaration before ‘(’ token
+  833 |   void StokesEquation::ConstructRhs() {
+      |                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:888:37: error: qualified-id in declaration before ‘(’ token
+  888 |   void StokesEquation::SolveEquation() { Equation::SolveEquation(); }
+      |                                     ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:890:38: error: qualified-id in declaration before ‘(’ token
+  890 |   void StokesEquation::CalculateError() {}
+      |                                      ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:892:30: error: qualified-id in declaration before ‘(’ token
+  892 |   void StokesEquation::Output() {}
+      |                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: error: cannot call constructor ‘StokesEquation::StokesEquation’ directly [-fpermissive]
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                  ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: note: for a function-style cast, remove the redundant ‘::StokesEquation’
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:35: error: expected ‘;’ before ‘:’ token
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                   ^~
+      |                                   ;
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:896:35: error: no matching function for call to ‘StokesEquation::~StokesEquation()’
+  896 |   StokesEquation::~StokesEquation() {}
+      |                                   ^
+In file included from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note: candidate: ‘StokesEquation::~StokesEquation()’
+   35 |   ~StokesEquation();
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note:   candidate expects 1 argument, 0 provided
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:898:28: error: qualified-id in declaration before ‘(’ token
+  898 |   void StokesEquation::Init() {
+      |                            ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:904:46: error: qualified-id in declaration before ‘(’ token
+  904 |   HostRealMatrix &StokesEquation::GetVelocity() { return velocity_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:906:46: error: qualified-id in declaration before ‘(’ token
+  906 |   HostRealVector &StokesEquation::GetPressure() { return pressure_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:908:46: error: qualified-id in declaration before ‘(’ token
+  908 |   void StokesEquation::SetVelocityInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:914:46: error: qualified-id in declaration before ‘(’ token
+  914 |   void StokesEquation::SetVelocityBoundaryRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:920:46: error: qualified-id in declaration before ‘(’ token
+  920 |   void StokesEquation::SetPressureInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:924:3: error: expected ‘}’ at end of input
+  924 |   }
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:449:46: note: to match this ‘{’
+  449 | void StokesEquation::ConstructLinearSystem() {
+      |                                              ^
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:756:50: error: ‘boundaryPressureOptions’ is not a member of ‘Compadre’
+  756 |       boundaryPressureBasis.addTargets(Compadre::boundaryPressureOptions);
+      |                                                  ^~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:794:34: error: ‘interiorPressureLaplacianIndex’ was not declared in this scope; did you mean ‘boundaryPressureLaplacianIndex’?
+  794 |                 interiorCounter, interiorPressureLaplacianIndex);
+      |                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                  boundaryPressureLaplacianIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:796:24: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  796 |             value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                        ^~~~~~~~~~~~~~~~~~~~~
+      |                        interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:807:36: error: ‘interiorPressureGradientIndex’ was not declared in this scope; did you mean ‘boundaryPressureGradientIndex’?
+  807 |                   interiorCounter, interiorPressureGradientIndex[k]);
+      |                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                    boundaryPressureGradientIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:808:26: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  808 |               value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                          ^~~~~~~~~~~~~~~~~~~~~
+      |                          interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:770:26: error: unused variable ‘boundaryPressureLaplacianIndex’ [-Werror=unused-variable]
+  770 |       const unsigned int boundaryPressureLaplacianIndex =
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:833:36: error: qualified-id in declaration before ‘(’ token
+  833 |   void StokesEquation::ConstructRhs() {
+      |                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:888:37: error: qualified-id in declaration before ‘(’ token
+  888 |   void StokesEquation::SolveEquation() { Equation::SolveEquation(); }
+      |                                     ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:890:38: error: qualified-id in declaration before ‘(’ token
+  890 |   void StokesEquation::CalculateError() {}
+      |                                      ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:892:30: error: qualified-id in declaration before ‘(’ token
+  892 |   void StokesEquation::Output() {}
+      |                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: error: cannot call constructor ‘StokesEquation::StokesEquation’ directly [-fpermissive]
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                  ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: note: for a function-style cast, remove the redundant ‘::StokesEquation’
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:35: error: expected ‘;’ before ‘:’ token
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                   ^~
+      |                                   ;
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:896:35: error: no matching function for call to ‘StokesEquation::~StokesEquation()’
+  896 |   StokesEquation::~StokesEquation() {}
+      |                                   ^
+In file included from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note: candidate: ‘StokesEquation::~StokesEquation()’
+   35 |   ~StokesEquation();
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note:   candidate expects 1 argument, 0 provided
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:898:28: error: qualified-id in declaration before ‘(’ token
+  898 |   void StokesEquation::Init() {
+      |                            ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:904:46: error: qualified-id in declaration before ‘(’ token
+  904 |   HostRealMatrix &StokesEquation::GetVelocity() { return velocity_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:906:46: error: qualified-id in declaration before ‘(’ token
+  906 |   HostRealVector &StokesEquation::GetPressure() { return pressure_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:908:46: error: qualified-id in declaration before ‘(’ token
+  908 |   void StokesEquation::SetVelocityInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:914:46: error: qualified-id in declaration before ‘(’ token
+  914 |   void StokesEquation::SetVelocityBoundaryRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:920:46: error: qualified-id in declaration before ‘(’ token
+  920 |   void StokesEquation::SetPressureInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:924:3: error: expected ‘}’ at end of input
+  924 |   }
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:449:46: note: to match this ‘{’
+  449 | void StokesEquation::ConstructLinearSystem() {
+      |                                              ^
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:794:34: error: ‘interiorPressureLaplacianIndex’ was not declared in this scope; did you mean ‘boundaryPressureLaplacianIndex’?
+  794 |                 interiorCounter, interiorPressureLaplacianIndex);
+      |                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                  boundaryPressureLaplacianIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:796:24: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  796 |             value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                        ^~~~~~~~~~~~~~~~~~~~~
+      |                        interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:807:36: error: ‘interiorPressureGradientIndex’ was not declared in this scope; did you mean ‘boundaryPressureGradientIndex’?
+  807 |                   interiorCounter, interiorPressureGradientIndex[k]);
+      |                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                    boundaryPressureGradientIndex
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:808:26: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  808 |               value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                          ^~~~~~~~~~~~~~~~~~~~~
+      |                          interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:770:26: error: unused variable ‘boundaryPressureLaplacianIndex’ [-Werror=unused-variable]
+  770 |       const unsigned int boundaryPressureLaplacianIndex =
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:833:36: error: qualified-id in declaration before ‘(’ token
+  833 |   void StokesEquation::ConstructRhs() {
+      |                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:888:37: error: qualified-id in declaration before ‘(’ token
+  888 |   void StokesEquation::SolveEquation() { Equation::SolveEquation(); }
+      |                                     ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:890:38: error: qualified-id in declaration before ‘(’ token
+  890 |   void StokesEquation::CalculateError() {}
+      |                                      ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:892:30: error: qualified-id in declaration before ‘(’ token
+  892 |   void StokesEquation::Output() {}
+      |                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: error: cannot call constructor ‘StokesEquation::StokesEquation’ directly [-fpermissive]
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                  ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: note: for a function-style cast, remove the redundant ‘::StokesEquation’
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:35: error: expected ‘;’ before ‘:’ token
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                   ^~
+      |                                   ;
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:896:35: error: no matching function for call to ‘StokesEquation::~StokesEquation()’
+  896 |   StokesEquation::~StokesEquation() {}
+      |                                   ^
+In file included from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note: candidate: ‘StokesEquation::~StokesEquation()’
+   35 |   ~StokesEquation();
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note:   candidate expects 1 argument, 0 provided
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:898:28: error: qualified-id in declaration before ‘(’ token
+  898 |   void StokesEquation::Init() {
+      |                            ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:904:46: error: qualified-id in declaration before ‘(’ token
+  904 |   HostRealMatrix &StokesEquation::GetVelocity() { return velocity_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:906:46: error: qualified-id in declaration before ‘(’ token
+  906 |   HostRealVector &StokesEquation::GetPressure() { return pressure_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:908:46: error: qualified-id in declaration before ‘(’ token
+  908 |   void StokesEquation::SetVelocityInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:914:46: error: qualified-id in declaration before ‘(’ token
+  914 |   void StokesEquation::SetVelocityBoundaryRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:920:46: error: qualified-id in declaration before ‘(’ token
+  920 |   void StokesEquation::SetPressureInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:924:3: error: expected ‘}’ at end of input
+  924 |   }
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:449:46: note: to match this ‘{’
+  449 | void StokesEquation::ConstructLinearSystem() {
+      |                                              ^
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:796:24: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  796 |             value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                        ^~~~~~~~~~~~~~~~~~~~~
+      |                        interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:807:68: error: invalid types ‘const unsigned int[unsigned int]’ for array subscript
+  807 |                   boundaryCounter, boundaryPressureLaplacianIndex[k]);
+      |                                                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:808:26: error: ‘interiorPressureAlpha’ was not declared in this scope; did you mean ‘interiorPressureRhs_’?
+  808 |               value[j] = interiorPressureAlpha(alphaIndex + j);
+      |                          ^~~~~~~~~~~~~~~~~~~~~
+      |                          interiorPressureRhs_
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:833:36: error: qualified-id in declaration before ‘(’ token
+  833 |   void StokesEquation::ConstructRhs() {
+      |                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:888:37: error: qualified-id in declaration before ‘(’ token
+  888 |   void StokesEquation::SolveEquation() { Equation::SolveEquation(); }
+      |                                     ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:890:38: error: qualified-id in declaration before ‘(’ token
+  890 |   void StokesEquation::CalculateError() {}
+      |                                      ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:892:30: error: qualified-id in declaration before ‘(’ token
+  892 |   void StokesEquation::Output() {}
+      |                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: error: cannot call constructor ‘StokesEquation::StokesEquation’ directly [-fpermissive]
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                  ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: note: for a function-style cast, remove the redundant ‘::StokesEquation’
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:35: error: expected ‘;’ before ‘:’ token
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                   ^~
+      |                                   ;
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:896:35: error: no matching function for call to ‘StokesEquation::~StokesEquation()’
+  896 |   StokesEquation::~StokesEquation() {}
+      |                                   ^
+In file included from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note: candidate: ‘StokesEquation::~StokesEquation()’
+   35 |   ~StokesEquation();
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note:   candidate expects 1 argument, 0 provided
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:898:28: error: qualified-id in declaration before ‘(’ token
+  898 |   void StokesEquation::Init() {
+      |                            ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:904:46: error: qualified-id in declaration before ‘(’ token
+  904 |   HostRealMatrix &StokesEquation::GetVelocity() { return velocity_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:906:46: error: qualified-id in declaration before ‘(’ token
+  906 |   HostRealVector &StokesEquation::GetPressure() { return pressure_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:908:46: error: qualified-id in declaration before ‘(’ token
+  908 |   void StokesEquation::SetVelocityInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:914:46: error: qualified-id in declaration before ‘(’ token
+  914 |   void StokesEquation::SetVelocityBoundaryRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:920:46: error: qualified-id in declaration before ‘(’ token
+  920 |   void StokesEquation::SetPressureInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:924:3: error: expected ‘}’ at end of input
+  924 |   }
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:449:46: note: to match this ‘{’
+  449 | void StokesEquation::ConstructLinearSystem() {
+      |                                              ^
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:807:68: error: invalid types ‘const unsigned int[unsigned int]’ for array subscript
+  807 |                   boundaryCounter, boundaryPressureLaplacianIndex[k]);
+      |                                                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:833:36: error: qualified-id in declaration before ‘(’ token
+  833 |   void StokesEquation::ConstructRhs() {
+      |                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:888:37: error: qualified-id in declaration before ‘(’ token
+  888 |   void StokesEquation::SolveEquation() { Equation::SolveEquation(); }
+      |                                     ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:890:38: error: qualified-id in declaration before ‘(’ token
+  890 |   void StokesEquation::CalculateError() {}
+      |                                      ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:892:30: error: qualified-id in declaration before ‘(’ token
+  892 |   void StokesEquation::Output() {}
+      |                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: error: cannot call constructor ‘StokesEquation::StokesEquation’ directly [-fpermissive]
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                  ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: note: for a function-style cast, remove the redundant ‘::StokesEquation’
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:35: error: expected ‘;’ before ‘:’ token
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                   ^~
+      |                                   ;
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:896:35: error: no matching function for call to ‘StokesEquation::~StokesEquation()’
+  896 |   StokesEquation::~StokesEquation() {}
+      |                                   ^
+In file included from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note: candidate: ‘StokesEquation::~StokesEquation()’
+   35 |   ~StokesEquation();
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note:   candidate expects 1 argument, 0 provided
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:898:28: error: qualified-id in declaration before ‘(’ token
+  898 |   void StokesEquation::Init() {
+      |                            ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:904:46: error: qualified-id in declaration before ‘(’ token
+  904 |   HostRealMatrix &StokesEquation::GetVelocity() { return velocity_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:906:46: error: qualified-id in declaration before ‘(’ token
+  906 |   HostRealVector &StokesEquation::GetPressure() { return pressure_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:908:46: error: qualified-id in declaration before ‘(’ token
+  908 |   void StokesEquation::SetVelocityInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:914:46: error: qualified-id in declaration before ‘(’ token
+  914 |   void StokesEquation::SetVelocityBoundaryRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:920:46: error: qualified-id in declaration before ‘(’ token
+  920 |   void StokesEquation::SetPressureInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:924:3: error: expected ‘}’ at end of input
+  924 |   }
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:449:46: note: to match this ‘{’
+  449 | void StokesEquation::ConstructLinearSystem() {
+      |                                              ^
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:833:36: error: qualified-id in declaration before ‘(’ token
+  833 |   void StokesEquation::ConstructRhs() {
+      |                                    ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:888:37: error: qualified-id in declaration before ‘(’ token
+  888 |   void StokesEquation::SolveEquation() { Equation::SolveEquation(); }
+      |                                     ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:890:38: error: qualified-id in declaration before ‘(’ token
+  890 |   void StokesEquation::CalculateError() {}
+      |                                      ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:892:30: error: qualified-id in declaration before ‘(’ token
+  892 |   void StokesEquation::Output() {}
+      |                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: error: cannot call constructor ‘StokesEquation::StokesEquation’ directly [-fpermissive]
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                  ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:34: note: for a function-style cast, remove the redundant ‘::StokesEquation’
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:894:35: error: expected ‘;’ before ‘:’ token
+  894 |   StokesEquation::StokesEquation() : Equation() {}
+      |                                   ^~
+      |                                   ;
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:896:35: error: no matching function for call to ‘StokesEquation::~StokesEquation()’
+  896 |   StokesEquation::~StokesEquation() {}
+      |                                   ^
+In file included from /home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:1:
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note: candidate: ‘StokesEquation::~StokesEquation()’
+   35 |   ~StokesEquation();
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/include/StokesEquation.hpp:35:3: note:   candidate expects 1 argument, 0 provided
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:898:28: error: qualified-id in declaration before ‘(’ token
+  898 |   void StokesEquation::Init() {
+      |                            ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:904:46: error: qualified-id in declaration before ‘(’ token
+  904 |   HostRealMatrix &StokesEquation::GetVelocity() { return velocity_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:906:46: error: qualified-id in declaration before ‘(’ token
+  906 |   HostRealVector &StokesEquation::GetPressure() { return pressure_; }
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:908:46: error: qualified-id in declaration before ‘(’ token
+  908 |   void StokesEquation::SetVelocityInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:914:46: error: qualified-id in declaration before ‘(’ token
+  914 |   void StokesEquation::SetVelocityBoundaryRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:920:46: error: qualified-id in declaration before ‘(’ token
+  920 |   void StokesEquation::SetPressureInteriorRhs(
+      |                                              ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:924:3: error: expected ‘}’ at end of input
+  924 |   }
+      |   ^
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:449:46: note: to match this ‘{’
+  449 | void StokesEquation::ConstructLinearSystem() {
+      |                                              ^
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Building CXX object CMakeFiles/test_stokes.dir/test/TestStokes.cpp.o
+[100%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:850:31: error: ‘neighborParticleIndex’ was not declared in this scope
+  850 |                   dimension * neighborParticleIndex + axes2;
+      |                               ^~~~~~~~~~~~~~~~~~~~~
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:857:37: error: expected ‘;’ before ‘boundaryVelocityAlpha’
+  857 |                     normal(i, axes1) boundaryVelocityAlpha(alphaIndex + j);
+      |                                     ^~~~~~~~~~~~~~~~~~~~~~
+      |                                     ;
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:853:22: error: unused variable ‘alphaIndex’ [-Werror=unused-variable]
+  853 |                 auto alphaIndex = velocitySolutionSet->getAlphaIndex(
+      |                      ^~~~~~~~~~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:850:31: error: ‘neighborParticleIndex’ was not declared in this scope
+  850 |                   dimension * neighborParticleIndex + axes2;
+      |                               ^~~~~~~~~~~~~~~~~~~~~
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Building CXX object CMakeFiles/test_stokes.dir/test/TestStokes.cpp.o
+[100%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp: In member function ‘virtual void StokesEquation::ConstructLinearSystem()’:
+/home/zishengy/Projects/GMLS_Solver/src/StokesEquation.cpp:477:9: error: unused variable ‘pu’ [-Werror=unused-variable]
+  477 |   auto &pu = *(std::static_pointer_cast<PetscMatrix>(A.GetSubMat(1, 0)));
+      |         ^~
+cc1plus: all warnings being treated as errors
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Error 2
+make: *** [Makefile:150: test_stokes] Error 2
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+make[3]: *** [CMakeFiles/gmls_module.dir/build.make:244: CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o] Interrupt
+make[2]: *** [CMakeFiles/Makefile2:119: CMakeFiles/gmls_module.dir/all] Interrupt
+make[1]: *** [CMakeFiles/Makefile2:152: CMakeFiles/test_stokes.dir/rule] Interrupt
+make: *** [Makefile:150: test_stokes] Interrupt
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 17%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_stokes
+[ 94%] Linking CXX executable bin/test_stokes
+[100%] Built target test_stokes
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Building CXX object CMakeFiles/test_poisson.dir/test/TestPoisson.cpp.o
+[100%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 11%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
+Consolidate compiler generated dependencies of target gmls_module
+[  5%] Building CXX object CMakeFiles/gmls_module.dir/src/Equation.cpp.o
+[ 11%] Building CXX object CMakeFiles/gmls_module.dir/src/MultilevelPreconditioning.cpp.o
+[ 17%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscBlockMatrix.cpp.o
+[ 23%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrix.cpp.o
+[ 29%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscMatrixBase.cpp.o
+[ 41%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquationPreconditioning.cpp.o
+[ 41%] Building CXX object CMakeFiles/gmls_module.dir/src/PetscVector.cpp.o
+[ 47%] Building CXX object CMakeFiles/gmls_module.dir/src/PoissonEquation.cpp.o
+[ 52%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquation.cpp.o
+[ 58%] Building CXX object CMakeFiles/gmls_module.dir/src/StokesEquationPreconditioning.cpp.o
+[ 64%] Linking CXX shared library libgmls_module.so
+[ 88%] Built target gmls_module
+Consolidate compiler generated dependencies of target test_poisson
+[ 94%] Building CXX object CMakeFiles/test_poisson.dir/test/TestPoisson.cpp.o
+[100%] Linking CXX executable bin/test_poisson
+[100%] Built target test_poisson
