@@ -12,8 +12,8 @@ void Partition::ConstructPartition(const HostRealMatrix &coords,
   // use Zoltan2 to partition
   Teuchos::ParameterList params("zoltan2 params");
   params.set("algorithm", "multijagged");
-  params.set("mj_keep_part_boxes", true);
-  params.set("rectilinear", true);
+  // params.set("mj_keep_part_boxes", true);
+  // params.set("rectilinear", true);
   params.set("num_global_parts", mpiSize_);
 
   std::vector<double> x, y, z;
@@ -122,10 +122,6 @@ void Partition::ConstructPartition(const HostRealMatrix &coords,
       localReserveMap_.push_back(i);
     }
   }
-
-  std::cout << localReserveMap_.size() +
-                   migrationInOffset_[migrationInGraph_.size()]
-            << std::endl;
 
   MPI_Barrier(MPI_COMM_WORLD);
 }
