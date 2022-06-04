@@ -552,3 +552,5 @@ panlab*
 
 build/
 bin/
+
+*.err

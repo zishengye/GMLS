@@ -123,6 +123,10 @@ void Partition::ConstructPartition(const HostRealMatrix &coords,
     }
   }
 
+  std::cout << localReserveMap_.size() +
+                   migrationInOffset_[migrationInGraph_.size()]
+            << std::endl;
+
   MPI_Barrier(MPI_COMM_WORLD);
 }
 

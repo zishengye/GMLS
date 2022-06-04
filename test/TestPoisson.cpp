@@ -13,7 +13,7 @@ TEST(PoissonEquationTest, 2DLinearSystemSolving) {
   {
     PoissonEquation equation;
     equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.1);
+    equation.SetInitialDiscretizationResolution(0.02);
 
     std::vector<double> size(2);
     size[0] = 2.0;
