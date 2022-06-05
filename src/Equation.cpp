@@ -143,7 +143,7 @@ void Equation::Mark() {
   Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
                            0, error_.extent(0)),
                        [&](const int i) {
-                         if (error_(i) > currentErrorSplit)
+                         if (error_(i) >= currentErrorSplit)
                            splitTag_(i) = 1;
                          else
                            splitTag_(i) = 0;
@@ -393,7 +393,7 @@ void Equation::ConstructNeighborLists(const unsigned int satisfiedNumNeighbor) {
   Kokkos::parallel_for(
       Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, localParticleNum),
       [&](const int i) {
-        double minEpsilon = 1.50005 * spacing(i);
+        double minEpsilon = 1.50 * spacing(i);
         double minSpacing = 0.25 * spacing(i);
         epsilon_(i) = std::max(minEpsilon, epsilon_(i));
         unsigned int scaling =
@@ -500,7 +500,7 @@ void Equation::SetRefinementMarkRatio(const double ratio) {
 }
 
 void Equation::Init() {
-  SetGhostMultiplier(6.0);
+  SetGhostMultiplier(8.0);
   particleMgr_.Init();
 }
 

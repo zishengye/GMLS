@@ -62,7 +62,7 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
         Compadre::CreatePointCloudSearch(sourceParticleCoordsHost, dimension));
 
     const unsigned int satisfiedNumNeighbor =
-        2 * Compadre::GMLS::getNP(2, dimension);
+        pow(sqrt(2), dimension) * Compadre::GMLS::getNP(2, dimension);
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
         sourceParticleCoordsDevice("interpolation source particle coords",
@@ -90,17 +90,17 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
         true, targetParticleCoordsHost, neighborListsHost, epsilonHost,
         satisfiedNumNeighbor, 1.0);
 
-    Kokkos::parallel_for(
-        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
-            0, localTargetParticleNum),
-        [&](const int i) {
-          double minEpsilon = 1.50005 * targetParticleSizeHost(i);
-          double minSpacing = 0.25 * targetParticleSizeHost(i);
-          epsilonHost(i) = std::max(minEpsilon, epsilonHost(i));
-          unsigned int scaling =
-              std::ceil((epsilonHost(i) - minEpsilon) / minSpacing);
-          epsilonHost(i) = minEpsilon + scaling * minSpacing;
-        });
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+                             0, localTargetParticleNum),
+                         [&](const int i) {
+                           double minEpsilon = 1.50 * targetParticleSizeHost(i);
+                           double minSpacing = 0.25 * targetParticleSizeHost(i);
+                           epsilonHost(i) =
+                               std::max(minEpsilon, epsilonHost(i));
+                           unsigned int scaling = std::ceil(
+                               (epsilonHost(i) - minEpsilon) / minSpacing);
+                           epsilonHost(i) = minEpsilon + scaling * minSpacing;
+                         });
     Kokkos::fence();
 
     double maxRatio, meanNeighbor;
@@ -289,15 +289,7 @@ void PoissonEquationPreconditioning::ConstructInterpolation(
       I.Increment(i, index, value);
     }
 
-    const unsigned long nnz = I.Assemble();
-    unsigned long nnzMax, nnzMin;
-    MPI_Allreduce(&nnz, &nnzMax, 1, MPI_UNSIGNED_LONG, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&nnz, &nnzMin, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
-
-    PetscPrintf(PETSC_COMM_WORLD,
-                "End of building Poisson equation interpolation\nMax nonzeros: "
-                "%lu, Min nonzeros: %lu\n",
-                nnzMax, nnzMin);
+    I.Assemble();
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -468,7 +460,8 @@ void PoissonEquationPreconditioning::ConstructRestriction(
     }
 
     unsigned int minNeighborLists;
-    unsigned int satisfiedNumNeighbor = 2 * Compadre::GMLS::getNP(2, dimension);
+    unsigned int satisfiedNumNeighbor =
+        pow(sqrt(2), dimension) * Compadre::GMLS::getNP(2, dimension);
 
     DeviceIndexMatrix interiorNeighborListsDevice(
         "interior particle neighbor lists", localInteriorParticleNum,
@@ -490,7 +483,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
         Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
             0, localInteriorParticleNum),
         [&](const int i) {
-          double minEpsilon = 0.250005 * interiorTargetParticleSize(i);
+          double minEpsilon = 0.25 * interiorTargetParticleSize(i);
           double minSpacing = 0.05 * interiorTargetParticleSize(i);
           interiorEpsilonHost(i) = std::max(minEpsilon, interiorEpsilonHost(i));
           unsigned int scaling =
@@ -548,7 +541,8 @@ void PoissonEquationPreconditioning::ConstructRestriction(
                 minNeighbor, maxNeighbor,
                 meanNeighbor / (double)globalInteriorParticleNum, maxRatio);
 
-    satisfiedNumNeighbor = 2 * Compadre::GMLS::getNP(2, dimension - 1);
+    satisfiedNumNeighbor =
+        pow(sqrt(2), dimension - 1) * Compadre::GMLS::getNP(2, dimension - 1);
 
     DeviceIndexMatrix boundaryNeighborListsDevice(
         "boundary particle neighbor list", localBoundaryParticleNum,
@@ -848,15 +842,7 @@ void PoissonEquationPreconditioning::ConstructRestriction(
       R.Increment(i, index, value);
     }
 
-    const unsigned long nnz = R.Assemble();
-    unsigned long nnzMax, nnzMin;
-    MPI_Allreduce(&nnz, &nnzMax, 1, MPI_UNSIGNED_LONG, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&nnz, &nnzMin, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
-
-    PetscPrintf(PETSC_COMM_WORLD,
-                "End of building Poisson equation restriction\nMax nonzeros: "
-                "%lu, Min nonzeros: %lu\n",
-                nnzMax, nnzMin);
+    R.Assemble();
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -890,7 +876,7 @@ void PoissonEquationPreconditioning::ConstructSmoother(
     KSP &ksp = smootherPtr_[currentLevel]->GetReference();
     KSPCreate(MPI_COMM_WORLD, &ksp);
     KSPSetType(ksp, KSPFGMRES);
-    KSPSetTolerances(ksp, 1e-6, 1e-50, 1e20, 500);
+    KSPSetTolerances(ksp, 1e-3, 1e-50, 1e20, 500);
     KSPSetOperators(ksp, linearSystemsPtr_[currentLevel]->GetReference(),
                     linearSystemsPtr_[currentLevel]->GetReference());
 

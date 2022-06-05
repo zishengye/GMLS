@@ -190,86 +190,72 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
             rankBoundaryNodeOffsetList[rank] + rankBoundaryNodeNumList[rank];
       }
 
-      GlobalIndex startIndex, endIndex;
-      int boundaryIterStart, boundaryIterEnd;
       // line: y = size_[1] / 2.0
-      startIndex = std::max<GlobalIndex>(boundaryNodeIndex[0],
-                                         rankBoundaryNodeOffsetList[mpiRank_]);
-      endIndex = std::min<GlobalIndex>(
-          boundaryNodeIndex[1], rankBoundaryNodeOffsetList[mpiRank_ + 1]);
-      boundaryIterStart = std::max<int>(0, startIndex - boundaryNodeIndex[0]);
-      boundaryIterEnd =
-          std::min<int>(xNodeNum, endIndex - boundaryNodeIndex[0]);
-      for (int i = boundaryIterStart; i < boundaryIterEnd; i++) {
-        nodeCoords(nodeIndex, 0) = (i + 0.5) * spacing - size_[0] / 2.0;
-        nodeCoords(nodeIndex, 1) = size_[1] / 2.0;
-        nodeCoords(nodeIndex, 2) = 0.0;
-        nodeNormal(nodeIndex, 0) = 0.0;
-        nodeNormal(nodeIndex, 1) = -1.0;
-        nodeNormal(nodeIndex, 2) = 0.0;
-        nodeSize(nodeIndex) = spacing;
-        nodeType(nodeIndex) = 1;
-        nodeIndex++;
+      for (int i = 0; i < xNodeNum; i++) {
+        GlobalIndex globalIndex = boundaryNodeIndex[0] + i;
+        if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
+            globalIndex < rankBoundaryNodeOffsetList[mpiRank_ + 1]) {
+          nodeCoords(nodeIndex, 0) = (i + 0.5) * spacing - size_[0] / 2.0;
+          nodeCoords(nodeIndex, 1) = size_[1] / 2.0;
+          nodeCoords(nodeIndex, 2) = 0.0;
+          nodeNormal(nodeIndex, 0) = 0.0;
+          nodeNormal(nodeIndex, 1) = -1.0;
+          nodeNormal(nodeIndex, 2) = 0.0;
+          nodeSize(nodeIndex) = spacing;
+          nodeType(nodeIndex) = 1;
+          nodeIndex++;
+        }
       }
 
       // line: x = size_[0] / 2.0
-      startIndex = std::max<GlobalIndex>(boundaryNodeIndex[1],
-                                         rankBoundaryNodeOffsetList[mpiRank_]);
-      endIndex = std::min<GlobalIndex>(
-          boundaryNodeIndex[2], rankBoundaryNodeOffsetList[mpiRank_ + 1]);
-      boundaryIterStart = std::max<int>(0, startIndex - boundaryNodeIndex[1]);
-      boundaryIterEnd =
-          std::min<int>(yNodeNum, endIndex - boundaryNodeIndex[1]);
-      for (int i = boundaryIterStart; i < boundaryIterEnd; i++) {
-        nodeCoords(nodeIndex, 0) = size_[0] / 2.0;
-        nodeCoords(nodeIndex, 1) = (i + 0.5) * spacing - size_[1] / 2.0;
-        nodeCoords(nodeIndex, 2) = 0.0;
-        nodeNormal(nodeIndex, 0) = -1.0;
-        nodeNormal(nodeIndex, 1) = 0.0;
-        nodeNormal(nodeIndex, 2) = 0.0;
-        nodeSize(nodeIndex) = spacing;
-        nodeType(nodeIndex) = 1;
-        nodeIndex++;
+      for (int i = 0; i < yNodeNum; i++) {
+        GlobalIndex globalIndex = boundaryNodeIndex[1] + i;
+        if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
+            globalIndex < rankBoundaryNodeOffsetList[mpiRank_ + 1]) {
+          nodeCoords(nodeIndex, 0) = size_[0] / 2.0;
+          nodeCoords(nodeIndex, 1) = (i + 0.5) * spacing - size_[1] / 2.0;
+          nodeCoords(nodeIndex, 2) = 0.0;
+          nodeNormal(nodeIndex, 0) = -1.0;
+          nodeNormal(nodeIndex, 1) = 0.0;
+          nodeNormal(nodeIndex, 2) = 0.0;
+          nodeSize(nodeIndex) = spacing;
+          nodeType(nodeIndex) = 1;
+          nodeIndex++;
+        }
       }
 
       // line: y = -size_[0] / 2.0
-      startIndex = std::max<GlobalIndex>(boundaryNodeIndex[2],
-                                         rankBoundaryNodeOffsetList[mpiRank_]);
-      endIndex = std::min<GlobalIndex>(
-          boundaryNodeIndex[3], rankBoundaryNodeOffsetList[mpiRank_ + 1]);
-      boundaryIterStart = std::max<int>(0, startIndex - boundaryNodeIndex[2]);
-      boundaryIterEnd =
-          std::min<int>(yNodeNum, endIndex - boundaryNodeIndex[2]);
-      for (int i = boundaryIterStart; i < boundaryIterEnd; i++) {
-        nodeCoords(nodeIndex, 0) = (i + 0.5) * spacing - size_[0] / 2.0;
-        nodeCoords(nodeIndex, 1) = -size_[1] / 2.0;
-        nodeCoords(nodeIndex, 2) = 0.0;
-        nodeNormal(nodeIndex, 0) = 0.0;
-        nodeNormal(nodeIndex, 1) = 1.0;
-        nodeNormal(nodeIndex, 2) = 0.0;
-        nodeSize(nodeIndex) = spacing;
-        nodeType(nodeIndex) = 1;
-        nodeIndex++;
+      for (int i = 0; i < xNodeNum; i++) {
+        GlobalIndex globalIndex = boundaryNodeIndex[2] + i;
+        if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
+            globalIndex < rankBoundaryNodeOffsetList[mpiRank_ + 1]) {
+          nodeCoords(nodeIndex, 0) = (i + 0.5) * spacing - size_[0] / 2.0;
+          nodeCoords(nodeIndex, 1) = -size_[1] / 2.0;
+          nodeCoords(nodeIndex, 2) = 0.0;
+          nodeNormal(nodeIndex, 0) = 0.0;
+          nodeNormal(nodeIndex, 1) = 1.0;
+          nodeNormal(nodeIndex, 2) = 0.0;
+          nodeSize(nodeIndex) = spacing;
+          nodeType(nodeIndex) = 1;
+          nodeIndex++;
+        }
       }
 
       // line: x = -size_[0] / 2.0
-      startIndex = std::max<GlobalIndex>(boundaryNodeIndex[3],
-                                         rankBoundaryNodeOffsetList[mpiRank_]);
-      endIndex = std::min<GlobalIndex>(
-          boundaryNodeIndex[4], rankBoundaryNodeOffsetList[mpiRank_ + 1]);
-      boundaryIterStart = std::max<int>(0, startIndex - boundaryNodeIndex[3]);
-      boundaryIterEnd =
-          std::min<int>(yNodeNum, endIndex - boundaryNodeIndex[3]);
-      for (int i = boundaryIterStart; i < boundaryIterEnd; i++) {
-        nodeCoords(nodeIndex, 0) = -size_[0] / 2.0;
-        nodeCoords(nodeIndex, 1) = (i + 0.5) * spacing - size_[1] / 2.0;
-        nodeCoords(nodeIndex, 2) = 0.0;
-        nodeNormal(nodeIndex, 0) = 1.0;
-        nodeNormal(nodeIndex, 1) = 0.0;
-        nodeNormal(nodeIndex, 2) = 0.0;
-        nodeSize(nodeIndex) = spacing;
-        nodeType(nodeIndex) = 1;
-        nodeIndex++;
+      for (int i = 0; i < yNodeNum; i++) {
+        GlobalIndex globalIndex = boundaryNodeIndex[3] + i;
+        if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
+            globalIndex < rankBoundaryNodeOffsetList[mpiRank_ + 1]) {
+          nodeCoords(nodeIndex, 0) = -size_[0] / 2.0;
+          nodeCoords(nodeIndex, 1) = (i + 0.5) * spacing - size_[1] / 2.0;
+          nodeCoords(nodeIndex, 2) = 0.0;
+          nodeNormal(nodeIndex, 0) = 1.0;
+          nodeNormal(nodeIndex, 1) = 0.0;
+          nodeNormal(nodeIndex, 2) = 0.0;
+          nodeSize(nodeIndex) = spacing;
+          nodeType(nodeIndex) = 1;
+          nodeIndex++;
+        }
       }
 
       // interior node
@@ -289,8 +275,7 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
             rankInteriorNodeOffsetList[rank] + rankInteriorNodeNumList[rank];
       }
 
-      for (GlobalIndex i = rankInteriorNodeOffsetList[mpiRank_] / yNodeNum;
-           i <= rankInteriorNodeOffsetList[mpiRank_ + 1] / yNodeNum + 1; i++) {
+      for (int i = 0; i < xNodeNum; i++) {
         for (int j = 0; j < yNodeNum; j++) {
           GlobalIndex globalIndex = i * yNodeNum + j;
           if (globalIndex >= rankInteriorNodeOffsetList[mpiRank_] &&
@@ -349,19 +334,8 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
             rankBoundaryNodeOffsetList[rank] + rankBoundaryNodeNumList[rank];
       }
 
-      GlobalIndex startIndex, endIndex;
-      int boundaryIterStart, boundaryIterEnd;
       // plane: z = -size_[2] / 2.0
-      startIndex = std::max<GlobalIndex>(boundaryNodeIndex[0],
-                                         rankBoundaryNodeOffsetList[mpiRank_]);
-      endIndex = std::min<GlobalIndex>(
-          boundaryNodeIndex[1], rankBoundaryNodeOffsetList[mpiRank_ + 1]);
-      boundaryIterStart = std::max<int>(0, startIndex - boundaryNodeIndex[0]);
-      boundaryIterEnd =
-          std::min<int>(xNodeNum * yNodeNum, endIndex - boundaryNodeIndex[0]);
-
-      for (int i = boundaryIterStart / yNodeNum; i < boundaryIterEnd / yNodeNum;
-           i++) {
+      for (int i = 0; i < xNodeNum; i++) {
         for (int j = 0; j < yNodeNum; j++) {
           GlobalIndex globalIndex = boundaryNodeIndex[0] + i * yNodeNum + j;
           if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
@@ -380,16 +354,7 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
       }
 
       // plane: z = size_[2] / 2.0
-      startIndex = std::max<GlobalIndex>(boundaryNodeIndex[1],
-                                         rankBoundaryNodeOffsetList[mpiRank_]);
-      endIndex = std::min<GlobalIndex>(
-          boundaryNodeIndex[2], rankBoundaryNodeOffsetList[mpiRank_ + 1]);
-      boundaryIterStart = std::max<int>(0, startIndex - boundaryNodeIndex[1]);
-      boundaryIterEnd =
-          std::min<int>(xNodeNum * yNodeNum, endIndex - boundaryNodeIndex[1]);
-
-      for (int i = boundaryIterStart / yNodeNum; i < boundaryIterEnd / yNodeNum;
-           i++) {
+      for (int i = 0; i < xNodeNum; i++) {
         for (int j = 0; j < yNodeNum; j++) {
           GlobalIndex globalIndex = boundaryNodeIndex[1] + i * yNodeNum + j;
           if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
@@ -408,16 +373,7 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
       }
 
       // plane: x = -size_[2] / 2.0
-      startIndex = std::max<GlobalIndex>(boundaryNodeIndex[2],
-                                         rankBoundaryNodeOffsetList[mpiRank_]);
-      endIndex = std::min<GlobalIndex>(
-          boundaryNodeIndex[3], rankBoundaryNodeOffsetList[mpiRank_ + 1]);
-      boundaryIterStart = std::max<int>(0, startIndex - boundaryNodeIndex[2]);
-      boundaryIterEnd =
-          std::min<int>(yNodeNum * zNodeNum, endIndex - boundaryNodeIndex[2]);
-
-      for (int i = boundaryIterStart / zNodeNum; i < boundaryIterEnd / zNodeNum;
-           i++) {
+      for (int i = 0; i < yNodeNum; i++) {
         for (int j = 0; j < zNodeNum; j++) {
           GlobalIndex globalIndex = boundaryNodeIndex[2] + i * zNodeNum + j;
           if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
@@ -436,16 +392,7 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
       }
 
       // plane: x = size_[2] / 2.0
-      startIndex = std::max<GlobalIndex>(boundaryNodeIndex[3],
-                                         rankBoundaryNodeOffsetList[mpiRank_]);
-      endIndex = std::min<GlobalIndex>(
-          boundaryNodeIndex[4], rankBoundaryNodeOffsetList[mpiRank_ + 1]);
-      boundaryIterStart = std::max<int>(0, startIndex - boundaryNodeIndex[3]);
-      boundaryIterEnd =
-          std::min<int>(yNodeNum * zNodeNum, endIndex - boundaryNodeIndex[3]);
-
-      for (int i = boundaryIterStart / zNodeNum; i < boundaryIterEnd / zNodeNum;
-           i++) {
+      for (int i = 0; i < yNodeNum; i++) {
         for (int j = 0; j < zNodeNum; j++) {
           GlobalIndex globalIndex = boundaryNodeIndex[3] + i * zNodeNum + j;
           if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
@@ -464,16 +411,7 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
       }
 
       // plane: y = -size_[2] / 2.0
-      startIndex = std::max<GlobalIndex>(boundaryNodeIndex[4],
-                                         rankBoundaryNodeOffsetList[mpiRank_]);
-      endIndex = std::min<GlobalIndex>(
-          boundaryNodeIndex[5], rankBoundaryNodeOffsetList[mpiRank_ + 1]);
-      boundaryIterStart = std::max<int>(0, startIndex - boundaryNodeIndex[4]);
-      boundaryIterEnd =
-          std::min<int>(zNodeNum * xNodeNum, endIndex - boundaryNodeIndex[4]);
-
-      for (int i = boundaryIterStart / xNodeNum; i < boundaryIterEnd / xNodeNum;
-           i++) {
+      for (int i = 0; i < zNodeNum; i++) {
         for (int j = 0; j < xNodeNum; j++) {
           GlobalIndex globalIndex = boundaryNodeIndex[4] + i * xNodeNum + j;
           if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&
@@ -492,16 +430,7 @@ void DomainGeometry::AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
       }
 
       // plane: y = size_[2] / 2.0
-      startIndex = std::max<GlobalIndex>(boundaryNodeIndex[5],
-                                         rankBoundaryNodeOffsetList[mpiRank_]);
-      endIndex = std::min<GlobalIndex>(
-          boundaryNodeIndex[6], rankBoundaryNodeOffsetList[mpiRank_ + 1]);
-      boundaryIterStart = std::max<int>(0, startIndex - boundaryNodeIndex[5]);
-      boundaryIterEnd =
-          std::min<int>(zNodeNum * xNodeNum, endIndex - boundaryNodeIndex[5]);
-
-      for (int i = boundaryIterStart / xNodeNum; i < boundaryIterEnd / xNodeNum;
-           i++) {
+      for (int i = 0; i < zNodeNum; i++) {
         for (int j = 0; j < xNodeNum; j++) {
           GlobalIndex globalIndex = boundaryNodeIndex[5] + i * xNodeNum + j;
           if (globalIndex >= rankBoundaryNodeOffsetList[mpiRank_] &&

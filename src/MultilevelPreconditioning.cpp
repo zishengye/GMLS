@@ -102,7 +102,7 @@ void MultilevelPreconditioning::ConstructInterpolation(
     interpolationGhost_.Init(
         particleMgr->GetParticleCoordsByLevel(currentLevel),
         particleMgr->GetParticleSizeByLevel(currentLevel),
-        particleMgr->GetParticleCoordsByLevel(currentLevel - 1), 6.0,
+        particleMgr->GetParticleCoordsByLevel(currentLevel - 1), 8.0,
         particleMgr->GetDimension());
   }
 }
@@ -116,7 +116,7 @@ void MultilevelPreconditioning::ConstructRestriction(
     restrictionGhost_.Init(
         particleMgr->GetParticleCoordsByLevel(currentLevel - 1),
         particleMgr->GetParticleSizeByLevel(currentLevel - 1),
-        particleMgr->GetParticleCoordsByLevel(currentLevel), 6.0,
+        particleMgr->GetParticleCoordsByLevel(currentLevel), 8.0,
         particleMgr->GetDimension());
   }
 }
