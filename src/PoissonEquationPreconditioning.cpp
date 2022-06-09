@@ -852,11 +852,14 @@ void PoissonEquationPreconditioning::ConstructRestriction(
               tEnd - tStart);
 }
 
-void PoissonEquationPreconditioning::ConstructSmoother(
-    std::shared_ptr<HierarchicalParticleManager> particleMgr) {
+void PoissonEquationPreconditioning::ConstructSmoother() {
+  double tStart, tEnd;
+  MPI_Barrier(MPI_COMM_WORLD);
+  tStart = MPI_Wtime();
+
   PetscPrintf(PETSC_COMM_WORLD,
               "Start of constructing Poisson equation smoother\n");
-  MultilevelPreconditioning::ConstructSmoother(particleMgr);
+  MultilevelPreconditioning::ConstructSmoother();
 
   const int currentLevel = linearSystemsPtr_.size() - 1;
   if (currentLevel > 0) {
@@ -887,4 +890,10 @@ void PoissonEquationPreconditioning::ConstructSmoother(
 
     KSPSetUp(ksp);
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  tEnd = MPI_Wtime();
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Duration of building Poisson equation smoother:%.4fs\n",
+              tEnd - tStart);
 }

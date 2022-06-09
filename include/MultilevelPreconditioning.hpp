@@ -29,8 +29,6 @@ public:
 
   virtual PetscErrorCode ApplyPreconditioningIteration(Vec x, Vec y);
 
-  friend PetscErrorCode PreconditioningIterationWrapper(PC, Vec, Vec);
-
   PetscMatrixBase &GetInterpolation(const int level);
   PetscMatrixBase &GetRestriction(const int level);
   PetscKsp &GetSmoother(const int level);
@@ -41,8 +39,7 @@ public:
       std::shared_ptr<HierarchicalParticleManager> particleMgr);
   virtual void ConstructRestriction(
       std::shared_ptr<HierarchicalParticleManager> particleMgr);
-  virtual void
-  ConstructSmoother(std::shared_ptr<HierarchicalParticleManager> particleMgr);
+  virtual void ConstructSmoother();
 };
 
 #endif

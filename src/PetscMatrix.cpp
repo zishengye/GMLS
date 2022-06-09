@@ -85,8 +85,12 @@ void PetscMatrix::Increment(const PetscInt row,
   std::vector<PetscInt> rowIndex(1);
   rowIndex[0] = row + rowRangeLow_;
 
-  MatSetValues(mat_, 1, rowIndex.data(), index.size(), index.data(),
-               value.data(), INSERT_VALUES);
+  if (blockSize_ == 1) {
+    MatSetValues(mat_, 1, rowIndex.data(), index.size(), index.data(),
+                 value.data(), INSERT_VALUES);
+  } else
+    MatSetValuesBlocked(mat_, 1, rowIndex.data(), index.size(), index.data(),
+                        value.data(), INSERT_VALUES);
 }
 
 unsigned long PetscMatrix::GraphAssemble() {
@@ -114,9 +118,16 @@ unsigned long PetscMatrix::GraphAssemble() {
       });
   Kokkos::fence();
 
-  MatCreateMPIAIJMKL(MPI_COMM_WORLD, localRowSize_, localColSize_, PETSC_DECIDE,
-                     PETSC_DECIDE, 0, diagNonzero.data(), 0,
-                     offDiagNonzero.data(), &mat_);
+  if (blockSize_ == 1)
+    MatCreateMPIAIJMKL(MPI_COMM_WORLD, localRowSize_, localColSize_,
+                       PETSC_DECIDE, PETSC_DECIDE, 0, diagNonzero.data(), 0,
+                       offDiagNonzero.data(), &mat_);
+  else
+    MatCreateBAIJMKL(MPI_COMM_WORLD, blockSize_, localRowSize_ * blockSize_,
+                     localColSize_ * blockSize_, PETSC_DECIDE, PETSC_DECIDE, 0,
+                     diagNonzero.data(), 0, offDiagNonzero.data(), &mat_);
+
+  MatSetUp(mat_);
 
   return diagNumNonzero + offDiagNumNonzero;
 }

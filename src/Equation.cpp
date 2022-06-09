@@ -32,8 +32,7 @@ void Equation::DiscretizeEquation() {
 }
 
 void Equation::InitPreconditioner() {
-  preconditionerPtr_->ConstructSmoother(
-      std::make_shared<HierarchicalParticleManager>(particleMgr_));
+  preconditionerPtr_->ConstructSmoother();
   preconditionerPtr_->ConstructInterpolation(
       std::make_shared<HierarchicalParticleManager>(particleMgr_));
   preconditionerPtr_->ConstructRestriction(
@@ -84,6 +83,10 @@ void Equation::Mark() {
   if (mpiRank_ == 0)
     printf("Global error: %.6f, with tolerance: %.4f\n", globalNormalizedError_,
            errorTolerance_);
+
+  Kokkos::resize(splitTag_, error_.extent(0));
+  if (globalNormalizedError_ < errorTolerance_)
+    return;
 
   std::vector<double> sortedError(error_.extent(0));
   Kokkos::parallel_for(
@@ -139,7 +142,6 @@ void Equation::Mark() {
   currentErrorSplit = sqrt(currentErrorSplit);
 
   // mark particles
-  Kokkos::resize(splitTag_, error_.extent(0));
   Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
                            0, error_.extent(0)),
                        [&](const int i) {

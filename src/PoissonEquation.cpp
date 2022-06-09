@@ -371,7 +371,7 @@ void PoissonEquation::InitLinearSystem() {
       [&](const int i) {
         std::vector<PetscInt> index;
         const PetscInt currentParticleIndex = i;
-        if (particleType[i] == 0) {
+        if (particleType(i) == 0) {
           index.resize(neighborLists_(i, 0));
           for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
             const PetscInt neighborParticleIndex =
@@ -679,14 +679,9 @@ void PoissonEquation::ConstructRhs() {
 
 void PoissonEquation::SolveEquation() {
   unsigned int currentRefinementLevel = linearSystemsPtr_.size() - 1;
-  const unsigned int localParticleNum =
-      particleMgr_.GetParticleCoords().extent(0);
   // interpolation previous result
   if (currentRefinementLevel == 0) {
-    for (unsigned int i = 0; i < localParticleNum; i++) {
-      field_(i) = 0.0;
-    }
-    x_.Copy(field_);
+    VecSet(x_.GetReference(), 0.0);
   } else {
     PetscVector y;
     y.Create(oldField_);

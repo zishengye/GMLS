@@ -222,7 +222,7 @@ TEST(PoissonEquationTest, 3DAdaptiveRefinement) {
     equation.SetDomainType(Box);
     equation.SetMaxRefinementIteration(10);
     equation.SetOutputLevel(0);
-    equation.SetRefinementMarkRatio(0.78);
+    equation.SetRefinementMarkRatio();
     equation.SetInteriorRhs([](const double x, const double y, const double z) {
       return 3.0 * cos(x) * cos(y) * cos(z);
     });

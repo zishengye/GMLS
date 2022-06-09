@@ -121,7 +121,6 @@ void MultilevelPreconditioning::ConstructRestriction(
   }
 }
 
-void MultilevelPreconditioning::ConstructSmoother(
-    std::shared_ptr<HierarchicalParticleManager> particleMgr) {
+void MultilevelPreconditioning::ConstructSmoother() {
   smootherPtr_.push_back(std::make_shared<PetscKsp>());
 }

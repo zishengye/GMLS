@@ -11,8 +11,7 @@ public:
       std::shared_ptr<HierarchicalParticleManager> particleMgr);
   virtual void ConstructRestriction(
       std::shared_ptr<HierarchicalParticleManager> particleMgr);
-  virtual void
-  ConstructSmoother(std::shared_ptr<HierarchicalParticleManager> particleMgr);
+  virtual void ConstructSmoother();
 };
 
 #endif

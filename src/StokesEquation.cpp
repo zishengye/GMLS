@@ -52,7 +52,11 @@ void StokesEquation::InitLinearSystem() {
   }
 
   const unsigned satisfiedNumNeighbor =
-      2 * Compadre::GMLS::getNP(polyOrder_ + 1, dimension);
+      pow(sqrt(2), dimension) *
+      std::max(Compadre::GMLS::getNP(polyOrder_, dimension,
+                                     Compadre::ReconstructionSpace::
+                                         DivergenceFreeVectorTaylorPolynomial),
+               Compadre::GMLS::getNP(polyOrder_ + 1, dimension));
 
   Equation::ConstructNeighborLists(satisfiedNumNeighbor);
 
@@ -390,7 +394,7 @@ void StokesEquation::InitLinearSystem() {
   std::vector<PetscInt> index;
   for (std::size_t i = 0; i < localParticleNum; i++) {
     const PetscInt currentParticleIndex = i;
-    if (particleType[i] == 0) {
+    if (particleType(i) == 0) {
       index.resize(neighborLists_(i, 0));
       for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
         const PetscInt neighborParticleIndex =
@@ -618,45 +622,46 @@ void StokesEquation::ConstructLinearSystem() {
         }
       }
 
+      unsigned int blockStorageSize = dimension * dimension;
+
       interiorCounter = 0;
       std::vector<PetscInt> index;
       std::vector<PetscReal> value;
       for (unsigned int i = startParticle; i < endParticle; i++) {
-        const PetscInt currentParticleIndex = i;
         if (particleType(i) == 0) {
-          index.resize(interiorNeighborListsHost(interiorCounter, 0) *
-                       dimension);
-          value.resize(interiorNeighborListsHost(interiorCounter, 0) *
-                       dimension);
-          for (unsigned int axes1 = 0; axes1 < dimension; axes1++) {
-            for (std::size_t j = 0;
-                 j < interiorNeighborListsHost(interiorCounter, 0); j++) {
+          unsigned int numNeighbor = neighborLists_(i, 0);
+          unsigned int singleRowSize = numNeighbor * dimension;
+          index.resize(numNeighbor);
+          value.resize(numNeighbor * blockStorageSize);
+          for (std::size_t j = 0; j < numNeighbor; j++) {
+            const PetscInt neighborParticleIndex =
+                sourceIndex(neighborLists_(i, j + 1));
+            index[j] = neighborParticleIndex;
+            for (unsigned int axes1 = 0; axes1 < dimension; axes1++) {
               for (unsigned int axes2 = 0; axes2 < dimension; axes2++) {
-                const PetscInt neighborParticleIndex =
-                    sourceIndex(neighborLists_(i, j + 1));
                 auto alphaIndex = velocitySolutionSet->getAlphaIndex(
                     interiorCounter,
                     interiorCurlCurlIndex[axes1 * dimension + axes2]);
-                index[j * dimension + axes2] =
-                    dimension * neighborParticleIndex + axes2;
-                value[j * dimension + axes2] =
+                value[axes1 * singleRowSize + j * dimension + axes2] =
                     interiorVelocityAlpha(alphaIndex + j);
               }
             }
-
-            uu.Increment(dimension * currentParticleIndex + axes1, index,
-                         value);
           }
+
+          uu.Increment(i, index, value);
 
           interiorCounter++;
         } else {
           index.resize(1);
-          value.resize(1);
-          value[0] = 1;
-          for (unsigned int j = 0; j < dimension; j++) {
-            index[0] = dimension * sourceIndex(i) + j;
-            uu.Increment(dimension * currentParticleIndex + j, index, value);
+          index[0] = sourceIndex(i);
+          value.resize(blockStorageSize);
+          for (unsigned int j = 0; j < blockStorageSize; j++) {
+            value[j] = 0.0;
           }
+          for (unsigned int j = 0; j < dimension; j++) {
+            value[j * dimension + j] = 1.0;
+          }
+          uu.Increment(i, index, value);
         }
       }
     }
@@ -724,12 +729,15 @@ void StokesEquation::ConstructLinearSystem() {
           pp.Increment(currentParticleIndex, index, value);
 
           for (unsigned int k = 0; k < dimension; k++) {
+            Aij = 0.0;
             for (std::size_t j = 0;
                  j < interiorNeighborListsHost(interiorCounter, 0); j++) {
               auto alphaIndex = pressureSolutionSet->getAlphaIndex(
                   interiorCounter, interiorPressureGradientIndex[k]);
-              value[j] = interiorPressureAlpha(alphaIndex + j);
+              value[j] = -interiorPressureAlpha(alphaIndex + j);
+              Aij += interiorPressureAlpha(alphaIndex + j);
             }
+            value[0] = Aij;
             up.Increment(currentParticleIndex * dimension + k, index, value);
           }
 
@@ -895,6 +903,7 @@ void StokesEquation::ConstructRhs() {
 
   auto &coords = particleMgr_.GetParticleCoords();
   auto &particleType = particleMgr_.GetParticleType();
+  auto &normal = particleMgr_.GetParticleNormal();
 
   const unsigned int dimension = particleMgr_.GetDimension();
   const unsigned int localParticleNum = coords.extent(0);
@@ -902,7 +911,7 @@ void StokesEquation::ConstructRhs() {
   const unsigned int fieldDof = dimension + 1;
 
   // copy old field value
-  Kokkos::resize(oldVelocity_, velocity_.extent(0), dimension);
+  Kokkos::resize(oldVelocity_, velocity_.extent(0), 3);
   Kokkos::resize(oldPressure_, pressure_.extent(0));
   for (unsigned int i = 0; i < pressure_.extent(0); i++) {
     for (unsigned int j = 0; j < dimension; j++)
@@ -910,26 +919,42 @@ void StokesEquation::ConstructRhs() {
     oldPressure_(i) = pressure_(i);
   }
 
-  Kokkos::resize(velocity_, localParticleNum, dimension);
+  Kokkos::resize(velocity_, localParticleNum, 3);
   Kokkos::resize(pressure_, localParticleNum);
   Kokkos::resize(error_, localParticleNum);
 
   std::vector<double> rhs(localParticleNum * fieldDof);
   for (std::size_t i = 0; i < localParticleNum; i++) {
     if (particleType(i) != 0) {
-      rhs[i * fieldDof + velocityDof] =
+      rhs[localParticleNum * velocityDof + i] =
           interiorPressureRhs_(coords(i, 0), coords(i, 1), coords(i, 2));
-      for (unsigned int j = 0; j < dimension; j++)
-        rhs[i * fieldDof + j] =
+      for (unsigned int j = 0; j < dimension; j++) {
+        rhs[i * velocityDof + j] =
             boundaryVelocityRhs_(coords(i, 0), coords(i, 1), coords(i, 2), j);
+        rhs[localParticleNum * velocityDof + i] +=
+            bi_(i) * normal(i, j) *
+            interiorVelocityRhs_(coords(i, 0), coords(i, 1), coords(i, 2), j);
+      }
     } else {
-      rhs[i * fieldDof + velocityDof] =
+      rhs[localParticleNum * velocityDof + i] =
           interiorPressureRhs_(coords(i, 0), coords(i, 1), coords(i, 2));
       for (unsigned int j = 0; j < dimension; j++)
-        rhs[i * fieldDof + j] =
+        rhs[i * velocityDof + j] =
             interiorVelocityRhs_(coords(i, 0), coords(i, 1), coords(i, 2), j);
     }
   }
+
+  // ensure rhs on pressure has zero sum
+  double sum = 0.0;
+  for (std::size_t i = 0; i < localParticleNum; i++) {
+    sum += rhs[localParticleNum * velocityDof + i];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  double average = sum / particleMgr_.GetGlobalParticleNum();
+  for (std::size_t i = 0; i < localParticleNum; i++) {
+    rhs[localParticleNum * velocityDof + i] -= average;
+  }
+
   b_.Create(rhs);
   x_.Create(rhs);
 
@@ -939,11 +964,94 @@ void StokesEquation::ConstructRhs() {
   }
 }
 
-void StokesEquation::SolveEquation() { Equation::SolveEquation(); }
+void StokesEquation::SolveEquation() {
+  unsigned int currentRefinementLevel = linearSystemsPtr_.size() - 1;
+  // interpolation previous result
+  if (currentRefinementLevel == 0) {
+    VecSet(x_.GetReference(), 0.0);
+  } else {
+  }
+  Equation::SolveEquation();
+
+  // copy data
+  const unsigned int dimension = particleMgr_.GetDimension();
+  const unsigned int localParticleNum =
+      particleMgr_.GetParticleCoords().extent(0);
+  const unsigned int velocityDof = dimension;
+
+  PetscReal *a;
+  VecGetArray(x_.GetReference(), &a);
+  for (unsigned int i = 0; i < localParticleNum; i++) {
+    for (unsigned int j = 0; j < dimension; j++) {
+      velocity_(i, j) = a[i * velocityDof + j];
+    }
+    pressure_(i) = a[localParticleNum * velocityDof + i];
+  }
+  VecRestoreArray(x_.GetReference(), &a);
+}
 
 void StokesEquation::CalculateError() {}
 
-void StokesEquation::Output() {}
+void StokesEquation::Output() {
+  Equation::Output();
+
+  std::ofstream vtkStream;
+  // output velocity value
+  if (mpiRank_ == 0) {
+    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                       ".vtk",
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS u float 3" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                         ".vtk",
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (std::size_t i = 0; i < velocity_.extent(0); i++) {
+        for (int j = 0; j < 3; j++) {
+          float x = velocity_(i, j);
+          SwapEnd(x);
+          vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+        }
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  // output pressure value
+  if (mpiRank_ == 0) {
+    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                       ".vtk",
+                   std::ios::out | std::ios::app | std::ios::binary);
+
+    vtkStream << "SCALARS p float 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
+                         ".vtk",
+                     std::ios::out | std::ios::app | std::ios::binary);
+      for (std::size_t i = 0; i < pressure_.extent(0); i++) {
+        float x = pressure_(i);
+        SwapEnd(x);
+        vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+      }
+      vtkStream.close();
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+}
 
 StokesEquation::StokesEquation() : Equation() {}
 
