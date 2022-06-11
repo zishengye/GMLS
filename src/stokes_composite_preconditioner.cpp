@@ -396,26 +396,6 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   KSPGetConvergedReason(shell->multi->get_field_base()->get_reference(),
                         &reason);
   KSPGetIterationNumber(shell->multi->get_field_base()->get_reference(), &its);
-  if (reason < 0) {
-    PetscReal rnorm, bnorm;
-    KSPGetResidualNorm(shell->multi->get_field_base()->get_reference(), &rnorm);
-    VecNorm(shell->multi->get_b_field_list()[0]->get_reference(), NORM_2,
-            &bnorm);
-
-    PetscReal *a;
-    PetscInt na;
-    KSPGetResidualHistory(shell->multi->get_field_base()->get_reference(), &a,
-                          &na);
-
-    PetscPrintf(PETSC_COMM_WORLD,
-                "field convergence reason: %d, number of iterations: %d, last "
-                "residual norm: %f, rhs norm: %f\n",
-                reason, its, rnorm, bnorm, na);
-    // for (int i = 0; i < na; i++) {
-    //   PetscPrintf(PETSC_COMM_WORLD, "\t %d ksp residual norm: %f\n", i,
-    //   a[i]);
-    // }
-  }
 
   VecScatterBegin(shell->multi->get_field_scatter_list()[0]->get_reference(),
                   shell->multi->get_x_field_list()[0]->get_reference(),
