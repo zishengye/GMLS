@@ -138,7 +138,7 @@ void SchurComplementPreconditioning::AddLinearSystem(
   // prepare preconditioner for diagonal blocks
   KSPCreate(MPI_COMM_WORLD, &a00Ksp_);
   KSPSetType(a00Ksp_, KSPGMRES);
-  KSPSetTolerances(a00Ksp_, 1e-3, 1e-50, 1e20, 500);
+  KSPSetTolerances(a00Ksp_, 1e-1, 1e-50, 1e20, 500);
   KSPSetOperators(a00Ksp_, a00.GetReference(), a00.GetReference());
 
   PC a00Pc;
@@ -149,7 +149,7 @@ void SchurComplementPreconditioning::AddLinearSystem(
 
   KSPCreate(MPI_COMM_WORLD, &a11Ksp_);
   KSPSetType(a11Ksp_, KSPGMRES);
-  KSPSetTolerances(a11Ksp_, 1e-3, 1e-50, 1e20, 100);
+  KSPSetTolerances(a11Ksp_, 1e-1, 1e-50, 1e20, 500);
   KSPSetOperators(a11Ksp_, schurComplement_, schurComplement_);
 
   PC a11Pc;

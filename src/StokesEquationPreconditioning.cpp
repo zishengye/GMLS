@@ -63,7 +63,7 @@ void StokesEquationPreconditioning::ConstructSmoother() {
     KSP &ksp = smootherPtr_[currentLevel]->GetReference();
     KSPCreate(MPI_COMM_WORLD, &ksp);
     KSPSetType(ksp, KSPFGMRES);
-    KSPSetTolerances(ksp, 1e-3, 1e-50, 1e20, 500);
+    KSPSetTolerances(ksp, 1e-1, 1e-50, 1e20, 500);
     KSPSetOperators(ksp, linearSystemsPtr_[currentLevel]->GetReference(),
                     linearSystemsPtr_[currentLevel]->GetReference());
 

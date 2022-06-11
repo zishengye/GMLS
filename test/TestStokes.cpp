@@ -67,7 +67,7 @@ TEST(PoissonEquationTest, 3DLinearSystemSolving) {
   {
     StokesEquation equation;
     equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.1);
+    equation.SetInitialDiscretizationResolution(0.05);
 
     std::vector<double> size(3);
     size[0] = 2.0;
