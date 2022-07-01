@@ -319,7 +319,8 @@ void Equation::Output() {
       printf("Start of writing adaptive step output file\n");
     // write particles
     particleMgr_.Output(outputFileName, true);
-  }
+  } else
+    return;
 
   std::ofstream vtkStream;
   // output number of neighbor
@@ -450,8 +451,10 @@ void Equation::ConstructNeighborLists(const unsigned int satisfiedNumNeighbor) {
 }
 
 Equation::Equation()
-    : errorTolerance_(1e-3), maxRefinementIteration_(6),
-      refinementMethod_(AdaptiveRefinement), outputLevel_(0), polyOrder_(2) {
+    : globalError_(0.0), globalNormalizedError_(0.0), errorTolerance_(1e-3),
+      maxRefinementIteration_(6), refinementIteration_(0),
+      refinementMethod_(AdaptiveRefinement), mpiRank_(0), mpiSize_(0),
+      outputLevel_(0), polyOrder_(2), ghostMultiplier_(3.0) {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiSize_);
 }

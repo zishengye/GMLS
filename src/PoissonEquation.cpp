@@ -1038,6 +1038,9 @@ void PoissonEquation::CalculateError() {
 void PoissonEquation::Output() {
   Equation::Output();
 
+  if (outputLevel_ == 0)
+    return;
+
   const unsigned int dimension = particleMgr_.GetDimension();
 
   std::ofstream vtkStream;

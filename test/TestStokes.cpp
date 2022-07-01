@@ -67,7 +67,7 @@ TEST(PoissonEquationTest, 3DLinearSystemSolving) {
   {
     StokesEquation equation;
     equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.05);
+    equation.SetInitialDiscretizationResolution(0.1);
 
     std::vector<double> size(3);
     size[0] = 2.0;
@@ -78,7 +78,7 @@ TEST(PoissonEquationTest, 3DLinearSystemSolving) {
     equation.SetDomainSize(size);
     equation.SetDomainType(Box);
     equation.SetMaxRefinementIteration(1);
-    equation.SetOutputLevel(1);
+    equation.SetOutputLevel(0);
     equation.SetRefinementMarkRatio();
     equation.SetVelocityInteriorRhs([](const double x, const double y,
                                        const double z, const unsigned int i) {
@@ -89,7 +89,7 @@ TEST(PoissonEquationTest, 3DLinearSystemSolving) {
       rhs[1] =
           -6.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
           2.0 * M_PI * sin(2.0 * M_PI * y);
-      rhs[3] =
+      rhs[2] =
           3.0 * pow(M_PI, 2) * cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z) +
           2.0 * M_PI * sin(2.0 * M_PI * z);
 

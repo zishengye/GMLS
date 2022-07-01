@@ -911,15 +911,16 @@ void StokesEquation::ConstructRhs() {
   const unsigned int fieldDof = dimension + 1;
 
   // copy old field value
-  Kokkos::resize(oldVelocity_, velocity_.extent(0), 3);
+  Kokkos::resize(oldVelocity_, velocity_.extent(0), dimension);
   Kokkos::resize(oldPressure_, pressure_.extent(0));
-  for (unsigned int i = 0; i < pressure_.extent(0); i++) {
+  for (unsigned int i = 0; i < pressure_.extent(0); i++)
+    oldPressure_(i) = pressure_(i);
+
+  for (unsigned int i = 0; i < velocity_.extent(0); i++)
     for (unsigned int j = 0; j < dimension; j++)
       oldVelocity_(i, j) = velocity_(i, j);
-    oldPressure_(i) = pressure_(i);
-  }
 
-  Kokkos::resize(velocity_, localParticleNum, 3);
+  Kokkos::resize(velocity_, localParticleNum, dimension);
   Kokkos::resize(pressure_, localParticleNum);
   Kokkos::resize(error_, localParticleNum);
 
@@ -979,7 +980,7 @@ void StokesEquation::SolveEquation() {
       particleMgr_.GetParticleCoords().extent(0);
   const unsigned int velocityDof = dimension;
 
-  PetscReal *a;
+  PetscScalar *a;
   VecGetArray(x_.GetReference(), &a);
   for (unsigned int i = 0; i < localParticleNum; i++) {
     for (unsigned int j = 0; j < dimension; j++) {
@@ -990,10 +991,15 @@ void StokesEquation::SolveEquation() {
   VecRestoreArray(x_.GetReference(), &a);
 }
 
-void StokesEquation::CalculateError() {}
+void StokesEquation::CalculateError() { Equation::CalculateError(); }
 
 void StokesEquation::Output() {
   Equation::Output();
+
+  if (outputLevel_ == 0)
+    return;
+
+  const unsigned int dimension = particleMgr_.GetDimension();
 
   std::ofstream vtkStream;
   // output velocity value
@@ -1002,8 +1008,13 @@ void StokesEquation::Output() {
                        ".vtk",
                    std::ios::out | std::ios::app | std::ios::binary);
 
-    vtkStream << "SCALARS u float 3" << std::endl
-              << "LOOKUP_TABLE default" << std::endl;
+    if (dimension == 2)
+      vtkStream << "SCALARS u float 2" << std::endl
+                << "LOOKUP_TABLE default" << std::endl;
+
+    if (dimension == 3)
+      vtkStream << "SCALARS u float 3" << std::endl
+                << "LOOKUP_TABLE default" << std::endl;
 
     vtkStream.close();
   }
@@ -1013,7 +1024,7 @@ void StokesEquation::Output() {
                          ".vtk",
                      std::ios::out | std::ios::app | std::ios::binary);
       for (std::size_t i = 0; i < velocity_.extent(0); i++) {
-        for (int j = 0; j < 3; j++) {
+        for (std::size_t j = 0; j < velocity_.extent(1); j++) {
           float x = velocity_(i, j);
           SwapEnd(x);
           vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
