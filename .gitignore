@@ -549,3 +549,7 @@ benchmark/
 panlab*
 
 *.sh
+
+bin
+
+output
