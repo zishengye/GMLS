@@ -2706,7 +2706,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag,
 
     MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD, "num cirtical particle: %d\n",
+    PetscPrintf(PETSC_COMM_WORLD, "num critical particle: %d\n",
                 num_critical_particle);
     if (num_critical_particle != 0)
       return true;
@@ -2877,7 +2877,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag,
 
     MPI_Allreduce(MPI_IN_PLACE, &num_critical_particle, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD, "num cirtical particle: %d\n",
+    PetscPrintf(PETSC_COMM_WORLD, "num critical particle: %d\n",
                 num_critical_particle);
 
     if (num_critical_particle != 0 || need_modify) {
