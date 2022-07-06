@@ -879,10 +879,6 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
     KSPSetOperators(ksp_field_base->get_reference(), ff_shell, ff);
     if (dimension == 3) {
       KSPSetType(ksp_field_base->get_reference(), KSPRICHARDSON);
-      // KSPGMRESSetOrthogonalization(
-      //     ksp_field_base->get_reference(),
-      //     KSPGMRESModifiedGramSchmidtOrthogonalization);
-      // KSPGMRESSetRestart(ksp_field_base->get_reference(), 100);
       KSPSetTolerances(ksp_field_base->get_reference(), 1e-2, 1e-50, 1e50, 10);
       KSPSetResidualHistory(ksp_field_base->get_reference(), NULL, 500,
                             PETSC_TRUE);

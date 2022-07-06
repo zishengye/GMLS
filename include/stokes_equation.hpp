@@ -55,7 +55,7 @@ private:
 
   int poly_order;
   int dim;
-  int error_esimation_method;
+  int error_estimation_method;
   double epsilon_multiplier;
   double eta;
   int compress_memory;

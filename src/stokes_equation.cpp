@@ -43,7 +43,7 @@ void stokes_equation::init(shared_ptr<particle_geometry> _geo_mgr,
   eta = _eta;
   dim = _dim;
   poly_order = _poly_order;
-  error_esimation_method = _error_estimation_method;
+  error_estimation_method = _error_estimation_method;
   compress_memory = _compress_memory;
 
   multi_mgr = make_shared<stokes_multilevel>();
@@ -291,7 +291,7 @@ void stokes_equation::build_coefficient_matrix() {
       max(Compadre::GMLS::getNP(poly_order, dim,
                                 DivergenceFreeVectorTaylorPolynomial),
           Compadre::GMLS::getNP(poly_order + 1, dim));
-  int satisfied_num_neighbor = pow(2.0, 2.0 / dim) * min_num_neighbor;
+  int satisfied_num_neighbor = pow(2.0, dim / 2.0) * min_num_neighbor;
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
       "neighbor lists", num_target_coord, satisfied_num_neighbor + 1);
@@ -328,7 +328,7 @@ void stokes_equation::build_coefficient_matrix() {
       satisfied_num_neighbor, 1.0);
 
   for (unsigned int i = 0; i < local_particle_num; i++) {
-    double minEpsilon = 1.50 * spacing[i];
+    double minEpsilon = 1.50005 * spacing[i];
     double minSpacing = 0.25 * spacing[i];
     epsilon_host(i) = std::max(minEpsilon, epsilon_host(i));
     unsigned int scaling =
@@ -593,6 +593,18 @@ void stokes_equation::build_coefficient_matrix() {
 
     if (process_counter == 0) {
       pass_neighbor_search = true;
+    } else {
+      minNeighborLists =
+          1 + point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+                  true, target_coord_host, neighbor_list_host, epsilon_host,
+                  0.0, 0.0);
+      if (minNeighborLists > neighbor_list_host.extent(1)) {
+        Kokkos::resize(neighbor_list_device, num_target_coord,
+                       minNeighborLists);
+        neighbor_list_host = Kokkos::create_mirror_view(neighbor_list_device);
+      }
+      point_cloud_search.generate2DNeighborListsFromRadiusSearch(
+          false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
     }
 
     ite_counter++;
@@ -942,7 +954,7 @@ void stokes_equation::build_coefficient_matrix() {
   double area = 0.0;
   int area_num = 0;
 
-  // outprocess graph
+  // out process graph
   for (int i = 0; i < local_particle_num; i++) {
     int rigid_body_idx = attached_rigid_body[i];
     const int current_particle_local_index = local_idx[i];
@@ -1357,9 +1369,13 @@ void stokes_equation::build_coefficient_matrix() {
       const int global_index = current_particle_global_index * field_dof + k;
 
       if (A.get_entity(local_index, global_index) < 0.0) {
-        cout << fixed << setprecision(10) << source_index[i] << " " << k << ' '
-             << adaptive_level[i] << " " << particle_type[i] << " "
-             << epsilon[i] << ' ' << neighbor_list_host(i, 0) << ' ';
+        cout << fixed << setprecision(10) << "source index: " << source_index[i]
+             << ", field index: " << k
+             << ", adaptive level: " << adaptive_level[i]
+             << ", particle type: " << particle_type[i]
+             << ", epsilon: " << epsilon[i]
+             << ", ratio: " << epsilon[i] / spacing[i]
+             << ", num of neighbor: " << neighbor_list_host(i, 0);
 
         cout << "(";
         for (int k = 0; k < dim; k++) {
@@ -2236,7 +2252,7 @@ void stokes_equation::calculate_error() {
   u = 1.0;
 
   // error estimation base on velocity
-  if (error_esimation_method == VELOCITY_ERROR_EST) {
+  if (error_estimation_method == VELOCITY_ERROR_EST) {
     vector<vec3> ghost_velocity;
     geo_mgr->ghost_forward(velocity, ghost_velocity);
 
@@ -2551,7 +2567,7 @@ void stokes_equation::calculate_error() {
   }
 
   // error estimation based on pressure
-  if (error_esimation_method == PRESSURE_ERROR_EST) {
+  if (error_estimation_method == PRESSURE_ERROR_EST) {
     vector<double> ghost_pressure;
     geo_mgr->ghost_forward(pressure, ghost_pressure);
 

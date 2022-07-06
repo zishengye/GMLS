@@ -59,6 +59,64 @@ int petsc_sparse_matrix::write(string fileName) {
   return 0;
 }
 
+void petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
+                                    const double daij) {
+  if (std::abs(daij) > 1e-15) {
+    auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
+                          entry(j, daij), compare_index);
+    if (j > __Col) {
+      std::cout << i << ' ' << j << " increment wrong column index"
+                << std::endl;
+      return;
+    }
+
+    if (it->first == j)
+      it->second += daij;
+    else
+      std::cout << i << ' ' << j << " increment misplacement" << std::endl;
+  }
+}
+
+void petsc_sparse_matrix::set(const PetscInt i, const PetscInt j,
+                              const double daij) {
+  if (std::abs(daij) > 1e-15) {
+    auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
+                          entry(j, daij), compare_index);
+    if (j > __Col) {
+      std::cout << i << ' ' << j << " increment wrong column index"
+                << std::endl;
+      return;
+    }
+
+    if (it->first == j)
+      it->second = daij;
+    else
+      std::cout << i << ' ' << j << " increment misplacement" << std::endl;
+  }
+}
+
+void petsc_sparse_matrix::out_process_increment(const PetscInt i,
+                                                const PetscInt j,
+                                                const double daij) {
+  if (std::abs(daij) > 1e-15) {
+    PetscInt in = i - __out_process_reduction;
+    auto it = lower_bound(__out_process_matrix[in].begin(),
+                          __out_process_matrix[in].end(), entry(j, daij),
+                          compare_index);
+    if (j > __Col) {
+      std::cout << i << ' ' << j << " out process wrong column index"
+                << std::endl;
+      return;
+    }
+
+    if (it != __out_process_matrix[in].end() && it->first == j)
+      it->second += daij;
+    else
+      std::cout << in << ' ' << j << " out process increment misplacement"
+                << std::endl;
+  }
+}
+
 int petsc_sparse_matrix::assemble() {
   // move data from out_process_increment
   int myid, MPIsize;
@@ -1996,4 +2054,70 @@ PetscErrorCode fluid_matrix_mult(Mat mat, Vec x, Vec y) {
   VecRestoreArray(y, &a);
 
   return 0;
+}
+
+void petsc_sparse_matrix::set_col_index(const PetscInt row,
+                                        std::vector<PetscInt> &index) {
+  sort(index.begin(), index.end());
+  __matrix[row].resize(index.size());
+  size_t counter = 0;
+  for (std::vector<entry>::iterator it = __matrix[row].begin();
+       it != __matrix[row].end(); it++) {
+    if (index[counter] > __Col) {
+      std::cout << row << ' ' << index[counter]
+                << " index setting with wrong column index" << std::endl;
+      counter++;
+      continue;
+    }
+
+    it->first = index[counter++];
+    it->second = 0.0;
+  }
+}
+
+void petsc_sparse_matrix::set_out_process_col_index(
+    const PetscInt row, std::vector<PetscInt> &index) {
+  sort(index.begin(), index.end());
+  __out_process_matrix[row - __out_process_reduction].resize(index.size());
+  size_t counter = 0;
+  for (std::vector<entry>::iterator it =
+           __out_process_matrix[row - __out_process_reduction].begin();
+       it != __out_process_matrix[row - __out_process_reduction].end(); it++) {
+    if (index[counter] > __Col) {
+      std::cout << row << ' ' << index[counter]
+                << " out process index setting with wrong column index"
+                << std::endl;
+      counter++;
+      continue;
+    }
+
+    it->first = index[counter++];
+    it->second = 0.0;
+  }
+}
+
+void petsc_sparse_matrix::zero_row(const PetscInt i) {
+  for (auto it = __matrix[i].begin(); it != __matrix[i].end(); it++) {
+    it->second = 0.0;
+  }
+}
+
+double petsc_sparse_matrix::get_entity(const PetscInt i, const PetscInt j) {
+  auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(), entry(j, 0.0),
+                        compare_index);
+  if (j > __Col) {
+    std::cout << i << ' ' << j << " wrong matrix index access" << std::endl;
+    return 0.0;
+  }
+
+  if (it->first == j)
+    return it->second;
+  else
+    return 0.0;
+}
+
+void petsc_sparse_matrix::invert_row(const PetscInt i) {
+  for (auto it = __matrix[i].begin(); it != __matrix[i].end(); it++) {
+    it->second = -it->second;
+  }
 }

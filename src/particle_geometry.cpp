@@ -3513,16 +3513,8 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
                              direction2 * j * spacing[tag] * 0.5;
 
               if (!insert) {
-                double cap_radius = auxiliary_size[0];
-                if (new_pos.mag() < cap_radius - 0.5 * spacing[tag]) {
-                  coord[tag] = new_pos;
-
-                  insert = true;
-                } else {
-                  insert_particle(new_pos, particle_type[tag], spacing[tag],
-                                  normal[tag], adaptive_level[tag],
-                                  volume[tag]);
-                }
+                coord[tag] = new_pos;
+                insert = true;
               } else {
                 insert_particle(new_pos, particle_type[tag], spacing[tag],
                                 normal[tag], adaptive_level[tag], volume[tag]);
