@@ -59,22 +59,23 @@ int petsc_sparse_matrix::write(string fileName) {
   return 0;
 }
 
-void petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
+bool petsc_sparse_matrix::increment(const PetscInt i, const PetscInt j,
                                     const double daij) {
-  if (std::abs(daij) > 1e-15) {
-    auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(),
-                          entry(j, daij), compare_index);
-    if (j > __Col) {
-      std::cout << i << ' ' << j << " increment wrong column index"
-                << std::endl;
-      return;
-    }
-
-    if (it->first == j)
-      it->second += daij;
-    else
-      std::cout << i << ' ' << j << " increment misplacement" << std::endl;
+  auto it = lower_bound(__matrix[i].begin(), __matrix[i].end(), entry(j, daij),
+                        compare_index);
+  if (j > __Col) {
+    std::cout << i << ' ' << j << " increment wrong column index" << std::endl;
+    return false;
   }
+
+  if (it->first == j)
+    it->second += daij;
+  else {
+    std::cout << i << ' ' << j << " increment misplacement" << std::endl;
+    return false;
+  }
+
+  return true;
 }
 
 void petsc_sparse_matrix::set(const PetscInt i, const PetscInt j,

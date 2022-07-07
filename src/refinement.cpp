@@ -200,7 +200,7 @@ bool gmls_solver::refinement() {
 
   int iteration_finished = 1;
   ite_counter = 0;
-  while (iteration_finished != 0) {
+  while (iteration_finished != 0 && ite_counter < 15) {
     ite_counter++;
     geo_mgr->ghost_forward(split_tag, ghost_split_tag);
     candidate_split_tag = split_tag;
@@ -284,6 +284,31 @@ bool gmls_solver::refinement() {
             local_change++;
           }
         }
+      }
+    }
+
+    for (int i = 0; i < local_particle_num; i++) {
+      if (particle_type[i] == 0) {
+        int nearest_neighbor_index = -1;
+        double min_distance = 2.0;
+        for (int j = 0; j < neighbor_list_host(i, 0); j++) {
+          int neighbor_index = neighbor_list_host(i, j + 1);
+          if (source_particle_type[neighbor_index] != 0) {
+            vec3 dX = coord[i] - source_coord[neighbor_index];
+            if (min_distance > dX.mag()) {
+              min_distance = dX.mag();
+              nearest_neighbor_index = neighbor_index;
+            }
+          }
+        }
+
+        if (nearest_neighbor_index > 0)
+          if ((ghost_split_tag[nearest_neighbor_index] +
+                   source_adaptive_level[nearest_neighbor_index] >
+               adaptive_level[i] + split_tag[i])) {
+            split_tag[i] = 1;
+            local_change++;
+          }
       }
     }
 

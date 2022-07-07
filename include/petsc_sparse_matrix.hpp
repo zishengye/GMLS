@@ -183,7 +183,7 @@ public:
   void set_out_process_col_index(const PetscInt row,
                                  std::vector<PetscInt> &index);
   void zero_row(const PetscInt i);
-  void increment(const PetscInt i, const PetscInt j, double daij);
+  bool increment(const PetscInt i, const PetscInt j, double daij);
   void set(const PetscInt i, const PetscInt j, double daij);
   void out_process_increment(const PetscInt i, const PetscInt j, double daij);
 

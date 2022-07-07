@@ -146,7 +146,6 @@ void stokes_equation::build_coefficient_matrix() {
                 MPI_COMM_WORLD);
 
   int num_source_coord = source_coord.size();
-  int num_target_coord = coord.size();
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coord_device(
       "source coordinates", num_source_coord, 3);
@@ -171,7 +170,7 @@ void stokes_equation::build_coefficient_matrix() {
   }
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace> target_coord_device(
-      "target coordinates", num_target_coord, 3);
+      "target coordinates", local_particle_num, 3);
   Kokkos::View<double **>::HostMirror target_coord_host =
       Kokkos::create_mirror_view(target_coord_device);
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
@@ -187,6 +186,7 @@ void stokes_equation::build_coefficient_matrix() {
 
   // create target coords
   int counter;
+  neumann_map.clear();
   neumann_map.resize(local_particle_num);
   counter = 0;
   for (int i = 0; i < local_particle_num; i++) {
@@ -294,17 +294,17 @@ void stokes_equation::build_coefficient_matrix() {
   int satisfied_num_neighbor = pow(2.0, dim / 2.0) * min_num_neighbor;
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
-      "neighbor lists", num_target_coord, satisfied_num_neighbor + 1);
+      "neighbor lists", local_particle_num, satisfied_num_neighbor + 1);
   Kokkos::View<int **>::HostMirror neighbor_list_host =
       Kokkos::create_mirror_view(neighbor_list_device);
 
   Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
-      "h supports", num_target_coord);
+      "h supports", local_particle_num);
   Kokkos::View<double *>::HostMirror epsilon_host =
       Kokkos::create_mirror_view(epsilon_device);
 
   double max_epsilon = geo_mgr->get_cutoff_distance();
-  for (int i = 0; i < num_target_coord; i++) {
+  for (int i = 0; i < local_particle_num; i++) {
     epsilon_host(i) = 1.50 * spacing[i];
   }
 
@@ -328,11 +328,11 @@ void stokes_equation::build_coefficient_matrix() {
       satisfied_num_neighbor, 1.0);
 
   for (unsigned int i = 0; i < local_particle_num; i++) {
-    double minEpsilon = 1.50005 * spacing[i];
+    double minEpsilon = 1.50 * spacing[i];
     double minSpacing = 0.25 * spacing[i];
     epsilon_host(i) = std::max(minEpsilon, epsilon_host(i));
     unsigned int scaling =
-        std::ceil((epsilon_host(i) - minEpsilon) / minSpacing);
+        std::max(0.0, std::ceil((epsilon_host(i) - minEpsilon) / minSpacing));
     epsilon_host(i) = minEpsilon + scaling * minSpacing;
   }
 
@@ -341,7 +341,7 @@ void stokes_equation::build_coefficient_matrix() {
       point_cloud_search.generate2DNeighborListsFromRadiusSearch(
           true, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
   if (minNeighborLists > neighbor_list_host.extent(1)) {
-    Kokkos::resize(neighbor_list_device, num_target_coord, minNeighborLists);
+    Kokkos::resize(neighbor_list_device, local_particle_num, minNeighborLists);
     neighbor_list_host = Kokkos::create_mirror_view(neighbor_list_device);
   }
   point_cloud_search.generate2DNeighborListsFromRadiusSearch(
@@ -455,8 +455,8 @@ void stokes_equation::build_coefficient_matrix() {
               solution_set->getAlphaIndex(i, temp_pressure_laplacian_index);
           Aij -= temp_pressure_alpha(alpha_index + j);
         }
-        if (Aij > 0.0)
-          staggered_check[normal_check_point[i]] = true;
+        // if (Aij > 0.0)
+        staggered_check[normal_check_point[i]] = true;
       }
     }
 
@@ -572,8 +572,8 @@ void stokes_equation::build_coefficient_matrix() {
               solution_set->getAlphaIndex(i, temp_pressure_laplacian_index);
           Aij -= temp_pressure_alpha(alpha_index + j);
         }
-        if (Aij > 0.0)
-          staggered_check[neumann_check_point[i]] = true;
+        // if (Aij > 0.0)
+        staggered_check[neumann_check_point[i]] = true;
       }
     }
 
@@ -599,12 +599,37 @@ void stokes_equation::build_coefficient_matrix() {
                   true, target_coord_host, neighbor_list_host, epsilon_host,
                   0.0, 0.0);
       if (minNeighborLists > neighbor_list_host.extent(1)) {
-        Kokkos::resize(neighbor_list_device, num_target_coord,
+        Kokkos::resize(neighbor_list_device, local_particle_num,
                        minNeighborLists);
         neighbor_list_host = Kokkos::create_mirror_view(neighbor_list_device);
       }
       point_cloud_search.generate2DNeighborListsFromRadiusSearch(
           false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
+
+      max_ratio = 0.0;
+      min_neighbor = 1000;
+      max_neighbor = 0;
+      mean_neighbor = 0;
+      for (int i = 0; i < local_particle_num; i++) {
+        if (neighbor_list_host(i, 0) < min_neighbor)
+          min_neighbor = neighbor_list_host(i, 0);
+        if (neighbor_list_host(i, 0) > max_neighbor)
+          max_neighbor = neighbor_list_host(i, 0);
+        mean_neighbor += neighbor_list_host(i, 0);
+
+        if (max_ratio < epsilon_host(i) / spacing[i]) {
+          max_ratio = epsilon_host(i) / spacing[i];
+        }
+      }
+      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &min_neighbor, 1, MPI_INT, MPI_MIN,
+                    MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &max_neighbor, 1, MPI_INT, MPI_MAX,
+                    MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &mean_neighbor, 1, MPI_DOUBLE, MPI_SUM,
+                    MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &max_ratio, 1, MPI_DOUBLE, MPI_MAX,
+                    MPI_COMM_WORLD);
     }
 
     ite_counter++;
@@ -613,7 +638,8 @@ void stokes_equation::build_coefficient_matrix() {
   for (int i = 0; i < local_particle_num; i++) {
     if (neighbor_list_host(i, 0) > 1000)
       cout << target_coord_host(i, 0) << ' ' << target_coord_host(i, 1) << ' '
-           << target_coord_host(i, 2) << endl;
+           << target_coord_host(i, 2) << ' ' << particle_type[i] << ' '
+           << epsilon_host(i) / spacing[i] << ' ' << epsilon_host(i) << endl;
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -625,7 +651,8 @@ void stokes_equation::build_coefficient_matrix() {
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
       neumann_neighbor_list_device("neumann boundary neighbor lists",
-                                   num_neumann_target_coord, max_neighbor + 1);
+                                   num_neumann_target_coord,
+                                   neighbor_list_host.extent(1));
   Kokkos::View<int **>::HostMirror neumann_neighbor_list_host =
       Kokkos::create_mirror_view(neumann_neighbor_list_device);
 
@@ -636,7 +663,8 @@ void stokes_equation::build_coefficient_matrix() {
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
       colloid_neighbor_list_device("colloid boundary neighbor lists",
-                                   num_colloid_target_coord, max_neighbor + 1);
+                                   num_colloid_target_coord,
+                                   neighbor_list_host.extent(1));
   Kokkos::View<int **>::HostMirror colloid_neighbor_list_host =
       Kokkos::create_mirror_view(colloid_neighbor_list_device);
 
@@ -646,7 +674,7 @@ void stokes_equation::build_coefficient_matrix() {
       Kokkos::create_mirror_view(colloid_epsilon_device);
 
   epsilon.resize(local_particle_num);
-  for (int i = 0; i < num_target_coord; i++) {
+  for (int i = 0; i < local_particle_num; i++) {
     epsilon[i] = epsilon_host(i);
     if (particle_type[i] != 0) {
       counter = neumann_map[i];
@@ -670,8 +698,8 @@ void stokes_equation::build_coefficient_matrix() {
 
   geo_mgr->ghost_forward(epsilon, ghost_epsilon);
 
-  num_neighbor.resize(num_target_coord);
-  for (int i = 0; i < num_target_coord; i++) {
+  num_neighbor.resize(local_particle_num);
+  for (int i = 0; i < local_particle_num; i++) {
     num_neighbor[i] = neighbor_list_host(i, 0);
   }
 
@@ -1253,6 +1281,12 @@ void stokes_equation::build_coefficient_matrix() {
         const int neighbor_particle_index =
             source_index[neumann_neighbor_list_host(neumann_index, j + 1)];
 
+        if (neumann_neighbor_list_host(neumann_index, j + 1) !=
+            neighbor_list_host(i, j + 1)) {
+          std::cout << rank << ", index: " << i
+                    << ", neumann index: " << neumann_map[i] << std::endl;
+        }
+
         for (int axes2 = 0; axes2 < dim; axes2++) {
           double gradient = 0.0;
           const int velocity_global_index =
@@ -1320,10 +1354,6 @@ void stokes_equation::build_coefficient_matrix() {
         A.increment(pressure_local_index, pressure_neighbor_global_index, Aij);
         A.increment(pressure_local_index, pressure_global_index, -Aij);
       }
-    }
-
-    if (current_refinement_level == 0) {
-      A.increment(pressure_local_index, pressure_global_index, 1e-6);
     }
 
     // end of pressure block
@@ -1727,7 +1757,7 @@ void stokes_equation::solve_step() {
 
   auto &local_idx = *(geo_mgr->get_current_work_particle_local_index());
 
-  // build interpolation and resitriction operators
+  // build interpolation and restriction operators
   double timer1, timer2;
   if (current_refinement_level != 0) {
     timer1 = MPI_Wtime();
