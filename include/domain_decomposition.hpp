@@ -6,7 +6,7 @@
 #include <tgmath.h>
 #include <vector>
 
-#include "vec3.hpp"
+#include "Vec3.hpp"
 
 static void ProcessSplit(int &nX, int &nY, int &nI, int &nJ, const int nProc,
                          const int ID) {
@@ -51,11 +51,11 @@ static void ProcessSplit(int &nX, int &nY, int &nZ, int &nI, int &nJ, int &nK,
   nK = ID / (nX * nY);
 }
 
-static int BoundingBoxSplit(vec3 &boundingBoxSize,
-                            triple<int> &boundingBoxCount,
-                            std::vector<vec3> &boundingBox, vec3 &particleSize,
-                            vec3 *domainBoundingBox, triple<int> &domainCount,
-                            vec3 *domain, int nX, int nY, int nI, int nJ,
+static int BoundingBoxSplit(Vec3 &boundingBoxSize,
+                            Triple<int> &boundingBoxCount,
+                            std::vector<Vec3> &boundingBox, Vec3 &particleSize,
+                            Vec3 *domainBoundingBox, Triple<int> &domainCount,
+                            Vec3 *domain, int nX, int nY, int nI, int nJ,
                             double minDis, int maxLevel) {
   for (int i = 0; i < 2; i++) {
     particleSize[i] = boundingBoxSize[i] / boundingBoxCount[i];
@@ -121,11 +121,11 @@ static int BoundingBoxSplit(vec3 &boundingBoxSize,
   return addedLevel;
 }
 
-static int BoundingBoxSplit(vec3 &boundingBoxSize,
-                            triple<int> &boundingBoxCount,
-                            std::vector<vec3> &boundingBox, vec3 &particleSize,
-                            vec3 *domainBoundingBox, triple<int> &domainCount,
-                            vec3 *domain, int nX, int nY, int nZ, int nI,
+static int BoundingBoxSplit(Vec3 &boundingBoxSize,
+                            Triple<int> &boundingBoxCount,
+                            std::vector<Vec3> &boundingBox, Vec3 &particleSize,
+                            Vec3 *domainBoundingBox, Triple<int> &domainCount,
+                            Vec3 *domain, int nX, int nY, int nZ, int nI,
                             int nJ, int nK, double minDis) {
   for (int i = 0; i < 3; i++) {
     particleSize[i] = boundingBoxSize[i] / boundingBoxCount[i];

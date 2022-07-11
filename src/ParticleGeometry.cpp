@@ -1,4 +1,4 @@
-#include "particle_geometry.hpp"
+#include "ParticleGeometry.hpp"
 #include "get_input_file.hpp"
 #include "search_command.hpp"
 
@@ -58,18 +58,18 @@ static void process_split(int &x, int &y, int &z, int &i, int &j, int &k,
   k = rank / (x * y);
 }
 
-static int bounding_box_split(vec3 &bounding_box_size,
-                              triple<int> &bounding_box_count,
-                              vec3 &bounding_box_low, double _spacing,
-                              vec3 &domain_bounding_box_low,
-                              vec3 &domain_bounding_box_high, vec3 &domain_low,
-                              vec3 &domain_high, triple<int> &domain_count,
+static int bounding_box_split(Vec3 &bounding_box_size,
+                              Triple<int> &bounding_box_count,
+                              Vec3 &bounding_box_low, double _spacing,
+                              Vec3 &domain_bounding_box_low,
+                              Vec3 &domain_bounding_box_high, Vec3 &domain_low,
+                              Vec3 &domain_high, Triple<int> &domain_count,
                               int x, int y, int i, int j) {
   for (int ite = 0; ite < 2; ite++) {
     bounding_box_count[ite] = bounding_box_size[ite] / _spacing;
   }
 
-  vector<int> count_x, count_y;
+  std::vector<int> count_x, count_y;
   for (int ite = 0; ite < x; ite++) {
     if (bounding_box_count[0] % x > ite) {
       count_x.push_back(bounding_box_count[0] / x + 1);
@@ -124,12 +124,12 @@ static int bounding_box_split(vec3 &bounding_box_size,
   return 0;
 }
 
-static int bounding_box_split(vec3 &bounding_box_size,
-                              triple<int> &bounding_box_count,
-                              vec3 &bounding_box_low, vec3 &bounding_box_high,
-                              double _spacing, vec3 &domain_bounding_box_low,
-                              vec3 &domain_bounding_box_high, vec3 &domain_low,
-                              vec3 &domain_high, triple<int> &domain_count,
+static int bounding_box_split(Vec3 &bounding_box_size,
+                              Triple<int> &bounding_box_count,
+                              Vec3 &bounding_box_low, Vec3 &bounding_box_high,
+                              double _spacing, Vec3 &domain_bounding_box_low,
+                              Vec3 &domain_bounding_box_high, Vec3 &domain_low,
+                              Vec3 &domain_high, Triple<int> &domain_count,
                               const int x, const int y, const int z,
                               const int i, const int j, const int k) {
   for (int ite = 0; ite < 3; ite++) {
@@ -236,11 +236,11 @@ static int bounding_box_split(vec3 &bounding_box_size,
   return 0;
 }
 
-void particle_geometry::init(const int _dim, const int _problem_type,
-                             const int _refinement_type, double _spacing,
-                             double _cutoff_multiplier, const int _min_count,
-                             const int _max_count, const int _stride,
-                             string geometry_input_file_name) {
+void ParticleGeometry::init(const int _dim, const int _problem_type,
+                            const int _refinement_type, double _spacing,
+                            double _cutoff_multiplier, const int _min_count,
+                            const int _max_count, const int _stride,
+                            string geometry_input_file_name) {
   dim = _dim;
   problem_type = _problem_type;
   refinement_type = _refinement_type;
@@ -252,8 +252,8 @@ void particle_geometry::init(const int _dim, const int _problem_type,
   partitioner.set_dimension(dim);
 
   if (geometry_input_file_name != "") {
-    vector<char *> cstrings;
-    vector<string> strings;
+    std::vector<char *> cstrings;
+    std::vector<string> strings;
     GetInputFile(geometry_input_file_name, strings, cstrings);
 
     int inputCommandCount = cstrings.size();
@@ -371,37 +371,38 @@ void particle_geometry::init(const int _dim, const int _problem_type,
   init_domain_boundary();
 }
 
-void particle_geometry::init_rigid_body(shared_ptr<rigid_body_manager> mgr) {
+void ParticleGeometry::init_rigid_body(shared_ptr<rigid_body_manager> mgr) {
   rb_mgr = mgr;
-  rb_mgr->init_geometry_manager(make_shared<particle_geometry>(*this));
+  rb_mgr->init_geometry_manager(make_shared<ParticleGeometry>(*this));
 
   hierarchy = make_shared<rigid_body_surface_particle_hierarchy>();
   hierarchy->init(rb_mgr, dim);
 }
 
-bool particle_geometry::generate_uniform_particle() {
+bool ParticleGeometry::generate_uniform_particle() {
   // prepare data storage
-  current_local_managing_particle_coord = make_shared<vector<vec3>>();
-  current_local_managing_particle_normal = make_shared<vector<vec3>>();
-  current_local_managing_particle_p_spacing = make_shared<vector<vec3>>();
-  current_local_managing_particle_p_coord = make_shared<vector<vec3>>();
-  current_local_managing_particle_spacing = make_shared<vector<double>>();
-  current_local_managing_particle_volume = make_shared<vector<double>>();
-  current_local_managing_particle_index = make_shared<vector<long long>>();
-  current_local_managing_particle_type = make_shared<vector<int>>();
-  current_local_managing_particle_adaptive_level = make_shared<vector<int>>();
-  current_local_managing_particle_new_added = make_shared<vector<int>>();
+  current_local_managing_particle_coord = make_shared<std::vector<Vec3>>();
+  current_local_managing_particle_normal = make_shared<std::vector<Vec3>>();
+  current_local_managing_particle_p_spacing = make_shared<std::vector<Vec3>>();
+  current_local_managing_particle_p_coord = make_shared<std::vector<Vec3>>();
+  current_local_managing_particle_spacing = make_shared<std::vector<double>>();
+  current_local_managing_particle_volume = make_shared<std::vector<double>>();
+  current_local_managing_particle_index = make_shared<std::vector<long long>>();
+  current_local_managing_particle_type = make_shared<std::vector<int>>();
+  current_local_managing_particle_adaptive_level =
+      make_shared<std::vector<int>>();
+  current_local_managing_particle_new_added = make_shared<std::vector<int>>();
   current_local_managing_particle_attached_rigid_body =
-      make_shared<vector<int>>();
-  current_local_managing_particle_split_tag = make_shared<vector<int>>();
+      make_shared<std::vector<int>>();
+  current_local_managing_particle_split_tag = make_shared<std::vector<int>>();
 
-  local_managing_gap_particle_coord = make_shared<vector<vec3>>();
-  local_managing_gap_particle_normal = make_shared<vector<vec3>>();
-  local_managing_gap_particle_p_coord = make_shared<vector<vec3>>();
-  local_managing_gap_particle_volume = make_shared<vector<double>>();
-  local_managing_gap_particle_spacing = make_shared<vector<double>>();
-  local_managing_gap_particle_particle_type = make_shared<vector<int>>();
-  local_managing_gap_particle_adaptive_level = make_shared<vector<int>>();
+  local_managing_gap_particle_coord = make_shared<std::vector<Vec3>>();
+  local_managing_gap_particle_normal = make_shared<std::vector<Vec3>>();
+  local_managing_gap_particle_p_coord = make_shared<std::vector<Vec3>>();
+  local_managing_gap_particle_volume = make_shared<std::vector<double>>();
+  local_managing_gap_particle_spacing = make_shared<std::vector<double>>();
+  local_managing_gap_particle_particle_type = make_shared<std::vector<int>>();
+  local_managing_gap_particle_adaptive_level = make_shared<std::vector<int>>();
 
   uniform_spacing = uniform_spacing0;
 
@@ -441,25 +442,28 @@ bool particle_geometry::generate_uniform_particle() {
     current_local_work_ghost_particle_type.reset();
     current_local_work_ghost_attached_rigid_body.reset();
 
-    current_local_work_particle_coord = make_shared<vector<vec3>>();
-    current_local_work_particle_normal = make_shared<vector<vec3>>();
-    current_local_work_particle_p_spacing = make_shared<vector<vec3>>();
-    current_local_work_particle_spacing = make_shared<vector<double>>();
-    current_local_work_particle_volume = make_shared<vector<double>>();
-    current_local_work_particle_index = make_shared<vector<int>>();
-    current_local_work_particle_local_index = make_shared<vector<int>>();
-    current_local_work_particle_type = make_shared<vector<int>>();
-    current_local_work_particle_adaptive_level = make_shared<vector<int>>();
-    current_local_work_particle_new_added = make_shared<vector<int>>();
+    current_local_work_particle_coord = make_shared<std::vector<Vec3>>();
+    current_local_work_particle_normal = make_shared<std::vector<Vec3>>();
+    current_local_work_particle_p_spacing = make_shared<std::vector<Vec3>>();
+    current_local_work_particle_spacing = make_shared<std::vector<double>>();
+    current_local_work_particle_volume = make_shared<std::vector<double>>();
+    current_local_work_particle_index = make_shared<std::vector<int>>();
+    current_local_work_particle_local_index = make_shared<std::vector<int>>();
+    current_local_work_particle_type = make_shared<std::vector<int>>();
+    current_local_work_particle_adaptive_level =
+        make_shared<std::vector<int>>();
+    current_local_work_particle_new_added = make_shared<std::vector<int>>();
     current_local_work_particle_attached_rigid_body =
-        make_shared<vector<int>>();
-    current_local_work_particle_num_neighbor = make_shared<vector<int>>();
+        make_shared<std::vector<int>>();
+    current_local_work_particle_num_neighbor = make_shared<std::vector<int>>();
 
-    current_local_work_ghost_particle_coord = make_shared<vector<vec3>>();
-    current_local_work_ghost_particle_volume = make_shared<vector<double>>();
-    current_local_work_ghost_particle_index = make_shared<vector<int>>();
-    current_local_work_ghost_particle_type = make_shared<vector<int>>();
-    current_local_work_ghost_attached_rigid_body = make_shared<vector<int>>();
+    current_local_work_ghost_particle_coord = make_shared<std::vector<Vec3>>();
+    current_local_work_ghost_particle_volume =
+        make_shared<std::vector<double>>();
+    current_local_work_ghost_particle_index = make_shared<std::vector<int>>();
+    current_local_work_ghost_particle_type = make_shared<std::vector<int>>();
+    current_local_work_ghost_attached_rigid_body =
+        make_shared<std::vector<int>>();
 
     migrate_forward(current_local_managing_particle_coord,
                     current_local_work_particle_coord);
@@ -495,7 +499,7 @@ bool particle_geometry::generate_uniform_particle() {
     ghost_forward(current_local_work_particle_attached_rigid_body,
                   current_local_work_ghost_attached_rigid_body);
 
-    vector<int> split_tag;
+    std::vector<int> split_tag;
     if (automatic_refine(split_tag, pass_stage1)) {
       if (!adaptive_refine(split_tag))
         return false;
@@ -507,9 +511,9 @@ bool particle_geometry::generate_uniform_particle() {
   return true;
 }
 
-void particle_geometry::clear_particle() {}
+void ParticleGeometry::clear_particle() {}
 
-void particle_geometry::migrate_forward(int_type source, int_type target) {
+void ParticleGeometry::migrate_forward(int_type source, int_type target) {
   int num_target_num = source->size();
   for (int i = 0; i < migration_in_num.size(); i++) {
     num_target_num += migration_in_num[i];
@@ -523,18 +527,18 @@ void particle_geometry::migrate_forward(int_type source, int_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(migration_out_graph.size());
   recv_request.resize(migration_in_graph.size());
   send_status.resize(migration_out_graph.size());
   recv_status.resize(migration_in_graph.size());
 
-  vector<int> send_buffer, recv_buffer;
+  std::vector<int> send_buffer, recv_buffer;
   send_buffer.resize(migration_out_offset[migration_out_graph.size()]);
   recv_buffer.resize(migration_in_offset[migration_in_graph.size()]);
 
@@ -570,7 +574,7 @@ void particle_geometry::migrate_forward(int_type source, int_type target) {
   }
 }
 
-void particle_geometry::migrate_forward(real_type source, real_type target) {
+void ParticleGeometry::migrate_forward(real_type source, real_type target) {
   int num_target_num = source->size();
   for (int i = 0; i < migration_in_num.size(); i++) {
     num_target_num += migration_in_num[i];
@@ -584,18 +588,18 @@ void particle_geometry::migrate_forward(real_type source, real_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(migration_out_graph.size());
   recv_request.resize(migration_in_graph.size());
   send_status.resize(migration_out_graph.size());
   recv_status.resize(migration_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(migration_out_offset[migration_out_graph.size()]);
   recv_buffer.resize(migration_in_offset[migration_in_graph.size()]);
 
@@ -631,7 +635,7 @@ void particle_geometry::migrate_forward(real_type source, real_type target) {
   }
 }
 
-void particle_geometry::migrate_forward(vec_type source, vec_type target) {
+void ParticleGeometry::migrate_forward(vec_type source, vec_type target) {
   const int unit_length = 3;
   int num_target_num = source->size();
   for (int i = 0; i < migration_in_num.size(); i++) {
@@ -646,18 +650,18 @@ void particle_geometry::migrate_forward(vec_type source, vec_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(migration_out_graph.size());
   recv_request.resize(migration_in_graph.size());
   send_status.resize(migration_out_graph.size());
   recv_status.resize(migration_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(migration_out_offset[migration_out_graph.size()] *
                      unit_length);
   recv_buffer.resize(migration_in_offset[migration_in_graph.size()] *
@@ -699,8 +703,8 @@ void particle_geometry::migrate_forward(vec_type source, vec_type target) {
   }
 }
 
-void particle_geometry::migrate_backward(vector<int> &source,
-                                         vector<int> &target) {
+void ParticleGeometry::migrate_backward(std::vector<int> &source,
+                                        std::vector<int> &target) {
   int num_target_num = source.size();
   for (int i = 0; i < migration_in_num.size(); i++) {
     num_target_num -= migration_in_num[i];
@@ -711,18 +715,18 @@ void particle_geometry::migrate_backward(vector<int> &source,
 
   target.resize(num_target_num);
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(migration_in_graph.size());
   recv_request.resize(migration_out_graph.size());
   send_status.resize(migration_in_graph.size());
   recv_status.resize(migration_out_graph.size());
 
-  vector<int> send_buffer, recv_buffer;
+  std::vector<int> send_buffer, recv_buffer;
   send_buffer.resize(migration_in_offset[migration_in_graph.size()]);
   recv_buffer.resize(migration_out_offset[migration_out_graph.size()]);
 
@@ -758,7 +762,7 @@ void particle_geometry::migrate_backward(vector<int> &source,
   }
 }
 
-void particle_geometry::ghost_forward(int_type source, int_type target) {
+void ParticleGeometry::ghost_forward(int_type source, int_type target) {
   int num_target_num = source->size();
   for (int i = 0; i < ghost_in_num.size(); i++) {
     num_target_num += ghost_in_num[i];
@@ -769,18 +773,18 @@ void particle_geometry::ghost_forward(int_type source, int_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_out_graph.size());
   recv_request.resize(ghost_in_graph.size());
   send_status.resize(ghost_out_graph.size());
   recv_status.resize(ghost_in_graph.size());
 
-  vector<int> send_buffer, recv_buffer;
+  std::vector<int> send_buffer, recv_buffer;
   send_buffer.resize(ghost_out_offset[ghost_out_graph.size()]);
   recv_buffer.resize(ghost_in_offset[ghost_in_graph.size()]);
 
@@ -815,7 +819,7 @@ void particle_geometry::ghost_forward(int_type source, int_type target) {
   }
 }
 
-void particle_geometry::ghost_forward(real_type source, real_type target) {
+void ParticleGeometry::ghost_forward(real_type source, real_type target) {
   int num_target_num = source->size();
   for (int i = 0; i < ghost_in_num.size(); i++) {
     num_target_num += ghost_in_num[i];
@@ -826,18 +830,18 @@ void particle_geometry::ghost_forward(real_type source, real_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_out_graph.size());
   recv_request.resize(ghost_in_graph.size());
   send_status.resize(ghost_out_graph.size());
   recv_status.resize(ghost_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(ghost_out_offset[ghost_out_graph.size()]);
   recv_buffer.resize(ghost_in_offset[ghost_in_graph.size()]);
 
@@ -873,7 +877,7 @@ void particle_geometry::ghost_forward(real_type source, real_type target) {
   }
 }
 
-void particle_geometry::ghost_forward(vec_type source, vec_type target) {
+void ParticleGeometry::ghost_forward(vec_type source, vec_type target) {
   const int unit_length = 3;
   int num_target_num = source->size();
   for (int i = 0; i < ghost_in_num.size(); i++) {
@@ -885,18 +889,18 @@ void particle_geometry::ghost_forward(vec_type source, vec_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_out_graph.size());
   recv_request.resize(ghost_in_graph.size());
   send_status.resize(ghost_out_graph.size());
   recv_status.resize(ghost_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(ghost_out_offset[ghost_out_graph.size()] * unit_length);
   recv_buffer.resize(ghost_in_offset[ghost_in_graph.size()] * unit_length);
 
@@ -934,8 +938,8 @@ void particle_geometry::ghost_forward(vec_type source, vec_type target) {
   }
 }
 
-void particle_geometry::ghost_forward(std::vector<int> &source_vec,
-                                      std::vector<int> &target_vec) {
+void ParticleGeometry::ghost_forward(std::vector<int> &source_vec,
+                                     std::vector<int> &target_vec) {
   int num_target_num = source_vec.size();
   for (int i = 0; i < ghost_in_num.size(); i++) {
     num_target_num += ghost_in_num[i];
@@ -943,18 +947,18 @@ void particle_geometry::ghost_forward(std::vector<int> &source_vec,
 
   target_vec.resize(num_target_num);
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_out_graph.size());
   recv_request.resize(ghost_in_graph.size());
   send_status.resize(ghost_out_graph.size());
   recv_status.resize(ghost_in_graph.size());
 
-  vector<int> send_buffer, recv_buffer;
+  std::vector<int> send_buffer, recv_buffer;
   send_buffer.resize(ghost_out_offset[ghost_out_graph.size()]);
   recv_buffer.resize(ghost_in_offset[ghost_in_graph.size()]);
 
@@ -989,8 +993,8 @@ void particle_geometry::ghost_forward(std::vector<int> &source_vec,
   }
 }
 
-void particle_geometry::ghost_forward(std::vector<double> &source_vec,
-                                      std::vector<double> &target_vec) {
+void ParticleGeometry::ghost_forward(std::vector<double> &source_vec,
+                                     std::vector<double> &target_vec) {
   int num_target_num = source_vec.size();
   for (int i = 0; i < ghost_in_num.size(); i++) {
     num_target_num += ghost_in_num[i];
@@ -998,18 +1002,18 @@ void particle_geometry::ghost_forward(std::vector<double> &source_vec,
 
   target_vec.resize(num_target_num);
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_out_graph.size());
   recv_request.resize(ghost_in_graph.size());
   send_status.resize(ghost_out_graph.size());
   recv_status.resize(ghost_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(ghost_out_offset[ghost_out_graph.size()]);
   recv_buffer.resize(ghost_in_offset[ghost_in_graph.size()]);
 
@@ -1045,8 +1049,8 @@ void particle_geometry::ghost_forward(std::vector<double> &source_vec,
   }
 }
 
-void particle_geometry::ghost_forward(std::vector<vec3> &source_vec,
-                                      std::vector<vec3> &target_vec) {
+void ParticleGeometry::ghost_forward(std::vector<Vec3> &source_vec,
+                                     std::vector<Vec3> &target_vec) {
   const int unit_length = 3;
   int num_target_num = source_vec.size();
   for (int i = 0; i < ghost_in_num.size(); i++) {
@@ -1055,18 +1059,18 @@ void particle_geometry::ghost_forward(std::vector<vec3> &source_vec,
 
   target_vec.resize(num_target_num);
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_out_graph.size());
   recv_request.resize(ghost_in_graph.size());
   send_status.resize(ghost_out_graph.size());
   recv_status.resize(ghost_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(ghost_out_offset[ghost_out_graph.size()] * unit_length);
   recv_buffer.resize(ghost_in_offset[ghost_in_graph.size()] * unit_length);
 
@@ -1104,9 +1108,9 @@ void particle_geometry::ghost_forward(std::vector<vec3> &source_vec,
   }
 }
 
-void particle_geometry::ghost_forward(vector<vector<double>> &source_chunk,
-                                      vector<vector<double>> &target_chunk,
-                                      size_t unit_length) {
+void ParticleGeometry::ghost_forward(
+    std::vector<std::vector<double>> &source_chunk,
+    std::vector<std::vector<double>> &target_chunk, size_t unit_length) {
   int num_target_num = source_chunk.size();
   for (int i = 0; i < ghost_in_num.size(); i++) {
     num_target_num += ghost_in_num[i];
@@ -1114,18 +1118,18 @@ void particle_geometry::ghost_forward(vector<vector<double>> &source_chunk,
 
   target_chunk.resize(num_target_num);
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_out_graph.size());
   recv_request.resize(ghost_in_graph.size());
   send_status.resize(ghost_out_graph.size());
   recv_status.resize(ghost_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(ghost_out_offset[ghost_out_graph.size()] * unit_length);
   recv_buffer.resize(ghost_in_offset[ghost_in_graph.size()] * unit_length);
 
@@ -1164,7 +1168,54 @@ void particle_geometry::ghost_forward(vector<vector<double>> &source_chunk,
   }
 }
 
-void particle_geometry::ghost_clll_forward(int_type source, int_type target) {
+void ParticleGeometry::ApplyGhost(
+    const Kokkos::View<double *, Kokkos::HostSpace> &source,
+    Kokkos::View<double *, Kokkos::HostSpace> &target) {
+  unsigned int numTarget = source.extent(0);
+  for (int i = 0; i < ghost_in_num.size(); i++) {
+    numTarget += ghost_in_num[i];
+  }
+  Kokkos::resize(target, numTarget);
+
+  std::vector<MPI_Request> sendRequest(ghost_out_graph.size());
+  std::vector<MPI_Request> recvRequest(ghost_in_graph.size());
+  std::vector<MPI_Status> sendStatus(ghost_out_graph.size());
+  std::vector<MPI_Status> recvStatus(ghost_in_graph.size());
+
+  std::vector<double> sendBuffer(ghost_out_offset[ghost_out_graph.size()]);
+  std::vector<double> recvBuffer(ghost_in_offset[ghost_in_graph.size()]);
+
+  for (std::size_t i = 0; i < ghost_map.size(); i++) {
+    sendBuffer[i] = source(ghost_map[i]);
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  for (int i = 0; i < ghost_out_graph.size(); i++) {
+    MPI_Isend(sendBuffer.data() + ghost_out_offset[i], ghost_out_num[i],
+              MPI_DOUBLE, ghost_out_graph[i], 0, MPI_COMM_WORLD,
+              sendRequest.data() + i);
+  }
+
+  for (int i = 0; i < ghost_in_graph.size(); i++) {
+    MPI_Irecv(recvBuffer.data() + ghost_in_offset[i], ghost_in_num[i],
+              MPI_DOUBLE, ghost_in_graph[i], 0, MPI_COMM_WORLD,
+              recvRequest.data() + i);
+  }
+
+  MPI_Waitall(sendRequest.size(), sendRequest.data(), sendStatus.data());
+  MPI_Waitall(recvRequest.size(), recvRequest.data(), recvStatus.data());
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  for (int i = 0; i < source.extent(0); i++) {
+    target(i) = source(i);
+  }
+  const unsigned int recv_offset = source.extent(0);
+  for (int i = 0; i < recvBuffer.size(); i++) {
+    target(i + recv_offset) = recvBuffer[i];
+  }
+}
+
+void ParticleGeometry::ghost_clll_forward(int_type source, int_type target) {
   int num_target_num = reserve_clll_map.size();
   for (int i = 0; i < ghost_clll_in_num.size(); i++) {
     num_target_num += ghost_clll_in_num[i];
@@ -1175,18 +1226,18 @@ void particle_geometry::ghost_clll_forward(int_type source, int_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_clll_out_graph.size());
   recv_request.resize(ghost_clll_in_graph.size());
   send_status.resize(ghost_clll_out_graph.size());
   recv_status.resize(ghost_clll_in_graph.size());
 
-  vector<int> send_buffer, recv_buffer;
+  std::vector<int> send_buffer, recv_buffer;
   send_buffer.resize(ghost_clll_out_offset[ghost_clll_out_graph.size()]);
   recv_buffer.resize(ghost_clll_in_offset[ghost_clll_in_graph.size()]);
 
@@ -1222,7 +1273,7 @@ void particle_geometry::ghost_clll_forward(int_type source, int_type target) {
   }
 }
 
-void particle_geometry::ghost_clll_forward(real_type source, real_type target) {
+void ParticleGeometry::ghost_clll_forward(real_type source, real_type target) {
   int num_target_num = reserve_clll_map.size();
   for (int i = 0; i < ghost_clll_in_num.size(); i++) {
     num_target_num += ghost_clll_in_num[i];
@@ -1233,18 +1284,18 @@ void particle_geometry::ghost_clll_forward(real_type source, real_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_clll_out_graph.size());
   recv_request.resize(ghost_clll_in_graph.size());
   send_status.resize(ghost_clll_out_graph.size());
   recv_status.resize(ghost_clll_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(ghost_clll_out_offset[ghost_clll_out_graph.size()]);
   recv_buffer.resize(ghost_clll_in_offset[ghost_clll_in_graph.size()]);
 
@@ -1280,7 +1331,7 @@ void particle_geometry::ghost_clll_forward(real_type source, real_type target) {
   }
 }
 
-void particle_geometry::ghost_clll_forward(vec_type source, vec_type target) {
+void ParticleGeometry::ghost_clll_forward(vec_type source, vec_type target) {
   const int unit_length = 3;
   int num_target_num = reserve_clll_map.size();
   for (int i = 0; i < ghost_clll_in_num.size(); i++) {
@@ -1292,18 +1343,18 @@ void particle_geometry::ghost_clll_forward(vec_type source, vec_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_clll_out_graph.size());
   recv_request.resize(ghost_clll_in_graph.size());
   send_status.resize(ghost_clll_out_graph.size());
   recv_status.resize(ghost_clll_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(ghost_clll_out_offset[ghost_clll_out_graph.size()] *
                      unit_length);
   recv_buffer.resize(ghost_clll_in_offset[ghost_clll_in_graph.size()] *
@@ -1345,7 +1396,7 @@ void particle_geometry::ghost_clll_forward(vec_type source, vec_type target) {
   }
 }
 
-void particle_geometry::ghost_llcl_forward(int_type source, int_type target) {
+void ParticleGeometry::ghost_llcl_forward(int_type source, int_type target) {
   int num_target_num = reserve_llcl_map.size();
   for (int i = 0; i < ghost_llcl_in_num.size(); i++) {
     num_target_num += ghost_llcl_in_num[i];
@@ -1356,18 +1407,18 @@ void particle_geometry::ghost_llcl_forward(int_type source, int_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_llcl_out_graph.size());
   recv_request.resize(ghost_llcl_in_graph.size());
   send_status.resize(ghost_llcl_out_graph.size());
   recv_status.resize(ghost_llcl_in_graph.size());
 
-  vector<int> send_buffer, recv_buffer;
+  std::vector<int> send_buffer, recv_buffer;
   send_buffer.resize(ghost_llcl_out_offset[ghost_llcl_out_graph.size()]);
   recv_buffer.resize(ghost_llcl_in_offset[ghost_llcl_in_graph.size()]);
 
@@ -1403,7 +1454,7 @@ void particle_geometry::ghost_llcl_forward(int_type source, int_type target) {
   }
 }
 
-void particle_geometry::ghost_llcl_forward(real_type source, real_type target) {
+void ParticleGeometry::ghost_llcl_forward(real_type source, real_type target) {
   int num_target_num = reserve_llcl_map.size();
   for (int i = 0; i < ghost_llcl_in_num.size(); i++) {
     num_target_num += ghost_llcl_in_num[i];
@@ -1414,18 +1465,18 @@ void particle_geometry::ghost_llcl_forward(real_type source, real_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_llcl_out_graph.size());
   recv_request.resize(ghost_llcl_in_graph.size());
   send_status.resize(ghost_llcl_out_graph.size());
   recv_status.resize(ghost_llcl_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(ghost_llcl_out_offset[ghost_llcl_out_graph.size()]);
   recv_buffer.resize(ghost_llcl_in_offset[ghost_llcl_in_graph.size()]);
 
@@ -1461,7 +1512,7 @@ void particle_geometry::ghost_llcl_forward(real_type source, real_type target) {
   }
 }
 
-void particle_geometry::ghost_llcl_forward(vec_type source, vec_type target) {
+void ParticleGeometry::ghost_llcl_forward(vec_type source, vec_type target) {
   const int unit_length = 3;
   int num_target_num = reserve_llcl_map.size();
   for (int i = 0; i < ghost_llcl_in_num.size(); i++) {
@@ -1473,18 +1524,18 @@ void particle_geometry::ghost_llcl_forward(vec_type source, vec_type target) {
   auto &source_vec = *source;
   auto &target_vec = *target;
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(ghost_llcl_out_graph.size());
   recv_request.resize(ghost_llcl_in_graph.size());
   send_status.resize(ghost_llcl_out_graph.size());
   recv_status.resize(ghost_llcl_in_graph.size());
 
-  vector<double> send_buffer, recv_buffer;
+  std::vector<double> send_buffer, recv_buffer;
   send_buffer.resize(ghost_llcl_out_offset[ghost_llcl_out_graph.size()] *
                      unit_length);
   recv_buffer.resize(ghost_llcl_in_offset[ghost_llcl_in_graph.size()] *
@@ -1526,7 +1577,7 @@ void particle_geometry::ghost_llcl_forward(vec_type source, vec_type target) {
   }
 }
 
-bool particle_geometry::refine(vector<int> &split_tag) {
+bool ParticleGeometry::refine(std::vector<int> &split_tag) {
   bool res = false;
   if (refinement_type == UNIFORM_REFINE) {
     uniform_refine();
@@ -1567,21 +1618,22 @@ bool particle_geometry::refine(vector<int> &split_tag) {
   last_local_work_ghost_particle_index =
       move(current_local_work_ghost_particle_index);
 
-  current_local_work_particle_coord = make_shared<vector<vec3>>();
-  current_local_work_particle_normal = make_shared<vector<vec3>>();
-  current_local_work_particle_p_spacing = make_shared<vector<vec3>>();
-  current_local_work_particle_spacing = make_shared<vector<double>>();
-  current_local_work_particle_volume = make_shared<vector<double>>();
-  current_local_work_particle_index = make_shared<vector<int>>();
-  current_local_work_particle_local_index = make_shared<vector<int>>();
-  current_local_work_particle_type = make_shared<vector<int>>();
-  current_local_work_particle_adaptive_level = make_shared<vector<int>>();
-  current_local_work_particle_new_added = make_shared<vector<int>>();
-  current_local_work_particle_attached_rigid_body = make_shared<vector<int>>();
+  current_local_work_particle_coord = make_shared<std::vector<Vec3>>();
+  current_local_work_particle_normal = make_shared<std::vector<Vec3>>();
+  current_local_work_particle_p_spacing = make_shared<std::vector<Vec3>>();
+  current_local_work_particle_spacing = make_shared<std::vector<double>>();
+  current_local_work_particle_volume = make_shared<std::vector<double>>();
+  current_local_work_particle_index = make_shared<std::vector<int>>();
+  current_local_work_particle_local_index = make_shared<std::vector<int>>();
+  current_local_work_particle_type = make_shared<std::vector<int>>();
+  current_local_work_particle_adaptive_level = make_shared<std::vector<int>>();
+  current_local_work_particle_new_added = make_shared<std::vector<int>>();
+  current_local_work_particle_attached_rigid_body =
+      make_shared<std::vector<int>>();
 
-  current_local_work_ghost_particle_coord = make_shared<vector<vec3>>();
-  current_local_work_ghost_particle_volume = make_shared<vector<double>>();
-  current_local_work_ghost_particle_index = make_shared<vector<int>>();
+  current_local_work_ghost_particle_coord = make_shared<std::vector<Vec3>>();
+  current_local_work_ghost_particle_volume = make_shared<std::vector<double>>();
+  current_local_work_ghost_particle_index = make_shared<std::vector<int>>();
 
   migrate_forward(current_local_managing_particle_coord,
                   current_local_work_particle_coord);
@@ -1628,14 +1680,14 @@ bool particle_geometry::refine(vector<int> &split_tag) {
   llcl_particle_local_index.reset();
   llcl_particle_type.reset();
 
-  clll_particle_coord = make_shared<vector<vec3>>();
-  clll_particle_index = make_shared<vector<int>>();
-  clll_particle_local_index = make_shared<vector<int>>();
-  clll_particle_type = make_shared<vector<int>>();
-  llcl_particle_coord = make_shared<vector<vec3>>();
-  llcl_particle_index = make_shared<vector<int>>();
-  llcl_particle_local_index = make_shared<vector<int>>();
-  llcl_particle_type = make_shared<vector<int>>();
+  clll_particle_coord = make_shared<std::vector<Vec3>>();
+  clll_particle_index = make_shared<std::vector<int>>();
+  clll_particle_local_index = make_shared<std::vector<int>>();
+  clll_particle_type = make_shared<std::vector<int>>();
+  llcl_particle_coord = make_shared<std::vector<Vec3>>();
+  llcl_particle_index = make_shared<std::vector<int>>();
+  llcl_particle_local_index = make_shared<std::vector<int>>();
+  llcl_particle_type = make_shared<std::vector<int>>();
 
   ghost_clll_forward(last_local_work_particle_coord, clll_particle_coord);
   ghost_clll_forward(last_local_work_particle_index, clll_particle_index);
@@ -1651,7 +1703,7 @@ bool particle_geometry::refine(vector<int> &split_tag) {
   return res;
 }
 
-void particle_geometry::init_domain_boundary() {
+void ParticleGeometry::init_domain_boundary() {
   if (dim == 3) {
     // six faces as boundary
     // 0 front face
@@ -1730,10 +1782,10 @@ void particle_geometry::init_domain_boundary() {
   }
 }
 
-void particle_geometry::generate_field_particle() {
+void ParticleGeometry::generate_field_particle() {
   double pos_x, pos_y, pos_z;
-  vec3 normal = vec3(1.0, 0.0, 0.0);
-  vec3 boundary_normal;
+  Vec3 normal = Vec3(1.0, 0.0, 0.0);
+  Vec3 boundary_normal;
 
   if (dim == 2) {
     pos_z = 0.0;
@@ -1744,23 +1796,23 @@ void particle_geometry::generate_field_particle() {
       pos_x = domain[0][0];
       pos_y = domain[0][1];
       if (domain_boundary_type[3] != 0) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
+        Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+        boundary_normal = Vec3(sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
         insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
       }
       pos_x += 0.5 * uniform_spacing;
 
       while (pos_x < domain[1][0] - 1e-5) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(0.0, 1.0, 0.0);
+        Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+        boundary_normal = Vec3(0.0, 1.0, 0.0);
         insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
         pos_x += uniform_spacing;
       }
 
       if (domain_boundary_type[1] != 0) {
         pos_x = domain[1][0];
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
+        Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+        boundary_normal = Vec3(-sqrt(2) / 2.0, sqrt(2) / 2.0, 0.0);
         insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
       }
     }
@@ -1771,14 +1823,14 @@ void particle_geometry::generate_field_particle() {
       // left
       if (domain_boundary_type[3] != 0) {
         pos_x = domain[0][0];
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(1.0, 0.0, 0.0);
+        Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+        boundary_normal = Vec3(1.0, 0.0, 0.0);
         insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
       }
 
       pos_x = domain[0][0] + uniform_spacing / 2.0;
       while (pos_x < domain[1][0] - 1e-5) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
+        Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
         insert_particle(_pos, 0, uniform_spacing, normal, 0, vol);
         pos_x += uniform_spacing;
       }
@@ -1786,8 +1838,8 @@ void particle_geometry::generate_field_particle() {
       // right
       if (domain_boundary_type[1] != 0) {
         pos_x = domain[1][0];
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(-1.0, 0.0, 0.0);
+        Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+        boundary_normal = Vec3(-1.0, 0.0, 0.0);
         insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
       }
 
@@ -1799,23 +1851,23 @@ void particle_geometry::generate_field_particle() {
       pos_x = domain[0][0];
       pos_y = domain[1][1];
       if (domain_boundary_type[3] != 0) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
+        Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+        boundary_normal = Vec3(sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
         insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
       }
       pos_x += 0.5 * uniform_spacing;
 
       while (pos_x < domain[1][0] - 1e-5) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(0.0, -1.0, 0.0);
+        Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+        boundary_normal = Vec3(0.0, -1.0, 0.0);
         insert_particle(_pos, 2, uniform_spacing, boundary_normal, 0, vol);
         pos_x += uniform_spacing;
       }
 
       pos_x = domain[1][0];
       if (domain_boundary_type[1] != 0) {
-        vec3 _pos = vec3(pos_x, pos_y, pos_z);
-        boundary_normal = vec3(-sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
+        Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+        boundary_normal = Vec3(-sqrt(2) / 2.0, -sqrt(2) / 2.0, 0.0);
         insert_particle(_pos, 1, uniform_spacing, boundary_normal, 0, vol);
       }
     }
@@ -1829,8 +1881,8 @@ void particle_geometry::generate_field_particle() {
       while (pos_x < domain[1][0] - 1e-5) {
         pos_y = domain[0][1] + uniform_spacing / 2.0;
         while (pos_y < domain[1][1] - 1e-5) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(1.0, 0.0, 0.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(1.0, 0.0, 0.0);
           insert_particle(_pos, 0, uniform_spacing, normal, 0, vol);
           pos_y += uniform_spacing;
         }
@@ -1841,10 +1893,10 @@ void particle_geometry::generate_field_particle() {
   }
 }
 
-void particle_geometry::generate_field_surface_particle() {
+void ParticleGeometry::generate_field_surface_particle() {
   double pos_x, pos_y, pos_z;
-  vec3 normal = vec3(1.0, 0.0, 0.0);
-  vec3 boundary_normal;
+  Vec3 normal = Vec3(1.0, 0.0, 0.0);
+  Vec3 boundary_normal;
 
   if (dim == 3) {
     double vol = uniform_spacing * uniform_spacing * uniform_spacing;
@@ -1857,16 +1909,16 @@ void particle_geometry::generate_field_surface_particle() {
         pos_x = domain[0][0];
         pos_y = domain[0][1];
         if (domain_boundary_type[2] != 0 && domain_boundary_type[4] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(sqrt(3) / 3.0, sqrt(3) / 3.0, sqrt(3) / 3.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(sqrt(3) / 3.0, sqrt(3) / 3.0, sqrt(3) / 3.0);
           insert_particle(_pos, 1, uniform_spacing, normal, 0, vol);
         }
 
         pos_y += 0.5 * uniform_spacing;
         if (domain_boundary_type[2] != 0) {
           while (pos_y < domain[1][1] - 1e-5) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(sqrt(2.0) / 2.0, 0.0, sqrt(2.0) / 2.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(sqrt(2.0) / 2.0, 0.0, sqrt(2.0) / 2.0);
             insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
             pos_y += uniform_spacing;
           }
@@ -1874,8 +1926,8 @@ void particle_geometry::generate_field_surface_particle() {
 
         pos_y = domain[1][1];
         if (domain_boundary_type[1] != 0 && domain_boundary_type[2] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(sqrt(3) / 3.0, -sqrt(3) / 3.0, sqrt(3) / 3.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(sqrt(3) / 3.0, -sqrt(3) / 3.0, sqrt(3) / 3.0);
           insert_particle(_pos, 1, uniform_spacing, normal, 0, vol);
         }
 
@@ -1883,23 +1935,23 @@ void particle_geometry::generate_field_surface_particle() {
         while (pos_x < domain[1][0] - 1e-5) {
           pos_y = domain[0][1];
           if (domain_boundary_type[4] != 0) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(0.0, sqrt(2.0) / 2.0, sqrt(2.0) / 2.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(0.0, sqrt(2.0) / 2.0, sqrt(2.0) / 2.0);
             insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
           }
 
           pos_y += 0.5 * uniform_spacing;
           while (pos_y < domain[1][1] - 1e-5) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(0.0, 0.0, 1.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(0.0, 0.0, 1.0);
             insert_particle(_pos, 3, uniform_spacing, normal, 0, vol);
             pos_y += uniform_spacing;
           }
 
           pos_y = domain[1][1];
           if (domain_boundary_type[1] != 0) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(0.0, -sqrt(2.0) / 2.0, sqrt(2.0) / 2.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(0.0, -sqrt(2.0) / 2.0, sqrt(2.0) / 2.0);
             insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
           }
 
@@ -1909,16 +1961,16 @@ void particle_geometry::generate_field_surface_particle() {
         pos_x = domain[1][0];
         pos_y = domain[0][1];
         if (domain_boundary_type[0] != 0 && domain_boundary_type[4] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(-sqrt(3) / 3.0, sqrt(3) / 3.0, sqrt(3) / 3.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(-sqrt(3) / 3.0, sqrt(3) / 3.0, sqrt(3) / 3.0);
           insert_particle(_pos, 1, uniform_spacing, normal, 0, vol);
         }
 
         pos_y += 0.5 * uniform_spacing;
         if (domain_boundary_type[0] != 0) {
           while (pos_y < domain[1][1] - 1e-5) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(-sqrt(2.0) / 2.0, 0.0, sqrt(2.0) / 2.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(-sqrt(2.0) / 2.0, 0.0, sqrt(2.0) / 2.0);
             insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
             pos_y += uniform_spacing;
           }
@@ -1926,8 +1978,8 @@ void particle_geometry::generate_field_surface_particle() {
 
         pos_y = domain[1][1];
         if (domain_boundary_type[0] != 0 && domain_boundary_type[1] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(-sqrt(3) / 3.0, -sqrt(3) / 3.0, sqrt(3) / 3.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(-sqrt(3) / 3.0, -sqrt(3) / 3.0, sqrt(3) / 3.0);
           insert_particle(_pos, 1, uniform_spacing, normal, 0, vol);
         }
       }
@@ -1937,16 +1989,16 @@ void particle_geometry::generate_field_surface_particle() {
         pos_y = domain[0][1];
         pos_x = domain[0][0];
         if (domain_boundary_type[2] != 0 && domain_boundary_type[4] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
           insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
         }
 
         pos_y += 0.5 * uniform_spacing;
         if (domain_boundary_type[2] != 0) {
           while (pos_y < domain[1][1] - 1e-5) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(1.0, 0.0, 0.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(1.0, 0.0, 0.0);
             insert_particle(_pos, 3, uniform_spacing, normal, 0, vol);
             pos_y += uniform_spacing;
           }
@@ -1954,8 +2006,8 @@ void particle_geometry::generate_field_surface_particle() {
 
         pos_y = domain[1][1];
         if (domain_boundary_type[1] != 0 && domain_boundary_type[2] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
           insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
         }
 
@@ -1963,8 +2015,8 @@ void particle_geometry::generate_field_surface_particle() {
         while (pos_x < domain[1][0] - 1e-5) {
           pos_y = domain[0][1];
           if (domain_boundary_type[4] != 0) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(0.0, 1.0, 0.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(0.0, 1.0, 0.0);
             insert_particle(_pos, 3, uniform_spacing, normal, 0, vol);
           }
 
@@ -1972,8 +2024,8 @@ void particle_geometry::generate_field_surface_particle() {
 
           pos_y = domain[1][1];
           if (domain_boundary_type[1] != 0) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(0.0, -1.0, 0.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(0.0, -1.0, 0.0);
             insert_particle(_pos, 3, uniform_spacing, normal, 0, vol);
           }
 
@@ -1983,16 +2035,16 @@ void particle_geometry::generate_field_surface_particle() {
         pos_y = domain[0][1];
         pos_x = domain[1][0];
         if (domain_boundary_type[0] != 0 && domain_boundary_type[4] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(-sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(-sqrt(2.0) / 2.0, sqrt(2.0) / 2.0, 0.0);
           insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
         }
 
         pos_y += 0.5 * uniform_spacing;
         if (domain_boundary_type[0] != 0) {
           while (pos_y < domain[1][1] - 1e-5) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(-1.0, 0.0, 0.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(-1.0, 0.0, 0.0);
             insert_particle(_pos, 3, uniform_spacing, normal, 0, vol);
             pos_y += uniform_spacing;
           }
@@ -2000,8 +2052,8 @@ void particle_geometry::generate_field_surface_particle() {
 
         pos_y = domain[1][1];
         if (domain_boundary_type[0] != 0 && domain_boundary_type[1] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(-sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(-sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0, 0.0);
           insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
         }
 
@@ -2015,16 +2067,16 @@ void particle_geometry::generate_field_surface_particle() {
         pos_x = domain[0][0];
         pos_y = domain[0][1];
         if (domain_boundary_type[2] != 0 && domain_boundary_type[4] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(sqrt(3) / 3.0, sqrt(3) / 3.0, -sqrt(3) / 3.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(sqrt(3) / 3.0, sqrt(3) / 3.0, -sqrt(3) / 3.0);
           insert_particle(_pos, 1, uniform_spacing, normal, 0, vol);
         }
 
         pos_y += 0.5 * uniform_spacing;
         if (domain_boundary_type[2] != 0) {
           while (pos_y < domain[1][1] - 1e-5) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(sqrt(2.0) / 2.0, 0.0, -sqrt(2.0) / 2.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(sqrt(2.0) / 2.0, 0.0, -sqrt(2.0) / 2.0);
             insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
             pos_y += uniform_spacing;
           }
@@ -2032,8 +2084,8 @@ void particle_geometry::generate_field_surface_particle() {
 
         pos_y = domain[1][1];
         if (domain_boundary_type[1] != 0 && domain_boundary_type[2] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(sqrt(3) / 3.0, -sqrt(3) / 3.0, -sqrt(3) / 3.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(sqrt(3) / 3.0, -sqrt(3) / 3.0, -sqrt(3) / 3.0);
           insert_particle(_pos, 1, uniform_spacing, normal, 0, vol);
         }
 
@@ -2041,23 +2093,23 @@ void particle_geometry::generate_field_surface_particle() {
         while (pos_x < domain[1][0] - 1e-5) {
           pos_y = domain[0][1];
           if (domain_boundary_type[4] != 0) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(0.0, sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(0.0, sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0);
             insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
           }
 
           pos_y += 0.5 * uniform_spacing;
           while (pos_y < domain[1][1] - 1e-5) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(0.0, 0.0, -1.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(0.0, 0.0, -1.0);
             insert_particle(_pos, 3, uniform_spacing, normal, 0, vol);
             pos_y += uniform_spacing;
           }
 
           pos_y = domain[1][1];
           if (domain_boundary_type[1] != 0) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(0.0, -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(0.0, -sqrt(2.0) / 2.0, -sqrt(2.0) / 2.0);
             insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
           }
 
@@ -2067,16 +2119,16 @@ void particle_geometry::generate_field_surface_particle() {
         pos_x = domain[1][0];
         pos_y = domain[0][1];
         if (domain_boundary_type[0] != 0 && domain_boundary_type[4] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(-sqrt(3) / 3.0, sqrt(3) / 3.0, -sqrt(3) / 3.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(-sqrt(3) / 3.0, sqrt(3) / 3.0, -sqrt(3) / 3.0);
           insert_particle(_pos, 1, uniform_spacing, normal, 0, vol);
         }
 
         pos_y += 0.5 * uniform_spacing;
         if (domain_boundary_type[0] != 0) {
           while (pos_y < domain[1][1] - 1e-5) {
-            vec3 _pos = vec3(pos_x, pos_y, pos_z);
-            normal = vec3(-sqrt(2.0) / 2.0, 0.0, -sqrt(2.0) / 2.0);
+            Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+            normal = Vec3(-sqrt(2.0) / 2.0, 0.0, -sqrt(2.0) / 2.0);
             insert_particle(_pos, 2, uniform_spacing, normal, 0, vol);
             pos_y += uniform_spacing;
           }
@@ -2084,8 +2136,8 @@ void particle_geometry::generate_field_surface_particle() {
 
         pos_y = domain[1][1];
         if (domain_boundary_type[0] != 0 && domain_boundary_type[1] != 0) {
-          vec3 _pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(-sqrt(3) / 3.0, -sqrt(3) / 3.0, -sqrt(3) / 3.0);
+          Vec3 _pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(-sqrt(3) / 3.0, -sqrt(3) / 3.0, -sqrt(3) / 3.0);
           insert_particle(_pos, 1, uniform_spacing, normal, 0, vol);
         }
       }
@@ -2102,8 +2154,8 @@ void particle_geometry::generate_field_surface_particle() {
       while (pos_x < domain[1][0] - 1e-5) {
         pos_y = domain[0][1] + uniform_spacing / 2.0;
         while (pos_y < domain[1][1] - 1e-5) {
-          vec3 pos = vec3(pos_x, pos_y, pos_z);
-          normal = vec3(0.0, 0.0, 1.0);
+          Vec3 pos = Vec3(pos_x, pos_y, pos_z);
+          normal = Vec3(0.0, 0.0, 1.0);
           if (pos[0] > domain_bounding_box[0][0] - 1e-10 * h &&
               pos[0] < domain_bounding_box[1][0] + 1e-10 * h &&
               pos[1] > domain_bounding_box[0][1] - 1e-10 * h &&
@@ -2124,8 +2176,8 @@ void particle_geometry::generate_field_surface_particle() {
 
       //   for (int i = 0; i < M_theta; ++i) {
       //     double theta = 2 * M_PI * (i + 0.5) / M_theta;
-      //     vec3 normal = vec3(-cos(theta), -sin(theta), 0.0);
-      //     vec3 pos = normal * r;
+      //     Vec3 normal = Vec3(-cos(theta), -sin(theta), 0.0);
+      //     Vec3 pos = normal * r;
       //     if (pos[0] > domain_bounding_box[0][0] - 1e-10 * h &&
       //         pos[0] < domain_bounding_box[1][0] + 1e-10 * h &&
       //         pos[1] > domain_bounding_box[0][1] - 1e-10 * h &&
@@ -2147,12 +2199,12 @@ void particle_geometry::generate_field_surface_particle() {
 
           for (int i = 0; i < M_theta; ++i) {
             double theta = 2.0 * M_PI * (i + 0.5) / M_theta - M_PI;
-            vec3 normal = vec3(cos(theta), sin(theta), 0.0);
-            vec3 pos = normal * r;
+            Vec3 normal = Vec3(cos(theta), sin(theta), 0.0);
+            Vec3 pos = normal * r;
             normal =
-                vec3(cos(theta) * sin(phi), sin(theta) * sin(phi), cos(phi));
+                Vec3(cos(theta) * sin(phi), sin(theta) * sin(phi), cos(phi));
             pos[2] = pos_z;
-            vec3 dist = pos;
+            Vec3 dist = pos;
             double norm = dist.mag();
             normal = dist * (-1.0 / norm);
             if (dist.mag() < R + 1e-5 * uniform_spacing)
@@ -2171,7 +2223,7 @@ void particle_geometry::generate_field_surface_particle() {
   }
 }
 
-bool particle_geometry::generate_rigid_body_surface_particle() {
+bool ParticleGeometry::generate_rigid_body_surface_particle() {
   auto &rigid_body_coord = rb_mgr->get_position();
   auto &rigid_body_orientation = rb_mgr->get_orientation();
   auto &rigid_body_quaternion = rb_mgr->get_quaternion();
@@ -2205,10 +2257,10 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
 
     hierarchy->set_coarse_level_resolution(h);
 
-    shared_ptr<vector<vec3>> coord_ptr;
-    shared_ptr<vector<vec3>> normal_ptr;
-    shared_ptr<vector<vec3>> spacing_ptr;
-    shared_ptr<vector<triple<int>>> element_ptr;
+    shared_ptr<std::vector<Vec3>> coord_ptr;
+    shared_ptr<std::vector<Vec3>> normal_ptr;
+    shared_ptr<std::vector<Vec3>> spacing_ptr;
+    shared_ptr<std::vector<Triple<int>>> element_ptr;
 
     surface_element.clear();
     surface_element_adaptive_level.clear();
@@ -2224,27 +2276,27 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
       h = uniform_spacing0 * pow(0.5, adaptive_level);
       vol = pow(h, 3);
 
-      surface_element.push_back(vector<triple<int>>());
-      surface_element_adaptive_level.push_back(vector<int>());
-      vector<int> idx_map;
+      surface_element.push_back(std::vector<Triple<int>>());
+      surface_element_adaptive_level.push_back(std::vector<int>());
+      std::vector<int> idx_map;
 
       idx_map.clear();
 
-      vector<triple<int>> &current_element =
+      std::vector<Triple<int>> &current_element =
           surface_element[surface_element.size() - 1];
-      vector<int> &current_element_adaptive_level =
+      std::vector<int> &current_element_adaptive_level =
           surface_element_adaptive_level[surface_element_adaptive_level.size() -
                                          1];
 
       int num_surface_particle = coord_ptr->size();
       for (int i = 0; i < num_surface_particle; i++) {
-        vec3 unrotated_pos = (*coord_ptr)[i];
-        vec3 unrotated_norm = (*normal_ptr)[i];
-        vec3 pos = rigid_body_quaternion[n].rotate(unrotated_pos) +
+        Vec3 unrotated_pos = (*coord_ptr)[i];
+        Vec3 unrotated_norm = (*normal_ptr)[i];
+        Vec3 pos = rigid_body_quaternion[n].Rotate(unrotated_pos) +
                    rigid_body_coord[n];
-        vec3 normal = rigid_body_quaternion[n].rotate(unrotated_norm);
-        vec3 p_spacing = vec3(0.0, 1.0, 0.0);
-        vec3 p_coord = vec3(i, 0, 0);
+        Vec3 normal = rigid_body_quaternion[n].Rotate(unrotated_norm);
+        Vec3 p_spacing = Vec3(0.0, 1.0, 0.0);
+        Vec3 p_coord = Vec3(i, 0, 0);
 
         insert_particle(pos, 5, h, normal, adaptive_level, vol, true, n,
                         p_coord, p_spacing);
@@ -2265,18 +2317,19 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
         }
       }
 
-      vector<vec3> &coord = (*current_local_managing_particle_coord);
-      vector<vec3> &p_spacing = (*current_local_managing_particle_p_spacing);
+      std::vector<Vec3> &coord = (*current_local_managing_particle_coord);
+      std::vector<Vec3> &p_spacing =
+          (*current_local_managing_particle_p_spacing);
       double area = 0.0;
       // assign area weights
       for (int i = 0; i < current_element.size(); i++) {
-        vec3 p0 = coord[current_element[i][0]];
-        vec3 p1 = coord[current_element[i][1]];
-        vec3 p2 = coord[current_element[i][2]];
+        Vec3 p0 = coord[current_element[i][0]];
+        Vec3 p1 = coord[current_element[i][1]];
+        Vec3 p2 = coord[current_element[i][2]];
 
-        vec3 dX1 = p0 - p1;
-        vec3 dX2 = p1 - p2;
-        vec3 dX3 = p2 - p0;
+        Vec3 dX1 = p0 - p1;
+        Vec3 dX2 = p1 - p2;
+        Vec3 dX3 = p2 - p0;
 
         double a = dX1.mag();
         double b = dX2.mag();
@@ -2311,9 +2364,9 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
               rigid_body_coord[n][1] < domain[1][1]) {
             double vol = pow(h, 2);
 
-            shared_ptr<vector<vec3>> coord_ptr;
-            shared_ptr<vector<vec3>> normal_ptr;
-            shared_ptr<vector<vec3>> spacing_ptr;
+            shared_ptr<std::vector<Vec3>> coord_ptr;
+            shared_ptr<std::vector<Vec3>> normal_ptr;
+            shared_ptr<std::vector<Vec3>> spacing_ptr;
 
             hierarchy->get_coarse_level_coordinate(n, coord_ptr);
             hierarchy->get_coarse_level_normal(n, normal_ptr);
@@ -2321,10 +2374,10 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
 
             int num_surface_particle = coord_ptr->size();
             for (int i = 0; i < num_surface_particle; i++) {
-              vec3 pos = (*coord_ptr)[i] + rigid_body_coord[n];
-              vec3 normal = (*normal_ptr)[i];
-              vec3 p_spacing = (*spacing_ptr)[i];
-              vec3 p_coord = vec3(i, 0, 0);
+              Vec3 pos = (*coord_ptr)[i] + rigid_body_coord[n];
+              Vec3 normal = (*normal_ptr)[i];
+              Vec3 p_spacing = (*spacing_ptr)[i];
+              Vec3 p_coord = Vec3(i, 0, 0);
 
               insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
                               p_coord, p_spacing);
@@ -2346,9 +2399,9 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
 
             double theta = rigid_body_orientation[n][0];
 
-            shared_ptr<vector<vec3>> coord_ptr;
-            shared_ptr<vector<vec3>> normal_ptr;
-            shared_ptr<vector<vec3>> spacing_ptr;
+            shared_ptr<std::vector<Vec3>> coord_ptr;
+            shared_ptr<std::vector<Vec3>> normal_ptr;
+            shared_ptr<std::vector<Vec3>> spacing_ptr;
 
             hierarchy->get_coarse_level_coordinate(n, coord_ptr);
             hierarchy->get_coarse_level_normal(n, normal_ptr);
@@ -2356,21 +2409,21 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
 
             int num_surface_particle = coord_ptr->size();
             for (int i = 0; i < num_surface_particle; i++) {
-              vec3 unrotated_pos = (*coord_ptr)[i];
-              vec3 unrotated_norm = (*normal_ptr)[i];
-              vec3 pos = vec3(cos(theta) * unrotated_pos[0] -
+              Vec3 unrotated_pos = (*coord_ptr)[i];
+              Vec3 unrotated_norm = (*normal_ptr)[i];
+              Vec3 pos = Vec3(cos(theta) * unrotated_pos[0] -
                                   sin(theta) * unrotated_pos[1],
                               sin(theta) * unrotated_pos[0] +
                                   cos(theta) * unrotated_pos[1],
                               0.0) +
                          rigid_body_coord[n];
-              vec3 normal = vec3(cos(theta) * unrotated_norm[0] -
+              Vec3 normal = Vec3(cos(theta) * unrotated_norm[0] -
                                      sin(theta) * unrotated_norm[1],
                                  sin(theta) * unrotated_norm[0] +
                                      cos(theta) * unrotated_norm[1],
                                  0.0);
-              vec3 p_spacing = (*spacing_ptr)[i];
-              vec3 p_coord = vec3(i, 0, 0);
+              Vec3 p_spacing = (*spacing_ptr)[i];
+              Vec3 p_coord = Vec3(i, 0, 0);
 
               insert_particle(pos, 5, uniform_spacing, normal, 0, vol, true, n,
                               p_coord, p_spacing);
@@ -2390,44 +2443,44 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
           int side_step = side_length / uniform_spacing;
           double h = side_length / side_step;
           double vol = pow(h, 2.0);
-          vec3 particleSize = vec3(h, h, 0.0);
-          vec3 increase_normal;
-          vec3 start_point;
-          vec3 normal;
-          vec3 norm;
-          vec3 p_coord = vec3(0.0, 0.0, 0.0);
-          vec3 p_spacing = vec3(h, 0.0, 0.0);
-          vec3 translation = vec3(0.0, -sqrt(3) / 6.0 * side_length, 0.0);
+          Vec3 particleSize = Vec3(h, h, 0.0);
+          Vec3 increase_normal;
+          Vec3 start_point;
+          Vec3 normal;
+          Vec3 norm;
+          Vec3 p_coord = Vec3(0.0, 0.0, 0.0);
+          Vec3 p_spacing = Vec3(h, 0.0, 0.0);
+          Vec3 translation = Vec3(0.0, -sqrt(3) / 6.0 * side_length, 0.0);
           // first side
           // {
-          //   vec3 pos = vec3(0.0, 0.5 * sqrt(3) * side_length, 0.0) +
+          //   Vec3 pos = Vec3(0.0, 0.5 * sqrt(3) * side_length, 0.0) +
           //   translation;
-          //   // rotate
-          //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+          //   // Rotate
+          //   Vec3 new_pos = Vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
           //                       sin(theta) * pos[0] + cos(theta) * pos[1],
           //                       0.0)
           //                       +
           //                  rigid_body_coord[n];
 
-          //   norm = vec3(0.0, 1.0, 0.0);
-          //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+          //   norm = Vec3(0.0, 1.0, 0.0);
+          //   normal = Vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
           //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
           //     true,
           //                     n, p_coord, p_spacing);
           // }
 
-          increase_normal = vec3(cos(M_PI / 3), -sin(M_PI / 3), 0.0);
-          start_point = vec3(0.0, sqrt(3) / 2.0 * side_length, 0.0);
-          norm = vec3(cos(M_PI / 6.0), sin(M_PI / 6.0), 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+          increase_normal = Vec3(cos(M_PI / 3), -sin(M_PI / 3), 0.0);
+          start_point = Vec3(0.0, sqrt(3) / 2.0 * side_length, 0.0);
+          norm = Vec3(cos(M_PI / 6.0), sin(M_PI / 6.0), 0.0);
+          normal = Vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
                         sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           for (int i = 0; i < side_step; i++) {
-            vec3 pos =
+            Vec3 pos =
                 start_point + increase_normal * ((i + 0.5) * h) + translation;
-            // rotate
-            vec3 new_pos =
-                vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+            // Rotate
+            Vec3 new_pos =
+                Vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
                      sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
                 rigid_body_coord[n];
 
@@ -2437,16 +2490,16 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
 
           // second side
           // {
-          //   vec3 pos = vec3(0.5 * side_length, 0.0, 0.0) + translation;
-          //   // rotate
-          //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+          //   Vec3 pos = Vec3(0.5 * side_length, 0.0, 0.0) + translation;
+          //   // Rotate
+          //   Vec3 new_pos = Vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
           //                       sin(theta) * pos[0] + cos(theta) * pos[1],
           //                       0.0)
           //                       +
           //                  rigid_body_coord[n];
 
-          //   norm = vec3(cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
-          //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+          //   norm = Vec3(cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
+          //   normal = Vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
           //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
 
           //     insert_particle(new_pos, 4, uniform_spacing, normal, 0, vol,
@@ -2454,17 +2507,17 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
           //                     n, p_coord, p_spacing);
           // }
 
-          increase_normal = vec3(-1.0, 0.0, 0.0);
-          start_point = vec3(0.5 * side_length, 0.0, 0.0);
-          norm = vec3(0.0, -1.0, 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+          increase_normal = Vec3(-1.0, 0.0, 0.0);
+          start_point = Vec3(0.5 * side_length, 0.0, 0.0);
+          norm = Vec3(0.0, -1.0, 0.0);
+          normal = Vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
                         sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           for (int i = 0; i < side_step; i++) {
-            vec3 pos =
+            Vec3 pos =
                 start_point + increase_normal * ((i + 0.5) * h) + translation;
-            // rotate
-            vec3 new_pos =
-                vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+            // Rotate
+            Vec3 new_pos =
+                Vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
                      sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
                 rigid_body_coord[n];
 
@@ -2474,16 +2527,16 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
 
           // third side
           // {
-          //   vec3 pos = vec3(-0.5 * side_length, 0.0, 0.0) + translation;
-          //   // rotate
-          //   vec3 new_pos = vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+          //   Vec3 pos = Vec3(-0.5 * side_length, 0.0, 0.0) + translation;
+          //   // Rotate
+          //   Vec3 new_pos = Vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
           //                       sin(theta) * pos[0] + cos(theta) * pos[1],
           //                       0.0)
           //                       +
           //                  rigid_body_coord[n];
 
-          //   norm = vec3(-cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
-          //   normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+          //   norm = Vec3(-cos(M_PI / 6.0), -sin(M_PI / 6.0), 0.0);
+          //   normal = Vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
           //                 sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
 
           //   if (new_pos[0] >= domain[0][0] && new_pos[0] < domain[1][0] &&
@@ -2493,17 +2546,17 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
           //                     n, p_coord, p_spacing);
           // }
 
-          increase_normal = vec3(cos(M_PI / 3), sin(M_PI / 3), 0.0);
-          start_point = vec3(-0.5 * side_length, 0.0, 0.0);
-          norm = vec3(-cos(M_PI / 6.0), sin(M_PI / 6.0), 0.0);
-          normal = vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
+          increase_normal = Vec3(cos(M_PI / 3), sin(M_PI / 3), 0.0);
+          start_point = Vec3(-0.5 * side_length, 0.0, 0.0);
+          norm = Vec3(-cos(M_PI / 6.0), sin(M_PI / 6.0), 0.0);
+          normal = Vec3(cos(theta) * norm[0] - sin(theta) * norm[1],
                         sin(theta) * norm[0] + cos(theta) * norm[1], 0.0);
           for (int i = 0; i < side_step; i++) {
-            vec3 pos =
+            Vec3 pos =
                 start_point + increase_normal * ((i + 0.5) * h) + translation;
-            // rotate
-            vec3 new_pos =
-                vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
+            // Rotate
+            Vec3 new_pos =
+                Vec3(cos(theta) * pos[0] - sin(theta) * pos[1],
                      sin(theta) * pos[0] + cos(theta) * pos[1], 0.0) +
                 rigid_body_coord[n];
 
@@ -2519,11 +2572,11 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
   }
 
   // check if it is an acceptable trial of particle distribution
-  vector<vec3> &coord = (*current_local_managing_particle_coord);
-  vector<int> &particle_type = (*current_local_managing_particle_type);
-  vector<int> &attached_rigid_body =
+  std::vector<Vec3> &coord = (*current_local_managing_particle_coord);
+  std::vector<int> &particle_type = (*current_local_managing_particle_type);
+  std::vector<int> &attached_rigid_body =
       (*current_local_managing_particle_attached_rigid_body);
-  vector<double> &spacing = (*current_local_managing_particle_spacing);
+  std::vector<double> &spacing = (*current_local_managing_particle_spacing);
 
   int pass_test = 0;
 
@@ -2547,7 +2600,7 @@ bool particle_geometry::generate_rigid_body_surface_particle() {
   return (pass_test == 0);
 }
 
-void particle_geometry::uniform_refine() {
+void ParticleGeometry::uniform_refine() {
   if (stride == 0) {
     if (min_count != 0 && current_count < max_count) {
       uniform_spacing *= 0.5;
@@ -2575,19 +2628,20 @@ void particle_geometry::uniform_refine() {
                        process_j, process_k);
   }
 
-  current_local_managing_particle_coord = make_shared<vector<vec3>>();
-  current_local_managing_particle_normal = make_shared<vector<vec3>>();
-  current_local_managing_particle_p_spacing = make_shared<vector<vec3>>();
-  current_local_managing_particle_p_coord = make_shared<vector<vec3>>();
-  current_local_managing_particle_spacing = make_shared<vector<double>>();
-  current_local_managing_particle_volume = make_shared<vector<double>>();
-  current_local_managing_particle_index = make_shared<vector<long long>>();
-  current_local_managing_particle_type = make_shared<vector<int>>();
-  current_local_managing_particle_adaptive_level = make_shared<vector<int>>();
-  current_local_managing_particle_new_added = make_shared<vector<int>>();
+  current_local_managing_particle_coord = make_shared<std::vector<Vec3>>();
+  current_local_managing_particle_normal = make_shared<std::vector<Vec3>>();
+  current_local_managing_particle_p_spacing = make_shared<std::vector<Vec3>>();
+  current_local_managing_particle_p_coord = make_shared<std::vector<Vec3>>();
+  current_local_managing_particle_spacing = make_shared<std::vector<double>>();
+  current_local_managing_particle_volume = make_shared<std::vector<double>>();
+  current_local_managing_particle_index = make_shared<std::vector<long long>>();
+  current_local_managing_particle_type = make_shared<std::vector<int>>();
+  current_local_managing_particle_adaptive_level =
+      make_shared<std::vector<int>>();
+  current_local_managing_particle_new_added = make_shared<std::vector<int>>();
   current_local_managing_particle_attached_rigid_body =
-      make_shared<vector<int>>();
-  current_local_managing_particle_split_tag = make_shared<vector<int>>();
+      make_shared<std::vector<int>>();
+  current_local_managing_particle_split_tag = make_shared<std::vector<int>>();
 
   generate_rigid_body_surface_particle();
   generate_field_surface_particle();
@@ -2595,8 +2649,8 @@ void particle_geometry::uniform_refine() {
   generate_field_particle();
 }
 
-bool particle_geometry::automatic_refine(vector<int> &split_tag,
-                                         bool &pass_stage1) {
+bool ParticleGeometry::automatic_refine(std::vector<int> &split_tag,
+                                        bool &pass_stage1) {
   auto &particle_type = *current_local_work_particle_type;
   auto &spacing = *current_local_work_particle_spacing;
   auto &coord = *current_local_work_particle_coord;
@@ -2685,7 +2739,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag,
     int num_critical_particle = 0;
     split_tag.resize(local_particle_num);
 
-    vector<int> source_particle_type, source_adaptive_level;
+    std::vector<int> source_particle_type, source_adaptive_level;
     ghost_forward(particle_type, source_particle_type);
     ghost_forward(adaptive_level, source_adaptive_level);
 
@@ -2858,7 +2912,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag,
         false, whole_target_coord_host, whole_neighbor_list_host,
         whole_epsilon_host, 0.0, 0.0);
 
-    vector<int> ghost_adaptive_level;
+    std::vector<int> ghost_adaptive_level;
     ghost_forward(adaptive_level, ghost_adaptive_level);
 
     // need local refinement
@@ -2866,7 +2920,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag,
     int iter = 0;
     while (iteration_finished != 0 && iter < 10) {
       iter++;
-      vector<int> ghost_split_tag;
+      std::vector<int> ghost_split_tag;
       ghost_forward(split_tag, ghost_split_tag);
 
       int local_change = 0;
@@ -2890,7 +2944,7 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag,
           for (int j = 0; j < whole_neighbor_list_host(i, 0); j++) {
             int neighbor_index = whole_neighbor_list_host(i, j + 1);
             if (source_particle_type[neighbor_index] != 0) {
-              vec3 dX = coord[i] - source_coord[neighbor_index];
+              Vec3 dX = coord[i] - source_coord[neighbor_index];
               if (min_distance > dX.mag()) {
                 min_distance = dX.mag();
                 nearest_neighbor_index = neighbor_index;
@@ -2932,11 +2986,12 @@ bool particle_geometry::automatic_refine(vector<int> &split_tag,
   return false;
 }
 
-bool particle_geometry::adaptive_refine(vector<int> &split_tag) {
+bool ParticleGeometry::adaptive_refine(std::vector<int> &split_tag) {
   old_cutoff_distance = cutoff_distance;
 
-  vector<int> &managing_split_tag = *current_local_managing_particle_split_tag;
-  vector<int> managing_work_index;
+  std::vector<int> &managing_split_tag =
+      *current_local_managing_particle_split_tag;
+  std::vector<int> managing_work_index;
   migrate_backward(split_tag, managing_split_tag);
   migrate_backward(*current_local_work_particle_index, managing_work_index);
 
@@ -2947,8 +3002,8 @@ bool particle_geometry::adaptive_refine(vector<int> &split_tag) {
     new_added[i] = managing_work_index[i];
   }
 
-  vector<int> surface_particle_split_tag;
-  vector<int> field_particle_split_tag;
+  std::vector<int> surface_particle_split_tag;
+  std::vector<int> field_particle_split_tag;
 
   for (int i = 0; i < managing_split_tag.size(); i++) {
     if (managing_split_tag[i] != 0) {
@@ -3032,7 +3087,7 @@ bool particle_geometry::adaptive_refine(vector<int> &split_tag) {
   point_cloud_search.generate2DNeighborListsFromRadiusSearch(
       false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
 
-  vector<int> gap_split_tag;
+  std::vector<int> gap_split_tag;
   gap_split_tag.resize(num_target_coord);
   for (int i = 0; i < num_target_coord; i++) {
     gap_split_tag[i] = 1;
@@ -3041,7 +3096,7 @@ bool particle_geometry::adaptive_refine(vector<int> &split_tag) {
     for (int j = 0; j < neighbor_list_host(i, 0); j++) {
       // find the nearest boundary particle
       int neighbor_index = neighbor_list_host(i, j + 1);
-      vec3 dX = coord[neighbor_index] - gap_coord[i];
+      Vec3 dX = coord[neighbor_index] - gap_coord[i];
       if (dX.mag() < dist) {
         dist = dX.mag();
         idx = neighbor_index;
@@ -3057,12 +3112,13 @@ bool particle_geometry::adaptive_refine(vector<int> &split_tag) {
   return true;
 }
 
-void particle_geometry::coarse_level_refine(vector<int> &split_tag,
-                                            vector<int> &origin_split_tag) {
+void ParticleGeometry::coarse_level_refine(std::vector<int> &split_tag,
+                                           std::vector<int> &origin_split_tag) {
   old_cutoff_distance = cutoff_distance;
 
-  vector<int> &managing_split_tag = *current_local_managing_particle_split_tag;
-  vector<int> managing_work_index;
+  std::vector<int> &managing_split_tag =
+      *current_local_managing_particle_split_tag;
+  std::vector<int> managing_work_index;
 
   managing_split_tag.clear();
   migrate_backward(origin_split_tag, managing_split_tag);
@@ -3077,8 +3133,8 @@ void particle_geometry::coarse_level_refine(vector<int> &split_tag,
     new_added[i] = managing_work_index[i];
   }
 
-  vector<int> surface_particle_split_tag;
-  vector<int> field_particle_split_tag;
+  std::vector<int> surface_particle_split_tag;
+  std::vector<int> field_particle_split_tag;
 
   migrate_backward(split_tag, managing_split_tag);
 
@@ -3162,7 +3218,7 @@ void particle_geometry::coarse_level_refine(vector<int> &split_tag,
   point_cloud_search.generate2DNeighborListsFromRadiusSearch(
       false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
 
-  vector<int> gap_split_tag;
+  std::vector<int> gap_split_tag;
   gap_split_tag.resize(num_target_coord);
   for (int i = 0; i < num_target_coord; i++) {
     gap_split_tag[i] = 1;
@@ -3179,13 +3235,13 @@ void particle_geometry::coarse_level_refine(vector<int> &split_tag,
   split_gap_particle(gap_split_tag);
 }
 
-void particle_geometry::insert_particle(const vec3 &_pos, int _particle_type,
-                                        const double _spacing,
-                                        const vec3 &_normal,
-                                        int _adaptive_level, double _volume,
-                                        bool _rigid_body_particle,
-                                        int _rigid_body_index, vec3 _p_coord,
-                                        vec3 _p_spacing) {
+void ParticleGeometry::insert_particle(const Vec3 &_pos, int _particle_type,
+                                       const double _spacing,
+                                       const Vec3 &_normal, int _adaptive_level,
+                                       double _volume,
+                                       bool _rigid_body_particle,
+                                       int _rigid_body_index, Vec3 _p_coord,
+                                       Vec3 _p_spacing) {
   int idx = is_gap_particle(_pos, _spacing, _rigid_body_index);
   int idx_field = is_field_particle(_pos, _spacing);
   if (_particle_type > 0) {
@@ -3216,7 +3272,7 @@ void particle_geometry::insert_particle(const vec3 &_pos, int _particle_type,
   }
 }
 
-void particle_geometry::split_field_particle(vector<int> &split_tag) {
+void ParticleGeometry::split_field_particle(std::vector<int> &split_tag) {
   auto &coord = *current_local_managing_particle_coord;
   auto &normal = *current_local_managing_particle_normal;
   auto &p_coord = *current_local_managing_particle_p_coord;
@@ -3234,7 +3290,7 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
     if (particle_type[tag] == 0) {
       // inner particle
       if (dim == 2) {
-        vec3 origin = coord[tag];
+        Vec3 origin = coord[tag];
         const double x_delta = spacing[tag] * 0.25;
         const double y_delta = spacing[tag] * 0.25;
         spacing[tag] /= 2.0;
@@ -3244,7 +3300,7 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
         adaptive_level[tag]++;
         for (int i = -1; i < 2; i += 2) {
           for (int j = -1; j < 2; j += 2) {
-            vec3 new_pos = origin + vec3(i * x_delta, j * y_delta, 0.0);
+            Vec3 new_pos = origin + Vec3(i * x_delta, j * y_delta, 0.0);
             if (!insert) {
               int idx = is_gap_particle(new_pos, x_delta, -1);
               if (idx == -2) {
@@ -3271,7 +3327,7 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
       }
 
       if (dim == 3) {
-        vec3 origin = coord[tag];
+        Vec3 origin = coord[tag];
         const double x_delta = spacing[tag] * 0.25;
         const double y_delta = spacing[tag] * 0.25;
         const double z_delta = spacing[tag] * 0.25;
@@ -3283,8 +3339,8 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
         for (int i = -1; i < 2; i += 2) {
           for (int j = -1; j < 2; j += 2) {
             for (int k = -1; k < 2; k += 2) {
-              vec3 new_pos =
-                  origin + vec3(i * x_delta, j * y_delta, k * z_delta);
+              Vec3 new_pos =
+                  origin + Vec3(i * x_delta, j * y_delta, k * z_delta);
               if (!insert) {
                 int idx = is_gap_particle(new_pos, x_delta, -1);
                 if (idx == -2) {
@@ -3314,7 +3370,8 @@ void particle_geometry::split_field_particle(vector<int> &split_tag) {
   }
 }
 
-void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
+void ParticleGeometry::split_field_surface_particle(
+    std::vector<int> &split_tag) {
   auto &coord = *current_local_managing_particle_coord;
   auto &normal = *current_local_managing_particle_normal;
   auto &p_coord = *current_local_managing_particle_p_coord;
@@ -3343,11 +3400,11 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
           adaptive_level[tag]++;
           new_added[tag] = -1;
 
-          vec3 origin = coord[tag];
+          Vec3 origin = coord[tag];
 
           bool insert = false;
           for (int i = -1; i < 2; i += 2) {
-            vec3 new_pos = origin + vec3(normal[tag][1], -normal[tag][0], 0.0) *
+            Vec3 new_pos = origin + Vec3(normal[tag][1], -normal[tag][0], 0.0) *
                                         i * spacing[tag] * 0.5;
 
             if (!insert) {
@@ -3371,7 +3428,7 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
             adaptive_level[tag]++;
           } else {
             double pos_x, pos_y, pos_z;
-            vec3 pos;
+            Vec3 pos;
 
             double new_adaptive_level = adaptive_level[tag] + 1;
 
@@ -3380,7 +3437,7 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
 
             double R = cap_radius;
 
-            vec3 dist = coord[tag];
+            Vec3 dist = coord[tag];
 
             double h0 = pow(0.5, adaptive_level[tag]) * uniform_spacing;
             double h = 0.5 * h0;
@@ -3411,10 +3468,10 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
                   double theta = 2 * M_PI * (i + 0.5) / M_theta - M_PI;
                   if (theta > max(theta0 - 1.005 * half_theta_range, -M_PI) &&
                       theta < min(theta0 + half_theta_range, M_PI)) {
-                    vec3 new_normal = vec3(cos(theta), sin(theta), 0.0);
+                    Vec3 new_normal = Vec3(cos(theta), sin(theta), 0.0);
                     pos = new_normal * r;
                     pos[2] = pos_z;
-                    vec3 dist = pos;
+                    Vec3 dist = pos;
                     double norm = dist.mag();
                     new_normal = dist * (-1.0 / norm);
                     if (dist.mag() < R + 1e-5 * h)
@@ -3441,7 +3498,7 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
           adaptive_level[tag]++;
           new_added[tag] = -1;
 
-          vec3 origin = coord[tag];
+          Vec3 origin = coord[tag];
 
           int x_direction = (normal[tag][0] == 0.0) ? 1 : 0;
           int y_direction = (normal[tag][1] == 0.0) ? 1 : 0;
@@ -3449,8 +3506,8 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
 
           bool insert = false;
           for (int i = -1; i < 2; i += 2) {
-            vec3 new_pos =
-                origin + vec3(x_direction, y_direction, z_direction) * i *
+            Vec3 new_pos =
+                origin + Vec3(x_direction, y_direction, z_direction) * i *
                              spacing[tag] * 0.5;
 
             if (!insert) {
@@ -3469,26 +3526,26 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
           adaptive_level[tag]++;
           new_added[tag] = -1;
 
-          vec3 origin = coord[tag];
+          Vec3 origin = coord[tag];
 
-          vec3 direction1, direction2;
+          Vec3 direction1, direction2;
           if (normal[tag][0] != 0) {
-            direction1 = vec3(0.0, 1.0, 0.0);
-            direction2 = vec3(0.0, 0.0, 1.0);
+            direction1 = Vec3(0.0, 1.0, 0.0);
+            direction2 = Vec3(0.0, 0.0, 1.0);
           }
           if (normal[tag][1] != 0) {
-            direction1 = vec3(1.0, 0.0, 0.0);
-            direction2 = vec3(0.0, 0.0, 1.0);
+            direction1 = Vec3(1.0, 0.0, 0.0);
+            direction2 = Vec3(0.0, 0.0, 1.0);
           }
           if (normal[tag][2] != 0) {
-            direction1 = vec3(1.0, 0.0, 0.0);
-            direction2 = vec3(0.0, 1.0, 0.0);
+            direction1 = Vec3(1.0, 0.0, 0.0);
+            direction2 = Vec3(0.0, 1.0, 0.0);
           }
 
           bool insert = false;
           for (int i = -1; i < 2; i += 2) {
             for (int j = -1; j < 2; j += 2) {
-              vec3 new_pos = origin + direction1 * i * spacing[tag] * 0.5 +
+              Vec3 new_pos = origin + direction1 * i * spacing[tag] * 0.5 +
                              direction2 * j * spacing[tag] * 0.5;
 
               if (!insert) {
@@ -3506,8 +3563,8 @@ void particle_geometry::split_field_surface_particle(vector<int> &split_tag) {
   }
 }
 
-bool particle_geometry::split_rigid_body_surface_particle(
-    vector<int> &split_tag) {
+bool ParticleGeometry::split_rigid_body_surface_particle(
+    std::vector<int> &split_tag) {
   auto &coord = *current_local_managing_particle_coord;
   auto &normal = *current_local_managing_particle_normal;
   auto &p_coord = *current_local_managing_particle_p_coord;
@@ -3548,9 +3605,10 @@ bool particle_geometry::split_rigid_body_surface_particle(
     end_idx = min(end_idx, num_rigid_body);
 
     for (size_t n = start_idx; n < end_idx; n++) {
-      vector<int> element_split_tag;
-      vector<triple<int>> &current_element = surface_element[n - start_idx];
-      vector<int> &current_element_adaptive_level =
+      std::vector<int> element_split_tag;
+      std::vector<Triple<int>> &current_element =
+          surface_element[n - start_idx];
+      std::vector<int> &current_element_adaptive_level =
           surface_element_adaptive_level[n - start_idx];
       element_split_tag.resize(current_element.size());
 
@@ -3574,7 +3632,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
       }
 
       // build edge info
-      vector<vector<int>> edge;
+      std::vector<std::vector<int>> edge;
       edge.resize(coord.size());
       for (int i = 0; i < current_element.size(); i++) {
         int idx0 = current_element[i][0];
@@ -3591,7 +3649,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
       }
 
       int num_edge;
-      vector<int> edge_offset;
+      std::vector<int> edge_offset;
       edge_offset.resize(edge.size() + 1);
       edge_offset[0] = 0;
       for (int i = 0; i < edge.size(); i++) {
@@ -3599,13 +3657,13 @@ bool particle_geometry::split_rigid_body_surface_particle(
       }
       num_edge = edge_offset[edge.size()];
 
-      vector<int> mid_point_idx;
+      std::vector<int> mid_point_idx;
       mid_point_idx.resize(num_edge);
 
       // mark edge to split
-      vector<int> edge_split_tag;
+      std::vector<int> edge_split_tag;
       edge_split_tag.resize(num_edge);
-      vector<int> edge_adaptive_level;
+      std::vector<int> edge_adaptive_level;
       edge_adaptive_level.resize(num_edge);
       for (int i = 0; i < edge_split_tag.size(); i++) {
         edge_split_tag[i] = 0;
@@ -3641,17 +3699,17 @@ bool particle_geometry::split_rigid_body_surface_particle(
 
           // check if the midpoint has been inserted or not
           int idx_check1, idx_check2;
-          vec3 mid_point_original, mid_point_current, mid_point_unrotated;
+          Vec3 mid_point_original, mid_point_current, mid_point_unrotated;
 
           idx_check1 = min(idx0, idx1);
           idx_check2 = max(idx0, idx1);
           mid_point_current = (coord[idx_check1] + coord[idx_check2]) * 0.5;
           mid_point_original = mid_point_current - rigid_body_coord[n];
           mid_point_unrotated =
-              rigid_body_quaternion[n].rotate_back(mid_point_original);
+              rigid_body_quaternion[n].RotateBack(mid_point_original);
           hierarchy->move_to_boundary(n, mid_point_unrotated);
           mid_point_current =
-              rigid_body_quaternion[n].rotate(mid_point_unrotated) +
+              rigid_body_quaternion[n].Rotate(mid_point_unrotated) +
               rigid_body_coord[n];
           auto it1 = lower_bound(edge[idx_check1].begin(),
                                  edge[idx_check1].end(), idx_check2);
@@ -3659,7 +3717,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
             auto res = lower_bound(edge[idx_check2].begin(),
                                    edge[idx_check2].end(), *it);
             if (res != edge[idx_check2].end() && *res == *it) {
-              vec3 dX = mid_point_current - coord[*res];
+              Vec3 dX = mid_point_current - coord[*res];
               if (dX.mag() < 1e-3 * spacing[idx_check1]) {
                 edge_split_tag[edge_offset[idx_check1] + edge1] = 0;
                 mid_point_idx[edge_offset[idx_check1] + edge1] = *res;
@@ -3672,10 +3730,10 @@ bool particle_geometry::split_rigid_body_surface_particle(
           mid_point_current = (coord[idx_check1] + coord[idx_check2]) * 0.5;
           mid_point_original = mid_point_current - rigid_body_coord[n];
           mid_point_unrotated =
-              rigid_body_quaternion[n].rotate_back(mid_point_original);
+              rigid_body_quaternion[n].RotateBack(mid_point_original);
           hierarchy->move_to_boundary(n, mid_point_unrotated);
           mid_point_current =
-              rigid_body_quaternion[n].rotate(mid_point_unrotated) +
+              rigid_body_quaternion[n].Rotate(mid_point_unrotated) +
               rigid_body_coord[n];
           auto it2 = lower_bound(edge[idx_check1].begin(),
                                  edge[idx_check1].end(), idx_check2);
@@ -3683,7 +3741,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
             auto res = lower_bound(edge[idx_check2].begin(),
                                    edge[idx_check2].end(), *it);
             if (res != edge[idx_check2].end() && *res == *it) {
-              vec3 dX = mid_point_current - coord[*res];
+              Vec3 dX = mid_point_current - coord[*res];
               if (dX.mag() < 1e-3 * spacing[idx_check1]) {
                 edge_split_tag[edge_offset[idx_check1] + edge2] = 0;
                 mid_point_idx[edge_offset[idx_check1] + edge2] = *res;
@@ -3696,10 +3754,10 @@ bool particle_geometry::split_rigid_body_surface_particle(
           mid_point_current = (coord[idx_check1] + coord[idx_check2]) * 0.5;
           mid_point_original = mid_point_current - rigid_body_coord[n];
           mid_point_unrotated =
-              rigid_body_quaternion[n].rotate_back(mid_point_original);
+              rigid_body_quaternion[n].RotateBack(mid_point_original);
           hierarchy->move_to_boundary(n, mid_point_unrotated);
           mid_point_current =
-              rigid_body_quaternion[n].rotate(mid_point_unrotated) +
+              rigid_body_quaternion[n].Rotate(mid_point_unrotated) +
               rigid_body_coord[n];
           auto it3 = lower_bound(edge[idx_check1].begin(),
                                  edge[idx_check1].end(), idx_check2);
@@ -3707,7 +3765,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
             auto res = lower_bound(edge[idx_check2].begin(),
                                    edge[idx_check2].end(), *it);
             if (res != edge[idx_check2].end() && *res == *it) {
-              vec3 dX = mid_point_current - coord[*res];
+              Vec3 dX = mid_point_current - coord[*res];
               if (dX.mag() < 1e-3 * spacing[idx_check1]) {
                 edge_split_tag[edge_offset[idx_check1] + edge3] = 0;
                 mid_point_idx[edge_offset[idx_check1] + edge3] = *res;
@@ -3727,7 +3785,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
       }
 
       // split edge
-      // vector<int> edge_adaptive_level;
+      // std::vector<int> edge_adaptive_level;
       // edge_adaptive_level.resize(num_edge);
       // for (int i = 0; i < edge.size(); i++) {
       //   for (int j = 0; j < edge[i].size(); j++) {
@@ -3738,16 +3796,16 @@ bool particle_geometry::split_rigid_body_surface_particle(
       for (int i = 0; i < edge.size(); i++) {
         for (int j = 0; j < edge[i].size(); j++) {
           if (edge_split_tag[edge_offset[i] + j] == 1) {
-            vec3 p0 = coord[i] - rigid_body_coord[n];
-            vec3 p1 = coord[edge[i][j]] - rigid_body_coord[n];
+            Vec3 p0 = coord[i] - rigid_body_coord[n];
+            Vec3 p1 = coord[edge[i][j]] - rigid_body_coord[n];
 
             int current_adaptive_level =
                 edge_adaptive_level[edge_offset[i] + j];
             double spacing = pow(0.5, current_adaptive_level) * uniform_spacing;
             double vol = pow(spacing, dim);
 
-            vec3 p2 = rigid_body_quaternion[n].rotate_back((p0 + p1) * 0.5);
-            vec3 n2;
+            Vec3 p2 = rigid_body_quaternion[n].RotateBack((p0 + p1) * 0.5);
+            Vec3 n2;
 
             int idx2 = coord.size();
             mid_point_idx[edge_offset[i] + j] = idx2;
@@ -3755,11 +3813,11 @@ bool particle_geometry::split_rigid_body_surface_particle(
             hierarchy->move_to_boundary(n, p2);
             hierarchy->get_normal(n, p2, n2);
 
-            p2 = rigid_body_quaternion[n].rotate(p2) + rigid_body_coord[n];
-            n2 = rigid_body_quaternion[n].rotate(n2);
+            p2 = rigid_body_quaternion[n].Rotate(p2) + rigid_body_coord[n];
+            n2 = rigid_body_quaternion[n].Rotate(n2);
 
-            vec3 p_spacing = vec3(0.0, 1.0, 0.0);
-            vec3 p_coord = vec3(idx2, 0, 0);
+            Vec3 p_spacing = Vec3(0.0, 1.0, 0.0);
+            Vec3 p_coord = Vec3(idx2, 0, 0);
 
             insert_particle(p2, 5, spacing, n2, current_adaptive_level, vol,
                             true, n, p_coord, p_spacing);
@@ -3794,10 +3852,10 @@ bool particle_geometry::split_rigid_body_surface_particle(
           int idx5 = mid_point_idx[edge_offset[min(idx2, idx0)] + edge3];
 
           // rebuild elements
-          current_element[i] = triple<int>(idx0, idx3, idx5);
-          current_element.push_back(triple<int>(idx1, idx3, idx4));
-          current_element.push_back(triple<int>(idx3, idx4, idx5));
-          current_element.push_back(triple<int>(idx4, idx5, idx2));
+          current_element[i] = Triple<int>(idx0, idx3, idx5);
+          current_element.push_back(Triple<int>(idx1, idx3, idx4));
+          current_element.push_back(Triple<int>(idx3, idx4, idx5));
+          current_element.push_back(Triple<int>(idx4, idx5, idx2));
 
           int current_adaptive_level = current_element_adaptive_level[i];
 
@@ -3814,13 +3872,13 @@ bool particle_geometry::split_rigid_body_surface_particle(
         }
       }
       for (int i = 0; i < current_element.size(); i++) {
-        vec3 p0 = coord[current_element[i][0]] - rigid_body_coord[n];
-        vec3 p1 = coord[current_element[i][1]] - rigid_body_coord[n];
-        vec3 p2 = coord[current_element[i][2]] - rigid_body_coord[n];
+        Vec3 p0 = coord[current_element[i][0]] - rigid_body_coord[n];
+        Vec3 p1 = coord[current_element[i][1]] - rigid_body_coord[n];
+        Vec3 p2 = coord[current_element[i][2]] - rigid_body_coord[n];
 
-        vec3 dX1 = p0 - p1;
-        vec3 dX2 = p1 - p2;
-        vec3 dX3 = p2 - p0;
+        Vec3 dX1 = p0 - p1;
+        Vec3 dX2 = p1 - p2;
+        Vec3 dX3 = p2 - p0;
 
         double a = dX1.mag();
         double b = dX2.mag();
@@ -3830,10 +3888,10 @@ bool particle_geometry::split_rigid_body_surface_particle(
 
         double A = sqrt(s * (s - a) * (s - b) * (s - c));
 
-        vec3 n_surface = vec3(dX1[1] * dX2[2] - dX1[2] * dX2[1],
+        Vec3 n_surface = Vec3(dX1[1] * dX2[2] - dX1[2] * dX2[1],
                               dX1[2] * dX2[0] - dX1[0] * dX2[2],
                               dX1[0] * dX2[1] - dX1[1] * dX2[0]);
-        vec3 n0, n1, n2;
+        Vec3 n0, n1, n2;
         hierarchy->get_normal(n, p0, n0);
         hierarchy->get_normal(n, p1, n1);
         hierarchy->get_normal(n, p2, n2);
@@ -3856,7 +3914,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
       case 1:
         // cicle
         {
-          vector<int> refined_particle_idx;
+          std::vector<int> refined_particle_idx;
           bool insert = false;
           int particle_idx = p_coord[tag][0];
           hierarchy->find_refined_particle(attached_rigid_body_index[tag],
@@ -3864,26 +3922,26 @@ bool particle_geometry::split_rigid_body_surface_particle(
                                            refined_particle_idx);
           int fine_adaptive_level = adaptive_level[tag] + 1;
           for (int i = 0; i < refined_particle_idx.size(); i++) {
-            vec3 new_pos = hierarchy->get_coordinate(
+            Vec3 new_pos = hierarchy->get_coordinate(
                 attached_rigid_body_index[tag], fine_adaptive_level,
                 refined_particle_idx[i]);
-            vec3 new_normal = hierarchy->get_normal(
+            Vec3 new_normal = hierarchy->get_normal(
                 attached_rigid_body_index[tag], fine_adaptive_level,
                 refined_particle_idx[i]);
-            vec3 new_spacing = hierarchy->get_spacing(
+            Vec3 new_spacing = hierarchy->get_spacing(
                 attached_rigid_body_index[tag], fine_adaptive_level,
                 refined_particle_idx[i]);
 
-            vec3 new_coord =
+            Vec3 new_coord =
                 new_pos + rigid_body_coord[attached_rigid_body_index[tag]];
-            vec3 new_norm = new_normal;
+            Vec3 new_norm = new_normal;
 
             if (!insert) {
               coord[tag] = new_coord;
               volume[tag] /= 4.0;
               normal[tag] = new_norm;
               spacing[tag] /= 2.0;
-              p_coord[tag] = vec3(refined_particle_idx[i], 0.0, 0.0);
+              p_coord[tag] = Vec3(refined_particle_idx[i], 0.0, 0.0);
               p_spacing[tag] = new_spacing;
               adaptive_level[tag]++;
               new_added[tag] = -1;
@@ -3893,7 +3951,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
               insert_particle(new_coord, particle_type[tag], spacing[tag],
                               new_norm, adaptive_level[tag], volume[tag], true,
                               attached_rigid_body_index[tag],
-                              vec3(refined_particle_idx[i], 0.0, 0.0),
+                              Vec3(refined_particle_idx[i], 0.0, 0.0),
                               new_spacing);
             }
           }
@@ -3905,7 +3963,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
         {
           double theta =
               rigid_body_orientation[attached_rigid_body_index[tag]][0];
-          vector<int> refined_particle_idx;
+          std::vector<int> refined_particle_idx;
           bool insert = false;
           int particle_idx = p_coord[tag][0];
           hierarchy->find_refined_particle(attached_rigid_body_index[tag],
@@ -3913,21 +3971,21 @@ bool particle_geometry::split_rigid_body_surface_particle(
                                            refined_particle_idx);
           int fine_adaptive_level = adaptive_level[tag] + 1;
           for (int i = 0; i < refined_particle_idx.size(); i++) {
-            vec3 new_pos = hierarchy->get_coordinate(
+            Vec3 new_pos = hierarchy->get_coordinate(
                 attached_rigid_body_index[tag], fine_adaptive_level,
                 refined_particle_idx[i]);
-            vec3 new_normal = hierarchy->get_normal(
+            Vec3 new_normal = hierarchy->get_normal(
                 attached_rigid_body_index[tag], fine_adaptive_level,
                 refined_particle_idx[i]);
-            vec3 new_spacing = hierarchy->get_spacing(
+            Vec3 new_spacing = hierarchy->get_spacing(
                 attached_rigid_body_index[tag], fine_adaptive_level,
                 refined_particle_idx[i]);
 
-            vec3 new_coord =
-                vec3(new_pos[0] * cos(theta) - new_pos[1] * sin(theta),
+            Vec3 new_coord =
+                Vec3(new_pos[0] * cos(theta) - new_pos[1] * sin(theta),
                      new_pos[0] * sin(theta) + new_pos[1] * cos(theta), 0.0) +
                 rigid_body_coord[attached_rigid_body_index[tag]];
-            vec3 new_norm = vec3(
+            Vec3 new_norm = Vec3(
                 new_normal[0] * cos(theta) - new_normal[1] * sin(theta),
                 new_normal[0] * sin(theta) + new_normal[1] * cos(theta), 0.0);
 
@@ -3936,7 +3994,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
               volume[tag] /= 4.0;
               normal[tag] = new_norm;
               spacing[tag] /= 2.0;
-              p_coord[tag] = vec3(refined_particle_idx[i], 0.0, 0.0);
+              p_coord[tag] = Vec3(refined_particle_idx[i], 0.0, 0.0);
               p_spacing[tag] = new_spacing;
               adaptive_level[tag]++;
               new_added[tag] = -1;
@@ -3946,7 +4004,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
               insert_particle(new_coord, particle_type[tag], spacing[tag],
                               new_norm, adaptive_level[tag], volume[tag], true,
                               attached_rigid_body_index[tag],
-                              vec3(refined_particle_idx[i], 0.0, 0.0),
+                              Vec3(refined_particle_idx[i], 0.0, 0.0),
                               new_spacing);
             }
           }
@@ -3960,22 +4018,22 @@ bool particle_geometry::split_rigid_body_surface_particle(
           spacing[tag] /= 2.0;
           volume[tag] /= 4.0;
           adaptive_level[tag]++;
-          p_spacing[tag] = vec3(p_spacing[tag][0] / 2.0, 0.0, 0.0);
+          p_spacing[tag] = Vec3(p_spacing[tag][0] / 2.0, 0.0, 0.0);
         } else {
           // side particle
           spacing[tag] /= 2.0;
           volume[tag] /= 4.0;
           adaptive_level[tag]++;
           new_added[tag] = -1;
-          p_spacing[tag] = vec3(p_spacing[tag][0] / 2.0, 0.0, 0.0);
+          p_spacing[tag] = Vec3(p_spacing[tag][0] / 2.0, 0.0, 0.0);
 
-          vec3 old_pos = coord[tag];
+          Vec3 old_pos = coord[tag];
 
-          vec3 delta =
-              vec3(-normal[tag][1], normal[tag][0], 0.0) * 0.5 * spacing[tag];
+          Vec3 delta =
+              Vec3(-normal[tag][1], normal[tag][0], 0.0) * 0.5 * spacing[tag];
           coord[tag] = old_pos + delta;
 
-          vec3 new_pos = old_pos - delta;
+          Vec3 new_pos = old_pos - delta;
 
           insert_particle(new_pos, particle_type[tag], spacing[tag],
                           normal[tag], adaptive_level[tag], volume[tag], true,
@@ -4022,7 +4080,7 @@ bool particle_geometry::split_rigid_body_surface_particle(
   return (pass_test == 0);
 }
 
-void particle_geometry::split_gap_particle(vector<int> &split_tag) {
+void ParticleGeometry::split_gap_particle(std::vector<int> &split_tag) {
   auto gap_coord = move(*local_managing_gap_particle_coord);
   auto gap_normal = move(*local_managing_gap_particle_normal);
   auto gap_p_coord = move(*local_managing_gap_particle_p_coord);
@@ -4031,13 +4089,13 @@ void particle_geometry::split_gap_particle(vector<int> &split_tag) {
   auto gap_particle_type = move(*local_managing_gap_particle_particle_type);
   auto gap_adaptive_level = move(*local_managing_gap_particle_adaptive_level);
 
-  local_managing_gap_particle_coord = make_shared<vector<vec3>>();
-  local_managing_gap_particle_normal = make_shared<vector<vec3>>();
-  local_managing_gap_particle_p_coord = make_shared<vector<vec3>>();
-  local_managing_gap_particle_volume = make_shared<vector<double>>();
-  local_managing_gap_particle_spacing = make_shared<vector<double>>();
-  local_managing_gap_particle_particle_type = make_shared<vector<int>>();
-  local_managing_gap_particle_adaptive_level = make_shared<vector<int>>();
+  local_managing_gap_particle_coord = make_shared<std::vector<Vec3>>();
+  local_managing_gap_particle_normal = make_shared<std::vector<Vec3>>();
+  local_managing_gap_particle_p_coord = make_shared<std::vector<Vec3>>();
+  local_managing_gap_particle_volume = make_shared<std::vector<double>>();
+  local_managing_gap_particle_spacing = make_shared<std::vector<double>>();
+  local_managing_gap_particle_particle_type = make_shared<std::vector<int>>();
+  local_managing_gap_particle_adaptive_level = make_shared<std::vector<int>>();
 
   if (dim == 3) {
     for (int tag = 0; tag < split_tag.size(); tag++) {
@@ -4047,7 +4105,7 @@ void particle_geometry::split_gap_particle(vector<int> &split_tag) {
                         gap_adaptive_level[tag], gap_volume[tag]);
       } else {
         if (gap_particle_type[tag] == 0) {
-          vec3 origin = gap_coord[tag];
+          Vec3 origin = gap_coord[tag];
           const double x_delta = gap_spacing[tag] * 0.25;
           const double y_delta = gap_spacing[tag] * 0.25;
           const double z_delta = gap_spacing[tag] * 0.25;
@@ -4055,8 +4113,8 @@ void particle_geometry::split_gap_particle(vector<int> &split_tag) {
             for (int j = -1; j < 2; j += 2) {
               for (int k = -1; k < 2; k += 2) {
                 double new_spacing = gap_spacing[tag] * 0.5;
-                vec3 new_pos =
-                    origin + vec3(i * x_delta, j * y_delta, k * z_delta);
+                Vec3 new_pos =
+                    origin + Vec3(i * x_delta, j * y_delta, k * z_delta);
                 double new_volume = gap_volume[tag] / 8.0;
                 insert_particle(new_pos, gap_particle_type[tag], new_spacing,
                                 gap_normal[tag], gap_adaptive_level[tag] + 1,
@@ -4072,26 +4130,26 @@ void particle_geometry::split_gap_particle(vector<int> &split_tag) {
             int new_adaptive_level = gap_adaptive_level[tag] + 1;
             int is_new_added = -1;
 
-            vec3 origin = gap_coord[tag];
+            Vec3 origin = gap_coord[tag];
 
-            vec3 direction1, direction2;
+            Vec3 direction1, direction2;
             if (gap_normal[tag][0] != 0) {
-              direction1 = vec3(0.0, 1.0, 0.0);
-              direction2 = vec3(0.0, 0.0, 1.0);
+              direction1 = Vec3(0.0, 1.0, 0.0);
+              direction2 = Vec3(0.0, 0.0, 1.0);
             }
             if (gap_normal[tag][1] != 0) {
-              direction1 = vec3(1.0, 0.0, 0.0);
-              direction2 = vec3(0.0, 0.0, 1.0);
+              direction1 = Vec3(1.0, 0.0, 0.0);
+              direction2 = Vec3(0.0, 0.0, 1.0);
             }
             if (gap_normal[tag][2] != 0) {
-              direction1 = vec3(1.0, 0.0, 0.0);
-              direction2 = vec3(0.0, 1.0, 0.0);
+              direction1 = Vec3(1.0, 0.0, 0.0);
+              direction2 = Vec3(0.0, 1.0, 0.0);
             }
 
             bool insert = false;
             for (int i = -1; i < 2; i += 2) {
               for (int j = -1; j < 2; j += 2) {
-                vec3 new_pos = origin + direction1 * i * new_spacing * 0.5 +
+                Vec3 new_pos = origin + direction1 * i * new_spacing * 0.5 +
                                direction2 * j * new_spacing * 0.5;
 
                 insert_particle(new_pos, gap_particle_type[tag], new_spacing,
@@ -4118,13 +4176,13 @@ void particle_geometry::split_gap_particle(vector<int> &split_tag) {
                         gap_spacing[tag], gap_normal[tag],
                         gap_adaptive_level[tag], gap_volume[tag]);
       } else {
-        vec3 origin = gap_coord[tag];
+        Vec3 origin = gap_coord[tag];
         const double x_delta = gap_spacing[tag] * 0.25;
         const double y_delta = gap_spacing[tag] * 0.25;
         for (int i = -1; i < 2; i += 2) {
           for (int j = -1; j < 2; j += 2) {
             double new_spacing = gap_spacing[tag] * 0.5;
-            vec3 new_pos = origin + vec3(i * x_delta, j * y_delta, 0.0);
+            Vec3 new_pos = origin + Vec3(i * x_delta, j * y_delta, 0.0);
             double new_volume = gap_volume[tag] / 4.0;
             insert_particle(new_pos, gap_particle_type[tag], new_spacing,
                             gap_normal[tag], gap_adaptive_level[tag] + 1,
@@ -4142,8 +4200,8 @@ void particle_geometry::split_gap_particle(vector<int> &split_tag) {
   }
 }
 
-int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
-                                       int _attached_rigid_body_index) {
+int ParticleGeometry::is_gap_particle(const Vec3 &_pos, double _spacing,
+                                      int _attached_rigid_body_index) {
   // check over domain
   if (domain_type == 1) {
     double cap_radius = auxiliary_size[0];
@@ -4157,17 +4215,17 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
   int rigid_body_num = rb_mgr->get_rigid_body_num();
   for (size_t idx = 0; idx < rigid_body_num; idx++) {
     int rigid_body_type = rb_mgr->get_rigid_body_type(idx);
-    vec3 rigid_body_pos = rb_mgr->get_position(idx);
-    vec3 rigid_body_ori = rb_mgr->get_orientation(idx);
+    Vec3 rigid_body_pos = rb_mgr->get_position(idx);
+    Vec3 rigid_body_ori = rb_mgr->get_orientation(idx);
     quaternion rigid_body_quaternion = rb_mgr->get_quaternion(idx);
-    vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size(idx);
+    std::vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size(idx);
 
     // check over solid bodies
     switch (rigid_body_type) {
     case 1:
       // circle in 2d, sphere in 3d
       {
-        vec3 dis = _pos - rigid_body_pos;
+        Vec3 dis = _pos - rigid_body_pos;
         if (_attached_rigid_body_index >= 0) {
           // this is a particle on the rigid body surface
           if (_attached_rigid_body_index != idx &&
@@ -4185,7 +4243,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
 
           if (dis.mag() < rigid_body_size[0] + 1.5 * _spacing) {
             for (int i = 0; i < surface_particle_coord.size(); i++) {
-              vec3 rci = _pos - surface_particle_coord[i];
+              Vec3 rci = _pos - surface_particle_coord[i];
               if (rci.mag() <
                   0.5 * max(_spacing, surface_particle_spacing[i])) {
                 return idx;
@@ -4210,10 +4268,10 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
 
           double theta = rigid_body_ori[0];
 
-          vec3 abs_dis = _pos - rigid_body_pos;
-          // rotate back
-          vec3 dis =
-              vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
+          Vec3 abs_dis = _pos - rigid_body_pos;
+          // Rotate back
+          Vec3 dis =
+              Vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
                    -sin(theta) * abs_dis[0] + cos(theta) * abs_dis[1], 0.0);
 
           // get the distance to the boundary
@@ -4224,8 +4282,8 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
             dis[1] = -dis[1];
 
           if (dis[0] > end_point && dis[1] > end_point) {
-            vec3 center_point = vec3(end_point, end_point, 0.0);
-            vec3 new_pos = dis - center_point;
+            Vec3 center_point = Vec3(end_point, end_point, 0.0);
+            Vec3 new_pos = dis - center_point;
             dist = new_pos.mag() - r;
           } else if (dis[0] > end_point) {
             dist = dis[0] - half_side_length;
@@ -4251,7 +4309,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
 
             if (dist < 1.5 * _spacing) {
               for (int i = 0; i < surface_particle_coord.size(); i++) {
-                vec3 rci = _pos - surface_particle_coord[i];
+                Vec3 rci = _pos - surface_particle_coord[i];
                 if (rci.mag() <
                     0.5 * max(_spacing, surface_particle_spacing[i])) {
                   return idx;
@@ -4271,11 +4329,11 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
         double height = (sqrt(3) / 2.0) * side_length;
         double theta = rigid_body_ori[0];
 
-        vec3 translation = vec3(0.0, sqrt(3) / 6.0 * side_length, 0.0);
-        vec3 abs_dis = _pos - rigid_body_pos;
-        // rotate back
-        vec3 dis =
-            vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
+        Vec3 translation = Vec3(0.0, sqrt(3) / 6.0 * side_length, 0.0);
+        Vec3 abs_dis = _pos - rigid_body_pos;
+        // Rotate back
+        Vec3 dis =
+            Vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
                  -sin(theta) * abs_dis[0] + cos(theta) * abs_dis[1], 0.0) +
             translation;
 
@@ -4318,7 +4376,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           } else if (possible_gap_particle) {
             double min_dis = bounding_box_size[0];
             for (int i = 0; i < surface_particle_coord.size(); i++) {
-              vec3 rci = _pos - surface_particle_coord[i];
+              Vec3 rci = _pos - surface_particle_coord[i];
               if (min_dis > rci.mag()) {
                 min_dis = rci.mag();
               }
@@ -4336,8 +4394,8 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
       break;
     case 4:
       if (dim == 3) {
-        vec3 dis = _pos - rigid_body_pos;
-        vec3 unrotated_dis = rigid_body_quaternion.rotate_back(dis);
+        Vec3 dis = _pos - rigid_body_pos;
+        Vec3 unrotated_dis = rigid_body_quaternion.RotateBack(dis);
 
         double ex = rigid_body_size[0];
         double ey = rigid_body_size[1];
@@ -4362,7 +4420,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
 
           if (dist < 1.5 * _spacing) {
             for (int i = 0; i < surface_particle_coord.size(); i++) {
-              vec3 rci = _pos - surface_particle_coord[i];
+              Vec3 rci = _pos - surface_particle_coord[i];
               if (rci.mag() <
                   0.5 * max(_spacing, surface_particle_spacing[i])) {
                 return idx;
@@ -4373,7 +4431,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
       }
       break;
     case 5: {
-      vec3 dis = _pos - rigid_body_pos;
+      Vec3 dis = _pos - rigid_body_pos;
 
       if (_attached_rigid_body_index >= 0) {
         // this is a particle on the rigid body surface
@@ -4381,7 +4439,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           return idx;
       } else {
         // this is a fluid particle
-        vector<double> &size_list = rb_mgr->get_rigid_body_size(idx);
+        std::vector<double> &size_list = rb_mgr->get_rigid_body_size(idx);
         double r1 = size_list[0];
         double r2 = size_list[1];
         double d = size_list[2];
@@ -4407,7 +4465,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
           rr = d / cos(M_PI - theta);
         }
 
-        vec3 dist = _pos - vec3(-0.0031250001, -0.0031250001, -0.0093750001);
+        Vec3 dist = _pos - Vec3(-0.0031250001, -0.0031250001, -0.0093750001);
         if (dist.mag() < 1e-5)
           cout << theta2 << ' ' << theta << ' ' << rr << endl;
 
@@ -4422,7 +4480,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
 
         if (min_dis < 1.5 * _spacing) {
           for (int i = 0; i < surface_particle_coord.size(); i++) {
-            vec3 rci = _pos - surface_particle_coord[i];
+            Vec3 rci = _pos - surface_particle_coord[i];
             if (rci.mag() < 0.5 * max(_spacing, surface_particle_spacing[i])) {
               return idx;
             }
@@ -4436,7 +4494,7 @@ int particle_geometry::is_gap_particle(const vec3 &_pos, double _spacing,
   return -2;
 }
 
-int particle_geometry::is_field_particle(const vec3 &_pos, double _spacing) {
+int ParticleGeometry::is_field_particle(const Vec3 &_pos, double _spacing) {
   if (domain_type == 0) {
     if (dim == 2) {
       if (_pos[0] < bounding_box[0][0] || _pos[0] > bounding_box[1][0] ||
@@ -4459,7 +4517,7 @@ int particle_geometry::is_field_particle(const vec3 &_pos, double _spacing) {
 
     double R = cap_radius;
 
-    vec3 dist = _pos;
+    Vec3 dist = _pos;
     if (dist.mag() > R)
       return -1;
     else if (dist.mag() > R - 0.5 * _spacing)
@@ -4468,12 +4526,12 @@ int particle_geometry::is_field_particle(const vec3 &_pos, double _spacing) {
   return -2;
 }
 
-void particle_geometry::index_particle() {
+void ParticleGeometry::index_particle() {
   int local_particle_num = current_local_managing_particle_coord->size();
   current_local_managing_particle_index->resize(local_particle_num);
 
-  vector<int> particle_offset(size + 1);
-  vector<int> particle_num(size);
+  std::vector<int> particle_offset(size + 1);
+  std::vector<int> particle_num(size);
   MPI_Allgather(&local_particle_num, 1, MPI_INT, particle_num.data(), 1,
                 MPI_INT, MPI_COMM_WORLD);
 
@@ -4482,18 +4540,18 @@ void particle_geometry::index_particle() {
     particle_offset[i + 1] = particle_offset[i] + particle_num[i];
   }
 
-  vector<long long> &index = *current_local_managing_particle_index;
+  std::vector<long long> &index = *current_local_managing_particle_index;
   for (int i = 0; i < local_particle_num; i++) {
     index[i] = i + particle_offset[rank];
   }
 }
 
-void particle_geometry::index_work_particle() {
+void ParticleGeometry::index_work_particle() {
   int local_particle_num = current_local_work_particle_coord->size();
   current_local_work_particle_index->resize(local_particle_num);
 
-  vector<int> particle_offset(size + 1);
-  vector<int> particle_num(size);
+  std::vector<int> particle_offset(size + 1);
+  std::vector<int> particle_num(size);
   MPI_Allgather(&local_particle_num, 1, MPI_INT, particle_num.data(), 1,
                 MPI_INT, MPI_COMM_WORLD);
 
@@ -4505,7 +4563,7 @@ void particle_geometry::index_work_particle() {
   KDTree point_cloud(current_local_work_particle_coord, dim, 100);
   point_cloud.generateKDTree();
 
-  vector<int> &local_idx = *current_local_work_particle_local_index;
+  std::vector<int> &local_idx = *current_local_work_particle_local_index;
   point_cloud.getIndex(local_idx);
 
   auto &index = *current_local_work_particle_index;
@@ -4531,14 +4589,14 @@ void particle_geometry::index_work_particle() {
   }
 }
 
-void particle_geometry::balance_workload() {
+void ParticleGeometry::balance_workload() {
   // use zoltan2 to build a solution to partition
-  vector<int> result;
+  std::vector<int> result;
   partitioner.partition(*current_local_managing_particle_index,
                         *current_local_managing_particle_coord, result);
 
   // use the solution to build the migration graph
-  vector<int> whole_migration_out_num, whole_migration_in_num;
+  std::vector<int> whole_migration_out_num, whole_migration_in_num;
   whole_migration_in_num.resize(size);
   whole_migration_out_num.resize(size);
   for (int i = 0; i < size; i++) {
@@ -4593,7 +4651,7 @@ void particle_geometry::balance_workload() {
 
   local_reserve_map.clear();
   local_migration_map.resize(migration_out_offset[migration_out_num.size()]);
-  vector<int> migration_map_idx;
+  std::vector<int> migration_map_idx;
   migration_map_idx.resize(migration_out_num.size());
   for (int i = 0; i < migration_out_num.size(); i++) {
     migration_map_idx[i] = migration_out_offset[i];
@@ -4611,8 +4669,8 @@ void particle_geometry::balance_workload() {
   }
 }
 
-void particle_geometry::build_ghost() {
-  vec3 work_domain_low, work_domain_high;
+void ParticleGeometry::build_ghost() {
+  Vec3 work_domain_low, work_domain_high;
   work_domain_low = bounding_box[1];
   work_domain_high = bounding_box[0];
 
@@ -4642,7 +4700,7 @@ void particle_geometry::build_ghost() {
     }
   }
 
-  vector<double> whole_work_domain;
+  std::vector<double> whole_work_domain;
   whole_work_domain.resize(size * 6);
   MPI_Allgather(&work_domain_low[0], 1, MPI_DOUBLE, whole_work_domain.data(), 1,
                 MPI_DOUBLE, MPI_COMM_WORLD);
@@ -4661,8 +4719,8 @@ void particle_geometry::build_ghost() {
                 whole_work_domain.data() + size * 5, 1, MPI_DOUBLE,
                 MPI_COMM_WORLD);
 
-  vector<vec3> whole_ghost_domain_low;
-  vector<vec3> whole_ghost_domain_high;
+  std::vector<Vec3> whole_ghost_domain_low;
+  std::vector<Vec3> whole_ghost_domain_high;
   whole_ghost_domain_low.resize(size);
   whole_ghost_domain_high.resize(size);
   for (int i = 0; i < size; i++) {
@@ -4672,7 +4730,7 @@ void particle_geometry::build_ghost() {
     }
   }
 
-  vector<vector<int>> whole_ghost_out_map;
+  std::vector<std::vector<int>> whole_ghost_out_map;
   whole_ghost_out_map.resize(size);
   for (int i = 0; i < local_particle_num; i++) {
     for (int j = 0; j < size; j++) {
@@ -4698,7 +4756,7 @@ void particle_geometry::build_ghost() {
     }
   }
 
-  vector<int> whole_ghost_in_num;
+  std::vector<int> whole_ghost_in_num;
   whole_ghost_in_num.resize(size);
 
   for (int i = 0; i < size; i++) {
@@ -4750,8 +4808,8 @@ void particle_geometry::build_ghost() {
   }
 }
 
-void particle_geometry::build_ghost_from_last_level() {
-  vec3 work_domain_low, work_domain_high;
+void ParticleGeometry::build_ghost_from_last_level() {
+  Vec3 work_domain_low, work_domain_high;
   work_domain_low = bounding_box[1];
   work_domain_high = bounding_box[0];
 
@@ -4783,7 +4841,7 @@ void particle_geometry::build_ghost_from_last_level() {
     }
   }
 
-  vector<double> whole_work_domain;
+  std::vector<double> whole_work_domain;
   whole_work_domain.resize(size * 6);
   MPI_Allgather(&work_domain_low[0], 1, MPI_DOUBLE, whole_work_domain.data(), 1,
                 MPI_DOUBLE, MPI_COMM_WORLD);
@@ -4802,8 +4860,8 @@ void particle_geometry::build_ghost_from_last_level() {
                 whole_work_domain.data() + size * 5, 1, MPI_DOUBLE,
                 MPI_COMM_WORLD);
 
-  vector<vec3> whole_ghost_domain_low;
-  vector<vec3> whole_ghost_domain_high;
+  std::vector<Vec3> whole_ghost_domain_low;
+  std::vector<Vec3> whole_ghost_domain_high;
   whole_ghost_domain_low.resize(size);
   whole_ghost_domain_high.resize(size);
   for (int i = 0; i < size; i++) {
@@ -4813,7 +4871,7 @@ void particle_geometry::build_ghost_from_last_level() {
     }
   }
 
-  vector<vector<int>> whole_ghost_clll_out_map;
+  std::vector<std::vector<int>> whole_ghost_clll_out_map;
   whole_ghost_clll_out_map.resize(size);
   for (int i = 0; i < source_local_particle_num; i++) {
     for (int j = 0; j < size; j++) {
@@ -4837,7 +4895,7 @@ void particle_geometry::build_ghost_from_last_level() {
     }
   }
 
-  vector<int> whole_ghost_clll_in_num;
+  std::vector<int> whole_ghost_clll_in_num;
   whole_ghost_clll_in_num.resize(size);
 
   for (int i = 0; i < size; i++) {
@@ -4901,8 +4959,8 @@ void particle_geometry::build_ghost_from_last_level() {
   }
 }
 
-void particle_geometry::build_ghost_for_last_level() {
-  vec3 work_domain_low, work_domain_high;
+void ParticleGeometry::build_ghost_for_last_level() {
+  Vec3 work_domain_low, work_domain_high;
   work_domain_low = bounding_box[1];
   work_domain_high = bounding_box[0];
 
@@ -4934,7 +4992,7 @@ void particle_geometry::build_ghost_for_last_level() {
     }
   }
 
-  vector<double> whole_work_domain;
+  std::vector<double> whole_work_domain;
   whole_work_domain.resize(size * 6);
   MPI_Allgather(&work_domain_low[0], 1, MPI_DOUBLE, whole_work_domain.data(), 1,
                 MPI_DOUBLE, MPI_COMM_WORLD);
@@ -4953,8 +5011,8 @@ void particle_geometry::build_ghost_for_last_level() {
                 whole_work_domain.data() + size * 5, 1, MPI_DOUBLE,
                 MPI_COMM_WORLD);
 
-  vector<vec3> whole_ghost_domain_low;
-  vector<vec3> whole_ghost_domain_high;
+  std::vector<Vec3> whole_ghost_domain_low;
+  std::vector<Vec3> whole_ghost_domain_high;
   whole_ghost_domain_low.resize(size);
   whole_ghost_domain_high.resize(size);
   for (int i = 0; i < size; i++) {
@@ -4964,7 +5022,7 @@ void particle_geometry::build_ghost_for_last_level() {
     }
   }
 
-  vector<vector<int>> whole_ghost_llcl_out_map;
+  std::vector<std::vector<int>> whole_ghost_llcl_out_map;
   whole_ghost_llcl_out_map.resize(size);
   for (int i = 0; i < source_local_particle_num; i++) {
     for (int j = 0; j < size; j++) {
@@ -4988,7 +5046,7 @@ void particle_geometry::build_ghost_for_last_level() {
     }
   }
 
-  vector<int> whole_ghost_llcl_in_num;
+  std::vector<int> whole_ghost_llcl_in_num;
   whole_ghost_llcl_in_num.resize(size);
 
   for (int i = 0; i < size; i++) {
@@ -5052,14 +5110,14 @@ void particle_geometry::build_ghost_for_last_level() {
   }
 }
 
-void particle_geometry::collect_surface_particle() {
+void ParticleGeometry::collect_surface_particle() {
   // collect local surface particle
   surface_particle_coord.clear();
   surface_particle_spacing.clear();
   surface_particle_adaptive_level.clear();
   surface_particle_split_tag.clear();
 
-  std::vector<vec3> &coord = *current_local_managing_particle_coord;
+  std::vector<Vec3> &coord = *current_local_managing_particle_coord;
   std::vector<double> &spacing = *current_local_managing_particle_spacing;
   std::vector<int> &particle_type = *current_local_managing_particle_type;
   std::vector<int> &adaptive_level =
@@ -5080,7 +5138,7 @@ void particle_geometry::collect_surface_particle() {
   }
 
   // collect surface particle from other core
-  vec3 work_domain_low, work_domain_high;
+  Vec3 work_domain_low, work_domain_high;
   for (int i = 0; i < 3; i++) {
     work_domain_low[i] =
         max(bounding_box[0][i], domain_bounding_box[0][i] - cutoff_distance);
@@ -5088,7 +5146,7 @@ void particle_geometry::collect_surface_particle() {
         min(bounding_box[1][i], domain_bounding_box[1][i] + cutoff_distance);
   }
 
-  vector<double> whole_work_domain;
+  std::vector<double> whole_work_domain;
   whole_work_domain.resize(size * 6);
   MPI_Allgather(&(work_domain_low[0]), 1, MPI_DOUBLE, whole_work_domain.data(),
                 1, MPI_DOUBLE, MPI_COMM_WORLD);
@@ -5107,8 +5165,8 @@ void particle_geometry::collect_surface_particle() {
                 whole_work_domain.data() + size * 5, 1, MPI_DOUBLE,
                 MPI_COMM_WORLD);
 
-  vector<vec3> whole_domain_low;
-  vector<vec3> whole_domain_high;
+  std::vector<Vec3> whole_domain_low;
+  std::vector<Vec3> whole_domain_high;
   whole_domain_low.resize(size);
   whole_domain_high.resize(size);
   for (int i = 0; i < size; i++) {
@@ -5118,7 +5176,7 @@ void particle_geometry::collect_surface_particle() {
     }
   }
 
-  vector<vector<int>> whole_out_map;
+  std::vector<std::vector<int>> whole_out_map;
   whole_out_map.resize(size);
   for (int i = 0; i < coord.size(); i++) {
     if (particle_type[i] != 0) {
@@ -5146,7 +5204,7 @@ void particle_geometry::collect_surface_particle() {
     }
   }
 
-  vector<int> temp_out_num, temp_in_num;
+  std::vector<int> temp_out_num, temp_in_num;
   temp_out_num.resize(size);
   temp_in_num.resize(size);
 
@@ -5156,9 +5214,9 @@ void particle_geometry::collect_surface_particle() {
                MPI_COMM_WORLD);
   }
 
-  vector<int> flatted_out_map;
-  vector<int> out_offset;
-  vector<int> in_offset;
+  std::vector<int> flatted_out_map;
+  std::vector<int> out_offset;
+  std::vector<int> in_offset;
 
   for (int i = 0; i < whole_out_map.size(); i++) {
     if (whole_out_map[i].size() != 0) {
@@ -5168,12 +5226,12 @@ void particle_geometry::collect_surface_particle() {
     }
   }
 
-  vector<int> out_graph, in_graph;
+  std::vector<int> out_graph, in_graph;
 
   int total_out_num = 0;
   int total_in_num = 0;
 
-  vector<int> in_num, out_num;
+  std::vector<int> in_num, out_num;
 
   out_offset.push_back(0);
   in_offset.push_back(0);
@@ -5194,11 +5252,11 @@ void particle_geometry::collect_surface_particle() {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  vector<MPI_Request> send_request;
-  vector<MPI_Request> recv_request;
+  std::vector<MPI_Request> send_request;
+  std::vector<MPI_Request> recv_request;
 
-  vector<MPI_Status> send_status;
-  vector<MPI_Status> recv_status;
+  std::vector<MPI_Status> send_status;
+  std::vector<MPI_Status> recv_status;
 
   send_request.resize(out_graph.size());
   recv_request.resize(in_graph.size());
@@ -5208,7 +5266,7 @@ void particle_geometry::collect_surface_particle() {
 
   // move particle coord
   {
-    vector<double> send_buffer, recv_buffer;
+    std::vector<double> send_buffer, recv_buffer;
     send_buffer.resize(3 * total_out_num);
     recv_buffer.resize(3 * total_in_num);
 
@@ -5237,14 +5295,14 @@ void particle_geometry::collect_surface_particle() {
     MPI_Barrier(MPI_COMM_WORLD);
 
     for (int i = 0; i < total_in_num; i++) {
-      surface_particle_coord.push_back(vec3(
+      surface_particle_coord.push_back(Vec3(
           recv_buffer[i * 3], recv_buffer[i * 3 + 1], recv_buffer[i * 3 + 2]));
     }
   }
 
   // move particle spacing
   {
-    vector<double> send_buffer, recv_buffer;
+    std::vector<double> send_buffer, recv_buffer;
     send_buffer.resize(total_out_num);
     recv_buffer.resize(total_in_num);
 
@@ -5274,7 +5332,7 @@ void particle_geometry::collect_surface_particle() {
 
   // move particle adaptive level
   {
-    vector<int> send_buffer, recv_buffer;
+    std::vector<int> send_buffer, recv_buffer;
     send_buffer.resize(total_out_num);
     recv_buffer.resize(total_in_num);
 
@@ -5304,7 +5362,7 @@ void particle_geometry::collect_surface_particle() {
 
   // move particle split tag
   {
-    vector<int> send_buffer, recv_buffer;
+    std::vector<int> send_buffer, recv_buffer;
     send_buffer.resize(total_out_num);
     recv_buffer.resize(total_in_num);
 
@@ -5333,22 +5391,22 @@ void particle_geometry::collect_surface_particle() {
   }
 }
 
-void particle_geometry::find_closest_rigid_body(vec3 coord,
-                                                int &rigid_body_index,
-                                                double &dist) {
+void ParticleGeometry::find_closest_rigid_body(Vec3 coord,
+                                               int &rigid_body_index,
+                                               double &dist) {
   int rigid_body_num = rb_mgr->get_rigid_body_num();
   dist = bounding_box_size[0];
   rigid_body_index = 0;
   for (int idx = 0; idx < rigid_body_num; idx++) {
     int rigid_body_type = rb_mgr->get_rigid_body_type(idx);
-    vec3 rigid_body_pos = rb_mgr->get_position(idx);
-    vec3 rigid_body_ori = rb_mgr->get_orientation(idx);
-    vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size(idx);
+    Vec3 rigid_body_pos = rb_mgr->get_position(idx);
+    Vec3 rigid_body_ori = rb_mgr->get_orientation(idx);
+    std::vector<double> &rigid_body_size = rb_mgr->get_rigid_body_size(idx);
     switch (rigid_body_type) {
     case 1:
       // circle in 2d, sphere in 3d
       {
-        vec3 dis = coord - rigid_body_pos;
+        Vec3 dis = coord - rigid_body_pos;
         if (dist < dis.mag() - rigid_body_size[0]) {
           dist = dis.mag() - rigid_body_size[0];
           rigid_body_index = idx;
@@ -5364,31 +5422,31 @@ void particle_geometry::find_closest_rigid_body(vec3 coord,
 
         double temp_dist;
 
-        vec3 abs_dis = coord - rigid_body_pos;
-        vec3 dis =
-            vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
+        Vec3 abs_dis = coord - rigid_body_pos;
+        Vec3 dis =
+            Vec3(cos(theta) * abs_dis[0] + sin(theta) * abs_dis[1],
                  -sin(theta) * abs_dis[0] + cos(theta) * abs_dis[1], 0.0);
         if (dim == 2) {
           if (dis[0] <= -half_side_length) {
             if (dis[1] >= half_side_length) {
-              vec3 new_dis =
-                  dis - vec3(-half_side_length, half_side_length, 0.0);
+              Vec3 new_dis =
+                  dis - Vec3(-half_side_length, half_side_length, 0.0);
               temp_dist = new_dis.mag();
             } else if (dis[1] <= -half_side_length) {
-              vec3 new_dis =
-                  dis - vec3(-half_side_length, -half_side_length, 0.0);
+              Vec3 new_dis =
+                  dis - Vec3(-half_side_length, -half_side_length, 0.0);
               temp_dist = new_dis.mag();
             } else {
               temp_dist = abs(dis[0] + half_side_length);
             }
           } else if (dis[0] >= half_side_length) {
             if (dis[1] >= half_side_length) {
-              vec3 new_dis =
-                  dis - vec3(half_side_length, half_side_length, 0.0);
+              Vec3 new_dis =
+                  dis - Vec3(half_side_length, half_side_length, 0.0);
               temp_dist = new_dis.mag();
             } else if (dis[1] <= -half_side_length) {
-              vec3 new_dis =
-                  dis - vec3(half_side_length, -half_side_length, 0.0);
+              Vec3 new_dis =
+                  dis - Vec3(half_side_length, -half_side_length, 0.0);
               temp_dist = new_dis.mag();
             } else {
               temp_dist = abs(dis[0] - half_side_length);

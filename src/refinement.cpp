@@ -22,13 +22,13 @@ bool gmls_solver::refinement() {
               "Total error for gradient: %f, with tolerance: %f\n",
               estimated_global_error, refinement_tolerance);
 
-  static vector<vec3> old_rigid_body_velocity;
-  static vector<vec3> old_rigid_body_angular_velocity;
+  static vector<Vec3> old_rigid_body_velocity;
+  static vector<Vec3> old_rigid_body_angular_velocity;
 
   auto &rigid_body_position = rb_mgr->get_position();
   const auto num_rigid_body = rb_mgr->get_rigid_body_num();
-  vector<vec3> &rigid_body_velocity = rb_mgr->get_velocity();
-  vector<vec3> &rigid_body_angular_velocity = rb_mgr->get_angular_velocity();
+  vector<Vec3> &rigid_body_velocity = rb_mgr->get_velocity();
+  vector<Vec3> &rigid_body_angular_velocity = rb_mgr->get_angular_velocity();
 
   vector<int> split_tag;
   vector<double> &error = equation_mgr->get_error();
@@ -173,21 +173,11 @@ bool gmls_solver::refinement() {
   Kokkos::View<int **>::HostMirror temp_neighbor_list_host =
       Kokkos::create_mirror_view(temp_neighbor_list_device);
 
-  Kokkos::View<double *, Kokkos::DefaultExecutionSpace> epsilon_device(
-      "h supports", num_target_coord);
-  Kokkos::View<double *>::HostMirror epsilon_host =
-      Kokkos::create_mirror_view(epsilon_device);
-
-  auto &epsilon = equation_mgr->get_epsilon();
-
-  for (int i = 0; i < num_target_coord; i++) {
-    epsilon_host(i) = epsilon[i];
-  }
+  auto &epsilon = equation_mgr->getEpsilon();
 
   size_t max_num_neighbor =
       point_cloud_search.generate2DNeighborListsFromRadiusSearch(
-          true, target_coord_host, temp_neighbor_list_host, epsilon_host, 0.0,
-          0.0) +
+          true, target_coord_host, temp_neighbor_list_host, epsilon, 0.0, 0.0) +
       2;
 
   Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_list_device(
@@ -196,7 +186,7 @@ bool gmls_solver::refinement() {
       Kokkos::create_mirror_view(neighbor_list_device);
 
   point_cloud_search.generate2DNeighborListsFromRadiusSearch(
-      false, target_coord_host, neighbor_list_host, epsilon_host, 0.0, 0.0);
+      false, target_coord_host, neighbor_list_host, epsilon, 0.0, 0.0);
 
   int iteration_finished = 1;
   ite_counter = 0;
@@ -220,7 +210,7 @@ bool gmls_solver::refinement() {
         int nearest_index = 0;
         for (int j = 1; j < neighbor_list_host(i, 0); j++) {
           int neighbor_index = neighbor_list_host(i, j + 1);
-          vec3 difference = coord[i] - source_coord[neighbor_index];
+          Vec3 difference = coord[i] - source_coord[neighbor_index];
           if (source_particle_type[neighbor_index] == 0 &&
               difference.mag() < distance) {
             distance = difference.mag();
@@ -294,7 +284,7 @@ bool gmls_solver::refinement() {
         for (int j = 0; j < neighbor_list_host(i, 0); j++) {
           int neighbor_index = neighbor_list_host(i, j + 1);
           if (source_particle_type[neighbor_index] != 0) {
-            vec3 dX = coord[i] - source_coord[neighbor_index];
+            Vec3 dX = coord[i] - source_coord[neighbor_index];
             if (min_distance > dX.mag()) {
               min_distance = dX.mag();
               nearest_neighbor_index = neighbor_index;

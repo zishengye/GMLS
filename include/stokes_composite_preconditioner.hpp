@@ -5,10 +5,10 @@
 
 #include <vector>
 
-#include "stokes_multilevel.hpp"
+#include "StokesMultilevelPreconditioning.hpp"
 
 struct HypreLUShellPC {
-  stokes_multilevel *multi;
+  StokesMultilevelPreconditioning *multi;
 
   int refinement_level, num_rigid_body;
 
@@ -22,8 +22,9 @@ struct HypreLUShellPC {
 
 PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell);
 
-PetscErrorCode HypreLUShellPCSetUp(PC pc, stokes_multilevel *multi, Vec x,
-                                   PetscInt local_particle_num,
+PetscErrorCode HypreLUShellPCSetUp(PC pc,
+                                   StokesMultilevelPreconditioning *multi,
+                                   Vec x, PetscInt local_particle_num,
                                    PetscInt field_dof, int num_rigid_body);
 
 PetscErrorCode HypreLUShellPCApply(PC pc, Vec x, Vec y);

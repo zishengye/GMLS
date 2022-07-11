@@ -6,17 +6,17 @@
 using namespace std;
 using namespace Compadre;
 
-vec3 Cross(const vec3 &v1, const vec3 &v2) {
-  vec3 res(v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2],
+Vec3 Cross(const Vec3 &v1, const Vec3 &v2) {
+  Vec3 res(v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2],
            v1[0] * v2[1] - v1[1] * v2[0]);
   return res;
 }
 
-vec3 Bracket(const vec3 &v1, const vec3 &v2) { return Cross(v1, v2) * 2.0; }
+Vec3 Bracket(const Vec3 &v1, const Vec3 &v2) { return Cross(v1, v2) * 2.0; }
 
-vec3 dexpinv(const vec3 &u, const vec3 &k) {
-  vec3 res;
-  vec3 bracket_res = Bracket(u, k);
+Vec3 dexpinv(const Vec3 &u, const Vec3 &k) {
+  Vec3 res;
+  Vec3 bracket_res = Bracket(u, k);
 
   res = k - bracket_res * 0.5;
   bracket_res = Bracket(u, bracket_res);
@@ -73,13 +73,13 @@ void gmls_solver::foward_euler_integration() {
     // }
 
     current_refinement_step = 0;
-    equation_mgr->reset();
+    equation_mgr->Reset();
     do {
       if (write_data == 1 || write_data == 4)
         write_refinement_data_geometry_only();
       PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
                   current_refinement_step);
-      equation_mgr->update();
+      equation_mgr->Update();
     } while (refinement());
 
     PetscPrintf(PETSC_COMM_WORLD, "\n=================================\n");
@@ -93,13 +93,13 @@ void gmls_solver::foward_euler_integration() {
 }
 
 void gmls_solver::adaptive_runge_kutta_intagration() {
-  vector<vec3> &rigidBodyPosition = rb_mgr->get_position();
-  vector<vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
+  vector<Vec3> &rigidBodyPosition = rb_mgr->get_position();
+  vector<Vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
   vector<quaternion> &rigidBodyQuaternion = rb_mgr->get_quaternion();
-  vector<vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
-  vector<vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
-  vector<vec3> &rigidBodyForce = rb_mgr->get_force();
-  vector<vec3> &rigidBodyTorque = rb_mgr->get_torque();
+  vector<Vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
+  vector<Vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
+  vector<Vec3> &rigidBodyForce = rb_mgr->get_force();
+  vector<Vec3> &rigidBodyTorque = rb_mgr->get_torque();
 
   int numRigidBody = rb_mgr->get_rigid_body_num();
 
@@ -107,29 +107,29 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
   orientation0.resize(numRigidBody);
   quaternion0.resize(numRigidBody);
 
-  vector<vec3> velocity_k1(numRigidBody);
-  vector<vec3> velocity_k2(numRigidBody);
-  vector<vec3> velocity_k3(numRigidBody);
-  vector<vec3> velocity_k4(numRigidBody);
-  vector<vec3> velocity_k5(numRigidBody);
-  vector<vec3> velocity_k6(numRigidBody);
-  vector<vec3> velocity_k7(numRigidBody);
+  vector<Vec3> velocity_k1(numRigidBody);
+  vector<Vec3> velocity_k2(numRigidBody);
+  vector<Vec3> velocity_k3(numRigidBody);
+  vector<Vec3> velocity_k4(numRigidBody);
+  vector<Vec3> velocity_k5(numRigidBody);
+  vector<Vec3> velocity_k6(numRigidBody);
+  vector<Vec3> velocity_k7(numRigidBody);
 
-  vector<vec3> angularVelocity_k1(numRigidBody);
-  vector<vec3> angularVelocity_k2(numRigidBody);
-  vector<vec3> angularVelocity_k3(numRigidBody);
-  vector<vec3> angularVelocity_k4(numRigidBody);
-  vector<vec3> angularVelocity_k5(numRigidBody);
-  vector<vec3> angularVelocity_k6(numRigidBody);
-  vector<vec3> angularVelocity_k7(numRigidBody);
+  vector<Vec3> angularVelocity_k1(numRigidBody);
+  vector<Vec3> angularVelocity_k2(numRigidBody);
+  vector<Vec3> angularVelocity_k3(numRigidBody);
+  vector<Vec3> angularVelocity_k4(numRigidBody);
+  vector<Vec3> angularVelocity_k5(numRigidBody);
+  vector<Vec3> angularVelocity_k6(numRigidBody);
+  vector<Vec3> angularVelocity_k7(numRigidBody);
 
-  vector<vec3> modified_angularVelocity_k1(numRigidBody);
-  vector<vec3> modified_angularVelocity_k2(numRigidBody);
-  vector<vec3> modified_angularVelocity_k3(numRigidBody);
-  vector<vec3> modified_angularVelocity_k4(numRigidBody);
-  vector<vec3> modified_angularVelocity_k5(numRigidBody);
-  vector<vec3> modified_angularVelocity_k6(numRigidBody);
-  vector<vec3> modified_angularVelocity_k7(numRigidBody);
+  vector<Vec3> modified_angularVelocity_k1(numRigidBody);
+  vector<Vec3> modified_angularVelocity_k2(numRigidBody);
+  vector<Vec3> modified_angularVelocity_k3(numRigidBody);
+  vector<Vec3> modified_angularVelocity_k4(numRigidBody);
+  vector<Vec3> modified_angularVelocity_k5(numRigidBody);
+  vector<Vec3> modified_angularVelocity_k6(numRigidBody);
+  vector<Vec3> modified_angularVelocity_k7(numRigidBody);
 
   vector<quaternion> intermediate_quaternion1(numRigidBody);
   vector<quaternion> intermediate_quaternion2(numRigidBody);
@@ -196,14 +196,14 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
   }
 
   current_refinement_step = 0;
-  equation_mgr->reset();
+  equation_mgr->Reset();
   do {
     if (write_data == 1 || write_data == 4) {
       write_refinement_data_geometry_only();
     }
     PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
                 current_refinement_step);
-    equation_mgr->update();
+    equation_mgr->Update();
   } while (refinement());
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -316,9 +316,9 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
       }
       quaternion0[num] = rigidBodyQuaternion[num];
       if (dim == 3)
-        rigidBodyQuaternion[num].to_euler_angles(rigidBodyOrientation[num][0],
-                                                 rigidBodyOrientation[num][1],
-                                                 rigidBodyOrientation[num][2]);
+        rigidBodyQuaternion[num].ToEulerAngle(rigidBodyOrientation[num][0],
+                                              rigidBodyOrientation[num][1],
+                                              rigidBodyOrientation[num][2]);
     }
 
     err = 100;
@@ -351,7 +351,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                 quaternion0[num],
                 quaternion(modified_angularVelocity_k1[num], a21 * dt));
             if (dim == 3)
-              rigidBodyQuaternion[num].to_euler_angles(
+              rigidBodyQuaternion[num].ToEulerAngle(
                   rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
                   rigidBodyOrientation[num][2]);
           }
@@ -374,7 +374,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                             modified_angularVelocity_k2[num] * a32),
                            dt));
             if (dim == 3)
-              rigidBodyQuaternion[num].to_euler_angles(
+              rigidBodyQuaternion[num].ToEulerAngle(
                   rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
                   rigidBodyOrientation[num][2]);
           }
@@ -400,7 +400,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                             modified_angularVelocity_k3[num] * a43),
                            dt));
             if (dim == 3)
-              rigidBodyQuaternion[num].to_euler_angles(
+              rigidBodyQuaternion[num].ToEulerAngle(
                   rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
                   rigidBodyOrientation[num][2]);
           }
@@ -428,7 +428,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                             modified_angularVelocity_k4[num] * a54),
                            dt));
             if (dim == 3)
-              rigidBodyQuaternion[num].to_euler_angles(
+              rigidBodyQuaternion[num].ToEulerAngle(
                   rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
                   rigidBodyOrientation[num][2]);
           }
@@ -459,7 +459,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                             modified_angularVelocity_k5[num] * a65),
                            dt));
             if (dim == 3)
-              rigidBodyQuaternion[num].to_euler_angles(
+              rigidBodyQuaternion[num].ToEulerAngle(
                   rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
                   rigidBodyOrientation[num][2]);
           }
@@ -490,7 +490,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                             modified_angularVelocity_k6[num] * b6),
                            dt));
             if (dim == 3)
-              rigidBodyQuaternion[num].to_euler_angles(
+              rigidBodyQuaternion[num].ToEulerAngle(
                   rigidBodyOrientation[num][0], rigidBodyOrientation[num][1],
                   rigidBodyOrientation[num][2]);
           }
@@ -534,13 +534,13 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
 
         // refinement loop
         current_refinement_step = 0;
-        equation_mgr->reset();
+        equation_mgr->Reset();
         do {
           if (write_data == 1 || write_data == 4)
             write_refinement_data_geometry_only();
           PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
                       current_refinement_step);
-          equation_mgr->update();
+          equation_mgr->Update();
         } while (refinement());
         MPI_Barrier(MPI_COMM_WORLD);
 
@@ -728,8 +728,8 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
         double bs6 = (sj2 * (bi62 + sj * (bi63 + bi64 * sj)));
         double bs7 = (sj2 * (bi72 + sj * (bi73 + bi74 * sj)));
 
-        vector<vec3> refinedRigidBodyPosition(numRigidBody);
-        vector<vec3> refinedRigidBodyOrientation(numRigidBody);
+        vector<Vec3> refinedRigidBodyPosition(numRigidBody);
+        vector<Vec3> refinedRigidBodyOrientation(numRigidBody);
         vector<quaternion> refinedRigidBodyQuaternion(numRigidBody);
 
         for (int num = 0; num < numRigidBody; num++) {
@@ -759,7 +759,7 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
                           modified_angularVelocity_k7[num] * bs7),
                          dt));
           if (dim == 3)
-            refinedRigidBodyQuaternion[num].to_euler_angles(
+            refinedRigidBodyQuaternion[num].ToEulerAngle(
                 refinedRigidBodyOrientation[num][0],
                 refinedRigidBodyOrientation[num][1],
                 refinedRigidBodyOrientation[num][2]);
@@ -834,13 +834,13 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
 }
 
 void gmls_solver::implicit_midpoint_integration() {
-  vector<vec3> &rigidBodyPosition = rb_mgr->get_position();
-  vector<vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
+  vector<Vec3> &rigidBodyPosition = rb_mgr->get_position();
+  vector<Vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
   vector<quaternion> &rigidBodyQuaternion = rb_mgr->get_quaternion();
-  vector<vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
-  vector<vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
-  vector<vec3> &rigidBodyForce = rb_mgr->get_force();
-  vector<vec3> &rigidBodyTorque = rb_mgr->get_torque();
+  vector<Vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
+  vector<Vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
+  vector<Vec3> &rigidBodyForce = rb_mgr->get_force();
+  vector<Vec3> &rigidBodyTorque = rb_mgr->get_torque();
 
   int numRigidBody = rb_mgr->get_rigid_body_num();
 
@@ -945,13 +945,13 @@ void gmls_solver::implicit_midpoint_integration() {
     // get the velocity at the local step
     geo_mgr->generate_uniform_particle();
     current_refinement_step = 0;
-    equation_mgr->reset();
+    equation_mgr->Reset();
     do {
       if (write_data == 1 || write_data == 4)
         write_refinement_data_geometry_only();
       PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
                   current_refinement_step);
-      equation_mgr->update();
+      equation_mgr->Update();
     } while (refinement());
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -976,13 +976,13 @@ void gmls_solver::implicit_midpoint_integration() {
     // get an initial guess
     geo_mgr->generate_uniform_particle();
     current_refinement_step = 0;
-    equation_mgr->reset();
+    equation_mgr->Reset();
     do {
       if (write_data == 1 || write_data == 4)
         write_refinement_data_geometry_only();
       PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
                   current_refinement_step);
-      equation_mgr->update();
+      equation_mgr->Update();
     } while (refinement());
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -1062,9 +1062,9 @@ void gmls_solver::implicit_midpoint_integration() {
       if (dim == 3) {
         rigidBodyQuaternion[num].Cross(
             quaternion0[num], quaternion(rigidBodyAngularVelocity[num], dt));
-        rigidBodyQuaternion[num].to_euler_angles(rigidBodyOrientation[num][0],
-                                                 rigidBodyOrientation[num][1],
-                                                 rigidBodyOrientation[num][2]);
+        rigidBodyQuaternion[num].ToEulerAngle(rigidBodyOrientation[num][0],
+                                              rigidBodyOrientation[num][1],
+                                              rigidBodyOrientation[num][2]);
       }
     }
 
@@ -1072,8 +1072,8 @@ void gmls_solver::implicit_midpoint_integration() {
     if (rank == 0) {
       output.open(trajectory_output_file_name, ios::app);
 
-      vector<vec3> refinedRigidBodyPosition(numRigidBody);
-      vector<vec3> refinedRigidBodyOrientation(numRigidBody);
+      vector<Vec3> refinedRigidBodyPosition(numRigidBody);
+      vector<Vec3> refinedRigidBodyOrientation(numRigidBody);
       vector<quaternion> refinedRigidBodyQuaternion(numRigidBody);
 
       for (int num = 0; num < numRigidBody; num++) {
@@ -1090,7 +1090,7 @@ void gmls_solver::implicit_midpoint_integration() {
           refinedRigidBodyQuaternion[num].Cross(
               quaternion0[num],
               quaternion(rigidBodyAngularVelocity[num], 0.5 * dt));
-          refinedRigidBodyQuaternion[num].to_euler_angles(
+          refinedRigidBodyQuaternion[num].ToEulerAngle(
               refinedRigidBodyOrientation[num][0],
               refinedRigidBodyOrientation[num][1],
               refinedRigidBodyOrientation[num][2]);
@@ -1136,13 +1136,13 @@ void gmls_solver::implicit_midpoint_integration() {
 }
 
 void gmls_solver::implicit_midpoint_integration_sub(Vec x, Vec y) {
-  vector<vec3> &rigidBodyPosition = rb_mgr->get_position();
-  vector<vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
+  vector<Vec3> &rigidBodyPosition = rb_mgr->get_position();
+  vector<Vec3> &rigidBodyOrientation = rb_mgr->get_orientation();
   vector<quaternion> &rigidBodyQuaternion = rb_mgr->get_quaternion();
-  vector<vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
-  vector<vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
-  vector<vec3> &rigidBodyForce = rb_mgr->get_force();
-  vector<vec3> &rigidBodyTorque = rb_mgr->get_torque();
+  vector<Vec3> &rigidBodyVelocity = rb_mgr->get_velocity();
+  vector<Vec3> &rigidBodyAngularVelocity = rb_mgr->get_angular_velocity();
+  vector<Vec3> &rigidBodyForce = rb_mgr->get_force();
+  vector<Vec3> &rigidBodyTorque = rb_mgr->get_torque();
 
   PetscReal norm1, norm2;
   VecNorm(x, NORM_2, &norm1);
@@ -1209,13 +1209,13 @@ void gmls_solver::implicit_midpoint_integration_sub(Vec x, Vec y) {
 
   geo_mgr->generate_uniform_particle();
   current_refinement_step = 0;
-  equation_mgr->reset();
+  equation_mgr->Reset();
   do {
     if (write_data == 1 || write_data == 4)
       write_refinement_data_geometry_only();
     PetscPrintf(PETSC_COMM_WORLD, "refinement level: %d\n",
                 current_refinement_step);
-    equation_mgr->update();
+    equation_mgr->Update();
   } while (refinement());
   MPI_Barrier(MPI_COMM_WORLD);
 

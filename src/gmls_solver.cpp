@@ -211,7 +211,7 @@ gmls_solver::gmls_solver(int argc, char **argv) {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  geo_mgr = make_shared<particle_geometry>();
+  geo_mgr = make_shared<ParticleGeometry>();
   rb_mgr = make_shared<rigid_body_manager>();
 
   geo_mgr->init(dim, STANDARD_PROBLEM, refinement_method, spacing,
@@ -222,7 +222,7 @@ gmls_solver::gmls_solver(int argc, char **argv) {
 
   // equation type selection and initialization
   if (equation_type == "Stokes") {
-    equation_mgr = make_shared<stokes_equation>();
+    equation_mgr = make_shared<StokesEquation>();
   }
 
   if (equation_type == "Poisson") {
@@ -234,11 +234,11 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   if (equation_type == "Diffusion") {
   }
 
-  equation_mgr->init(geo_mgr, rb_mgr, polynomial_order, dim, refinement_field,
-                     epsilon_multiplier, eta, compress_memory);
+  equation_mgr->Init(geo_mgr, rb_mgr, polynomial_order, dim, refinement_field,
+                     epsilon_multiplier, eta);
 
   if (use_viewer == 1)
-    equation_mgr->set_viewer();
+    equation_mgr->SetViewer();
 
   // [summary of problem setup]
 

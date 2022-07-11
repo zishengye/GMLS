@@ -1,4 +1,4 @@
-#include "stokes_multilevel.hpp"
+#include "StokesMultilevelPreconditioning.hpp"
 #include "gmls_solver.hpp"
 #include "stokes_composite_preconditioner.hpp"
 
@@ -8,7 +8,7 @@
 using namespace std;
 using namespace Compadre;
 
-void stokes_multilevel::build_interpolation_restriction(
+void StokesMultilevelPreconditioning::build_interpolation_restriction(
     const int _num_rigid_body, const int _dimension, const int _poly_order) {
   petsc_sparse_matrix &I = *(getI(current_refinement_level - 1));
   petsc_sparse_matrix &R = *(getR(current_refinement_level - 1));
@@ -474,7 +474,7 @@ void stokes_multilevel::build_interpolation_restriction(
             (source_particle_type[neighbor_index] == 0) ? false : true;
         if (is_boundary == is_neighbor_boundary)
           index.push_back(neighbor_index);
-        vec3 dX = source_coord[neighbor_index] - old_coord[i];
+        Vec3 dX = source_coord[neighbor_index] - old_coord[i];
         if (dX.mag() < 1e-15) {
           corresponding_index = neighbor_index;
         }
@@ -565,10 +565,10 @@ void stokes_multilevel::build_interpolation_restriction(
   }
 }
 
-void stokes_multilevel::initial_guess_from_previous_adaptive_step(
-    std::vector<double> &initial_guess, std::vector<vec3> &velocity,
-    std::vector<double> &pressure, std::vector<vec3> &rb_velocity,
-    std::vector<vec3> &rb_angular_velocity) {
+void StokesMultilevelPreconditioning::initial_guess_from_previous_adaptive_step(
+    std::vector<double> &initial_guess, std::vector<Vec3> &velocity,
+    std::vector<double> &pressure, std::vector<Vec3> &rb_velocity,
+    std::vector<Vec3> &rb_angular_velocity) {
   auto &local_idx = *(geo_mgr->get_last_work_particle_local_index());
 
   petsc_sparse_matrix &I = *(getI(current_refinement_level - 1));
@@ -644,8 +644,9 @@ void stokes_multilevel::initial_guess_from_previous_adaptive_step(
   VecDestroy(&x2);
 }
 
-int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
-                             std::vector<int> &idx_colloid) {
+int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
+                                           std::vector<double> &x,
+                                           std::vector<int> &idx_colloid) {
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nstart of linear system solving setup\n");
 
@@ -1042,8 +1043,9 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   HypreLUShellPCCreate(&shell_ctx);
 
   MPI_Barrier(MPI_COMM_WORLD);
-  PetscPrintf(PETSC_COMM_WORLD,
-              "start of stokes_multilevel preconditioner setup\n");
+  PetscPrintf(
+      PETSC_COMM_WORLD,
+      "start of StokesMultilevelPreconditioning preconditioner setup\n");
 
   PCShellSetApply(_pc, HypreLUShellPCApplyAdaptive);
   PCShellSetContext(_pc, shell_ctx);
@@ -1128,7 +1130,7 @@ int stokes_multilevel::solve(std::vector<double> &rhs, std::vector<double> &x,
   return 0;
 }
 
-void stokes_multilevel::clear() {
+void StokesMultilevelPreconditioning::clear() {
   MPI_Barrier(MPI_COMM_WORLD);
 
   base_level_initialized = false;

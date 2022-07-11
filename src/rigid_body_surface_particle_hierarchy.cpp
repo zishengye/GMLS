@@ -8,7 +8,7 @@ using namespace std;
 using namespace Compadre;
 
 void rigid_body_surface_particle_hierarchy::custom_shape_normal(
-    int rigid_body_index, const vec3 &pos, vec3 &norm) {
+    int rigid_body_index, const Vec3 &pos, Vec3 &norm) {
   auto &rigid_body_size = rb_mgr->get_rigid_body_size(rigid_body_index);
   double r1 = rigid_body_size[0];
   double r2 = rigid_body_size[1];
@@ -23,20 +23,20 @@ void rigid_body_surface_particle_hierarchy::custom_shape_normal(
   double phi = atan2(pos[1], pos[0]);
 
   if (theta < theta1) {
-    norm = vec3(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta));
+    norm = Vec3(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta));
   } else if (theta < theta2) {
-    vec3 new_center =
-        vec3((r1 - r2) * cos(phi) * sin(theta1),
+    Vec3 new_center =
+        Vec3((r1 - r2) * cos(phi) * sin(theta1),
              (r1 - r2) * sin(phi) * sin(theta1), (r1 - r2) * cos(theta1));
-    vec3 new_pos = pos - new_center;
+    Vec3 new_pos = pos - new_center;
     double new_r = new_pos.mag();
     double new_theta = acos(new_pos[2] / new_r);
     double new_phi = atan2(new_pos[1], new_pos[0]);
 
-    norm = vec3(cos(new_phi) * sin(new_theta), sin(new_phi) * sin(new_theta),
+    norm = Vec3(cos(new_phi) * sin(new_theta), sin(new_phi) * sin(new_theta),
                 cos(new_theta));
   } else {
-    norm = vec3(0.0, 0.0, -1.0);
+    norm = Vec3(0.0, 0.0, -1.0);
   }
 }
 
@@ -93,23 +93,23 @@ void rigid_body_surface_particle_hierarchy::extend_hierarchy(
 
 void rigid_body_surface_particle_hierarchy::add_circle(const double radius,
                                                        const double h) {
-  hierarchy_coord.push_back(vector<vec3>());
-  hierarchy_normal.push_back(vector<vec3>());
-  hierarchy_spacing.push_back(vector<vec3>());
-  hierarchy_element.push_back(vector<triple<int>>());
+  hierarchy_coord.push_back(vector<Vec3>());
+  hierarchy_normal.push_back(vector<Vec3>());
+  hierarchy_spacing.push_back(vector<Vec3>());
+  hierarchy_element.push_back(vector<Triple<int>>());
 
-  vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
-  vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
-  vector<vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
+  vector<Vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
+  vector<Vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
+  vector<Vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
 
   int M_theta = round(2.0 * M_PI * radius / h);
   double d_theta = 2.0 * M_PI * radius / M_theta;
 
-  vec3 p_spacing = vec3(d_theta, 0, 0);
+  Vec3 p_spacing = Vec3(d_theta, 0, 0);
 
   for (int i = 0; i < M_theta; ++i) {
     double theta = 2.0 * M_PI / M_theta * (i + 0.5);
-    vec3 norm = vec3(cos(theta), sin(theta), 0.0);
+    Vec3 norm = Vec3(cos(theta), sin(theta), 0.0);
 
     coord.push_back(norm * radius);
     normal.push_back(norm);
@@ -119,15 +119,15 @@ void rigid_body_surface_particle_hierarchy::add_circle(const double radius,
 
 void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,
                                                        const double h) {
-  hierarchy_coord.push_back(vector<vec3>());
-  hierarchy_normal.push_back(vector<vec3>());
-  hierarchy_spacing.push_back(vector<vec3>());
-  hierarchy_element.push_back(vector<triple<int>>());
+  hierarchy_coord.push_back(vector<Vec3>());
+  hierarchy_normal.push_back(vector<Vec3>());
+  hierarchy_spacing.push_back(vector<Vec3>());
+  hierarchy_element.push_back(vector<Triple<int>>());
 
-  vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
-  vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
-  vector<vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
-  vector<triple<int>> &element =
+  vector<Vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
+  vector<Vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
+  vector<Vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
+  vector<Triple<int>> &element =
       hierarchy_element[hierarchy_element.size() - 1];
 
   ifstream input("shape/sphere.txt", ios::in);
@@ -141,7 +141,7 @@ void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,
   hierarchy_adaptive_level.push_back(adaptive_level);
 
   while (!input.eof()) {
-    vec3 xyz;
+    Vec3 xyz;
     for (int i = 0; i < 3; i++) {
       input >> xyz[i];
     }
@@ -149,7 +149,7 @@ void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,
     coord.push_back(xyz);
     double mag = 1.0 / xyz.mag();
     normal.push_back(xyz * mag);
-    spacing.push_back(vec3(1.0, 0.0, 0.0));
+    spacing.push_back(Vec3(1.0, 0.0, 0.0));
   }
 
   input.close();
@@ -163,7 +163,7 @@ void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,
   }
 
   while (!input.eof()) {
-    triple<int> idx;
+    Triple<int> idx;
     for (int i = 0; i < 3; i++) {
       input >> idx[i];
       idx[i]--;
@@ -177,14 +177,14 @@ void rigid_body_surface_particle_hierarchy::add_sphere(const double radius,
 
 void rigid_body_surface_particle_hierarchy::add_rounded_square(
     const double half_side_length, const double h) {
-  hierarchy_coord.push_back(vector<vec3>());
-  hierarchy_normal.push_back(vector<vec3>());
-  hierarchy_spacing.push_back(vector<vec3>());
-  hierarchy_element.push_back(vector<triple<int>>());
+  hierarchy_coord.push_back(vector<Vec3>());
+  hierarchy_normal.push_back(vector<Vec3>());
+  hierarchy_spacing.push_back(vector<Vec3>());
+  hierarchy_element.push_back(vector<Triple<int>>());
 
-  vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
-  vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
-  vector<vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
+  vector<Vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
+  vector<Vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
+  vector<Vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
 
   const double rounded_ratio = 0.2;
 
@@ -202,36 +202,36 @@ void rigid_body_surface_particle_hierarchy::add_rounded_square(
   xPos = start_point;
   yPos = half_side_length;
   while (xPos < end_point) {
-    coord.push_back(vec3(xPos, yPos, 0.0));
-    normal.push_back(vec3(0.0, 1.0, 0.0));
-    spacing.push_back(vec3(dist, 0.0, 0.0));
+    coord.push_back(Vec3(xPos, yPos, 0.0));
+    normal.push_back(Vec3(0.0, 1.0, 0.0));
+    spacing.push_back(Vec3(dist, 0.0, 0.0));
     xPos += dist;
   }
 
   xPos = start_point;
   yPos = -half_side_length;
   while (xPos < end_point) {
-    coord.push_back(vec3(xPos, yPos, 0.0));
-    normal.push_back(vec3(0.0, -1.0, 0.0));
-    spacing.push_back(vec3(dist, 0.0, 0.0));
+    coord.push_back(Vec3(xPos, yPos, 0.0));
+    normal.push_back(Vec3(0.0, -1.0, 0.0));
+    spacing.push_back(Vec3(dist, 0.0, 0.0));
     xPos += dist;
   }
 
   xPos = half_side_length;
   yPos = start_point;
   while (yPos < end_point) {
-    coord.push_back(vec3(xPos, yPos, 0.0));
-    normal.push_back(vec3(1.0, 0.0, 0.0));
-    spacing.push_back(vec3(dist, 0.0, 0.0));
+    coord.push_back(Vec3(xPos, yPos, 0.0));
+    normal.push_back(Vec3(1.0, 0.0, 0.0));
+    spacing.push_back(Vec3(dist, 0.0, 0.0));
     yPos += dist;
   }
 
   xPos = -half_side_length;
   yPos = start_point;
   while (yPos < end_point) {
-    coord.push_back(vec3(xPos, yPos, 0.0));
-    normal.push_back(vec3(-1.0, 0.0, 0.0));
-    spacing.push_back(vec3(dist, 0.0, 0.0));
+    coord.push_back(Vec3(xPos, yPos, 0.0));
+    normal.push_back(Vec3(-1.0, 0.0, 0.0));
+    spacing.push_back(Vec3(dist, 0.0, 0.0));
     yPos += dist;
   }
 
@@ -239,40 +239,40 @@ void rigid_body_surface_particle_hierarchy::add_rounded_square(
   int M_theta = round(0.5 * M_PI * r / h);
   double d_theta = 0.5 * M_PI * r / M_theta;
 
-  vec3 p_spacing = vec3(d_theta, 0, 0);
+  Vec3 p_spacing = Vec3(d_theta, 0, 0);
 
   for (int i = 0; i < M_theta; ++i) {
     double theta = 0.5 * M_PI / M_theta * (i + 0.5);
-    vec3 norm = vec3(cos(theta), sin(theta), 0.0);
+    Vec3 norm = Vec3(cos(theta), sin(theta), 0.0);
 
-    coord.push_back(norm * r + vec3(end_point, end_point, 0.0));
+    coord.push_back(norm * r + Vec3(end_point, end_point, 0.0));
     normal.push_back(norm);
     spacing.push_back(p_spacing);
   }
 
   for (int i = 0; i < M_theta; ++i) {
     double theta = 0.5 * M_PI / M_theta * (i + 0.5) + M_PI * 0.5;
-    vec3 norm = vec3(cos(theta), sin(theta), 0.0);
+    Vec3 norm = Vec3(cos(theta), sin(theta), 0.0);
 
-    coord.push_back(norm * r + vec3(-end_point, end_point, 0.0));
+    coord.push_back(norm * r + Vec3(-end_point, end_point, 0.0));
     normal.push_back(norm);
     spacing.push_back(p_spacing);
   }
 
   for (int i = 0; i < M_theta; ++i) {
     double theta = 0.5 * M_PI / M_theta * (i + 0.5) + M_PI;
-    vec3 norm = vec3(cos(theta), sin(theta), 0.0);
+    Vec3 norm = Vec3(cos(theta), sin(theta), 0.0);
 
-    coord.push_back(norm * r + vec3(-end_point, -end_point, 0.0));
+    coord.push_back(norm * r + Vec3(-end_point, -end_point, 0.0));
     normal.push_back(norm);
     spacing.push_back(p_spacing);
   }
 
   for (int i = 0; i < M_theta; ++i) {
     double theta = 0.5 * M_PI / M_theta * (i + 0.5) + M_PI * 1.5;
-    vec3 norm = vec3(cos(theta), sin(theta), 0.0);
+    Vec3 norm = Vec3(cos(theta), sin(theta), 0.0);
 
-    coord.push_back(norm * r + vec3(end_point, -end_point, 0.0));
+    coord.push_back(norm * r + Vec3(end_point, -end_point, 0.0));
     normal.push_back(norm);
     spacing.push_back(p_spacing);
   }
@@ -282,15 +282,15 @@ void rigid_body_surface_particle_hierarchy::add_ellipsoid(const double x,
                                                           const double y,
                                                           const double z,
                                                           const double h) {
-  hierarchy_coord.push_back(vector<vec3>());
-  hierarchy_normal.push_back(vector<vec3>());
-  hierarchy_spacing.push_back(vector<vec3>());
-  hierarchy_element.push_back(vector<triple<int>>());
+  hierarchy_coord.push_back(vector<Vec3>());
+  hierarchy_normal.push_back(vector<Vec3>());
+  hierarchy_spacing.push_back(vector<Vec3>());
+  hierarchy_element.push_back(vector<Triple<int>>());
 
-  vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
-  vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
-  vector<vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
-  vector<triple<int>> &element =
+  vector<Vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
+  vector<Vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
+  vector<Vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
+  vector<Triple<int>> &element =
       hierarchy_element[hierarchy_element.size() - 1];
 
   ifstream input("shape/ellipsoid.txt", ios::in);
@@ -304,17 +304,17 @@ void rigid_body_surface_particle_hierarchy::add_ellipsoid(const double x,
   hierarchy_adaptive_level.push_back(adaptive_level);
 
   while (!input.eof()) {
-    vec3 xyz;
+    Vec3 xyz;
     for (int i = 0; i < 3; i++) {
       input >> xyz[i];
     }
 
     coord.push_back(xyz);
-    vec3 norm =
-        vec3(xyz[0] / pow(x, 2.0), xyz[1] / pow(y, 2.0), xyz[2] / pow(z, 2.0));
+    Vec3 norm =
+        Vec3(xyz[0] / pow(x, 2.0), xyz[1] / pow(y, 2.0), xyz[2] / pow(z, 2.0));
     double mag = 1.0 / norm.mag();
     normal.push_back(norm * mag);
-    spacing.push_back(vec3(1.0, 0.0, 0.0));
+    spacing.push_back(Vec3(1.0, 0.0, 0.0));
   }
 
   input.close();
@@ -328,7 +328,7 @@ void rigid_body_surface_particle_hierarchy::add_ellipsoid(const double x,
   }
 
   while (!input.eof()) {
-    triple<int> idx;
+    Triple<int> idx;
     for (int i = 0; i < 3; i++) {
       input >> idx[i];
       idx[i]--;
@@ -342,15 +342,15 @@ void rigid_body_surface_particle_hierarchy::add_ellipsoid(const double x,
 
 void rigid_body_surface_particle_hierarchy::add_customized_shape(
     const double size, const double h) {
-  hierarchy_coord.push_back(vector<vec3>());
-  hierarchy_normal.push_back(vector<vec3>());
-  hierarchy_spacing.push_back(vector<vec3>());
-  hierarchy_element.push_back(vector<triple<int>>());
+  hierarchy_coord.push_back(vector<Vec3>());
+  hierarchy_normal.push_back(vector<Vec3>());
+  hierarchy_spacing.push_back(vector<Vec3>());
+  hierarchy_element.push_back(vector<Triple<int>>());
 
-  vector<vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
-  vector<vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
-  vector<vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
-  vector<triple<int>> &element =
+  vector<Vec3> &coord = hierarchy_coord[hierarchy_coord.size() - 1];
+  vector<Vec3> &normal = hierarchy_normal[hierarchy_normal.size() - 1];
+  vector<Vec3> &spacing = hierarchy_spacing[hierarchy_spacing.size() - 1];
+  vector<Triple<int>> &element =
       hierarchy_element[hierarchy_element.size() - 1];
 
   ifstream input("shape/microcolony.txt", ios::in);
@@ -364,17 +364,17 @@ void rigid_body_surface_particle_hierarchy::add_customized_shape(
   hierarchy_adaptive_level.push_back(adaptive_level);
 
   while (!input.eof()) {
-    vec3 xyz;
+    Vec3 xyz;
     for (int i = 0; i < 3; i++) {
       input >> xyz[i];
     }
 
-    vec3 norm;
+    Vec3 norm;
     custom_shape_normal(0, xyz, norm);
 
     coord.push_back(xyz);
     normal.push_back(norm);
-    spacing.push_back(vec3(1.0, 0.0, 0.0));
+    spacing.push_back(Vec3(1.0, 0.0, 0.0));
   }
 
   input.close();
@@ -388,7 +388,7 @@ void rigid_body_surface_particle_hierarchy::add_customized_shape(
   }
 
   while (!input.eof()) {
-    triple<int> idx;
+    Triple<int> idx;
     for (int i = 0; i < 3; i++) {
       input >> idx[i];
       idx[i]--;
@@ -554,21 +554,21 @@ void rigid_body_surface_particle_hierarchy::find_refined_particle(
   }
 }
 
-vec3 rigid_body_surface_particle_hierarchy::get_coordinate(int rigid_body_index,
+Vec3 rigid_body_surface_particle_hierarchy::get_coordinate(int rigid_body_index,
                                                            int refinement_level,
                                                            int particle_index) {
   return hierarchy_coord[find_rigid_body(rigid_body_index, refinement_level)]
                         [particle_index];
 }
 
-vec3 rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
+Vec3 rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
                                                        int refinement_level,
                                                        int particle_index) {
   return hierarchy_normal[find_rigid_body(rigid_body_index, refinement_level)]
                          [particle_index];
 }
 
-vec3 rigid_body_surface_particle_hierarchy::get_spacing(int rigid_body_index,
+Vec3 rigid_body_surface_particle_hierarchy::get_spacing(int rigid_body_index,
                                                         int refinement_level,
                                                         int particle_index) {
   return hierarchy_spacing[find_rigid_body(rigid_body_index, refinement_level)]
@@ -576,26 +576,26 @@ vec3 rigid_body_surface_particle_hierarchy::get_spacing(int rigid_body_index,
 }
 
 void rigid_body_surface_particle_hierarchy::get_coarse_level_coordinate(
-    const int rigid_body_index, shared_ptr<vector<vec3>> &coord_ptr) {
-  coord_ptr = make_shared<vector<vec3>>(
+    const int rigid_body_index, shared_ptr<vector<Vec3>> &coord_ptr) {
+  coord_ptr = make_shared<vector<Vec3>>(
       hierarchy_coord[find_rigid_body(rigid_body_index, 0)]);
 }
 
 void rigid_body_surface_particle_hierarchy::get_coarse_level_normal(
-    const int rigid_body_index, shared_ptr<vector<vec3>> &normal_ptr) {
-  normal_ptr = make_shared<vector<vec3>>(
+    const int rigid_body_index, shared_ptr<vector<Vec3>> &normal_ptr) {
+  normal_ptr = make_shared<vector<Vec3>>(
       hierarchy_normal[find_rigid_body(rigid_body_index, 0)]);
 }
 
 void rigid_body_surface_particle_hierarchy::get_coarse_level_spacing(
-    const int rigid_body_index, shared_ptr<vector<vec3>> &spacing_ptr) {
-  spacing_ptr = make_shared<vector<vec3>>(
+    const int rigid_body_index, shared_ptr<vector<Vec3>> &spacing_ptr) {
+  spacing_ptr = make_shared<vector<Vec3>>(
       hierarchy_spacing[find_rigid_body(rigid_body_index, 0)]);
 }
 
 void rigid_body_surface_particle_hierarchy::get_coarse_level_element(
-    const int rigid_body_index, shared_ptr<vector<triple<int>>> &element_ptr) {
-  element_ptr = make_shared<vector<triple<int>>>(
+    const int rigid_body_index, shared_ptr<vector<Triple<int>>> &element_ptr) {
+  element_ptr = make_shared<vector<Triple<int>>>(
       hierarchy_element[find_rigid_body(rigid_body_index, 0)]);
 }
 
@@ -606,7 +606,7 @@ void rigid_body_surface_particle_hierarchy::write_log() {
 }
 
 void rigid_body_surface_particle_hierarchy::move_to_boundary(
-    int rigid_body_index, vec3 &pos) {
+    int rigid_body_index, Vec3 &pos) {
   switch (rigid_body_type_list[rb_idx[rigid_body_index]]) {
   case 1: {
     double mag = pos.mag();
@@ -667,7 +667,7 @@ void rigid_body_surface_particle_hierarchy::move_to_boundary(
 }
 
 void rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
-                                                       vec3 pos, vec3 &norm) {
+                                                       Vec3 pos, Vec3 &norm) {
 
   switch (rigid_body_type_list[rb_idx[rigid_body_index]]) {
   case 1: {
@@ -682,7 +682,7 @@ void rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
     double z = rigid_body_size_list[rb_idx[rigid_body_index]][2];
 
     norm =
-        vec3(pos[0] / pow(x, 2.0), pos[1] / pow(y, 2.0), pos[2] / pow(z, 2.0));
+        Vec3(pos[0] / pow(x, 2.0), pos[1] / pow(y, 2.0), pos[2] / pow(z, 2.0));
     double mag = 1.0 / norm.mag();
     norm *= mag;
   } break;
@@ -701,20 +701,20 @@ void rigid_body_surface_particle_hierarchy::get_normal(int rigid_body_index,
     double phi = atan2(pos[1], pos[0]);
 
     if (theta < theta1) {
-      norm = vec3(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta));
+      norm = Vec3(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta));
     } else if (theta < theta2) {
-      vec3 new_center =
-          vec3((r1 - r2) * cos(phi) * sin(theta1),
+      Vec3 new_center =
+          Vec3((r1 - r2) * cos(phi) * sin(theta1),
                (r1 - r2) * sin(phi) * sin(theta1), (r1 - r2) * cos(theta1));
-      vec3 new_pos = pos - new_center;
+      Vec3 new_pos = pos - new_center;
       double new_r = new_pos.mag();
       double new_theta = acos(new_pos[2] / new_r);
       double new_phi = atan2(new_pos[1], new_pos[0]);
 
-      norm = vec3(cos(new_phi) * sin(new_theta), sin(new_phi) * sin(new_theta),
+      norm = Vec3(cos(new_phi) * sin(new_theta), sin(new_phi) * sin(new_theta),
                   cos(new_theta));
     } else {
-      norm = vec3(0.0, 0.0, -1.0);
+      norm = Vec3(0.0, 0.0, -1.0);
     }
   } break;
   }

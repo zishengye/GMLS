@@ -4,10 +4,11 @@
 #include <memory>
 #include <vector>
 
-#include "particle_geometry.hpp"
-#include "petsc_wrapper.hpp"
+#include "ParticleGeometry.hpp"
+#include "PetscWrapper.hpp"
+#include "StokesMatrix.hpp"
 
-class stokes_multilevel {
+class StokesMultilevelPreconditioning {
 public:
   typedef std::shared_ptr<petsc_sparse_matrix> matrix_type;
   typedef std::shared_ptr<petsc_vector> vector_type;
@@ -20,8 +21,8 @@ private:
   std::vector<matrix_type> I_list;  // interpolation matrix list
   std::vector<matrix_type> R_list;  // restriction matrix list
   std::vector<matrix_type> ff_list; // field sub-matrix list
-  std::vector<matrix_type> nn_list; // nearfield sub-matrix list
-  std::vector<matrix_type> nw_list; // nearfield-whole sub-matrix list
+  std::vector<matrix_type> nn_list; // near field sub-matrix list
+  std::vector<matrix_type> nw_list; // near field-whole sub-matrix list
   std::vector<matrix_type> pp_list; // pressure sub-matrix list
   std::vector<matrix_type> pw_list; // pressure-whole sub-matrix list
   std::vector<is_type> isg_field_list;
@@ -74,15 +75,15 @@ private:
 
   int current_refinement_level;
 
-  std::shared_ptr<particle_geometry> geo_mgr;
+  std::shared_ptr<ParticleGeometry> geo_mgr;
 
 public:
-  stokes_multilevel()
+  StokesMultilevelPreconditioning()
       : base_level_initialized(false), current_refinement_level(-1) {}
 
-  ~stokes_multilevel() { clear(); }
+  ~StokesMultilevelPreconditioning() { clear(); }
 
-  void init(int _dimension, std::shared_ptr<particle_geometry> _geo_mgr) {
+  void init(int _dimension, std::shared_ptr<ParticleGeometry> _geo_mgr) {
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
@@ -162,9 +163,9 @@ public:
   void clear();
 
   void initial_guess_from_previous_adaptive_step(
-      std::vector<double> &initial_guess, std::vector<vec3> &velocity,
-      std::vector<double> &pressure, std::vector<vec3> &rb_velocity,
-      std::vector<vec3> &rb_angular_velocity);
+      std::vector<double> &initial_guess, std::vector<Vec3> &velocity,
+      std::vector<double> &pressure, std::vector<Vec3> &rb_velocity,
+      std::vector<Vec3> &rb_angular_velocity);
   void build_interpolation_restriction(const int _num_rigid_body,
                                        const int _dim, const int _poly_order);
 

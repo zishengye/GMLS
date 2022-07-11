@@ -1,8 +1,11 @@
+#ifndef _KdTree_Hpp_
+#define _KdTree_Hpp_
+
 #include <memory>
 #include <vector>
 
+#include "Vec3.hpp"
 #include "nanoflann.hpp"
-#include "vec3.hpp"
 
 class KDTree {
 public:
@@ -21,13 +24,13 @@ protected:
   std::shared_ptr<tree_type_2d> _tree_2d;
   std::shared_ptr<tree_type_3d> _tree_3d;
 
-  std::shared_ptr<std::vector<vec3>> _point_cloud;
+  std::shared_ptr<std::vector<Vec3>> _point_cloud;
 
   int _dim;
   int _max_leaf;
 
 public:
-  KDTree(std::shared_ptr<std::vector<vec3>> point_cloud, const int dimension,
+  KDTree(std::shared_ptr<std::vector<Vec3>> point_cloud, const int dimension,
          const int max_leaf = 5)
       : _point_cloud(point_cloud), _dim(dimension), _max_leaf(max_leaf) {}
 
@@ -44,7 +47,7 @@ public:
 
   inline double kdtree_distance(const double *queryPt, const int idx,
                                 long long sz) const {
-    vec3 X = (*_point_cloud)[idx];
+    Vec3 X = (*_point_cloud)[idx];
     double distance = 0;
     for (int i = 0; i < _dim; ++i) {
       distance += (X[i] - queryPt[i]) * (X[i] - queryPt[i]);
@@ -84,3 +87,5 @@ public:
     }
   }
 };
+
+#endif

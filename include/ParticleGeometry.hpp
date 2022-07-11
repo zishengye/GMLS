@@ -1,5 +1,5 @@
-#ifndef _PARTICLE_GEOMETRY_HPP_
-#define _PARTICLE_GEOMETRY_HPP_
+#ifndef _ParticleGeometry_Hpp_
+#define _ParticleGeometry_Hpp_
 
 #define UNIFORM_REFINE 1
 #define ADAPTIVE_REFINE 2
@@ -10,16 +10,16 @@
 #include <memory>
 #include <vector>
 
+#include "KdTree.hpp"
+#include "Vec3.hpp"
 #include "geometry.hpp"
-#include "kd_tree.hpp"
 #include "rigid_body_manager.hpp"
 #include "rigid_body_surface_particle_hierarchy.hpp"
 #include "trilinos_wrapper.hpp"
-#include "vec3.hpp"
 
-class particle_geometry {
+class ParticleGeometry {
 public:
-  typedef std::shared_ptr<std::vector<vec3>> vec_type;
+  typedef std::shared_ptr<std::vector<Vec3>> vec_type;
   typedef std::shared_ptr<std::vector<long long>> idx_type;
   typedef std::shared_ptr<std::vector<int>> int_type;
   typedef std::shared_ptr<std::vector<double>> real_type;
@@ -105,18 +105,18 @@ private:
   int_type local_managing_gap_particle_particle_type;
   int_type local_managing_gap_particle_adaptive_level;
 
-  std::vector<vec3> surface_particle_coord;
+  std::vector<Vec3> surface_particle_coord;
   std::vector<double> surface_particle_spacing;
   std::vector<int> surface_particle_adaptive_level;
   std::vector<int> surface_particle_split_tag;
 
-  vec3 bounding_box[2];
-  vec3 bounding_box_size;
-  triple<int> bounding_box_count;
+  Vec3 bounding_box[2];
+  Vec3 bounding_box_size;
+  Triple<int> bounding_box_count;
 
-  vec3 domain_bounding_box[2];
-  vec3 domain[2];
-  triple<int> domain_count;
+  Vec3 domain_bounding_box[2];
+  Vec3 domain[2];
+  Triple<int> domain_count;
 
   int domain_type;
   std::vector<double> auxiliary_size;
@@ -155,7 +155,7 @@ private:
   std::vector<int> reserve_llcl_map;
 
   // surface element
-  std::vector<std::vector<triple<int>>> surface_element;
+  std::vector<std::vector<Triple<int>>> surface_element;
   std::vector<std::vector<int>> surface_element_adaptive_level;
 
   // mpi
@@ -164,14 +164,14 @@ private:
   int min_count, max_count, current_count, stride;
 
 public:
-  particle_geometry()
+  ParticleGeometry()
       : dim(3), refinement_type(ADAPTIVE_REFINE),
         problem_type(STANDARD_PROBLEM) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
   }
 
-  ~particle_geometry() {}
+  ~ParticleGeometry() {}
 
   void init(const int _dim, const int _problem_type = STANDARD_PROBLEM,
             const int _refinement_type = ADAPTIVE_REFINE, double _spacing = 0.1,
@@ -196,11 +196,14 @@ public:
                      std::vector<int> &target_vec);
   void ghost_forward(std::vector<double> &source_vec,
                      std::vector<double> &target_vec);
-  void ghost_forward(std::vector<vec3> &source_vec,
-                     std::vector<vec3> &target_vec);
+  void ghost_forward(std::vector<Vec3> &source_vec,
+                     std::vector<Vec3> &target_vec);
   void ghost_forward(std::vector<std::vector<double>> &source_chunk,
                      std::vector<std::vector<double>> &target_chunk,
                      const size_t unit_length);
+
+  void ApplyGhost(const Kokkos::View<double *, Kokkos::HostSpace> &source,
+                  Kokkos::View<double *, Kokkos::HostSpace> &target);
 
   void ghost_clll_forward(int_type source, int_type target);
   void ghost_clll_forward(real_type source, real_type target);
@@ -340,14 +343,14 @@ public:
 
   double get_old_cutoff_distance() { return old_cutoff_distance; }
 
-  void find_closest_rigid_body(vec3 coord, int &rigid_body_index, double &dist);
+  void find_closest_rigid_body(Vec3 coord, int &rigid_body_index, double &dist);
 
-  double is_in_domain(vec3 point) {
+  double is_in_domain(Vec3 point) {
     double min_dis;
     if (dim == 2) {
       min_dis = std::min(bounding_box_size[0], bounding_box_size[1]);
-      vec3 dX1 = point - bounding_box[0];
-      vec3 dX2 = bounding_box[1] - point;
+      Vec3 dX1 = point - bounding_box[0];
+      Vec3 dX2 = bounding_box[1] - point;
 
       if (dX1[0] < min_dis)
         min_dis = dX1[0];
@@ -379,22 +382,22 @@ protected:
   void coarse_level_refine(std::vector<int> &split_tag,
                            std::vector<int> &origin_split_tag);
 
-  void insert_particle(const vec3 &_pos, int _particle_type,
-                       const double _spacing, const vec3 &_normal,
+  void insert_particle(const Vec3 &_pos, int _particle_type,
+                       const double _spacing, const Vec3 &_normal,
                        int _adaptive_level, double _volume,
                        bool _rigid_body_particle = false,
                        int _rigid_body_index = -1,
-                       vec3 _p_coord = vec3(0.0, 0.0, 0.0),
-                       vec3 _p_spacing = vec3(0.0, 0.0, 0.0));
+                       Vec3 _p_coord = Vec3(0.0, 0.0, 0.0),
+                       Vec3 _p_spacing = Vec3(0.0, 0.0, 0.0));
 
   void split_field_particle(std::vector<int> &split_tag);
   void split_field_surface_particle(std::vector<int> &split_tag);
   bool split_rigid_body_surface_particle(std::vector<int> &split_tag);
   void split_gap_particle(std::vector<int> &split_tag);
 
-  int is_gap_particle(const vec3 &_pos, double _spacing,
+  int is_gap_particle(const Vec3 &_pos, double _spacing,
                       int _attached_rigid_body_index);
-  int is_field_particle(const vec3 &_pos, double _spacing);
+  int is_field_particle(const Vec3 &_pos, double _spacing);
 
   void index_particle();
   void index_work_particle();

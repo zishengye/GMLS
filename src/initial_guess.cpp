@@ -5,7 +5,7 @@ using namespace std;
 // void gmls_solver::initial_guess_from_previous_adaptive_step(
 //     petsc_sparse_matrix &I, vector<double> &initial_guess) {
 //   // set initial guess for field values
-//   static vector<vec3> &velocity = __field.vector.GetHandle("fluid velocity");
+//   static vector<Vec3> &velocity = __field.vector.GetHandle("fluid velocity");
 //   static vector<double> &pressure = __field.scalar.GetHandle("fluid
 //   pressure");
 
@@ -21,9 +21,9 @@ using namespace std;
 //   int new_local_particle_num = coord.size();
 
 //   if (__myID == __MPISize - 1) {
-//     static vector<vec3> &rigid_body_velocity =
+//     static vector<Vec3> &rigid_body_velocity =
 //         __rigidBody.vector.GetHandle("velocity");
-//     static vector<vec3> &rigid_body_angular_velocity =
+//     static vector<Vec3> &rigid_body_angular_velocity =
 //         __rigidBody.vector.GetHandle("angular velocity");
 
 //     int local_rigid_body_offset = old_local_particle_num * field_dof;

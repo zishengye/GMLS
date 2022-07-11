@@ -11,8 +11,9 @@ PetscErrorCode HypreLUShellPCCreate(HypreLUShellPC **shell) {
   return 0;
 }
 
-PetscErrorCode HypreLUShellPCSetUp(PC pc, stokes_multilevel *multi, Vec x,
-                                   PetscInt local_particle_num,
+PetscErrorCode HypreLUShellPCSetUp(PC pc,
+                                   StokesMultilevelPreconditioning *multi,
+                                   Vec x, PetscInt local_particle_num,
                                    PetscInt field_dof, int num_rigid_body) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);

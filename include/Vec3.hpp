@@ -1,27 +1,27 @@
-#ifndef _VEC3_HPP_
-#define _VEC3_HPP_
+#ifndef _Vec_Hpp_
+#define _Vec_Hpp_
 
 #include <cmath>
 #include <fstream>
 #include <vector>
 
-template <class T> class triple {
+template <class T> class Triple {
   T data[3];
 
 public:
-  triple() {
+  Triple() {
     data[0] = 0;
     data[1] = 0;
     data[2] = 0;
   }
 
-  triple(T first, T second, T third) {
+  Triple(T first, T second, T third) {
     data[0] = first;
     data[1] = second;
     data[2] = third;
   }
 
-  triple(const triple<T> &t) {
+  Triple(const Triple<T> &t) {
     data[0] = t.data[0];
     data[1] = t.data[1];
     data[2] = t.data[2];
@@ -31,19 +31,19 @@ public:
 
   const T operator[](const int i) const { return data[i]; }
 
-  void operator+=(const triple<T> y) {
+  void operator+=(const Triple<T> y) {
     data[0] += y[0];
     data[1] += y[1];
     data[2] += y[2];
   }
 
-  void operator-=(const triple<T> y) {
+  void operator-=(const Triple<T> y) {
     data[0] -= y[0];
     data[1] -= y[1];
     data[2] -= y[2];
   }
 
-  void operator=(const triple<T> y) {
+  void operator=(const Triple<T> y) {
     data[0] = y[0];
     data[1] = y[1];
     data[2] = y[2];
@@ -55,43 +55,43 @@ public:
     data[2] *= a;
   }
 
-  bool operator>(triple<T> y) {
+  bool operator>(Triple<T> y) {
     return ((data[0] > y[0]) || (data[1] > y[1]) || (data[2] > y[2]));
   }
 
-  bool operator<(triple<T> y) {
+  bool operator<(Triple<T> y) {
     return ((data[0] < y[0]) || (data[1] < y[1]) || (data[2] < y[2]));
   }
 
-  const triple<T> operator-(triple<T> y) const {
-    return triple<T>(data[0] - y[0], data[1] - y[1], data[2] - y[2]);
+  const Triple<T> operator-(Triple<T> y) const {
+    return Triple<T>(data[0] - y[0], data[1] - y[1], data[2] - y[2]);
   }
 
-  triple<T> operator*(double a) {
-    return triple<T>(a * data[0], a * data[1], a * data[2]);
+  Triple<T> operator*(double a) {
+    return Triple<T>(a * data[0], a * data[1], a * data[2]);
   }
 
   const double mag() const {
     return sqrt(data[0] * data[0] + data[1] * data[1] + data[2] * data[2]);
   }
 
-  double cdot(triple<T> y) {
+  double cdot(Triple<T> y) {
     return y[0] * data[0] + y[1] * data[1] + y[2] * data[2];
   }
 };
 
-template <class T> triple<T> operator+(triple<T> xScalar, triple<T> y) {
-  return triple<T>(xScalar[0] + y[0], xScalar[1] + y[1], xScalar[2] + y[2]);
+template <class T> Triple<T> operator+(Triple<T> xScalar, Triple<T> y) {
+  return Triple<T>(xScalar[0] + y[0], xScalar[1] + y[1], xScalar[2] + y[2]);
 }
 
-template <class T> double maxmag(std::vector<triple<T>> maxof) {
-  double maxm = 0.0;
-  for (int i = 0; i < maxof.size(); i++) {
-    maxm = MAX(maxm, maxof[i].mag());
+template <class T> double maxMag(std::vector<Triple<T>> maxOf) {
+  double maxM = 0.0;
+  for (unsigned int i = 0; i < maxOf.size(); i++) {
+    maxM = MAX(maxM, maxOf[i].mag());
   }
-  return maxm;
+  return maxM;
 }
 
-typedef triple<double> vec3;
+typedef Triple<double> Vec3;
 
 #endif

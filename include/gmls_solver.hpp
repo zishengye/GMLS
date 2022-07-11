@@ -19,14 +19,14 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Timer.hpp>
 
+#include "ParticleGeometry.hpp"
+#include "StokesMultilevelPreconditioning.hpp"
+#include "Vec3.hpp"
 #include "info.hpp"
-#include "particle_geometry.hpp"
 #include "petsc_sparse_matrix.hpp"
 #include "search_command.hpp"
-#include "stokes_multilevel.hpp"
-#include "vec3.hpp"
 
-#include "stokes_equation.hpp"
+#include "StokesEquation.hpp"
 
 template <typename T>
 int SearchCommand(int argc, char **argv, const std::string &commandName,
@@ -85,7 +85,7 @@ private:
   std::string force_output_file_name;
   bool rigid_body_inclusion;
 
-  std::shared_ptr<stokes_equation> equation_mgr;
+  std::shared_ptr<StokesEquation> equation_mgr;
 
   // time integration scheme
   void foward_euler_integration();
@@ -94,8 +94,8 @@ private:
 
   double t, dt, dtMin, rtol, atol, err, norm_y;
 
-  std::vector<vec3> position0;
-  std::vector<vec3> orientation0;
+  std::vector<Vec3> position0;
+  std::vector<Vec3> orientation0;
   std::vector<quaternion> quaternion0;
 
   // operator
@@ -122,7 +122,7 @@ private:
   void write_geometry_ghost();
 
   // geometry manager
-  std::shared_ptr<particle_geometry> geo_mgr;
+  std::shared_ptr<ParticleGeometry> geo_mgr;
   std::shared_ptr<rigid_body_manager> rb_mgr;
 
   bool refinement();

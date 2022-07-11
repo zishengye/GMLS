@@ -4,7 +4,7 @@
 #include <cmath>
 #include <vector>
 
-#include "vec3.hpp"
+#include "Vec3.hpp"
 
 inline int get_size(const int degree, const int dimension) {
   if (dimension == 3)
@@ -16,7 +16,7 @@ inline int get_size(const int degree, const int dimension) {
 }
 
 inline double cal_div_free_grad(const int output_axes1, const int output_axes2,
-                                const int dimension, vec3 dX,
+                                const int dimension, Vec3 dX,
                                 const int poly_order, const double h,
                                 const std::vector<double> &coeff) {
   double grad = 0.0;
@@ -261,7 +261,7 @@ inline double cal_div_free_grad(const int output_axes1, const int output_axes2,
 }
 
 inline double calStaggeredScalarGrad(const int output_axes, const int dimension,
-                                     vec3 dX, const int poly_order,
+                                     Vec3 dX, const int poly_order,
                                      const double epsilon,
                                      const std::vector<double> &coeff) {
 

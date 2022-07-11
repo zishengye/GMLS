@@ -1,5 +1,5 @@
 #include "trilinos_zoltan2.hpp"
-#include "kd_tree.hpp"
+#include "KdTree.hpp"
 
 using namespace std;
 
@@ -9,7 +9,7 @@ struct bundle {
 };
 
 void trilinos_rcp_partitioner::partition(vector<long long> &index,
-                                         vector<vec3> &coord,
+                                         vector<Vec3> &coord,
                                          vector<int> &result) {
   // call zoltan2 to build the solution
   int local_particle_num = index.size();
@@ -77,7 +77,7 @@ void trilinos_rcp_partitioner::partition(vector<long long> &index,
         }
       }
 
-      shared_ptr<vector<vec3>> mass_center = make_shared<vector<vec3>>();
+      shared_ptr<vector<Vec3>> mass_center = make_shared<vector<Vec3>>();
       mass_center->resize(size);
 
       for (int i = 0; i < size; i++) {

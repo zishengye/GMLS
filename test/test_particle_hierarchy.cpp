@@ -44,9 +44,9 @@ int main(int argc, char *argv[]) {
 
   hierarchy.set_coarse_level_resolution(0.2);
 
-  shared_ptr<vector<vec3>> coord_ptr;
-  shared_ptr<vector<vec3>> normal_ptr;
-  shared_ptr<vector<vec3>> spacing_ptr;
+  shared_ptr<vector<Vec3>> coord_ptr;
+  shared_ptr<vector<Vec3>> normal_ptr;
+  shared_ptr<vector<Vec3>> spacing_ptr;
 
   hierarchy.get_coarse_level_coordinate(0, coord_ptr);
   hierarchy.get_coarse_level_normal(0, normal_ptr);

@@ -7,8 +7,8 @@ using namespace std;
 
 void gmls_solver::write_time_step_data() {
   static int write_step = 0;
-  vector<vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
-  vector<vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
+  vector<Vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
+  vector<Vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
   vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
   vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
   vector<int> &num_neighbor =
@@ -239,7 +239,7 @@ void gmls_solver::write_time_step_data() {
   }
 
   if (equation_type == "Stokes") {
-    vector<vec3> &velocity = equation_mgr->get_velocity();
+    vector<Vec3> &velocity = equation_mgr->get_velocity();
     vector<double> &pressure = equation_mgr->get_pressure();
     vector<double> &error = equation_mgr->get_error();
 
@@ -412,8 +412,8 @@ void gmls_solver::write_time_step_data() {
 
 void gmls_solver::write_refinement_data(vector<int> &split_tag,
                                         vector<double> &h_gradient) {
-  vector<vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
-  vector<vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
+  vector<Vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
+  vector<Vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
   vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
   vector<double> &volume = *(geo_mgr->get_current_work_particle_volume());
   vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
@@ -422,7 +422,7 @@ void gmls_solver::write_refinement_data(vector<int> &split_tag,
   vector<int> &num_neighbor =
       *(geo_mgr->get_current_work_particle_num_neighbor());
 
-  auto &epsilon = equation_mgr->get_epsilon();
+  auto &epsilon = equation_mgr->getEpsilon();
 
   int local_particle_num;
   int global_particle_num;
@@ -635,8 +635,8 @@ void gmls_solver::write_refinement_data(vector<int> &split_tag,
     file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
                   ".vtk",
               ios::app);
-    for (size_t i = 0; i < epsilon.size(); i++) {
-      file << epsilon[i] << endl;
+    for (size_t i = 0; i < epsilon.extent(0); i++) {
+      file << epsilon(i) << endl;
     }
     file.close();
   });
@@ -684,7 +684,7 @@ void gmls_solver::write_refinement_data(vector<int> &split_tag,
   // });
 
   if (equation_type == "Stokes") {
-    vector<vec3> &velocity = equation_mgr->get_velocity();
+    vector<Vec3> &velocity = equation_mgr->get_velocity();
     vector<double> &pressure = equation_mgr->get_pressure();
     vector<double> &error = equation_mgr->get_error();
 
@@ -874,12 +874,12 @@ void gmls_solver::write_refinement_data(vector<int> &split_tag,
 }
 
 void gmls_solver::write_refinement_data_geometry_only() {
-  vector<vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
-  vector<vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
+  vector<Vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
+  vector<Vec3> &normal = *(geo_mgr->get_current_work_particle_normal());
   vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
   vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
   vector<int> &local_idx = *(geo_mgr->get_current_work_particle_local_index());
-  vector<vec3> &p_spacing = *(geo_mgr->get_current_work_particle_p_spacing());
+  vector<Vec3> &p_spacing = *(geo_mgr->get_current_work_particle_p_spacing());
   vector<int> &adaptive_level =
       *(geo_mgr->get_current_work_particle_adaptive_level());
 
@@ -1076,7 +1076,7 @@ void gmls_solver::write_refinement_data_geometry_only() {
     file.close();
   });
 
-  vector<vec3> &gap_coord = *(geo_mgr->get_local_gap_particle_coord());
+  vector<Vec3> &gap_coord = *(geo_mgr->get_local_gap_particle_coord());
   vector<double> &gap_spacing = *(geo_mgr->get_local_gap_particle_spacing());
   vector<int> &gap_adaptive_level =
       *(geo_mgr->get_local_gap_particle_adaptive_level());
@@ -1187,11 +1187,11 @@ void gmls_solver::write_refinement_data_geometry_only() {
 }
 
 void gmls_solver::write_geometry_ghost() {
-  vector<vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
+  vector<Vec3> &coord = *(geo_mgr->get_current_work_particle_coord());
   vector<double> &spacing = *(geo_mgr->get_current_work_particle_spacing());
   vector<int> &particle_type = *(geo_mgr->get_current_work_particle_type());
 
-  vector<vec3> source_coord;
+  vector<Vec3> source_coord;
   vector<double> source_spacing;
   vector<int> source_particle_type;
 

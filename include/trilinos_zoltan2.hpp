@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <vector>
 
-#include "vec3.hpp"
+#include "Vec3.hpp"
 
 // from trilinos example
 // Trilinos/packages/zoltan2/example/geometric/rcb_C.cpp
@@ -59,7 +59,7 @@ public:
 
   void set_dimension(int _dim) { dim = _dim; }
 
-  void partition(std::vector<long long> &index, std::vector<vec3> &coord,
+  void partition(std::vector<long long> &index, std::vector<Vec3> &coord,
                  std::vector<int> &result);
 };
 

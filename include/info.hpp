@@ -10,7 +10,7 @@
 
 #include "Compadre_GMLS.hpp"
 
-#include "vec3.hpp"
+#include "Vec3.hpp"
 
 template <class T> class infoEntity {
 private:
@@ -44,13 +44,13 @@ public:
 typedef infoEntity<Compadre::GMLS *> gmlsInfo;
 
 struct GeneralInfo {
-  infoEntity<std::vector<vec3>> vector;
+  infoEntity<std::vector<Vec3>> vector;
   infoEntity<std::vector<double>> scalar;
   infoEntity<std::vector<int>> index;
 };
 
 struct QueueInfo {
-  infoEntity<std::list<vec3>> vector;
+  infoEntity<std::list<Vec3>> vector;
   infoEntity<std::list<double>> scalar;
   infoEntity<std::list<int>> index;
 };

@@ -1,5 +1,5 @@
 #include "rigid_body_manager.hpp"
-#include "petsc_wrapper.hpp"
+#include "PetscWrapper.hpp"
 
 #include <fstream>
 
@@ -13,8 +13,8 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
   }
 
   while (!input.eof()) {
-    vec3 xyz;
-    vec3 rxyz;
+    Vec3 xyz;
+    Vec3 rxyz;
     double size;
     int type;
     type = -1;
@@ -58,13 +58,13 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
       input >> rxyz[i];
     }
 
-    vec3 vf_switch;
-    vec3 rt_switch;
+    Vec3 vf_switch;
+    Vec3 rt_switch;
 
-    vec3 vxyz;
-    vec3 fxyz;
-    vec3 rvxyz;
-    vec3 txyz;
+    Vec3 vxyz;
+    Vec3 fxyz;
+    Vec3 rvxyz;
+    Vec3 txyz;
 
     for (int i = 0; i < dim; i++) {
       input >> vf_switch[i];
@@ -94,14 +94,14 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
     if (dim == 3)
       rigid_body_quaternion.push_back(quaternion(rxyz[0], rxyz[1], rxyz[2]));
     else
-      rigid_body_quaternion.push_back(quaternion(vec3(0.0, 0.0, 1.0), rxyz[0]));
+      rigid_body_quaternion.push_back(quaternion(Vec3(0.0, 0.0, 1.0), rxyz[0]));
 
     rigid_body_velocity_force_switch.push_back(vf_switch);
     rigid_body_angvelocity_torque_switch.push_back(rt_switch);
     rigid_body_velocity.push_back(vxyz);
     rigid_body_angular_velocity.push_back(rvxyz);
-    rigid_body_acceleration.push_back(vec3(0.0, 0.0, 0.0));
-    rigid_body_angular_acceleration.push_back(vec3(0.0, 0.0, 0.0));
+    rigid_body_acceleration.push_back(Vec3(0.0, 0.0, 0.0));
+    rigid_body_angular_acceleration.push_back(Vec3(0.0, 0.0, 0.0));
     rigid_body_force.push_back(fxyz);
     rigid_body_torque.push_back(txyz);
 
@@ -127,24 +127,24 @@ bool rigid_body_manager::rigid_body_collision_detection(double &min_dis) {
   for (int i = 0; i < rigid_body_position.size(); i++) {
     for (int j = i + 1; j < rigid_body_position.size(); j++) {
       if (rigid_body_type[i] == 1 && rigid_body_type[j] == 1) {
-        vec3 dist = rigid_body_position[i] - rigid_body_position[j];
+        Vec3 dist = rigid_body_position[i] - rigid_body_position[j];
         if (min_dis >
             dist.mag() - rigid_body_size[i][0] - rigid_body_size[j][0]) {
           min_dis = dist.mag() - rigid_body_size[i][0] - rigid_body_size[j][0];
         }
       }
       if (rigid_body_type[i] == 2 && rigid_body_type[j] == 2) {
-        vec3 dist = rigid_body_position[i] - rigid_body_position[j];
+        Vec3 dist = rigid_body_position[i] - rigid_body_position[j];
 
         double theta1 = rigid_body_orientation[i][0];
         double theta2 = rigid_body_orientation[j][0];
 
         if (dist.mag() - rigid_body_size[i][0] - rigid_body_size[j][0] < 0.0) {
           double half_length = rigid_body_size[i][0];
-          vec3 x11 = vec3(-half_length, -half_length, 0.0);
-          vec3 x12 = vec3(-half_length, half_length, 0.0);
-          vec3 x21 = vec3(half_length, -half_length, 0.0);
-          vec3 x22 = vec3(half_length, half_length, 0.0);
+          Vec3 x11 = Vec3(-half_length, -half_length, 0.0);
+          Vec3 x12 = Vec3(-half_length, half_length, 0.0);
+          Vec3 x21 = Vec3(half_length, -half_length, 0.0);
+          Vec3 x22 = Vec3(half_length, half_length, 0.0);
         }
       }
     }

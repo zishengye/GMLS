@@ -7,16 +7,16 @@
 #include <Compadre_PointCloudSearch.hpp>
 #include <petscksp.h>
 
+#include "Vec3.hpp"
 #include "geometry.hpp"
 #include "rigid_body_manager.hpp"
-#include "vec3.hpp"
 
 class rigid_body_surface_particle_hierarchy {
 private:
-  std::vector<std::vector<vec3>> hierarchy_coord;
-  std::vector<std::vector<vec3>> hierarchy_normal;
-  std::vector<std::vector<vec3>> hierarchy_spacing;
-  std::vector<std::vector<triple<int>>> hierarchy_element;
+  std::vector<std::vector<Vec3>> hierarchy_coord;
+  std::vector<std::vector<Vec3>> hierarchy_normal;
+  std::vector<std::vector<Vec3>> hierarchy_spacing;
+  std::vector<std::vector<Triple<int>>> hierarchy_element;
   std::vector<int> hierarchy_adaptive_level;
 
   // the refinement relation is seen as a CRS matrix
@@ -38,7 +38,7 @@ private:
   int dimension;
 
 protected:
-  void custom_shape_normal(int rigid_body_index, const vec3 &pos, vec3 &norm);
+  void custom_shape_normal(int rigid_body_index, const Vec3 &pos, Vec3 &norm);
   int find_rigid_body(const int rigid_body_index, const int refinement_level);
 
   void extend_hierarchy(const int compressed_rigid_body_index);
@@ -68,25 +68,25 @@ public:
                              int particle_index,
                              std::vector<int> &refined_particle_index);
 
-  vec3 get_coordinate(int rigid_body_index, int refinement_level,
+  Vec3 get_coordinate(int rigid_body_index, int refinement_level,
                       int particle_index);
 
-  vec3 get_normal(int rigid_body_index, int refinement_level,
+  Vec3 get_normal(int rigid_body_index, int refinement_level,
                   int particle_index);
 
-  vec3 get_spacing(int rigid_body_index, int refinement_level,
+  Vec3 get_spacing(int rigid_body_index, int refinement_level,
                    int particle_idnex);
 
   void
   get_coarse_level_coordinate(const int rigid_body_index,
-                              std::shared_ptr<std::vector<vec3>> &coord_ptr);
+                              std::shared_ptr<std::vector<Vec3>> &coord_ptr);
 
   void get_coarse_level_normal(const int rigid_body_index,
-                               std::shared_ptr<std::vector<vec3>> &normal_ptr);
+                               std::shared_ptr<std::vector<Vec3>> &normal_ptr);
 
   void
   get_coarse_level_spacing(const int rigid_body_index,
-                           std::shared_ptr<std::vector<vec3>> &spacing_ptr);
+                           std::shared_ptr<std::vector<Vec3>> &spacing_ptr);
 
   int get_coarse_level_adaptive_level(const int rigid_body_index) {
     return hierarchy_adaptive_level[find_rigid_body(rigid_body_index, 0)];
@@ -94,13 +94,13 @@ public:
 
   void get_coarse_level_element(
       const int rigid_body_index,
-      std::shared_ptr<std::vector<triple<int>>> &element_ptr);
+      std::shared_ptr<std::vector<Triple<int>>> &element_ptr);
 
   void write_log();
 
-  void move_to_boundary(int rigid_body_index, vec3 &pos);
+  void move_to_boundary(int rigid_body_index, Vec3 &pos);
 
-  void get_normal(int rigid_body_index, vec3 pos, vec3 &norm);
+  void get_normal(int rigid_body_index, Vec3 pos, Vec3 &norm);
 };
 
 #endif
