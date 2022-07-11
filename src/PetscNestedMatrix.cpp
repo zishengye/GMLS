@@ -13,6 +13,10 @@ PetscNestedMatrix::PetscNestedMatrix(const PetscInt nestedRowBlockSize,
   for (unsigned int i = 0; i < nestedMat_.size(); i++) {
     nestedMat_[i] = PETSC_NULL;
   }
+
+  for (unsigned int i = 0; i < nestedWrappedMat_.size(); i++) {
+    nestedWrappedMat_[i] = std::make_shared<PetscMatrix>();
+  }
 }
 
 PetscNestedMatrix::~PetscNestedMatrix() {

@@ -119,20 +119,18 @@ unsigned long PetscMatrix::GraphAssemble() {
   Kokkos::fence();
 
   if (blockSize_ == 1)
-    MatCreateMPIAIJMKL(MPI_COMM_WORLD, localRowSize_, localColSize_,
-                       PETSC_DECIDE, PETSC_DECIDE, 0, diagNonzero.data(), 0,
-                       offDiagNonzero.data(), &mat_);
+    MatCreateAIJ(MPI_COMM_WORLD, localRowSize_, localColSize_, PETSC_DECIDE,
+                 PETSC_DECIDE, 0, diagNonzero.data(), 0, offDiagNonzero.data(),
+                 &mat_);
   else
-    MatCreateBAIJMKL(MPI_COMM_WORLD, blockSize_, localRowSize_ * blockSize_,
-                     localColSize_ * blockSize_, PETSC_DECIDE, PETSC_DECIDE, 0,
-                     diagNonzero.data(), 0, offDiagNonzero.data(), &mat_);
+    MatCreateBAIJ(MPI_COMM_WORLD, blockSize_, localRowSize_ * blockSize_,
+                  localColSize_ * blockSize_, PETSC_DECIDE, PETSC_DECIDE, 0,
+                  diagNonzero.data(), 0, offDiagNonzero.data(), &mat_);
 
   MatSetUp(mat_);
 
   return diagNumNonzero + offDiagNumNonzero;
 }
-
-unsigned long GraphAssemble(const PetscInt blockSize) { return 0; }
 
 unsigned long PetscMatrix::Assemble() {
   MatAssemblyBegin(mat_, MAT_FINAL_ASSEMBLY);

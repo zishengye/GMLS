@@ -661,7 +661,7 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   vector<int> idx_pressure;
 
   PetscInt local_n1, local_n2;
-  Mat &shell_mat = getA(refinement_step)->get_shell_reference();
+  Mat &shell_mat = getA(refinement_step)->GetReference();
   MatGetOwnershipRange(shell_mat, &local_n1, &local_n2);
 
   int local_particle_num;

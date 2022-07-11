@@ -10,6 +10,7 @@
 
 class StokesMultilevelPreconditioning {
 public:
+  typedef std::shared_ptr<StokesMatrix> StokesMatrixType;
   typedef std::shared_ptr<petsc_sparse_matrix> matrix_type;
   typedef std::shared_ptr<petsc_vector> vector_type;
   typedef std::shared_ptr<petsc_is> is_type;
@@ -17,14 +18,14 @@ public:
   typedef std::shared_ptr<petsc_vecscatter> vecscatter_type;
 
 private:
-  std::vector<matrix_type> A_list;  // coefficient matrix list
-  std::vector<matrix_type> I_list;  // interpolation matrix list
-  std::vector<matrix_type> R_list;  // restriction matrix list
-  std::vector<matrix_type> ff_list; // field sub-matrix list
-  std::vector<matrix_type> nn_list; // near field sub-matrix list
-  std::vector<matrix_type> nw_list; // near field-whole sub-matrix list
-  std::vector<matrix_type> pp_list; // pressure sub-matrix list
-  std::vector<matrix_type> pw_list; // pressure-whole sub-matrix list
+  std::vector<StokesMatrixType> A_list; // coefficient matrix list
+  std::vector<matrix_type> I_list;      // interpolation matrix list
+  std::vector<matrix_type> R_list;      // restriction matrix list
+  std::vector<matrix_type> ff_list;     // field sub-matrix list
+  std::vector<matrix_type> nn_list;     // near field sub-matrix list
+  std::vector<matrix_type> nw_list;     // near field-whole sub-matrix list
+  std::vector<matrix_type> pp_list;     // pressure sub-matrix list
+  std::vector<matrix_type> pw_list;     // pressure-whole sub-matrix list
   std::vector<is_type> isg_field_list;
   std::vector<is_type> isg_colloid_list;
   std::vector<is_type> isg_pressure_list;
@@ -107,7 +108,7 @@ public:
 
   inline int get_num_rigid_body() { return num_rigid_body; }
 
-  matrix_type getA(int num_level) { return A_list[num_level]; }
+  StokesMatrixType getA(int num_level) { return A_list[num_level]; }
   matrix_type getI(int num_level) { return I_list[num_level]; }
   matrix_type getR(int num_level) { return R_list[num_level]; }
   ksp_type get_field_relaxation(int num_level) {
@@ -140,7 +141,7 @@ public:
       ksp_colloid_base = std::make_shared<petsc_ksp>();
     }
 
-    A_list.push_back(std::make_shared<petsc_sparse_matrix>());
+    A_list.push_back(std::make_shared<StokesMatrix>(dimension));
     if (base_level_initialized) {
       I_list.push_back(std::make_shared<petsc_sparse_matrix>());
       R_list.push_back(std::make_shared<petsc_sparse_matrix>());
