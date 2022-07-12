@@ -14,6 +14,12 @@ protected:
   unsigned int rigidBodyStartIndex_, rigidBodyEndIndex_;
   unsigned int translationDof_, rotationDof_;
 
+  IS isgNeighborBlock_, isgNeighbor_;
+  Mat neighborSchurMat_, neighborMat_, neighborWholeMat_;
+
+  std::vector<Mat> nestedNeighborMat_;
+  std::vector<Mat> nestedNeighborWholeMat_;
+
 public:
   StokesMatrix();
   StokesMatrix(const unsigned int dimension);
@@ -42,6 +48,12 @@ public:
                                const PetscInt value);
   void IncrementRigidBodyRigidBody(const PetscInt row, const PetscInt index,
                                    const PetscInt value);
+
+  Mat &GetNeighborNeighborMatrix() { return neighborMat_; }
+
+  Mat &GetNeighborWholeMatrix() { return neighborWholeMat_; }
+
+  Mat &GetNeighborSchurMatrix() { return neighborSchurMat_; }
 };
 
 #endif

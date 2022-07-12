@@ -13,11 +13,11 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
   petsc_sparse_matrix &I = *(getI(current_refinement_level - 1));
   petsc_sparse_matrix &R = *(getR(current_refinement_level - 1));
 
-  int field_dof = dimension + 1;
-  int velocity_dof = dimension;
+  int fieldDof = dimension + 1;
+  int velocityDof = dimension;
   int pressure_dof = 1;
 
-  int rigid_body_dof = (dimension == 3) ? 6 : 3;
+  int rigidBodyDof = (dimension == 3) ? 6 : 3;
 
   int translation_dof = dimension;
   int rotation_dof = (dimension == 3) ? 3 : 1;
@@ -43,8 +43,8 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
     MPI_Allreduce(&new_local_particle_num, &new_global_particle_num, 1, MPI_INT,
                   MPI_SUM, MPI_COMM_WORLD);
 
-    int new_local_dof = field_dof * new_local_particle_num;
-    int new_global_dof = field_dof * new_global_particle_num;
+    int new_local_dof = fieldDof * new_local_particle_num;
+    int new_global_dof = fieldDof * new_global_particle_num;
 
     int old_local_particle_num = old_coord.size();
     int old_global_particle_num;
@@ -53,8 +53,8 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
                   MPI_SUM, MPI_COMM_WORLD);
 
     int old_local_dof, old_global_dof;
-    old_local_dof = old_local_particle_num * field_dof;
-    old_global_dof = old_global_particle_num * field_dof;
+    old_local_dof = old_local_particle_num * fieldDof;
+    old_global_dof = old_global_particle_num * fieldDof;
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
         old_source_coords_device("old source coordinates",
@@ -241,12 +241,12 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
 
     // old to new interpolation matrix
     if (mpi_rank == mpi_size - 1)
-      I.resize(new_local_dof + rigid_body_dof * num_rigid_body,
-               old_local_dof + rigid_body_dof * num_rigid_body,
-               old_global_dof + rigid_body_dof * num_rigid_body);
+      I.resize(new_local_dof + rigidBodyDof * num_rigid_body,
+               old_local_dof + rigidBodyDof * num_rigid_body,
+               old_global_dof + rigidBodyDof * num_rigid_body);
     else
       I.resize(new_local_dof, old_local_dof,
-               old_global_dof + rigid_body_dof * num_rigid_body);
+               old_global_dof + rigidBodyDof * num_rigid_body);
     // compute matrix graph
     vector<PetscInt> index;
     for (int i = 0; i < new_local_particle_num; i++) {
@@ -254,37 +254,36 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
       if (new_added[i] < 0) {
         // velocity interpolation
         index.resize(old_to_new_neighbor_lists_host(new_actual_index[i], 0) *
-                     velocity_dof);
+                     velocityDof);
         for (int j = 0;
              j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
-          for (int k = 0; k < velocity_dof; k++) {
-            index[j * velocity_dof + k] =
-                field_dof * old_source_index[old_to_new_neighbor_lists_host(
-                                new_actual_index[i], j + 1)] +
+          for (int k = 0; k < velocityDof; k++) {
+            index[j * velocityDof + k] =
+                fieldDof * old_source_index[old_to_new_neighbor_lists_host(
+                               new_actual_index[i], j + 1)] +
                 k;
           }
         }
 
-        for (int k = 0; k < velocity_dof; k++) {
-          I.set_col_index(field_dof * current_particle_local_index + k, index);
+        for (int k = 0; k < velocityDof; k++) {
+          I.set_col_index(fieldDof * current_particle_local_index + k, index);
         }
 
         // pressure interpolation
         index.resize(old_to_new_neighbor_lists_host(new_actual_index[i], 0));
         for (int j = 0;
              j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
-          index[j] =
-              field_dof * old_source_index[old_to_new_neighbor_lists_host(
-                              new_actual_index[i], j + 1)] +
-              velocity_dof;
+          index[j] = fieldDof * old_source_index[old_to_new_neighbor_lists_host(
+                                    new_actual_index[i], j + 1)] +
+                     velocityDof;
         }
-        I.set_col_index(field_dof * current_particle_local_index + velocity_dof,
+        I.set_col_index(fieldDof * current_particle_local_index + velocityDof,
                         index);
       } else {
         index.resize(1);
-        for (int j = 0; j < field_dof; j++) {
-          index[0] = field_dof * new_added[i] + j;
-          I.set_col_index(field_dof * current_particle_local_index + j, index);
+        for (int j = 0; j < fieldDof; j++) {
+          index[0] = fieldDof * new_added[i] + j;
+          I.set_col_index(fieldDof * current_particle_local_index + j, index);
         }
       }
     }
@@ -294,10 +293,9 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
       index.resize(1);
       for (int i = 0; i < num_rigid_body; i++) {
         int local_rigid_body_index_offset =
-            field_dof * new_local_particle_num + i * rigid_body_dof;
-        for (int j = 0; j < rigid_body_dof; j++) {
-          index[0] =
-              field_dof * old_global_particle_num + i * rigid_body_dof + j;
+            fieldDof * new_local_particle_num + i * rigidBodyDof;
+        for (int j = 0; j < rigidBodyDof; j++) {
+          index[0] = fieldDof * old_global_particle_num + i * rigidBodyDof + j;
           I.set_col_index(local_rigid_body_index_offset + j, index);
         }
       }
@@ -329,8 +327,8 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
               int neighbor_index =
                   old_source_index[old_to_new_neighbor_lists_host(
                       new_actual_index[i], j + 1)];
-              I.increment(field_dof * current_particle_local_index + axes1,
-                          field_dof * neighbor_index + axes2,
+              I.increment(fieldDof * current_particle_local_index + axes1,
+                          fieldDof * neighbor_index + axes2,
                           old_to_new_velocity_alphas(alpha_index + j));
             }
         }
@@ -341,14 +339,14 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
               new_actual_index[i], pressure_old_to_new_alphas_index);
           int neighbor_index = old_source_index[old_to_new_neighbor_lists_host(
               new_actual_index[i], j + 1)];
-          I.increment(field_dof * current_particle_local_index + velocity_dof,
-                      field_dof * neighbor_index + velocity_dof,
+          I.increment(fieldDof * current_particle_local_index + velocityDof,
+                      fieldDof * neighbor_index + velocityDof,
                       old_to_new_pressure_alphas(alpha_index + j));
         }
       } else {
-        for (int j = 0; j < field_dof; j++) {
-          I.increment(field_dof * current_particle_local_index + j,
-                      field_dof * new_added[i] + j, 1.0);
+        for (int j = 0; j < fieldDof; j++) {
+          I.increment(fieldDof * current_particle_local_index + j,
+                      fieldDof * new_added[i] + j, 1.0);
         }
       }
     }
@@ -357,11 +355,10 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
     if (mpi_rank == mpi_size - 1) {
       for (int i = 0; i < num_rigid_body; i++) {
         int local_rigid_body_index_offset =
-            field_dof * new_local_particle_num + i * rigid_body_dof;
-        for (int j = 0; j < rigid_body_dof; j++) {
+            fieldDof * new_local_particle_num + i * rigidBodyDof;
+        for (int j = 0; j < rigidBodyDof; j++) {
           I.increment(local_rigid_body_index_offset + j,
-                      field_dof * old_global_particle_num + i * rigid_body_dof +
-                          j,
+                      fieldDof * old_global_particle_num + i * rigidBodyDof + j,
                       1.0);
         }
       }
@@ -393,8 +390,8 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
     MPI_Allreduce(&old_local_particle_num, &old_global_particle_num, 1, MPI_INT,
                   MPI_SUM, MPI_COMM_WORLD);
 
-    int old_local_dof = field_dof * old_local_particle_num;
-    int old_global_dof = field_dof * old_global_particle_num;
+    int old_local_dof = fieldDof * old_local_particle_num;
+    int old_global_dof = fieldDof * old_global_particle_num;
 
     int new_local_particle_num = coord.size();
 
@@ -403,17 +400,17 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
     MPI_Allreduce(&new_local_particle_num, &new_global_particle_num, 1, MPI_INT,
                   MPI_SUM, MPI_COMM_WORLD);
 
-    int new_local_dof = field_dof * new_local_particle_num;
-    int new_global_dof = field_dof * new_global_particle_num;
+    int new_local_dof = fieldDof * new_local_particle_num;
+    int new_global_dof = fieldDof * new_global_particle_num;
 
     // new to old restriction matrix
     if (mpi_rank == mpi_size - 1)
-      R.resize(old_local_dof + num_rigid_body * rigid_body_dof,
-               new_local_dof + num_rigid_body * rigid_body_dof,
-               new_global_dof + num_rigid_body * rigid_body_dof);
+      R.resize(old_local_dof + num_rigid_body * rigidBodyDof,
+               new_local_dof + num_rigid_body * rigidBodyDof,
+               new_global_dof + num_rigid_body * rigidBodyDof);
     else
       R.resize(old_local_dof, new_local_dof,
-               new_global_dof + num_rigid_body * rigid_body_dof);
+               new_global_dof + num_rigid_body * rigidBodyDof);
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace> source_coords_device(
         "old source coordinates", source_coord.size(), 3);
@@ -503,13 +500,13 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
         min_neighbor = neighbor_lists_host(i, 0);
       if (max_neighbor < neighbor_lists_host(i, 0))
         max_neighbor = neighbor_lists_host(i, 0);
-      for (int j = 0; j < field_dof; j++) {
+      for (int j = 0; j < fieldDof; j++) {
         for (int k = 0; k < neighbor_lists_host(i, 0); k++) {
           int neighbor_index = neighbor_lists_host(i, k + 1);
-          index[k] = source_index[neighbor_index] * field_dof + j;
+          index[k] = source_index[neighbor_index] * fieldDof + j;
         }
 
-        R.set_col_index(field_dof * current_particle_local_index + j, index);
+        R.set_col_index(fieldDof * current_particle_local_index + j, index);
       }
     }
 
@@ -525,10 +522,9 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
       index.resize(1);
       for (int i = 0; i < num_rigid_body; i++) {
         int local_rigid_body_index_offset =
-            field_dof * old_local_particle_num + i * rigid_body_dof;
-        for (int j = 0; j < rigid_body_dof; j++) {
-          index[0] =
-              field_dof * new_global_particle_num + i * rigid_body_dof + j;
+            fieldDof * old_local_particle_num + i * rigidBodyDof;
+        for (int j = 0; j < rigidBodyDof; j++) {
+          index[0] = fieldDof * new_global_particle_num + i * rigidBodyDof + j;
           R.set_col_index(local_rigid_body_index_offset + j, index);
         }
       }
@@ -536,11 +532,11 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
 
     for (int i = 0; i < old_local_particle_num; i++) {
       int current_particle_local_index = old_local_index[i];
-      for (int j = 0; j < field_dof; j++) {
+      for (int j = 0; j < fieldDof; j++) {
         for (int k = 0; k < neighbor_lists_host(i, 0); k++) {
           int neighbor_index = neighbor_lists_host(i, k + 1);
-          R.increment(field_dof * current_particle_local_index + j,
-                      source_index[neighbor_index] * field_dof + j,
+          R.increment(fieldDof * current_particle_local_index + j,
+                      source_index[neighbor_index] * fieldDof + j,
                       1.0 / neighbor_lists_host(i, 0));
         }
       }
@@ -551,12 +547,11 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
       index.resize(1);
       for (int i = 0; i < num_rigid_body; i++) {
         int local_rigid_body_index_offset =
-            field_dof * old_local_particle_num + i * rigid_body_dof;
-        for (int j = 0; j < rigid_body_dof; j++) {
+            fieldDof * old_local_particle_num + i * rigidBodyDof;
+        for (int j = 0; j < rigidBodyDof; j++) {
           R.increment(
               local_rigid_body_index_offset + j,
-              (field_dof * new_global_particle_num + i * rigid_body_dof + j),
-              1.0);
+              (fieldDof * new_global_particle_num + i * rigidBodyDof + j), 1.0);
         }
       }
     }
@@ -578,35 +573,34 @@ void StokesMultilevelPreconditioning::initial_guess_from_previous_adaptive_step(
 
   const int old_local_particle_num = pressure.size();
 
-  const int field_dof = dimension + 1;
-  const int velocity_dof = dimension;
-  const int pressure_dof = 1;
-  const int rigid_body_dof = (dimension == 3) ? 6 : 3;
+  const int fieldDof = dimension + 1;
+  const int velocityDof = dimension;
+  const int rigidBodyDof = (dimension == 3) ? 6 : 3;
 
   PetscReal *a;
   VecGetArray(x2, &a);
 
   for (int i = 0; i < old_local_particle_num; i++) {
     int current_particle_local_index = local_idx[i];
-    for (int j = 0; j < velocity_dof; j++) {
-      a[current_particle_local_index * field_dof + j] = velocity[i][j];
+    for (int j = 0; j < velocityDof; j++) {
+      a[current_particle_local_index * fieldDof + j] = velocity[i][j];
     }
-    a[current_particle_local_index * field_dof + velocity_dof] = pressure[i];
+    a[current_particle_local_index * fieldDof + velocityDof] = pressure[i];
   }
 
   if (mpi_rank == mpi_size - 1) {
-    const int old_local_rigid_body_offset = old_local_particle_num * field_dof;
+    const int old_local_rigid_body_offset = old_local_particle_num * fieldDof;
 
     const int rb_velocity_dof = dimension;
     const int rb_angular_velocity_dof = (dimension == 3) ? 3 : 1;
 
     for (int i = 0; i < num_rigid_body; i++) {
       for (int j = 0; j < rb_velocity_dof; j++) {
-        a[old_local_rigid_body_offset + i * rigid_body_dof + j] =
+        a[old_local_rigid_body_offset + i * rigidBodyDof + j] =
             rb_velocity[i][j];
       }
       for (int j = 0; j < rb_angular_velocity_dof; j++) {
-        a[old_local_rigid_body_offset + i * rigid_body_dof + rb_velocity_dof +
+        a[old_local_rigid_body_offset + i * rigidBodyDof + rb_velocity_dof +
           j] = rb_angular_velocity[i][j];
       }
     }
@@ -630,14 +624,14 @@ void StokesMultilevelPreconditioning::initial_guess_from_previous_adaptive_step(
 
   double pressure_sum = 0.0;
   for (int i = 0; i < local_particle_num; i++) {
-    pressure_sum += initial_guess[i * field_dof + velocity_dof];
+    pressure_sum += initial_guess[i * fieldDof + velocityDof];
   }
 
   MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
   double average_pressure = pressure_sum / global_particle_num;
   for (int i = 0; i < local_particle_num; i++) {
-    initial_guess[i * field_dof + velocity_dof] -= average_pressure;
+    initial_guess[i * fieldDof + velocityDof] -= average_pressure;
   }
 
   VecDestroy(&x1);
@@ -650,49 +644,48 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nstart of linear system solving setup\n");
 
-  int refinement_step = A_list.size() - 1;
+  int refinementStep = A_list.size() - 1;
 
-  int field_dof = dimension + 1;
-  int velocity_dof = dimension;
-  int pressure_dof = 1;
-  int rigid_body_dof = (dimension == 3) ? 6 : 3;
+  int fieldDof = dimension + 1;
+  int velocityDof = dimension;
+  int rigidBodyDof = (dimension == 3) ? 6 : 3;
 
   vector<int> idx_field;
   vector<int> idx_pressure;
 
   PetscInt local_n1, local_n2;
-  Mat &shell_mat = getA(refinement_step)->GetReference();
+  Mat &shell_mat = getA(refinementStep)->GetReference();
   MatGetOwnershipRange(shell_mat, &local_n1, &local_n2);
 
   int local_particle_num;
   if (mpi_rank != mpi_size - 1) {
-    local_particle_num = (local_n2 - local_n1) / field_dof;
-    idx_field.resize(field_dof * local_particle_num);
+    local_particle_num = (local_n2 - local_n1) / fieldDof;
+    idx_field.resize(fieldDof * local_particle_num);
     idx_pressure.resize(local_particle_num);
 
     for (int i = 0; i < local_particle_num; i++) {
       for (int j = 0; j < dimension; j++) {
-        idx_field[field_dof * i + j] = local_n1 + field_dof * i + j;
+        idx_field[fieldDof * i + j] = local_n1 + fieldDof * i + j;
       }
-      idx_field[field_dof * i + velocity_dof] =
-          local_n1 + field_dof * i + velocity_dof;
+      idx_field[fieldDof * i + velocityDof] =
+          local_n1 + fieldDof * i + velocityDof;
 
-      idx_pressure[i] = local_n1 + field_dof * i + velocity_dof;
+      idx_pressure[i] = local_n1 + fieldDof * i + velocityDof;
     }
   } else {
     local_particle_num =
-        (local_n2 - local_n1 - num_rigid_body * rigid_body_dof) / field_dof;
-    idx_field.resize(field_dof * local_particle_num);
+        (local_n2 - local_n1 - num_rigid_body * rigidBodyDof) / fieldDof;
+    idx_field.resize(fieldDof * local_particle_num);
     idx_pressure.resize(local_particle_num);
 
     for (int i = 0; i < local_particle_num; i++) {
       for (int j = 0; j < dimension; j++) {
-        idx_field[field_dof * i + j] = local_n1 + field_dof * i + j;
+        idx_field[fieldDof * i + j] = local_n1 + fieldDof * i + j;
       }
-      idx_field[field_dof * i + velocity_dof] =
-          local_n1 + field_dof * i + velocity_dof;
+      idx_field[fieldDof * i + velocityDof] =
+          local_n1 + fieldDof * i + velocityDof;
 
-      idx_pressure[i] = local_n1 + field_dof * i + velocity_dof;
+      idx_pressure[i] = local_n1 + fieldDof * i + velocityDof;
     }
   }
 
@@ -703,9 +696,9 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   local_particle_num_list.push_back(local_particle_num);
   global_particle_num_list.push_back(global_particle_num);
 
-  auto isg_field = isg_field_list[refinement_step];
-  auto isg_colloid = isg_colloid_list[refinement_step];
-  auto isg_pressure = isg_pressure_list[refinement_step];
+  auto isg_field = isg_field_list[refinementStep];
+  auto isg_colloid = isg_colloid_list[refinementStep];
+  auto isg_pressure = isg_pressure_list[refinementStep];
 
   isg_field->create_local(idx_field);
   isg_colloid->create(idx_colloid);
@@ -730,7 +723,7 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   }
 
   for (int i = 0; i < idx_colloid.size(); i++) {
-    if (idx_colloid[i] < global_particle_num * field_dof) {
+    if (idx_colloid[i] < global_particle_num * fieldDof) {
       idx_colloid_sub_field.push_back(i + idx_colloid_offset[mpi_rank]);
       idx_colloid_field.push_back(idx_colloid[i]);
     } else {
@@ -744,27 +737,27 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   _rhs.create(rhs);
   _x.create(x);
 
-  Mat &ff_shell = ff_list[refinement_step]->get_shell_reference();
-  Mat &ff = ff_list[refinement_step]->get_reference();
-  Mat &nn = nn_list[refinement_step]->get_reference();
-  Mat &nn_shell = nn_list[refinement_step]->get_shell_reference();
-  Mat &nw = nw_list[refinement_step]->get_reference();
-  // Mat &pp = pp_list[refinement_step]->get_reference();
+  Mat &ff_shell = ff_list[refinementStep]->get_shell_reference();
+  Mat &ff = ff_list[refinementStep]->get_reference();
+  Mat &nn = nn_list[refinementStep]->get_reference();
+  Mat &nn_shell = nn_list[refinementStep]->get_shell_reference();
+  Mat &nw = nw_list[refinementStep]->get_reference();
+  // Mat &pp = pp_list[refinementStep]->get_reference();
 
   PetscLogDouble mem;
 
   // MatCreateSubMatrix(mat, isg_colloid->get_reference(),
   //                    isg_colloid->get_reference(), MAT_INITIAL_MATRIX,
-  //                    nn_list[refinement_step]->get_pointer());
+  //                    nn_list[refinementStep]->get_pointer());
   // MatCreateSubMatrix(mat, isg_colloid->get_reference(), NULL,
   //                    MAT_INITIAL_MATRIX,
-  //                    nw_list[refinement_step]->get_pointer());
+  //                    nw_list[refinementStep]->get_pointer());
   // MatCreateSubMatrix(ff, isg_pressure->get_reference(),
   //                    isg_pressure->get_reference(), MAT_INITIAL_MATRIX,
-  //                    pp_list[refinement_step]->get_pointer());
+  //                    pp_list[refinementStep]->get_pointer());
   // MatCreateSubMatrix(mat, isg_pressure->get_reference(), NULL,
   //                    MAT_INITIAL_MATRIX,
-  //                    pw_list[refinement_step]->get_pointer());
+  //                    pw_list[refinementStep]->get_pointer());
 
   // setup current level vectors
   x_list.push_back(make_shared<petsc_vector>());
@@ -787,51 +780,49 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   colloid_relaxation_list.push_back(make_shared<petsc_ksp>());
   // pressure_relaxation_list.push_back(make_shared<petsc_ksp>());
 
-  MatCreateVecs(shell_mat, NULL, &(x_list[refinement_step]->get_reference()));
-  MatCreateVecs(shell_mat, NULL, &(b_list[refinement_step]->get_reference()));
-  MatCreateVecs(shell_mat, NULL, &(r_list[refinement_step]->get_reference()));
-  MatCreateVecs(shell_mat, NULL, &(t_list[refinement_step]->get_reference()));
+  MatCreateVecs(shell_mat, NULL, &(x_list[refinementStep]->get_reference()));
+  MatCreateVecs(shell_mat, NULL, &(b_list[refinementStep]->get_reference()));
+  MatCreateVecs(shell_mat, NULL, &(r_list[refinementStep]->get_reference()));
+  MatCreateVecs(shell_mat, NULL, &(t_list[refinementStep]->get_reference()));
 
-  MatCreateVecs(ff, NULL, &(x_field_list[refinement_step]->get_reference()));
-  MatCreateVecs(ff, NULL, &(y_field_list[refinement_step]->get_reference()));
-  MatCreateVecs(ff, NULL, &(b_field_list[refinement_step]->get_reference()));
-  MatCreateVecs(ff, NULL, &(r_field_list[refinement_step]->get_reference()));
+  MatCreateVecs(ff, NULL, &(x_field_list[refinementStep]->get_reference()));
+  MatCreateVecs(ff, NULL, &(y_field_list[refinementStep]->get_reference()));
+  MatCreateVecs(ff, NULL, &(b_field_list[refinementStep]->get_reference()));
+  MatCreateVecs(ff, NULL, &(r_field_list[refinementStep]->get_reference()));
 
   if (num_rigid_body != 0) {
-    MatCreateVecs(nn, NULL,
-                  &(x_colloid_list[refinement_step]->get_reference()));
-    MatCreateVecs(nn, NULL,
-                  &(b_colloid_list[refinement_step]->get_reference()));
+    MatCreateVecs(nn, NULL, &(x_colloid_list[refinementStep]->get_reference()));
+    MatCreateVecs(nn, NULL, &(b_colloid_list[refinementStep]->get_reference()));
   }
 
   // MatCreateVecs(pp, NULL,
-  // &x_pressure_list[refinement_step]->get_reference());
+  // &x_pressure_list[refinementStep]->get_reference());
   // MatCreateVecs(pp, NULL,
-  // &y_pressure_list[refinement_step]->get_reference());
+  // &y_pressure_list[refinementStep]->get_reference());
 
   // field vector scatter
   field_scatter_list.push_back(make_shared<petsc_vecscatter>());
-  VecScatterCreate(x_list[refinement_step]->get_reference(),
+  VecScatterCreate(x_list[refinementStep]->get_reference(),
                    isg_field->get_reference(),
-                   x_field_list[refinement_step]->get_reference(), NULL,
-                   field_scatter_list[refinement_step]->get_pointer());
+                   x_field_list[refinementStep]->get_reference(), NULL,
+                   field_scatter_list[refinementStep]->get_pointer());
 
   if (num_rigid_body != 0) {
     colloid_scatter_list.push_back(make_shared<petsc_vecscatter>());
-    VecScatterCreate(x_list[refinement_step]->get_reference(),
+    VecScatterCreate(x_list[refinementStep]->get_reference(),
                      isg_colloid->get_reference(),
-                     x_colloid_list[refinement_step]->get_reference(), NULL,
-                     colloid_scatter_list[refinement_step]->get_pointer());
+                     x_colloid_list[refinementStep]->get_reference(), NULL,
+                     colloid_scatter_list[refinementStep]->get_pointer());
   }
 
   // pressure_scatter_list.push_back(make_shared<petsc_vecscatter>());
-  // VecScatterCreate(x_list[refinement_step]->get_reference(),
+  // VecScatterCreate(x_list[refinementStep]->get_reference(),
   //                  isg_pressure->get_reference(),
-  //                  x_pressure_list[refinement_step]->get_reference(), NULL,
-  //                  pressure_scatter_list[refinement_step]->get_pointer());
+  //                  x_pressure_list[refinementStep]->get_reference(), NULL,
+  //                  pressure_scatter_list[refinementStep]->get_pointer());
 
   // neighbor vector scatter, only needed on base level
-  if (refinement_step == 0 && num_rigid_body != 0) {
+  if (refinementStep == 0 && num_rigid_body != 0) {
     MatCreateVecs(nn, NULL, x_colloid->get_pointer());
     MatCreateVecs(nn, NULL, y_colloid->get_pointer());
   }
@@ -873,7 +864,7 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   }
 
   // setup preconditioner for base level
-  if (refinement_step == 0) {
+  if (refinementStep == 0) {
     PC pc_field_base;
 
     KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->get_reference());
@@ -946,45 +937,44 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   } else {
     // setup relaxation on field for current level
     KSPCreate(MPI_COMM_WORLD,
-              field_relaxation_list[refinement_step]->get_pointer());
+              field_relaxation_list[refinementStep]->get_pointer());
 
-    KSPSetType(field_relaxation_list[refinement_step]->get_reference(),
+    KSPSetType(field_relaxation_list[refinementStep]->get_reference(),
                KSPRICHARDSON);
-    // KSPGMRESSetRestart(field_relaxation_list[refinement_step]->get_reference(),
+    // KSPGMRESSetRestart(field_relaxation_list[refinementStep]->get_reference(),
     //                    100);
-    KSPSetOperators(field_relaxation_list[refinement_step]->get_reference(),
+    KSPSetOperators(field_relaxation_list[refinementStep]->get_reference(),
                     ff_shell, ff);
-    KSPSetTolerances(field_relaxation_list[refinement_step]->get_reference(),
+    KSPSetTolerances(field_relaxation_list[refinementStep]->get_reference(),
                      5e-1, 1e-50, 1e10, 1);
 
     PC field_relaxation_pc;
-    KSPGetPC(field_relaxation_list[refinement_step]->get_reference(),
+    KSPGetPC(field_relaxation_list[refinementStep]->get_reference(),
              &field_relaxation_pc);
     PCSetType(field_relaxation_pc, PCSOR);
     PCSetFromOptions(field_relaxation_pc);
     PCSetUp(field_relaxation_pc);
 
-    KSPSetUp(field_relaxation_list[refinement_step]->get_reference());
+    KSPSetUp(field_relaxation_list[refinementStep]->get_reference());
 
     if (num_rigid_body != 0) {
       // setup relaxation on neighbor for current level
       KSPCreate(MPI_COMM_WORLD,
-                colloid_relaxation_list[refinement_step]->get_pointer());
+                colloid_relaxation_list[refinementStep]->get_pointer());
 
-      KSPSetType(colloid_relaxation_list[refinement_step]->get_reference(),
+      KSPSetType(colloid_relaxation_list[refinementStep]->get_reference(),
                  KSPGMRES);
       KSPGMRESSetRestart(
-          colloid_relaxation_list[refinement_step]->get_reference(), 100);
-      KSPSetTolerances(
-          colloid_relaxation_list[refinement_step]->get_reference(), 1e-2,
-          1e-50, 1e10, 500);
-      KSPSetOperators(colloid_relaxation_list[refinement_step]->get_reference(),
+          colloid_relaxation_list[refinementStep]->get_reference(), 100);
+      KSPSetTolerances(colloid_relaxation_list[refinementStep]->get_reference(),
+                       1e-2, 1e-50, 1e10, 500);
+      KSPSetOperators(colloid_relaxation_list[refinementStep]->get_reference(),
                       nn_shell, nn);
 
-      KSPSetUp(colloid_relaxation_list[refinement_step]->get_reference());
+      KSPSetUp(colloid_relaxation_list[refinementStep]->get_reference());
 
       PC neighbor_relaxation_pc;
-      KSPGetPC(colloid_relaxation_list[refinement_step]->get_reference(),
+      KSPGetPC(colloid_relaxation_list[refinementStep]->get_reference(),
                &neighbor_relaxation_pc);
       PCSetType(neighbor_relaxation_pc, PCFIELDSPLIT);
 
@@ -1023,7 +1013,7 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
 
   PCSetType(_pc, PCSHELL);
 
-  if (refinement_step == 0) {
+  if (refinementStep == 0) {
     KSPGMRESGetRestart(_ksp, &restart);
   } else {
     KSPGMRESSetRestart(_ksp, restart);
@@ -1033,7 +1023,7 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   // PetscInt maxits;
   // KSPGetTolerances(_ksp, &rtol, &atol, &dtol, &maxits);
   // KSPSetTolerances(_ksp,
-  //                  rtol * (double)(global_particle_num_list[refinement_step])
+  //                  rtol * (double)(global_particle_num_list[refinementStep])
   //                  /
   //                      (double)(global_particle_num_list[0]),
   //                  atol, dtol, maxits);
@@ -1052,7 +1042,7 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   PCShellSetDestroy(_pc, HypreLUShellPCDestroy);
 
   HypreLUShellPCSetUp(_pc, this, _x.get_reference(), local_particle_num,
-                      field_dof, num_rigid_body);
+                      fieldDof, num_rigid_body);
   // }
 
   PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
@@ -1095,14 +1085,14 @@ int StokesMultilevelPreconditioning::solve(std::vector<double> &rhs,
   }
   PetscPrintf(PETSC_COMM_WORLD, "ksp solving finished\n");
 
-  if (residual_norm / rhs_norm < initial_residual || refinement_step == 0) {
+  if (residual_norm / rhs_norm < initial_residual || refinementStep == 0) {
     _x.copy(x);
   }
 
   PetscPrintf(PETSC_COMM_WORLD, "nn matmult duration: %fs\n",
-              nn_list[refinement_step]->__ctx.matmult_duration);
+              nn_list[refinementStep]->__ctx.matmult_duration);
   PetscPrintf(PETSC_COMM_WORLD, "ff matmult duration: %fs\n",
-              ff_list[refinement_step]->__ctx.matmult_duration);
+              ff_list[refinementStep]->__ctx.matmult_duration);
 
   VecDestroy(&residual);
   KSPDestroy(&_ksp);
