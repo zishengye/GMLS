@@ -43,6 +43,8 @@ public:
 
   void SetColIndex(const PetscInt row, const std::vector<PetscInt> &index);
   void Increment(const PetscInt row, const PetscInt col, const PetscReal value);
+  void IncrementGlobalIndex(const PetscInt row, const PetscInt col,
+                            const PetscReal value);
   void Increment(const PetscInt row, const std::vector<PetscInt> &index,
                  const std::vector<PetscReal> &value);
 

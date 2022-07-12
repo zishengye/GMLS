@@ -30,6 +30,18 @@ public:
                 const std::vector<int> &particleType,
                 const std::vector<int> &attachedRigidBody,
                 const Kokkos::View<int **, Kokkos::HostSpace> &neighborLists);
+
+  unsigned long Assemble();
+
+  void IncrementFieldField(const PetscInt row,
+                           const std::vector<PetscInt> &index,
+                           const std::vector<PetscReal> &value);
+  void IncrementFieldRigidBody(const PetscInt row, const PetscInt index,
+                               const PetscInt value);
+  void IncrementRigidBodyField(const PetscInt row, const PetscInt index,
+                               const PetscInt value);
+  void IncrementRigidBodyRigidBody(const PetscInt row, const PetscInt index,
+                                   const PetscInt value);
 };
 
 #endif

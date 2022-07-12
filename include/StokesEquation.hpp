@@ -30,7 +30,7 @@ private:
   void CalculateError();
   void CollectForce();
 
-  Kokkos::View<int **, Kokkos::HostSpace> neighbor_lists_;
+  Kokkos::View<int **, Kokkos::HostSpace> neighborLists_;
   Kokkos::View<double *, Kokkos::HostSpace> epsilon_;
   Kokkos::View<double *, Kokkos::HostSpace> bi_;
 

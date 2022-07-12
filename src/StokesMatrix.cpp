@@ -4,14 +4,14 @@
 
 void StokesMatrix::InitInternal() {
   numLocalRigidBody_ =
-      numRigidBody_ / mpiSize_ + (numRigidBody_ % mpiSize_ < mpiRank_) ? 1 : 0;
+      numRigidBody_ / mpiSize_ + (numRigidBody_ % mpiSize_ > mpiRank_) ? 1 : 0;
 
   rigidBodyStartIndex_ = 0;
   for (int i = 0; i < mpiRank_; i++) {
     rigidBodyStartIndex_ +=
-        numRigidBody_ / mpiSize_ + (numRigidBody_ % mpiSize_ < i) ? 1 : 0;
+        numRigidBody_ / mpiSize_ + (numRigidBody_ % mpiSize_ > i) ? 1 : 0;
   }
-  rigidBodyEndIndex_ += numLocalRigidBody_;
+  rigidBodyEndIndex_ = rigidBodyStartIndex_ + numLocalRigidBody_;
 
   translationDof_ = dimension_;
   rotationDof_ = (dimension_ == 3) ? 3 : 1;
@@ -61,6 +61,8 @@ StokesMatrix::StokesMatrix(const unsigned long numLocalParticle,
 void StokesMatrix::Resize(const unsigned long numLocalParticle,
                           const unsigned int numRigidBody) {
   rigidBodyDof_ = (dimension_ == 3) ? 6 : 3;
+  numLocalParticle_ = numLocalParticle;
+  numRigidBody_ = numRigidBody;
 
   InitInternal();
 }
@@ -105,12 +107,13 @@ void StokesMatrix::SetGraph(
   std::vector<std::vector<PetscInt>> rigidBodyFieldIndexMap(numRigidBody_);
   for (unsigned int i = 0; i < numLocalParticle_; i++) {
     if (particleType[i] >= 4) {
-      for (unsigned int j = 0; j < neighborLists(i, 0); i++) {
+      for (unsigned int j = 0; j < neighborLists(i, 0); j++) {
         const unsigned int neighborParticleIndex =
             globalIndex[neighborLists(i, j + 1)];
-        for (unsigned int axes = 0; axes < fieldDof_; axes++)
+        for (unsigned int axes = 0; axes < fieldDof_; axes++) {
           rigidBodyFieldIndexMap[attachedRigidBody[i]].push_back(
               neighborParticleIndex * fieldDof_ + axes);
+        }
       }
     }
   }
@@ -147,8 +150,12 @@ void StokesMatrix::SetGraph(
                 index.data(), recvCount.data(), recvOffset.data(), MPI_INT,
                 targetRank, MPI_COMM_WORLD);
 
-    for (unsigned int j = 0; j < rigidBodyDof_; j++) {
-      a10->SetColIndex((i - rigidBodyStartIndex_) * rigidBodyDof_ + j, index);
+    if (targetRank == mpiRank_) {
+      std::sort(index.begin(), index.end());
+      index.erase(std::unique(index.begin(), index.end()), index.end());
+      for (unsigned int j = 0; j < rigidBodyDof_; j++) {
+        a10->SetColIndex((i - rigidBodyStartIndex_) * rigidBodyDof_ + j, index);
+      }
     }
   }
 
@@ -156,4 +163,30 @@ void StokesMatrix::SetGraph(
   a01->GraphAssemble();
   a10->GraphAssemble();
   a11->GraphAssemble();
+}
+
+unsigned long StokesMatrix::Assemble() { PetscNestedMatrix::Assemble(); }
+
+void StokesMatrix::IncrementFieldField(const PetscInt row,
+                                       const std::vector<PetscInt> &index,
+                                       const std::vector<PetscReal> &value) {
+  PetscNestedMatrix::GetMatrix(0, 0)->Increment(row, index, value);
+}
+
+void StokesMatrix::IncrementFieldRigidBody(const PetscInt row,
+                                           const PetscInt index,
+                                           const PetscInt value) {
+  PetscNestedMatrix::GetMatrix(0, 1)->Increment(row, index, value);
+}
+
+void StokesMatrix::IncrementRigidBodyField(const PetscInt row,
+                                           const PetscInt index,
+                                           const PetscInt value) {
+  PetscNestedMatrix::GetMatrix(1, 0)->IncrementGlobalIndex(row, index, value);
+}
+
+void StokesMatrix::IncrementRigidBodyRigidBody(const PetscInt row,
+                                               const PetscInt index,
+                                               const PetscInt value) {
+  PetscNestedMatrix::GetMatrix(0, 0)->Increment(row, index, value);
 }

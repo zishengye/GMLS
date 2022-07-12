@@ -62,6 +62,10 @@ PetscInt PetscMatrix::GetColSize() { return localColSize_ * blockSize_; }
 
 void PetscMatrix::SetColIndex(const PetscInt row,
                               const std::vector<PetscInt> &index) {
+  if (row < 0 || row > localRowSize_) {
+    std::cout << "wrong row index " << row << std::endl;
+    return;
+  }
   std::vector<PetscInt> &diagIndex = diagMatrixCol_[row];
   std::vector<PetscInt> &offDiagIndex = offDiagMatrixCol_[row];
   diagIndex.clear();
@@ -77,6 +81,11 @@ void PetscMatrix::SetColIndex(const PetscInt row,
 void PetscMatrix::Increment(const PetscInt row, const PetscInt col,
                             const PetscReal value) {
   MatSetValue(mat_, row + rowRangeLow_, col, value, INSERT_VALUES);
+}
+
+void PetscMatrix::IncrementGlobalIndex(const PetscInt row, const PetscInt col,
+                                       const PetscReal value) {
+  MatSetValue(mat_, row, col, value, INSERT_VALUES);
 }
 
 void PetscMatrix::Increment(const PetscInt row,
