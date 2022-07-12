@@ -1,5 +1,5 @@
-#ifndef _PetscNestMatrix_Hpp_
-#define _PetscNestMatrix_Hpp_
+#ifndef _PetscNestedMatrix_Hpp_
+#define _PetscNestedMatrix_Hpp_
 
 #include "PetscMatrix.hpp"
 

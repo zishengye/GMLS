@@ -161,10 +161,7 @@ void StokesMatrix::SetGraph(
     }
   }
 
-  a00->GraphAssemble();
-  a01->GraphAssemble();
-  a10->GraphAssemble();
-  a11->GraphAssemble();
+  PetscNestedMatrix::GraphAssemble();
 
   std::vector<unsigned int> flattenedRigidBodyFieldIndexMap;
   for (unsigned int i = 0; i < numRigidBody_; i++) {
@@ -240,12 +237,7 @@ void StokesMatrix::SetGraph(
 }
 
 unsigned long StokesMatrix::Assemble() {
-  PetscNestedMatrix::Assemble();
-
-  nestedMat_[0] = PetscNestedMatrix::GetMatrix(0, 0)->GetReference();
-  nestedMat_[1] = PetscNestedMatrix::GetMatrix(0, 1)->GetReference();
-  nestedMat_[2] = PetscNestedMatrix::GetMatrix(1, 0)->GetReference();
-  nestedMat_[3] = PetscNestedMatrix::GetMatrix(1, 1)->GetReference();
+  unsigned long nnz = PetscNestedMatrix::Assemble();
 
   MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL, nestedMat_.data(),
                 &mat_);
@@ -276,28 +268,30 @@ unsigned long StokesMatrix::Assemble() {
 
   MatCreateSubMatrix(nestedMat_[0], isgNeighbor_, isgNeighbor_,
                      MAT_INITIAL_MATRIX, &nestedNeighborMat_[0]);
-  // MatCreateSubMatrix(nestedMat_[1], isgNeighbor_, PETSC_NULL,
-  //                    MAT_INITIAL_MATRIX, &nestedNeighborMat_[1]);
-  // MatCreateSubMatrix(nestedMat_[2], isgColloid, isgNeighbor_,
-  //                    MAT_INITIAL_MATRIX, &nestedNeighborMat_[2]);
-  // nestedNeighborMat_[3] = nestedMat_[3];
-  // MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL,
-  //               nestedNeighborMat_.data(), &neighborMat_);
+  MatCreateSubMatrix(nestedMat_[1], isgNeighbor_, PETSC_NULL,
+                     MAT_INITIAL_MATRIX, &nestedNeighborMat_[1]);
+  MatCreateSubMatrix(nestedMat_[2], isgColloid, isgNeighbor_,
+                     MAT_INITIAL_MATRIX, &nestedNeighborMat_[2]);
+  nestedNeighborMat_[3] = nestedMat_[3];
+  MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL,
+                nestedNeighborMat_.data(), &neighborMat_);
 
   MatCreateSubMatrix(nestedMat_[0], isgNeighbor_, PETSC_NULL,
                      MAT_INITIAL_MATRIX, &nestedNeighborWholeMat_[0]);
-  // MatCreateSubMatrix(nestedMat_[1], isgNeighbor_, PETSC_NULL,
-  //                    MAT_INITIAL_MATRIX, &nestedNeighborWholeMat_[1]);
-  // MatCreateSubMatrix(nestedMat_[2], isgColloid, isgNeighbor_,
-  //                    MAT_INITIAL_MATRIX, &nestedNeighborWholeMat_[2]);
-  // nestedNeighborWholeMat_[3] = nestedMat_[3];
-  // MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL,
-  //               nestedNeighborWholeMat_.data(), &neighborWholeMat_);
+  MatCreateSubMatrix(nestedMat_[1], isgNeighbor_, PETSC_NULL,
+                     MAT_INITIAL_MATRIX, &nestedNeighborWholeMat_[1]);
+  MatCreateSubMatrix(nestedMat_[2], isgColloid, isgNeighbor_,
+                     MAT_INITIAL_MATRIX, &nestedNeighborWholeMat_[2]);
+  nestedNeighborWholeMat_[3] = nestedMat_[3];
+  MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL,
+                nestedNeighborWholeMat_.data(), &neighborWholeMat_);
 
   ISDestroy(&isgColloid);
 
   MatDestroy(&B);
   MatDestroy(&C);
+
+  return nnz;
 }
 
 void StokesMatrix::IncrementFieldField(const PetscInt row,
