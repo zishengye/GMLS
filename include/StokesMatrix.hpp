@@ -67,6 +67,8 @@ public:
 
   Mat &GetNeighborSchurMatrix() { return neighborSchurMat_; }
 
+  Mat &GetFieldFieldShellMatrix() { return fieldFieldShellMat_; }
+
   std::shared_ptr<PetscNestedVec> &GetNeighborX() { return x_; }
 
   std::shared_ptr<PetscNestedVec> &GetNeighborB() { return b_; }

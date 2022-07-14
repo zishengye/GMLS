@@ -1,4 +1,5 @@
 #include "StokesCompositePreconditioning.hpp"
+#include "petscsys.h"
 
 using namespace std;
 
@@ -95,9 +96,6 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     VecRestoreArray(shell->multi->get_b_list()[i]->GetReference(), &a);
 
     // fluid part smoothing
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
-
     VecCopy(shell->multi->get_b_list()[i]->GetSubVector(0),
             shell->multi->get_b_field_list()[i]->GetReference());
 
@@ -108,10 +106,6 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     VecSet(shell->multi->get_x_list()[i]->GetReference(), 0.0);
     VecCopy(shell->multi->get_x_field_list()[i]->GetReference(),
             shell->multi->get_x_list()[i]->GetSubVector(0));
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->field_smooth_duration[i - 1] += timer2 - timer1;
 
     // orthogonalize to constant vector
     VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
@@ -130,53 +124,31 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
     VecRestoreArray(shell->multi->get_x_list()[i]->GetReference(), &a);
 
-    // if (shell->num_rigid_body != 0) {
-    //   // neighbor part smoothing
-    //   MPI_Barrier(MPI_COMM_WORLD);
-    //   timer1 = MPI_Wtime();
+    if (shell->num_rigid_body != 0) {
+      // neighbor part smoothing
+      MatMult(shell->multi->getA(i)->GetNeighborWholeMatrix(),
+              shell->multi->get_x_list()[i]->GetReference(),
+              shell->multi->getA(i)->GetNeighborX()->GetReference());
 
-    //   MatMult(shell->multi->get_colloid_whole_mat(i)->GetReference(),
-    //           shell->multi->get_x_list()[i]->GetReference(),
-    //           shell->multi->get_b_colloid_list()[i]->GetReference());
+      VecISCopy(shell->multi->get_b_list()[i]->GetSubVector(0),
+                shell->multi->getA(i)->GetNeighborIS(), SCATTER_FORWARD,
+                shell->multi->getA(i)->GetNeighborB()->GetSubVector(0));
+      VecCopy(shell->multi->get_b_list()[i]->GetSubVector(1),
+              shell->multi->getA(i)->GetNeighborB()->GetSubVector(1));
 
-    //   MPI_Barrier(MPI_COMM_WORLD);
-    //   timer2 = MPI_Wtime();
-    //   shell->colloid_smooth_matmult_duration[i - 1] += timer2 - timer1;
+      VecAXPY(shell->multi->getA(i)->GetNeighborB()->GetReference(), -1.0,
+              shell->multi->getA(i)->GetNeighborX()->GetReference());
 
-    //   MPI_Barrier(MPI_COMM_WORLD);
-    //   timer1 = MPI_Wtime();
+      KSPSolve(shell->multi->get_colloid_relaxation(i)->GetReference(),
+               shell->multi->getA(i)->GetNeighborB()->GetReference(),
+               shell->multi->getA(i)->GetNeighborX()->GetReference());
 
-    //   VecScatterBegin(
-    //       shell->multi->get_colloid_scatter_list()[i]->GetReference(),
-    //       shell->multi->get_b_list()[i]->GetReference(),
-    //       shell->multi->get_x_colloid_list()[i]->GetReference(),
-    //       INSERT_VALUES, SCATTER_FORWARD);
-    //   VecScatterEnd(shell->multi->get_colloid_scatter_list()[i]->GetReference(),
-    //                 shell->multi->get_b_list()[i]->GetReference(),
-    //                 shell->multi->get_x_colloid_list()[i]->GetReference(),
-    //                 INSERT_VALUES, SCATTER_FORWARD);
-
-    //   VecAXPY(shell->multi->get_x_colloid_list()[i]->GetReference(), -1.0,
-    //           shell->multi->get_b_colloid_list()[i]->GetReference());
-
-    //   KSPSolve(shell->multi->get_colloid_relaxation(i)->GetReference(),
-    //            shell->multi->get_x_colloid_list()[i]->GetReference(),
-    //            shell->multi->get_b_colloid_list()[i]->GetReference());
-
-    //   VecScatterBegin(
-    //       shell->multi->get_colloid_scatter_list()[i]->GetReference(),
-    //       shell->multi->get_b_colloid_list()[i]->GetReference(),
-    //       shell->multi->get_x_list()[i]->GetReference(), ADD_VALUES,
-    //       SCATTER_REVERSE);
-    //   VecScatterEnd(shell->multi->get_colloid_scatter_list()[i]->GetReference(),
-    //                 shell->multi->get_b_colloid_list()[i]->GetReference(),
-    //                 shell->multi->get_x_list()[i]->GetReference(),
-    //                 ADD_VALUES, SCATTER_REVERSE);
-
-    //   MPI_Barrier(MPI_COMM_WORLD);
-    //   timer2 = MPI_Wtime();
-    //   shell->colloid_smooth_duration[i - 1] += timer2 - timer1;
-    // }
+      VecISCopy(shell->multi->get_x_list()[i]->GetSubVector(0),
+                shell->multi->getA(i)->GetNeighborIS(), SCATTER_REVERSE,
+                shell->multi->getA(i)->GetNeighborX()->GetSubVector(0));
+      VecCopy(shell->multi->getA(i)->GetNeighborX()->GetSubVector(1),
+              shell->multi->get_x_list()[i]->GetSubVector(1));
+    }
 
     // orthogonalize to constant vector
     VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
@@ -196,9 +168,6 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     VecRestoreArray(shell->multi->get_x_list()[i]->GetReference(), &a);
 
     // restriction
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
-
     MatMult(shell->multi->getA(i)->GetReference(),
             shell->multi->get_x_list()[i]->GetReference(),
             shell->multi->get_r_list()[i]->GetReference());
@@ -206,23 +175,12 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     VecAXPY(shell->multi->get_r_list()[i]->GetReference(), -1.0,
             shell->multi->get_b_list()[i]->GetReference());
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->level_iteration_duration[i - 1] += timer2 - timer1;
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
-
     VecScale(shell->multi->get_r_list()[i]->GetReference(), -1.0);
 
     Mat &R = shell->multi->get_restriction_list()[i - 1]->GetReference();
     Vec &v1 = shell->multi->get_r_list()[i]->GetReference();
     Vec &v2 = shell->multi->get_b_list()[i - 1]->GetReference();
     MatMult(R, v1, v2);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->restriction_duration[i - 1] += timer2 - timer1;
   }
 
   // solve on coarest-level
@@ -245,9 +203,6 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
   VecRestoreArray(shell->multi->get_b_list()[0]->GetReference(), &a);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  timer1 = MPI_Wtime();
-
   VecSet(shell->multi->get_x_list()[0]->GetReference(), 0.0);
   VecCopy(shell->multi->get_b_list()[0]->GetSubVector(0),
           shell->multi->get_b_field_list()[0]->GetReference());
@@ -258,10 +213,6 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
   VecCopy(shell->multi->get_x_field_list()[0]->GetReference(),
           shell->multi->get_x_list()[0]->GetSubVector(0));
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  timer2 = MPI_Wtime();
-  shell->base_field_duration += timer2 - timer1;
 
   // orthogonalize to constant vector
   VecGetArray(shell->multi->get_x_list()[0]->GetReference(), &a);
@@ -282,9 +233,6 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
   if (shell->num_rigid_body != 0) {
     // stage 2
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
-
     MatMult(shell->multi->getA(0)->GetNeighborWholeMatrix(),
             shell->multi->get_x_list()[0]->GetReference(),
             shell->multi->getA(0)->GetNeighborX()->GetReference());
@@ -305,12 +253,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     VecISCopy(shell->multi->get_x_list()[0]->GetSubVector(0),
               shell->multi->getA(0)->GetNeighborIS(), SCATTER_REVERSE,
               shell->multi->getA(0)->GetNeighborX()->GetSubVector(0));
-    VecCopy(shell->multi->get_x_list()[0]->GetSubVector(1),
-            shell->multi->getA(0)->GetNeighborX()->GetSubVector(1));
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->base_colloid_duration += timer2 - timer1;
+    VecCopy(shell->multi->getA(0)->GetNeighborX()->GetSubVector(1),
+            shell->multi->get_x_list()[0]->GetSubVector(1));
   }
 
   // orthogonalize to constant vector
@@ -333,23 +277,13 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   // sweep up
   for (int i = 1; i <= shell->refinement_level; i++) {
     // interpolation
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
-
     Mat &I = shell->multi->get_interpolation_list()[i - 1]->GetReference();
     Vec &v1 = shell->multi->get_t_list()[i]->GetReference();
     Vec &v2 = shell->multi->get_x_list()[i - 1]->GetReference();
     MatMult(I, v2, v1);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->interpolation_duration[i - 1] += timer2 - timer1;
-
     // post-smooth
     // fluid part smoothing
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
-
     VecAXPY(shell->multi->get_x_list()[i]->GetReference(), 1.0,
             shell->multi->get_t_list()[i]->GetReference());
 
@@ -374,17 +308,10 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
             shell->multi->get_x_list()[i]->GetReference(),
             shell->multi->get_r_list()[i]->GetReference());
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->level_iteration_duration[i - 1] += timer2 - timer1;
-
     VecAXPY(shell->multi->get_r_list()[i]->GetReference(), -1.0,
             shell->multi->get_b_list()[i]->GetReference());
 
     VecScale(shell->multi->get_r_list()[i]->GetReference(), -1.0);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer1 = MPI_Wtime();
 
     // orthogonalize to constant vector
     VecGetArray(shell->multi->get_r_list()[i]->GetReference(), &a);
@@ -413,10 +340,6 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     VecCopy(shell->multi->get_x_field_list()[i]->GetReference(),
             shell->multi->get_x_list()[i]->GetSubVector(0));
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timer2 = MPI_Wtime();
-    shell->field_smooth_duration[i - 1] += timer2 - timer1;
-
     // orthogonalize to constant vector
     VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
 
@@ -434,53 +357,31 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
     VecRestoreArray(shell->multi->get_x_list()[i]->GetReference(), &a);
 
-    // if (shell->num_rigid_body != 0) {
-    //   // neighbor part smoothing
-    //   MPI_Barrier(MPI_COMM_WORLD);
-    //   timer1 = MPI_Wtime();
+    if (shell->num_rigid_body != 0) {
+      // neighbor part smoothing
+      MatMult(shell->multi->getA(i)->GetNeighborWholeMatrix(),
+              shell->multi->get_x_list()[i]->GetReference(),
+              shell->multi->getA(i)->GetNeighborX()->GetReference());
 
-    //   MatMult(shell->multi->get_colloid_whole_mat(i)->GetReference(),
-    //           shell->multi->get_x_list()[i]->GetReference(),
-    //           shell->multi->get_b_colloid_list()[i]->GetReference());
+      VecISCopy(shell->multi->get_b_list()[i]->GetSubVector(0),
+                shell->multi->getA(i)->GetNeighborIS(), SCATTER_FORWARD,
+                shell->multi->getA(i)->GetNeighborB()->GetSubVector(0));
+      VecCopy(shell->multi->get_b_list()[i]->GetSubVector(1),
+              shell->multi->getA(i)->GetNeighborB()->GetSubVector(1));
 
-    //   MPI_Barrier(MPI_COMM_WORLD);
-    //   timer2 = MPI_Wtime();
-    //   shell->colloid_smooth_matmult_duration[i - 1] += timer2 - timer1;
+      VecAXPY(shell->multi->getA(i)->GetNeighborB()->GetReference(), -1.0,
+              shell->multi->getA(i)->GetNeighborX()->GetReference());
 
-    //   MPI_Barrier(MPI_COMM_WORLD);
-    //   timer1 = MPI_Wtime();
+      KSPSolve(shell->multi->get_colloid_relaxation(i)->GetReference(),
+               shell->multi->getA(i)->GetNeighborB()->GetReference(),
+               shell->multi->getA(i)->GetNeighborX()->GetReference());
 
-    //   VecScatterBegin(
-    //       shell->multi->get_colloid_scatter_list()[i]->GetReference(),
-    //       shell->multi->get_b_list()[i]->GetReference(),
-    //       shell->multi->get_x_colloid_list()[i]->GetReference(),
-    //       INSERT_VALUES, SCATTER_FORWARD);
-    //   VecScatterEnd(shell->multi->get_colloid_scatter_list()[i]->GetReference(),
-    //                 shell->multi->get_b_list()[i]->GetReference(),
-    //                 shell->multi->get_x_colloid_list()[i]->GetReference(),
-    //                 INSERT_VALUES, SCATTER_FORWARD);
-
-    //   VecAXPY(shell->multi->get_x_colloid_list()[i]->GetReference(), -1.0,
-    //           shell->multi->get_b_colloid_list()[i]->GetReference());
-
-    //   KSPSolve(shell->multi->get_colloid_relaxation(i)->GetReference(),
-    //            shell->multi->get_x_colloid_list()[i]->GetReference(),
-    //            shell->multi->get_b_colloid_list()[i]->GetReference());
-
-    //   VecScatterBegin(
-    //       shell->multi->get_colloid_scatter_list()[i]->GetReference(),
-    //       shell->multi->get_b_colloid_list()[i]->GetReference(),
-    //       shell->multi->get_x_list()[i]->GetReference(), ADD_VALUES,
-    //       SCATTER_REVERSE);
-    //   VecScatterEnd(shell->multi->get_colloid_scatter_list()[i]->GetReference(),
-    //                 shell->multi->get_b_colloid_list()[i]->GetReference(),
-    //                 shell->multi->get_x_list()[i]->GetReference(),
-    //                 ADD_VALUES, SCATTER_REVERSE);
-
-    //   MPI_Barrier(MPI_COMM_WORLD);
-    //   timer2 = MPI_Wtime();
-    //   shell->colloid_smooth_duration[i - 1] += timer2 - timer1;
-    // }
+      VecISCopy(shell->multi->get_x_list()[i]->GetSubVector(0),
+                shell->multi->getA(i)->GetNeighborIS(), SCATTER_REVERSE,
+                shell->multi->getA(i)->GetNeighborX()->GetSubVector(0));
+      VecCopy(shell->multi->getA(i)->GetNeighborX()->GetSubVector(1),
+              shell->multi->get_x_list()[i]->GetSubVector(1));
+    }
 
     // orthogonalize to constant vector
     VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
@@ -509,29 +410,6 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 PetscErrorCode HypreLUShellPCDestroy(PC pc) {
   HypreLUShellPC *shell;
   PCShellGetContext(pc, (void **)&shell);
-
-  PetscPrintf(PETSC_COMM_WORLD, "\nPreconditioner Log:\n");
-  PetscPrintf(PETSC_COMM_WORLD, "Base field smooth duration %fs\n",
-              shell->base_field_duration);
-  PetscPrintf(PETSC_COMM_WORLD, "Base colloid smooth duration %fs\n",
-              shell->base_colloid_duration);
-
-  for (int i = 0; i < shell->refinement_level; i++) {
-    PetscPrintf(PETSC_COMM_WORLD, "Field smooth level: %d, duration %fs\n",
-                i + 1, shell->field_smooth_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Colloid smooth level: %d, duration %fs\n",
-                i + 1, shell->colloid_smooth_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD,
-                "Colloid matmult smooth level: %d, duration %fs\n", i + 1,
-                shell->colloid_smooth_matmult_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Restriction level: %d, duration %fs\n",
-                i + 1, shell->restriction_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Interpolation level: %d, duration %fs\n",
-                i + 1, shell->interpolation_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "Level iteration level: %d, duration %fs\n ",
-                i + 1, shell->level_iteration_duration[i]);
-    PetscPrintf(PETSC_COMM_WORLD, "\n");
-  }
 
   delete[] shell->field_smooth_duration;
   delete[] shell->colloid_smooth_duration;

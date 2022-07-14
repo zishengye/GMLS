@@ -12,7 +12,7 @@
 class StokesMultilevelPreconditioning {
 public:
   typedef std::shared_ptr<StokesMatrix> StokesMatrixType;
-  typedef std::shared_ptr<petsc_sparse_matrix> matrix_type;
+  typedef std::shared_ptr<PetscNestedMatrix> NestedMatrixType;
   typedef std::shared_ptr<PetscVector> vector_type;
   typedef std::shared_ptr<petsc_is> is_type;
   typedef std::shared_ptr<petsc_ksp> ksp_type;
@@ -20,16 +20,8 @@ public:
 
 private:
   std::vector<StokesMatrixType> A_list; // coefficient matrix list
-  std::vector<matrix_type> I_list;      // interpolation matrix list
-  std::vector<matrix_type> R_list;      // restriction matrix list
-  std::vector<matrix_type> ff_list;     // field sub-matrix list
-  std::vector<matrix_type> nn_list;     // near field sub-matrix list
-  std::vector<matrix_type> nw_list;     // near field-whole sub-matrix list
-  std::vector<matrix_type> pp_list;     // pressure sub-matrix list
-  std::vector<matrix_type> pw_list;     // pressure-whole sub-matrix list
-  std::vector<is_type> isg_field_list;
-  std::vector<is_type> isg_colloid_list;
-  std::vector<is_type> isg_pressure_list;
+  std::vector<NestedMatrixType> I_list; // interpolation matrix list
+  std::vector<NestedMatrixType> R_list; // restriction matrix list
 
   // vector list
   std::vector<std::shared_ptr<PetscNestedVec>> x_list;
@@ -89,8 +81,8 @@ public:
   inline int get_num_rigid_body() { return num_rigid_body; }
 
   StokesMatrixType getA(int num_level) { return A_list[num_level]; }
-  matrix_type getI(int num_level) { return I_list[num_level]; }
-  matrix_type getR(int num_level) { return R_list[num_level]; }
+  NestedMatrixType getI(int num_level) { return I_list[num_level]; }
+  NestedMatrixType getR(int num_level) { return R_list[num_level]; }
   ksp_type get_field_relaxation(int num_level) {
     return field_relaxation_list[num_level];
   }
@@ -100,15 +92,6 @@ public:
   ksp_type get_field_base() { return ksp_field_base; }
   ksp_type get_colloid_base() { return ksp_colloid_base; }
 
-  matrix_type get_field_mat(int num_level) { return ff_list[num_level]; }
-  matrix_type get_colloid_whole_mat(int num_level) {
-    return nw_list[num_level];
-  }
-  matrix_type get_colloid_mat(int num_level) { return nn_list[num_level]; }
-  matrix_type get_pressure_whole_mat(int num_level) {
-    return pw_list[num_level];
-  }
-
   void add_new_level() {
     if (!base_level_initialized) {
       ksp_field_base = std::make_shared<petsc_ksp>();
@@ -117,8 +100,8 @@ public:
 
     A_list.push_back(std::make_shared<StokesMatrix>(dimension));
     if (base_level_initialized) {
-      I_list.push_back(std::make_shared<petsc_sparse_matrix>());
-      R_list.push_back(std::make_shared<petsc_sparse_matrix>());
+      I_list.push_back(std::make_shared<PetscNestedMatrix>(2, 2));
+      R_list.push_back(std::make_shared<PetscNestedMatrix>(2, 2));
     }
 
     base_level_initialized = true;
@@ -134,8 +117,8 @@ public:
   void build_interpolation_restriction(const int _num_rigid_body,
                                        const int _dim, const int _poly_order);
 
-  std::vector<matrix_type> &get_interpolation_list() { return I_list; }
-  std::vector<matrix_type> &get_restriction_list() { return R_list; }
+  std::vector<NestedMatrixType> &get_interpolation_list() { return I_list; }
+  std::vector<NestedMatrixType> &get_restriction_list() { return R_list; }
 
   std::vector<std::shared_ptr<PetscNestedVec>> &get_x_list() { return x_list; }
   std::vector<std::shared_ptr<PetscNestedVec>> &get_b_list() { return b_list; }

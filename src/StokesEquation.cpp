@@ -1457,7 +1457,8 @@ void StokesEquation::SolveEquation() {
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
-  multiMgr_->Solve(rhsField_, resField_, rhsRigidBody_, resRigidBody_);
+  if (currentRefinementLevel_ == 0)
+    multiMgr_->Solve(rhsField_, resField_, rhsRigidBody_, resRigidBody_);
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
