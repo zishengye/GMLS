@@ -159,13 +159,15 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
       if (new_added[i] < 0) {
         double minEpsilon = 1.50 * spacing[i];
         double minSpacing = 0.25 * spacing[i];
-        old_epsilon_host(counter) =
-            std::max(minEpsilon, old_epsilon_host(counter));
+        old_epsilon_host(new_actual_index[i]) =
+            std::max(minEpsilon, old_epsilon_host(new_actual_index[i]));
 
-        int scaling =
-            std::max(0.0, std::ceil((old_epsilon_host(counter) - minEpsilon) /
-                                    minSpacing));
-        old_epsilon_host(counter) = minEpsilon + scaling * minSpacing;
+        int scaling = std::max(
+            0.0,
+            std::ceil((old_epsilon_host(new_actual_index[i]) - minEpsilon) /
+                      minSpacing));
+        old_epsilon_host(new_actual_index[i]) =
+            minEpsilon + scaling * minSpacing;
 
         counter++;
       }
@@ -679,7 +681,7 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
     KSPSetOperators(ksp_field_base->GetReference(), ff, ff);
     if (dimension == 3) {
       KSPSetType(ksp_field_base->GetReference(), KSPRICHARDSON);
-      KSPSetTolerances(ksp_field_base->GetReference(), 1e-2, 1e-50, 1e50, 10);
+      KSPSetTolerances(ksp_field_base->GetReference(), 1e-2, 1e-50, 1e50, 5);
       KSPSetResidualHistory(ksp_field_base->GetReference(), NULL, 500,
                             PETSC_TRUE);
 

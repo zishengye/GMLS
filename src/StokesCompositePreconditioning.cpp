@@ -1,5 +1,6 @@
 #include "StokesCompositePreconditioning.hpp"
 #include "petscsys.h"
+#include "petscvec.h"
 
 using namespace std;
 
@@ -128,26 +129,26 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       // neighbor part smoothing
       MatMult(shell->multi->getA(i)->GetNeighborWholeMatrix(),
               shell->multi->get_x_list()[i]->GetReference(),
-              shell->multi->getA(i)->GetNeighborX()->GetReference());
+              shell->multi->getA(i)->GetNeighborB()->GetReference());
 
       VecISCopy(shell->multi->get_b_list()[i]->GetSubVector(0),
                 shell->multi->getA(i)->GetNeighborIS(), SCATTER_FORWARD,
-                shell->multi->getA(i)->GetNeighborB()->GetSubVector(0));
+                shell->multi->getA(i)->GetNeighborX()->GetSubVector(0));
       VecCopy(shell->multi->get_b_list()[i]->GetSubVector(1),
-              shell->multi->getA(i)->GetNeighborB()->GetSubVector(1));
+              shell->multi->getA(i)->GetNeighborX()->GetSubVector(1));
 
-      VecAXPY(shell->multi->getA(i)->GetNeighborB()->GetReference(), -1.0,
-              shell->multi->getA(i)->GetNeighborX()->GetReference());
+      VecAXPY(shell->multi->getA(i)->GetNeighborX()->GetReference(), -1.0,
+              shell->multi->getA(i)->GetNeighborB()->GetReference());
 
       KSPSolve(shell->multi->get_colloid_relaxation(i)->GetReference(),
-               shell->multi->getA(i)->GetNeighborB()->GetReference(),
-               shell->multi->getA(i)->GetNeighborX()->GetReference());
+               shell->multi->getA(i)->GetNeighborX()->GetReference(),
+               shell->multi->getA(i)->GetNeighborB()->GetReference());
 
-      VecISCopy(shell->multi->get_x_list()[i]->GetSubVector(0),
-                shell->multi->getA(i)->GetNeighborIS(), SCATTER_REVERSE,
-                shell->multi->getA(i)->GetNeighborX()->GetSubVector(0));
-      VecCopy(shell->multi->getA(i)->GetNeighborX()->GetSubVector(1),
-              shell->multi->get_x_list()[i]->GetSubVector(1));
+      VecISAXPY(shell->multi->get_x_list()[i]->GetSubVector(0),
+                shell->multi->getA(i)->GetNeighborIS(), 1.0,
+                shell->multi->getA(i)->GetNeighborB()->GetSubVector(0));
+      VecAXPY(shell->multi->get_x_list()[i]->GetSubVector(1), 1.0,
+              shell->multi->getA(i)->GetNeighborB()->GetSubVector(1));
     }
 
     // orthogonalize to constant vector
@@ -172,10 +173,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
             shell->multi->get_x_list()[i]->GetReference(),
             shell->multi->get_r_list()[i]->GetReference());
 
-    VecAXPY(shell->multi->get_r_list()[i]->GetReference(), -1.0,
+    VecAYPX(shell->multi->get_r_list()[i]->GetReference(), -1.0,
             shell->multi->get_b_list()[i]->GetReference());
-
-    VecScale(shell->multi->get_r_list()[i]->GetReference(), -1.0);
 
     Mat &R = shell->multi->get_restriction_list()[i - 1]->GetReference();
     Vec &v1 = shell->multi->get_r_list()[i]->GetReference();
@@ -183,7 +182,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     MatMult(R, v1, v2);
   }
 
-  // solve on coarest-level
+  // solve on base level
   // stage 1
 
   // orthogonalize to constant vector
@@ -250,11 +249,11 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
              shell->multi->getA(0)->GetNeighborB()->GetReference(),
              shell->multi->getA(0)->GetNeighborX()->GetReference());
 
-    VecISCopy(shell->multi->get_x_list()[0]->GetSubVector(0),
-              shell->multi->getA(0)->GetNeighborIS(), SCATTER_REVERSE,
+    VecISAXPY(shell->multi->get_x_list()[0]->GetSubVector(0),
+              shell->multi->getA(0)->GetNeighborIS(), 1.0,
               shell->multi->getA(0)->GetNeighborX()->GetSubVector(0));
-    VecCopy(shell->multi->getA(0)->GetNeighborX()->GetSubVector(1),
-            shell->multi->get_x_list()[0]->GetSubVector(1));
+    VecAXPY(shell->multi->get_x_list()[0]->GetSubVector(1), 1.0,
+            shell->multi->getA(0)->GetNeighborX()->GetSubVector(1));
   }
 
   // orthogonalize to constant vector
@@ -308,10 +307,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
             shell->multi->get_x_list()[i]->GetReference(),
             shell->multi->get_r_list()[i]->GetReference());
 
-    VecAXPY(shell->multi->get_r_list()[i]->GetReference(), -1.0,
+    VecAYPX(shell->multi->get_r_list()[i]->GetReference(), -1.0,
             shell->multi->get_b_list()[i]->GetReference());
-
-    VecScale(shell->multi->get_r_list()[i]->GetReference(), -1.0);
 
     // orthogonalize to constant vector
     VecGetArray(shell->multi->get_r_list()[i]->GetReference(), &a);
@@ -337,8 +334,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
              shell->multi->get_r_field_list()[i]->GetReference(),
              shell->multi->get_x_field_list()[i]->GetReference());
 
-    VecCopy(shell->multi->get_x_field_list()[i]->GetReference(),
-            shell->multi->get_x_list()[i]->GetSubVector(0));
+    VecAXPY(shell->multi->get_x_list()[i]->GetSubVector(0), 1.0,
+            shell->multi->get_x_field_list()[i]->GetReference());
 
     // orthogonalize to constant vector
     VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
@@ -363,10 +360,10 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
               shell->multi->get_x_list()[i]->GetReference(),
               shell->multi->getA(i)->GetNeighborX()->GetReference());
 
-      VecISCopy(shell->multi->get_b_list()[i]->GetSubVector(0),
+      VecISCopy(shell->multi->get_r_list()[i]->GetSubVector(0),
                 shell->multi->getA(i)->GetNeighborIS(), SCATTER_FORWARD,
                 shell->multi->getA(i)->GetNeighborB()->GetSubVector(0));
-      VecCopy(shell->multi->get_b_list()[i]->GetSubVector(1),
+      VecCopy(shell->multi->get_r_list()[i]->GetSubVector(1),
               shell->multi->getA(i)->GetNeighborB()->GetSubVector(1));
 
       VecAXPY(shell->multi->getA(i)->GetNeighborB()->GetReference(), -1.0,
@@ -376,11 +373,11 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                shell->multi->getA(i)->GetNeighborB()->GetReference(),
                shell->multi->getA(i)->GetNeighborX()->GetReference());
 
-      VecISCopy(shell->multi->get_x_list()[i]->GetSubVector(0),
-                shell->multi->getA(i)->GetNeighborIS(), SCATTER_REVERSE,
+      VecISAXPY(shell->multi->get_x_list()[i]->GetSubVector(0),
+                shell->multi->getA(i)->GetNeighborIS(), 1.0,
                 shell->multi->getA(i)->GetNeighborX()->GetSubVector(0));
-      VecCopy(shell->multi->getA(i)->GetNeighborX()->GetSubVector(1),
-              shell->multi->get_x_list()[i]->GetSubVector(1));
+      VecAXPY(shell->multi->get_x_list()[i]->GetSubVector(1), 1.0,
+              shell->multi->getA(i)->GetNeighborX()->GetSubVector(1));
     }
 
     // orthogonalize to constant vector
