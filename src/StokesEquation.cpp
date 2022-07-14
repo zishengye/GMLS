@@ -1393,25 +1393,23 @@ void StokesEquation::ConstructRhs() {
     resRigidBody_[i] = 0.0;
   }
 
-  if (mpiRank_ == mpiSize_ - 1) {
-    for (int i = rigidBodyStartIndex_; i < rigidBodyEndIndex_; i++) {
-      for (int axes = 0; axes < translationDof; axes++) {
-        if (rigid_body_velocity_force_switch[i][axes])
-          rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof + axes] =
-              rigid_body_velocity[i][axes];
-        else
-          rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof + axes] =
-              -rigid_body_force[i][axes];
-      }
-      for (int axes = 0; axes < rotationDof; axes++) {
-        if (rigid_body_angvelocity_torque_switch[i][axes])
-          rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof +
-                        translationDof + axes] =
-              rigid_body_angular_velocity[i][axes];
-        else
-          rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof +
-                        translationDof + axes] = -rigid_body_torque[i][axes];
-      }
+  for (int i = rigidBodyStartIndex_; i < rigidBodyEndIndex_; i++) {
+    for (int axes = 0; axes < translationDof; axes++) {
+      if (rigid_body_velocity_force_switch[i][axes])
+        rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof + axes] =
+            rigid_body_velocity[i][axes];
+      else
+        rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof + axes] =
+            -rigid_body_force[i][axes];
+    }
+    for (int axes = 0; axes < rotationDof; axes++) {
+      if (rigid_body_angvelocity_torque_switch[i][axes])
+        rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof +
+                      translationDof + axes] =
+            rigid_body_angular_velocity[i][axes];
+      else
+        rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof +
+                      translationDof + axes] = -rigid_body_torque[i][axes];
     }
   }
 
@@ -1457,8 +1455,7 @@ void StokesEquation::SolveEquation() {
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
-  if (currentRefinementLevel_ == 0)
-    multiMgr_->Solve(rhsField_, resField_, rhsRigidBody_, resRigidBody_);
+  multiMgr_->Solve(rhsField_, resField_, rhsRigidBody_, resRigidBody_);
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
