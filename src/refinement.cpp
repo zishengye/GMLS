@@ -22,9 +22,6 @@ bool gmls_solver::refinement() {
               "Total error for gradient: %f, with tolerance: %f\n",
               estimated_global_error, refinement_tolerance);
 
-  static vector<Vec3> old_rigid_body_velocity;
-  static vector<Vec3> old_rigid_body_angular_velocity;
-
   auto &rigid_body_position = rb_mgr->get_position();
   const auto num_rigid_body = rb_mgr->get_rigid_body_num();
   vector<Vec3> &rigid_body_velocity = rb_mgr->get_velocity();
@@ -32,6 +29,14 @@ bool gmls_solver::refinement() {
 
   vector<int> split_tag;
   vector<double> &error = equation_mgr->get_error();
+  const int local_particle_num = error.size();
+  split_tag.resize(local_particle_num);
+  for (int i = 0; i < local_particle_num; i++) {
+    split_tag[i] = 0;
+  }
+
+  if (current_refinement_step >= max_refinement_level)
+    return false;
 
   auto &local_spacing = *(geo_mgr->get_current_work_particle_spacing());
 
@@ -42,8 +47,6 @@ bool gmls_solver::refinement() {
 
   vector<pair<int, double>> chopper;
   pair<int, double> to_add;
-
-  const int local_particle_num = error.size();
 
   double local_error = 0.0;
   double global_error;
@@ -114,10 +117,6 @@ bool gmls_solver::refinement() {
     }
   }
 
-  split_tag.resize(local_particle_num);
-  for (int i = 0; i < local_particle_num; i++) {
-    split_tag[i] = 0;
-  }
   for (int i = 0; i < split_max_index; i++) {
     split_tag[chopper[i].first] = 1;
   }
@@ -320,9 +319,6 @@ bool gmls_solver::refinement() {
       estimated_global_error < refinement_tolerance) {
     return false;
   }
-
-  if (current_refinement_step >= max_refinement_level)
-    return false;
 
   PetscPrintf(PETSC_COMM_WORLD, "start of adaptive refinement\n");
 

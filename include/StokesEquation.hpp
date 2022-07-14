@@ -34,10 +34,12 @@ private:
   Kokkos::View<double *, Kokkos::HostSpace> epsilon_;
   Kokkos::View<double *, Kokkos::HostSpace> bi_;
 
-  std::vector<double> rhs;
-  std::vector<double> res;
+  std::vector<double> rhsField_, rhsRigidBody_;
+  std::vector<double> resField_, resRigidBody_;
   std::vector<double> error;
-  std::vector<int> idx_colloid;
+
+  unsigned int rigidBodyDof_, numRigidBody_, numLocalRigidBody_;
+  unsigned int rigidBodyStartIndex_, rigidBodyEndIndex_;
 
   std::vector<int> neumann_map;
 

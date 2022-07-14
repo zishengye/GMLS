@@ -2,29 +2,29 @@
 
 using namespace std;
 
-void petsc_vector::create(vector<double> &_vec) {
-  VecCreateMPI(MPI_COMM_WORLD, _vec.size(), PETSC_DECIDE, &vec);
+void petsc_vector::create(const vector<double> &vec) {
+  VecCreateMPI(MPI_COMM_WORLD, vec.size(), PETSC_DECIDE, &vec_);
 
   PetscScalar *a;
-  VecGetArray(vec, &a);
-  for (int i = 0; i < _vec.size(); i++) {
-    a[i] = _vec[i];
+  VecGetArray(vec_, &a);
+  for (int i = 0; i < vec.size(); i++) {
+    a[i] = vec[i];
   }
-  VecRestoreArray(vec, &a);
+  VecRestoreArray(vec_, &a);
 }
 
-void petsc_vector::create(petsc_vector &_vec) {
-  VecDuplicate(_vec.get_reference(), &vec);
+void petsc_vector::create(petsc_vector &vec) {
+  VecDuplicate(vec.GetReference(), &vec_);
 }
 
-void petsc_vector::copy(vector<double> &_vec) {
+void petsc_vector::copy(vector<double> &vec) {
   PetscScalar *a;
   PetscInt local_size;
 
-  VecGetLocalSize(vec, &local_size);
-  VecGetArray(vec, &a);
+  VecGetLocalSize(vec_, &local_size);
+  VecGetArray(vec_, &a);
   for (PetscInt i = 0; i < local_size; i++) {
-    _vec[i] = a[i];
+    vec[i] = a[i];
   }
-  VecRestoreArray(vec, &a);
+  VecRestoreArray(vec_, &a);
 }

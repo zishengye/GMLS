@@ -57,7 +57,7 @@ void StokesEquation::Update() {
 
   BuildCoefficientMatrix();
   ConstructRhs();
-  // SolveEquation();
+  SolveEquation();
   CalculateError();
   // CheckSolution();
   // CollectForce();
@@ -95,21 +95,6 @@ void StokesEquation::BuildCoefficientMatrix() {
   PetscPrintf(PETSC_COMM_WORLD,
               "Current memory usage before GMLS estimation %.2f GB\n",
               mem / 1e9);
-
-  Compadre::GMLS pressureBasis =
-      Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
-                     Compadre::StaggeredEdgeAnalyticGradientIntegralSample,
-                     polyOrder_, dim_, "LU", "STANDARD");
-  Compadre::GMLS velocityBasis = Compadre::GMLS(
-      Compadre::DivergenceFreeVectorTaylorPolynomial,
-      Compadre::VectorPointSample, polyOrder_, dim_, "LU", "STANDARD");
-  Compadre::GMLS pressureNeumannBasis =
-      Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
-                     Compadre::StaggeredEdgeAnalyticGradientIntegralSample,
-                     polyOrder_, dim_, "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
-  Compadre::GMLS velocityColloidBasis = Compadre::GMLS(
-      Compadre::DivergenceFreeVectorTaylorPolynomial,
-      Compadre::VectorPointSample, polyOrder_, dim_, "LU", "STANDARD");
 
   std::vector<Vec3> &rigid_body_position = rbMgr_->get_position();
   std::vector<Vec3> &rigid_body_velocity_force_switch =
@@ -789,13 +774,11 @@ void StokesEquation::BuildCoefficientMatrix() {
     auto interiorVelocityAlpha = interiorVelocitySolutionSet->getAlphas();
 
     std::vector<unsigned int> interiorCurlCurlIndex(pow(dim_, 2));
-    for (unsigned int i = 0; i < dim_; i++) {
-      for (unsigned int j = 0; j < dim_; j++) {
+    for (unsigned int i = 0; i < dim_; i++)
+      for (unsigned int j = 0; j < dim_; j++)
         interiorCurlCurlIndex[i * dim_ + j] =
             interiorVelocitySolutionSet->getAlphaColumnOffset(
                 Compadre::CurlCurlOfVectorPointEvaluation, i, 0, j, 0);
-      }
-    }
 
     Compadre::GMLS interiorPressureBasis =
         Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
@@ -923,37 +906,36 @@ void StokesEquation::BuildCoefficientMatrix() {
     boundaryCounter = 0;
     interiorCounter = 0;
 
-    unsigned int blockStorageSize = fieldDof * fieldDof;
+    const unsigned int blockStorageSize = fieldDof * fieldDof;
 
     for (unsigned int i = startParticle; i < endParticle; i++) {
       const PetscInt currentParticleIndex = local_idx[i];
 
       const unsigned int numNeighbor = neighborLists_(i, 0);
-      const unsigned int singleRowSize = numNeighbor * dim_;
+      const unsigned int singleRowSize = numNeighbor * fieldDof;
 
       index.resize(numNeighbor);
       value.resize(numNeighbor * blockStorageSize);
 
-      for (unsigned int i = 0; i < value.size(); i++) {
-        value[i] = 0.0;
-      }
+      for (auto &v : value)
+        v = 0.0;
 
       for (unsigned int j = 0; j < numNeighbor; j++) {
         index[j] = source_index[neighborLists_(i, j + 1)];
       }
 
       if (particle_type[i] == 0) {
-        for (std::size_t j = 0; j < numNeighbor; j++) {
-          for (unsigned int axes1 = 0; axes1 < dim_; axes1++) {
+        // curl curl u
+        for (std::size_t j = 0; j < numNeighbor; j++)
+          for (unsigned int axes1 = 0; axes1 < dim_; axes1++)
             for (unsigned int axes2 = 0; axes2 < dim_; axes2++) {
               auto alphaIndex = interiorVelocitySolutionSet->getAlphaIndex(
                   interiorCounter, interiorCurlCurlIndex[axes1 * dim_ + axes2]);
               value[axes1 * singleRowSize + j * fieldDof + axes2] =
                   interiorVelocityAlpha(alphaIndex + j);
             }
-          }
-        }
 
+        // laplacian p
         double Aij = 0.0;
         for (std::size_t j = 0; j < numNeighbor; j++) {
           auto alphaIndex = interiorPressureSolutionSet->getAlphaIndex(
@@ -964,6 +946,7 @@ void StokesEquation::BuildCoefficientMatrix() {
         }
         value[velocityDof * singleRowSize + velocityDof] = Aij;
 
+        // grad p
         for (unsigned int k = 0; k < dim_; k++) {
           Aij = 0.0;
           for (std::size_t j = 0; j < numNeighbor; j++) {
@@ -981,7 +964,8 @@ void StokesEquation::BuildCoefficientMatrix() {
         double Aij = 0.0;
         const unsigned int numNeighbor = neighborLists_(i, 0);
 
-        for (unsigned int k = 0; k < dim_; k++) {
+        // velocity BCs
+        for (unsigned int k = 0; k < velocityDof; k++) {
           value[k * singleRowSize + k] = 1.0;
         }
 
@@ -989,12 +973,26 @@ void StokesEquation::BuildCoefficientMatrix() {
             Compadre::LaplacianOfScalarPointEvaluation, boundaryCounter,
             numNeighbor);
 
+        // laplacian p and norm times curl curl u
         for (std::size_t j = 0; j < numNeighbor; j++) {
           auto alphaIndex = boundaryPressureSolutionSet->getAlphaIndex(
               boundaryCounter, boundaryPressureLaplacianIndex);
           value[velocityDof * singleRowSize + j * fieldDof + velocityDof] =
               boundaryPressureAlpha(alphaIndex + j);
           Aij -= boundaryPressureAlpha(alphaIndex + j);
+
+          for (unsigned int axes2 = 0; axes2 < dim_; axes2++) {
+            double gradient = 0.0;
+            for (unsigned int axes1 = 0; axes1 < dim_; axes1++) {
+              auto alpha_index = boundaryVelocitySolutionSet->getAlphaIndex(
+                  boundaryCounter, boundaryCurlCurlIndex[axes1 * dim_ + axes2]);
+              const double Lij = boundaryVelocityAlpha(alpha_index + j);
+
+              gradient += normal[i][axes1] * Lij;
+            }
+            value[velocityDof * singleRowSize + j * fieldDof + axes2] =
+                bi_(i) * gradient;
+          }
         }
         value[velocityDof * singleRowSize + velocityDof] = Aij;
 
@@ -1058,20 +1056,18 @@ void StokesEquation::BuildCoefficientMatrix() {
             dA = (dim_ == 3) ? (normal[i] * p_spacing[i][0] * p_spacing[i][1])
                              : (normal[i] * p_spacing[i][0]);
           }
-
-          for (unsigned int axes1 = 0; axes1 < translationDof; axes1++) {
+          // apply pressure
+          for (unsigned int axes1 = 0; axes1 < translationDof; axes1++)
             if (!rigid_body_velocity_force_switch[attached_rigid_body[i]]
-                                                 [axes1]) {
+                                                 [axes1])
               A.IncrementRigidBodyField(currentRigidBodyIndex + axes1,
                                         fieldDof * currentParticleGlobalIndex +
                                             velocityDof,
                                         -dA[axes1]);
-            }
-          }
 
-          for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+          for (int axes1 = 0; axes1 < rotationDof; axes1++)
             if (!rigid_body_angvelocity_torque_switch[attached_rigid_body[i]]
-                                                     [axes1]) {
+                                                     [axes1])
               A.IncrementRigidBodyField(
                   currentRigidBodyIndex + translationDof + axes1,
                   fieldDof * currentParticleGlobalIndex + velocityDof,
@@ -1079,8 +1075,6 @@ void StokesEquation::BuildCoefficientMatrix() {
                           dA[(axes1 + 2) % translationDof] +
                       rci[(axes1 + 2) % translationDof] *
                           dA[(axes1 + 1) % translationDof]);
-            }
-          }
 
           for (unsigned int j = 0; j < neighborLists_(i, 0); j++) {
             const int neighborParticleIndex =
@@ -1088,11 +1082,10 @@ void StokesEquation::BuildCoefficientMatrix() {
 
             for (unsigned int axes3 = 0; axes3 < dim_; axes3++) {
               double *f = new double[dim_];
-              for (int axes1 = 0; axes1 < dim_; axes1++) {
+              for (int axes1 = 0; axes1 < dim_; axes1++)
                 f[axes1] = 0.0;
-              }
 
-              for (unsigned int axes1 = 0; axes1 < dim_; axes1++) {
+              for (unsigned int axes1 = 0; axes1 < dim_; axes1++)
                 // output component 1
                 for (unsigned int axes2 = 0; axes2 < dim_; axes2++) {
                   // output component 2
@@ -1113,23 +1106,20 @@ void StokesEquation::BuildCoefficientMatrix() {
 
                   f[axes1] += sigma * dA[axes2];
                 }
-              }
 
               // force balance
-              for (int axes1 = 0; axes1 < translationDof; axes1++) {
+              for (int axes1 = 0; axes1 < translationDof; axes1++)
                 if (!rigid_body_velocity_force_switch[attached_rigid_body[i]]
-                                                     [axes1]) {
+                                                     [axes1])
                   A.IncrementRigidBodyField(
                       currentRigidBodyIndex + axes1,
                       neighborParticleIndex * fieldDof + axes3, f[axes1]);
-                }
-              }
 
               // torque balance
-              if (dim_ == 2) {
-                for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+              if (dim_ == 2)
+                for (int axes1 = 0; axes1 < rotationDof; axes1++)
                   if (!rigid_body_angvelocity_torque_switch
-                          [attached_rigid_body[i]][axes1]) {
+                          [attached_rigid_body[i]][axes1])
                     A.IncrementRigidBodyField(
                         currentRigidBodyIndex + translationDof + axes1,
                         neighborParticleIndex * fieldDof + axes3,
@@ -1137,13 +1127,11 @@ void StokesEquation::BuildCoefficientMatrix() {
                                 f[(axes1 + 2) % translationDof] +
                             rci[(axes1 + 2) % translationDof] *
                                 f[(axes1 + 1) % translationDof]);
-                  }
-                }
-              }
-              if (dim_ == 3) {
-                for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+
+              if (dim_ == 3)
+                for (int axes1 = 0; axes1 < rotationDof; axes1++)
                   if (!rigid_body_angvelocity_torque_switch
-                          [attached_rigid_body[i]][axes1]) {
+                          [attached_rigid_body[i]][axes1])
                     A.IncrementRigidBodyField(
                         currentRigidBodyIndex + translationDof + axes1,
                         neighborParticleIndex * fieldDof + axes3,
@@ -1151,9 +1139,7 @@ void StokesEquation::BuildCoefficientMatrix() {
                                 f[(axes1 + 2) % translationDof] -
                             rci[(axes1 + 2) % translationDof] *
                                 f[(axes1 + 1) % translationDof]);
-                  }
-                }
-              }
+
               delete[] f;
             }
           }
@@ -1210,53 +1196,20 @@ void StokesEquation::ConstructRhs() {
   MPI_Allreduce(&numLocalParticle, &numGlobalParticleNum, 1, MPI_UNSIGNED,
                 MPI_SUM, MPI_COMM_WORLD);
 
-  const int translation_dof = (dim_ == 3 ? 3 : 2);
-  const int rotation_dof = (dim_ == 3 ? 3 : 1);
-  const int rigid_body_dof = (dim_ == 3 ? 6 : 3);
+  const int translationDof = (dim_ == 3 ? 3 : 2);
+  const int rotationDof = (dim_ == 3 ? 3 : 1);
+  const int rigidBodyDof = (dim_ == 3 ? 6 : 3);
 
   int fieldDof = dim_ + 1;
   int velocityDof = dim_;
 
-  int local_velocity_dof = numLocalParticle * dim_;
-  int global_velocity_dof =
-      numGlobalParticleNum * dim_ + rigid_body_dof * numRigidBody;
-  int local_pressure_dof = numLocalParticle;
-  int global_pressure_dof = numGlobalParticleNum;
+  rhsField_.resize(fieldDof * numLocalParticle);
+  resField_.resize(fieldDof * numLocalParticle);
 
-  if (mpiRank_ == mpiSize_ - 1) {
-    local_velocity_dof += rigid_body_dof * numRigidBody;
+  for (int i = 0; i < fieldDof * numLocalParticle; i++) {
+    rhsField_[i] = 0.0;
+    resField_[i] = 0.0;
   }
-
-  std::vector<int> particle_num_per_process;
-  particle_num_per_process.resize(mpiSize_);
-
-  MPI_Allgather(&numLocalParticle, 1, MPI_INT, particle_num_per_process.data(),
-                1, MPI_INT, MPI_COMM_WORLD);
-
-  int local_rigid_body_offset =
-      particle_num_per_process[mpiSize_ - 1] * fieldDof;
-  int global_rigid_body_offset = numGlobalParticleNum * fieldDof;
-  int local_out_process_offset =
-      particle_num_per_process[mpiSize_ - 1] * fieldDof;
-
-  int local_dof = local_velocity_dof + local_pressure_dof;
-
-  rhs.resize(local_dof);
-  res.resize(local_dof);
-
-  for (int i = 0; i < local_dof; i++) {
-    rhs[i] = 0.0;
-    res[i] = 0.0;
-  }
-
-  // for (int i = 0; i < numLocalParticle; i++) {
-  //   int current_particle_local_index = local_idx[i];
-  //   if (particle_type[i] != 0 && particle_type[i] < 4) {
-  //     double y = coord[i][1];
-
-  //     rhs[fieldDof * current_particle_local_index] = 0.1 * y;
-  //   }
-  // }
 
   for (int i = 0; i < numLocalParticle; i++) {
     int current_particle_local_index = local_idx[i];
@@ -1266,14 +1219,14 @@ void StokesEquation::ConstructRhs() {
         double x = coord[i][0];
         double y = coord[i][1];
 
-        rhs[fieldDof * current_particle_local_index] =
+        rhsField_[fieldDof * current_particle_local_index] =
             sin(M_PI * x) * cos(M_PI * y);
-        rhs[fieldDof * current_particle_local_index + 1] =
+        rhsField_[fieldDof * current_particle_local_index + 1] =
             -cos(M_PI * x) * sin(M_PI * y);
 
         const int neumann_index = neumann_map[i];
 
-        rhs[fieldDof * current_particle_local_index + velocityDof] =
+        rhsField_[fieldDof * current_particle_local_index + velocityDof] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y)) +
             bi_(i) * (normal[i][0] * 2.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
@@ -1290,16 +1243,16 @@ void StokesEquation::ConstructRhs() {
         double y = coord[i][1];
         double z = coord[i][2];
 
-        rhs[fieldDof * current_particle_local_index] =
+        rhsField_[fieldDof * current_particle_local_index] =
             sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z);
-        rhs[fieldDof * current_particle_local_index + 1] =
+        rhsField_[fieldDof * current_particle_local_index + 1] =
             -2 * cos(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
-        rhs[fieldDof * current_particle_local_index + 2] =
+        rhsField_[fieldDof * current_particle_local_index + 2] =
             cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
 
         const int neumann_index = neumann_map[i];
 
-        rhs[fieldDof * current_particle_local_index + velocityDof] =
+        rhsField_[fieldDof * current_particle_local_index + velocityDof] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
                  cos(2.0 * M_PI * z)) +
@@ -1318,14 +1271,14 @@ void StokesEquation::ConstructRhs() {
         double x = coord[i][0];
         double y = coord[i][1];
 
-        rhs[fieldDof * current_particle_local_index] =
+        rhsField_[fieldDof * current_particle_local_index] =
             2.0 * pow(M_PI, 2.0) * sin(M_PI * x) * cos(M_PI * y) +
             2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[fieldDof * current_particle_local_index + 1] =
+        rhsField_[fieldDof * current_particle_local_index + 1] =
             -2.0 * pow(M_PI, 2.0) * cos(M_PI * x) * sin(M_PI * y) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
 
-        rhs[fieldDof * current_particle_local_index + velocityDof] =
+        rhsField_[fieldDof * current_particle_local_index + velocityDof] =
             -4.0 * pow(M_PI, 2.0) * (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y));
       }
       if (dim_ == 3) {
@@ -1333,18 +1286,18 @@ void StokesEquation::ConstructRhs() {
         double y = coord[i][1];
         double z = coord[i][2];
 
-        rhs[fieldDof * current_particle_local_index] =
+        rhsField_[fieldDof * current_particle_local_index] =
             3.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * x);
-        rhs[fieldDof * current_particle_local_index + 1] =
+        rhsField_[fieldDof * current_particle_local_index + 1] =
             -6.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) *
                 cos(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
-        rhs[fieldDof * current_particle_local_index + 2] =
+        rhsField_[fieldDof * current_particle_local_index + 2] =
             3.0 * pow(M_PI, 2) * cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * z);
 
-        rhs[fieldDof * current_particle_local_index + velocityDof] =
+        rhsField_[fieldDof * current_particle_local_index + velocityDof] =
             -4.0 * pow(M_PI, 2.0) *
             (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
       }
@@ -1384,11 +1337,11 @@ void StokesEquation::ConstructRhs() {
   //       double pr = 3 * RR / pow(r, 3) * u * cos(theta);
   //       double pt = 3 / 2 * RR / pow(r, 3) * u * sin(theta);
 
-  //       rhs[fieldDof * current_particle_local_index] =
+  //       rhsField_[fieldDof * current_particle_local_index] =
   //           sin(theta) * cos(phi) * vr + cos(theta) * cos(phi) * vt;
-  //       rhs[fieldDof * current_particle_local_index + 1] =
+  //       rhsField_[fieldDof * current_particle_local_index + 1] =
   //           sin(theta) * sin(phi) * vr + cos(theta) * sin(phi) * vt;
-  //       rhs[fieldDof * current_particle_local_index + 2] =
+  //       rhsField_[fieldDof * current_particle_local_index + 2] =
   //           cos(theta) * vr - sin(theta) * vt;
 
   //       double p1 = sin(theta) * cos(phi) * pr + cos(theta) * cos(phi) * pt;
@@ -1419,23 +1372,45 @@ void StokesEquation::ConstructRhs() {
   //   }
   // }
 
+  numRigidBody_ = numRigidBody;
+  numLocalRigidBody_ =
+      numRigidBody_ / (unsigned int)mpiSize_ +
+      ((numRigidBody_ % (unsigned int)mpiSize_ > mpiRank_) ? 1 : 0);
+
+  rigidBodyStartIndex_ = 0;
+  for (int i = 0; i < mpiRank_; i++) {
+    rigidBodyStartIndex_ +=
+        numRigidBody_ / (unsigned int)mpiSize_ +
+        ((numRigidBody_ % (unsigned int)mpiSize_ > i) ? 1 : 0);
+  }
+  rigidBodyEndIndex_ = rigidBodyStartIndex_ + numLocalRigidBody_;
+
+  rhsRigidBody_.resize(numLocalRigidBody_ * rigidBodyDof);
+  resRigidBody_.resize(numLocalRigidBody_ * rigidBodyDof);
+
+  for (unsigned int i = 0; i < numLocalRigidBody_ * rigidBodyDof; i++) {
+    rhsRigidBody_[i] = 0.0;
+    resRigidBody_[i] = 0.0;
+  }
+
   if (mpiRank_ == mpiSize_ - 1) {
-    for (int i = 0; i < numRigidBody; i++) {
-      for (int axes = 0; axes < translation_dof; axes++) {
+    for (int i = rigidBodyStartIndex_; i < rigidBodyEndIndex_; i++) {
+      for (int axes = 0; axes < translationDof; axes++) {
         if (rigid_body_velocity_force_switch[i][axes])
-          rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
+          rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof + axes] =
               rigid_body_velocity[i][axes];
         else
-          rhs[local_rigid_body_offset + i * rigid_body_dof + axes] =
+          rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof + axes] =
               -rigid_body_force[i][axes];
       }
-      for (int axes = 0; axes < rotation_dof; axes++) {
+      for (int axes = 0; axes < rotationDof; axes++) {
         if (rigid_body_angvelocity_torque_switch[i][axes])
-          rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-              axes] = rigid_body_angular_velocity[i][axes];
+          rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof +
+                        translationDof + axes] =
+              rigid_body_angular_velocity[i][axes];
         else
-          rhs[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-              axes] = -rigid_body_torque[i][axes];
+          rhsRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof +
+                        translationDof + axes] = -rigid_body_torque[i][axes];
       }
     }
   }
@@ -1445,14 +1420,14 @@ void StokesEquation::ConstructRhs() {
   for (int i = 0; i < numLocalParticle; i++) {
     int current_particle_local_index = local_idx[i];
     rhs_pressure_sum +=
-        rhs[fieldDof * current_particle_local_index + velocityDof];
+        rhsField_[fieldDof * current_particle_local_index + velocityDof];
   }
   MPI_Allreduce(MPI_IN_PLACE, &rhs_pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
   rhs_pressure_sum /= numGlobalParticleNum;
   for (int i = 0; i < numLocalParticle; i++) {
     int current_particle_local_index = local_idx[i];
-    rhs[fieldDof * current_particle_local_index + velocityDof] -=
+    rhsField_[fieldDof * current_particle_local_index + velocityDof] -=
         rhs_pressure_sum;
   }
 }
@@ -1469,7 +1444,7 @@ void StokesEquation::SolveEquation() {
 
     multiMgr_->build_interpolation_restriction(numRigidBody, dim_, polyOrder_);
     multiMgr_->initial_guess_from_previous_adaptive_step(
-        res, velocity, pressure, rbMgr_->get_velocity(),
+        resField_, velocity, pressure, rbMgr_->get_velocity(),
         rbMgr_->get_angular_velocity());
 
     timer2 = MPI_Wtime();
@@ -1482,8 +1457,7 @@ void StokesEquation::SolveEquation() {
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
-  // if (currentRefinementLevel_ < 4)
-  multiMgr_->solve(rhs, res, idx_colloid);
+  multiMgr_->Solve(rhsField_, resField_, rhsRigidBody_, resRigidBody_);
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
@@ -1505,9 +1479,9 @@ void StokesEquation::SolveEquation() {
   MPI_Allreduce(&numLocalParticle, &numGlobalParticleNum, 1, MPI_UNSIGNED,
                 MPI_SUM, MPI_COMM_WORLD);
 
-  const unsigned int translation_dof = (dim_ == 3 ? 3 : 2);
-  const unsigned int rotation_dof = (dim_ == 3 ? 3 : 1);
-  const unsigned int rigid_body_dof = (dim_ == 3 ? 6 : 3);
+  const unsigned int translationDof = (dim_ == 3 ? 3 : 2);
+  const unsigned int rotationDof = (dim_ == 3 ? 3 : 1);
+  const unsigned int rigidBodyDof = (dim_ == 3 ? 6 : 3);
 
   const unsigned int fieldDof = dim_ + 1;
   const unsigned int velocityDof = dim_;
@@ -1530,10 +1504,12 @@ void StokesEquation::SolveEquation() {
   double pressure_sum = 0.0;
   for (int i = 0; i < numLocalParticle; i++) {
     int current_particle_local_index = local_idx[i];
-    pressure[i] = res[fieldDof * current_particle_local_index + velocityDof];
+    pressure[i] =
+        resField_[fieldDof * current_particle_local_index + velocityDof];
     pressure_sum += pressure[i];
     for (int axes1 = 0; axes1 < dim_; axes1++)
-      velocity[i][axes1] = res[fieldDof * current_particle_local_index + axes1];
+      velocity[i][axes1] =
+          resField_[fieldDof * current_particle_local_index + axes1];
   }
 
   MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
@@ -1547,52 +1523,42 @@ void StokesEquation::SolveEquation() {
   std::vector<Vec3> &rigid_body_angular_velocity =
       rbMgr_->get_angular_velocity();
 
-  if (mpiRank_ == mpiSize_ - 1) {
-    for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < translation_dof; j++) {
-        rigid_body_velocity[i][j] =
-            res[local_rigid_body_offset + i * rigid_body_dof + j];
-      }
-      for (int j = 0; j < rotation_dof; j++) {
-        rigid_body_angular_velocity[i][j] =
-            res[local_rigid_body_offset + i * rigid_body_dof + translation_dof +
-                j];
-      }
-    }
-  }
-
   // communicate velocity and angular velocity
-  std::vector<double> translation_velocity(numRigidBody * translation_dof);
-  std::vector<double> angular_velocity(numRigidBody * rotation_dof);
+  std::vector<double> translation_velocity(numRigidBody * translationDof);
+  std::vector<double> angular_velocity(numRigidBody * rotationDof);
 
-  if (mpiRank_ == mpiSize_ - 1) {
-    for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < translation_dof; j++) {
-        translation_velocity[i * translation_dof + j] =
-            rigid_body_velocity[i][j];
-      }
-      for (int j = 0; j < rotation_dof; j++) {
-        angular_velocity[i * rotation_dof + j] =
-            rigid_body_angular_velocity[i][j];
-      }
+  for (unsigned int i = 0; i < numRigidBody * translationDof; i++) {
+    translation_velocity[i] = 0.0;
+  }
+  for (unsigned int i = 0; i < numRigidBody * rotationDof; i++) {
+    angular_velocity[i] = 0.0;
+  }
+
+  for (int i = rigidBodyStartIndex_; i < rigidBodyEndIndex_; i++) {
+    for (int j = 0; j < translationDof; j++) {
+      translation_velocity[i * translationDof + j] =
+          resRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof + j];
+    }
+    for (int j = 0; j < rotationDof; j++) {
+      angular_velocity[i * rotationDof + j] =
+          resRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof +
+                        translationDof + j];
     }
   }
 
-  MPI_Bcast(translation_velocity.data(), numRigidBody * translation_dof,
-            MPI_DOUBLE, mpiSize_ - 1, MPI_COMM_WORLD);
-  MPI_Bcast(angular_velocity.data(), numRigidBody * rotation_dof, MPI_DOUBLE,
-            mpiSize_ - 1, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, translation_velocity.data(),
+                numRigidBody * translationDof, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, angular_velocity.data(),
+                numRigidBody * rotationDof, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
 
-  if (mpiRank_ != mpiSize_ - 1) {
-    for (int i = 0; i < numRigidBody; i++) {
-      for (int j = 0; j < translation_dof; j++) {
-        rigid_body_velocity[i][j] =
-            translation_velocity[i * translation_dof + j];
-      }
-      for (int j = 0; j < rotation_dof; j++) {
-        rigid_body_angular_velocity[i][j] =
-            angular_velocity[i * rotation_dof + j];
-      }
+  for (int i = 0; i < numRigidBody; i++) {
+    for (int j = 0; j < translationDof; j++) {
+      rigid_body_velocity[i][j] = translation_velocity[i * translationDof + j];
+    }
+    for (int j = 0; j < rotationDof; j++) {
+      rigid_body_angular_velocity[i][j] = angular_velocity[i * rotationDof + j];
     }
   }
 }
@@ -1614,21 +1580,21 @@ void StokesEquation::CheckSolution() {
   MPI_Allreduce(&numLocalParticle, &numGlobalParticleNum, 1, MPI_UNSIGNED,
                 MPI_SUM, MPI_COMM_WORLD);
 
-  const unsigned int translation_dof = (dim_ == 3 ? 3 : 2);
-  const unsigned int rotation_dof = (dim_ == 3 ? 3 : 1);
-  const unsigned int rigid_body_dof = (dim_ == 3 ? 6 : 3);
+  const unsigned int translationDof = (dim_ == 3 ? 3 : 2);
+  const unsigned int rotationDof = (dim_ == 3 ? 3 : 1);
+  const unsigned int rigidBodyDof = (dim_ == 3 ? 6 : 3);
 
   const unsigned int fieldDof = dim_ + 1;
   const unsigned int velocityDof = dim_;
 
   unsigned int local_velocity_dof = numLocalParticle * dim_;
   const unsigned int global_velocity_dof =
-      numGlobalParticleNum * dim_ + rigid_body_dof * numRigidBody;
+      numGlobalParticleNum * dim_ + rigidBodyDof * numRigidBody;
   const unsigned int local_pressure_dof = numLocalParticle;
   const unsigned int global_pressure_dof = numGlobalParticleNum;
 
   if (mpiRank_ == mpiSize_ - 1) {
-    local_velocity_dof += rigid_body_dof * numRigidBody;
+    local_velocity_dof += rigidBodyDof * numRigidBody;
   }
 
   std::vector<std::vector<double>> &rigid_body_size =
@@ -2239,22 +2205,22 @@ void StokesEquation::CollectForce() {
 
   auto numRigidBody = rbMgr_->get_rigid_body_num();
 
-  const int translation_dof = (dim_ == 3 ? 3 : 2);
-  const int rotation_dof = (dim_ == 3 ? 3 : 1);
-  const int rigid_body_dof = (dim_ == 3 ? 6 : 3);
+  const int translationDof = (dim_ == 3 ? 3 : 2);
+  const int rotationDof = (dim_ == 3 ? 3 : 1);
+  const int rigidBodyDof = (dim_ == 3 ? 6 : 3);
 
   std::vector<double> flattened_force;
   std::vector<double> flattened_torque;
 
-  flattened_force.resize(numRigidBody * translation_dof);
-  flattened_torque.resize(numRigidBody * rotation_dof);
+  flattened_force.resize(numRigidBody * translationDof);
+  flattened_torque.resize(numRigidBody * rotationDof);
 
   for (int i = 0; i < numRigidBody; i++) {
-    for (int j = 0; j < translation_dof; j++) {
-      flattened_force[i * translation_dof + j] = 0.0;
+    for (int j = 0; j < translationDof; j++) {
+      flattened_force[i * translationDof + j] = 0.0;
     }
-    for (int j = 0; j < rotation_dof; j++) {
-      flattened_torque[i * rotation_dof + j] = 0.0;
+    for (int j = 0; j < rotationDof; j++) {
+      flattened_torque[i * rotationDof + j] = 0.0;
     }
   }
 
@@ -2276,35 +2242,34 @@ void StokesEquation::CollectForce() {
         }
       }
 
-      for (int axes1 = 0; axes1 < translation_dof; axes1++) {
-        flattened_force[rigid_body_idx * translation_dof + axes1] += f[axes1];
+      for (int axes1 = 0; axes1 < translationDof; axes1++) {
+        flattened_force[rigid_body_idx * translationDof + axes1] += f[axes1];
       }
 
-      for (int axes1 = 0; axes1 < rotation_dof; axes1++) {
-        flattened_torque[rigid_body_idx * rotation_dof + axes1] +=
-            rci[(axes1 + 1) % translation_dof] *
-                f[(axes1 + 2) % translation_dof] -
-            rci[(axes1 + 2) % translation_dof] *
-                f[(axes1 + 1) % translation_dof];
+      for (int axes1 = 0; axes1 < rotationDof; axes1++) {
+        flattened_torque[rigid_body_idx * rotationDof + axes1] +=
+            rci[(axes1 + 1) % translationDof] *
+                f[(axes1 + 2) % translationDof] -
+            rci[(axes1 + 2) % translationDof] * f[(axes1 + 1) % translationDof];
       }
     }
   }
 
   MPI_Allreduce(MPI_IN_PLACE, flattened_force.data(),
-                numRigidBody * translation_dof, MPI_DOUBLE, MPI_SUM,
+                numRigidBody * translationDof, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
   MPI_Allreduce(MPI_IN_PLACE, flattened_torque.data(),
-                numRigidBody * rotation_dof, MPI_DOUBLE, MPI_SUM,
+                numRigidBody * rotationDof, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
 
   for (int i = 0; i < numRigidBody; i++) {
-    for (int j = 0; j < translation_dof; j++) {
+    for (int j = 0; j < translationDof; j++) {
       if (rigid_body_velocity_force_switch[i][j])
-        rigid_body_force[i][j] = flattened_force[i * translation_dof + j];
+        rigid_body_force[i][j] = flattened_force[i * translationDof + j];
     }
-    for (int j = 0; j < rotation_dof; j++) {
+    for (int j = 0; j < rotationDof; j++) {
       if (rigid_body_velocity_force_switch[i][j])
-        rigid_body_torque[i][j] = flattened_torque[i * rotation_dof + j];
+        rigid_body_torque[i][j] = flattened_torque[i * rotationDof + j];
     }
   }
 

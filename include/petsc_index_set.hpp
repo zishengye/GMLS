@@ -20,9 +20,9 @@ public:
   void create(std::vector<int> &idx);
   void create_local(std::vector<int> &idx);
 
-  IS &get_reference() { return is; }
+  IS &GetReference() { return is; }
 
-  IS *get_pointer() { return &is; }
+  IS *GetPointer() { return &is; }
 };
 
 #endif

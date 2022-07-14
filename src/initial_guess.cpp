@@ -65,8 +65,8 @@ using namespace std;
 //                         PETSC_DECIDE, previous_result.data(),
 //                         &previous_result_vec);
 
-//   MatCreateVecs(I.get_reference(), NULL, &initial_guess_vec);
-//   MatMult(I.get_reference(), previous_result_vec, initial_guess_vec);
+//   MatCreateVecs(I.GetReference(), NULL, &initial_guess_vec);
+//   MatMult(I.GetReference(), previous_result_vec, initial_guess_vec);
 
 //   velocity.resize(new_local_particle_num);
 //   pressure.resize(new_local_particle_num);

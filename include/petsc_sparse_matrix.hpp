@@ -157,9 +157,9 @@ public:
     __out_process_matrix.resize(out_process_row);
   }
 
-  Mat &get_reference() { return __mat; }
+  Mat &GetReference() { return __mat; }
 
-  Mat *get_pointer() { return &__mat; }
+  Mat *GetPointer() { return &__mat; }
 
   Mat &get_shell_reference() { return __shell_mat; }
 

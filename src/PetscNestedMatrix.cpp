@@ -21,8 +21,7 @@ PetscNestedMatrix::PetscNestedMatrix(const PetscInt nestedRowBlockSize,
 
 PetscNestedMatrix::~PetscNestedMatrix() {
   for (unsigned int i = 0; i < nestedMat_.size(); i++) {
-    if (nestedMat_[i] != PETSC_NULL)
-      MatDestroy(&nestedMat_[i]);
+    nestedMat_[i] = PETSC_NULL;
   }
 }
 
@@ -71,6 +70,9 @@ unsigned long PetscNestedMatrix::Assemble() {
   nestedMat_[1] = nestedWrappedMat_[1]->GetReference();
   nestedMat_[2] = nestedWrappedMat_[2]->GetReference();
   nestedMat_[3] = nestedWrappedMat_[3]->GetReference();
+
+  MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL, nestedMat_.data(),
+                &mat_);
 
   return nnz;
 }

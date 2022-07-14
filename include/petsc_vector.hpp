@@ -7,24 +7,24 @@
 
 class petsc_vector {
 private:
-  Vec vec;
+  Vec vec_;
 
 public:
-  petsc_vector() : vec(PETSC_NULL) {}
+  petsc_vector() : vec_(PETSC_NULL) {}
 
   ~petsc_vector() {
-    if (vec != PETSC_NULL)
-      VecDestroy(&vec);
+    if (vec_ != PETSC_NULL)
+      VecDestroy(&vec_);
   }
 
-  void create(std::vector<double> &_vec);
-  void create(petsc_vector &_vec);
+  void create(const std::vector<double> &vec);
+  void create(petsc_vector &vec);
 
-  void copy(std::vector<double> &_vec);
+  void copy(std::vector<double> &vec);
 
-  Vec &get_reference() { return vec; }
+  Vec &GetReference() { return vec_; }
 
-  Vec *get_pointer() { return &vec; }
+  Vec *GetPointer() { return &vec_; }
 };
 
 #endif

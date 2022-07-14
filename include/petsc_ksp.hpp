@@ -25,9 +25,9 @@ public:
 
   void solve(petsc_vector &rhs, petsc_vector &p);
 
-  KSP &get_reference() { return ksp; }
+  KSP &GetReference() { return ksp; }
 
-  KSP *get_pointer() { return &ksp; }
+  KSP *GetPointer() { return &ksp; }
 };
 
 #endif

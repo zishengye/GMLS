@@ -88,7 +88,7 @@ private:
   std::shared_ptr<StokesEquation> equation_mgr;
 
   // time integration scheme
-  void foward_euler_integration();
+  void ForwardEulerIntegration();
   void adaptive_runge_kutta_intagration();
   void implicit_midpoint_integration();
 

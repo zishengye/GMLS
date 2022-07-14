@@ -1,8 +1,20 @@
 #include "StokesMatrix.hpp"
+#include "petscmat.h"
 
 #include <algorithm>
+#include <mpi.h>
+
+PetscErrorCode FieldMatrixMultWrapper(Mat mat, Vec x, Vec y) {
+  StokesMatrix *ctx;
+  MatShellGetContext(mat, &ctx);
+
+  return ctx->FieldMatrixMult(x, y);
+}
 
 void StokesMatrix::InitInternal() {
+  MPI_Allreduce(&numLocalParticle_, &numGlobalParticle_, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+
   numLocalRigidBody_ =
       numRigidBody_ / (unsigned int)mpiSize_ +
       ((numRigidBody_ % (unsigned int)mpiSize_ > mpiRank_) ? 1 : 0);
@@ -30,6 +42,9 @@ void StokesMatrix::InitInternal() {
               numLocalParticle_ * fieldDof_);
   a11->Resize(numLocalRigidBody_ * rigidBodyDof_,
               numLocalRigidBody_ * rigidBodyDof_);
+
+  x_ = std::make_shared<PetscNestedVec>(2);
+  b_ = std::make_shared<PetscNestedVec>(2);
 }
 
 StokesMatrix::StokesMatrix() : PetscNestedMatrix(2, 2) {}
@@ -58,6 +73,29 @@ StokesMatrix::StokesMatrix(const unsigned long numLocalParticle,
   rigidBodyDof_ = (dimension_ == 3) ? 6 : 3;
 
   InitInternal();
+}
+
+StokesMatrix::~StokesMatrix() {
+  MatDestroy(&neighborSchurMat_);
+  MatDestroy(&neighborMat_);
+  MatDestroy(&neighborWholeMat_);
+  MatDestroy(&nestedMat_[0]);
+
+  fieldFieldShellMat_ = PETSC_NULL;
+
+  ISDestroy(&isgNeighbor_);
+
+  for (unsigned int i = 0; i < 3; i++) {
+    if (nestedNeighborMat_[i] != PETSC_NULL)
+      MatDestroy(&nestedNeighborMat_[i]);
+  }
+  nestedNeighborMat_[3] = PETSC_NULL;
+
+  for (unsigned int i = 0; i < 3; i++) {
+    if (nestedNeighborWholeMat_[i] != PETSC_NULL)
+      MatDestroy(&nestedNeighborWholeMat_[i]);
+  }
+  nestedNeighborWholeMat_[3] = PETSC_NULL;
 }
 
 void StokesMatrix::Resize(const unsigned long numLocalParticle,
@@ -180,7 +218,7 @@ void StokesMatrix::SetGraph(
 
   std::vector<int> gatheredField;
   std::vector<int> localField;
-  std::vector<PetscInt> idxNeighbor, idxNeighborBlock;
+  std::vector<PetscInt> idxNeighbor;
   unsigned int gatheredParticleNum;
   unsigned int startIndex = 0;
   unsigned int endIndex = 0;
@@ -218,47 +256,50 @@ void StokesMatrix::SetGraph(
     if (i == mpiRank_) {
       for (unsigned int j = 0; j < localField.size(); j++)
         if (localField[j] != 0) {
-          idxNeighborBlock.push_back(j + startIndex);
           for (unsigned int k = 0; k < fieldDof_; k++)
             idxNeighbor.push_back((j + startIndex) * fieldDof_ + k);
         }
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
   }
 
-  idxNeighborBlock.clear();
-  if (mpiRank_ == 0)
-    idxNeighborBlock.push_back(0);
+  std::sort(idxNeighbor.begin(), idxNeighbor.end());
+  idxNeighbor.erase(std::unique(idxNeighbor.begin(), idxNeighbor.end()),
+                    idxNeighbor.end());
 
   ISCreateGeneral(MPI_COMM_WORLD, idxNeighbor.size(), idxNeighbor.data(),
                   PETSC_COPY_VALUES, &isgNeighbor_);
-  ISCreateGeneral(MPI_COMM_WORLD, idxNeighborBlock.size(),
-                  idxNeighborBlock.data(), PETSC_COPY_VALUES,
-                  &isgNeighborBlock_);
+
+  x_->Create(0, idxNeighbor.size());
+  b_->Create(0, idxNeighbor.size());
 }
 
 unsigned long StokesMatrix::Assemble() {
   unsigned long nnz = PetscNestedMatrix::Assemble();
 
+  // replace the matrix with a shell matrix
+  fieldFieldShellMat_ = nestedMat_[0];
+
+  PetscInt rowSize, colSize;
+  MatGetLocalSize(fieldFieldShellMat_, &rowSize, &colSize);
+  MatCreateShell(MPI_COMM_WORLD, rowSize, colSize, PETSC_DECIDE, PETSC_DECIDE,
+                 this, &nestedMat_[0]);
+
+  MatShellSetOperation(nestedMat_[0], MATOP_MULT,
+                       (void (*)(void))FieldMatrixMultWrapper);
+
+  // reconstruct the matrix
+  MatDestroy(&mat_);
   MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL, nestedMat_.data(),
                 &mat_);
-
-  Mat B, C;
-  MatCreate(MPI_COMM_WORLD, &B);
-  MatSetType(B, MATMPIAIJ);
-  MatInvertBlockDiagonalMat(nestedMat_[0], B);
-
-  MatMatMult(B, nestedMat_[1], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &C);
-  MatMatMult(nestedMat_[2], C, MAT_INITIAL_MATRIX, PETSC_DEFAULT,
-             &neighborSchurMat_);
-  MatScale(neighborSchurMat_, -1.0);
-  MatAXPY(neighborSchurMat_, 1.0, nestedMat_[3], DIFFERENT_NONZERO_PATTERN);
 
   nestedNeighborMat_.resize(4);
   nestedNeighborWholeMat_.resize(4);
 
   std::vector<PetscInt> idxColloid;
   PetscInt lowRange, highRange;
-  MatGetOwnershipRange(nestedMat_[2], &lowRange, &highRange);
+  MatGetOwnershipRange(nestedMat_[3], &lowRange, &highRange);
   idxColloid.resize(highRange - lowRange);
   for (unsigned int i = 0; i < idxColloid.size(); i++)
     idxColloid[i] = lowRange + i;
@@ -266,7 +307,13 @@ unsigned long StokesMatrix::Assemble() {
   ISCreateGeneral(PETSC_COMM_WORLD, idxColloid.size(), idxColloid.data(),
                   PETSC_COPY_VALUES, &isgColloid);
 
-  MatCreateSubMatrix(nestedMat_[0], isgNeighbor_, isgNeighbor_,
+  x_->Create(1, idxColloid.size());
+  b_->Create(1, idxColloid.size());
+
+  x_->Create();
+  b_->Create();
+
+  MatCreateSubMatrix(fieldFieldShellMat_, isgNeighbor_, isgNeighbor_,
                      MAT_INITIAL_MATRIX, &nestedNeighborMat_[0]);
   MatCreateSubMatrix(nestedMat_[1], isgNeighbor_, PETSC_NULL,
                      MAT_INITIAL_MATRIX, &nestedNeighborMat_[1]);
@@ -276,17 +323,29 @@ unsigned long StokesMatrix::Assemble() {
   MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL,
                 nestedNeighborMat_.data(), &neighborMat_);
 
-  MatCreateSubMatrix(nestedMat_[0], isgNeighbor_, PETSC_NULL,
+  MatCreateSubMatrix(fieldFieldShellMat_, isgNeighbor_, PETSC_NULL,
                      MAT_INITIAL_MATRIX, &nestedNeighborWholeMat_[0]);
   MatCreateSubMatrix(nestedMat_[1], isgNeighbor_, PETSC_NULL,
                      MAT_INITIAL_MATRIX, &nestedNeighborWholeMat_[1]);
-  MatCreateSubMatrix(nestedMat_[2], isgColloid, isgNeighbor_,
-                     MAT_INITIAL_MATRIX, &nestedNeighborWholeMat_[2]);
+  MatCreateSubMatrix(nestedMat_[2], isgColloid, PETSC_NULL, MAT_INITIAL_MATRIX,
+                     &nestedNeighborWholeMat_[2]);
   nestedNeighborWholeMat_[3] = nestedMat_[3];
   MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL,
                 nestedNeighborWholeMat_.data(), &neighborWholeMat_);
 
   ISDestroy(&isgColloid);
+
+  Mat B, C;
+  MatCreate(MPI_COMM_WORLD, &B);
+  MatSetType(B, MATMPIAIJ);
+  MatInvertBlockDiagonalMat(nestedNeighborMat_[0], B);
+
+  MatMatMult(B, nestedNeighborMat_[1], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &C);
+  MatMatMult(nestedNeighborMat_[2], C, MAT_INITIAL_MATRIX, PETSC_DEFAULT,
+             &neighborSchurMat_);
+  MatScale(neighborSchurMat_, -1.0);
+  MatAXPY(neighborSchurMat_, 1.0, nestedNeighborMat_[3],
+          DIFFERENT_NONZERO_PATTERN);
 
   MatDestroy(&B);
   MatDestroy(&C);
@@ -316,4 +375,45 @@ void StokesMatrix::IncrementRigidBodyRigidBody(const PetscInt row,
                                                const PetscInt index,
                                                const PetscInt value) {
   PetscNestedMatrix::GetMatrix(0, 0)->Increment(row, index, value);
+}
+
+PetscErrorCode StokesMatrix::FieldMatrixMult(Vec x, Vec y) {
+  PetscReal *a;
+
+  PetscReal pressureSum = 0.0;
+  PetscReal averagePressure;
+
+  VecGetArray(x, &a);
+
+  pressureSum = 0.0;
+  for (int i = 0; i < numLocalParticle_; i++) {
+    pressureSum += a[i * fieldDof_ + velocityDof_];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressureSum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  averagePressure = pressureSum / numGlobalParticle_;
+  for (int i = 0; i < numLocalParticle_; i++) {
+    a[i * fieldDof_ + velocityDof_] -= averagePressure;
+  }
+
+  VecRestoreArray(x, &a);
+
+  MatMult(fieldFieldShellMat_, x, y);
+
+  VecGetArray(y, &a);
+
+  pressureSum = 0.0;
+  for (int i = 0; i < numLocalParticle_; i++) {
+    pressureSum += a[i * fieldDof_ + velocityDof_];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressureSum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  averagePressure = pressureSum / numGlobalParticle_;
+  for (int i = 0; i < numLocalParticle_; i++) {
+    a[i * fieldDof_ + velocityDof_] -= averagePressure;
+  }
+
+  VecRestoreArray(y, &a);
+
+  return 0;
 }

@@ -20,9 +20,9 @@ public:
 
   void create(petsc_is &is, petsc_vector &vec1, petsc_vector &vec2);
 
-  VecScatter &get_reference() { return vec_scatter; }
+  VecScatter &GetReference() { return vec_scatter; }
 
-  VecScatter *get_pointer() { return &vec_scatter; }
+  VecScatter *GetPointer() { return &vec_scatter; }
 };
 
 #endif

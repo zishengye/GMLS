@@ -1,4 +1,4 @@
-#include "stokes_composite_preconditioner.hpp"
+#include "StokesCompositePreconditioning.hpp"
 
 #include "petsc_ksp.hpp"
 #include "petsc_sparse_matrix.hpp"
@@ -544,7 +544,7 @@ int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
     }
   }
 
-  Mat &mat = pmat.get_reference();
+  Mat &mat = pmat.GetReference();
 
   PetscLogDouble mem;
 
@@ -1086,11 +1086,11 @@ int petsc_sparse_matrix::extract_neighbor_index(
   petsc_is isg_colloid;
   isg_colloid.create(idx_colloid);
 
-  MatCreateSubMatrix(__mat, isg_colloid.get_reference(),
-                     isg_colloid.get_reference(), MAT_INITIAL_MATRIX,
-                     nn.get_pointer());
-  MatCreateSubMatrix(__mat, isg_colloid.get_reference(), NULL,
-                     MAT_INITIAL_MATRIX, nw.get_pointer());
+  MatCreateSubMatrix(__mat, isg_colloid.GetReference(),
+                     isg_colloid.GetReference(), MAT_INITIAL_MATRIX,
+                     nn.GetPointer());
+  MatCreateSubMatrix(__mat, isg_colloid.GetReference(), NULL,
+                     MAT_INITIAL_MATRIX, nw.GetPointer());
 
   MatDestroy(&__mat);
 
@@ -1140,11 +1140,11 @@ int petsc_sparse_matrix::extract_neighbor_index(
 
   MatCreateSubMatrix(*(__ctx.fluid_part), isg_colloid_field, isg_colloid_field,
                      MAT_INITIAL_MATRIX, &sub_ff);
-  // MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_field,
+  // MatCreateSubMatrix(nn.GetReference(), isg_colloid_sub_field,
   //                    isg_colloid_sub_field, MAT_INITIAL_MATRIX, &sub_ff);
-  MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_field,
+  MatCreateSubMatrix(nn.GetReference(), isg_colloid_sub_field,
                      isg_colloid_sub_colloid, MAT_INITIAL_MATRIX, &sub_fc);
-  MatCreateSubMatrix(nn.get_reference(), isg_colloid_sub_colloid, NULL,
+  MatCreateSubMatrix(nn.GetReference(), isg_colloid_sub_colloid, NULL,
                      MAT_INITIAL_MATRIX, &sub_cf);
 
   MatConvert(sub_ff, MATSAME, MAT_INITIAL_MATRIX, &(nn.__ctx.fluid_raw_part));
@@ -1160,7 +1160,7 @@ int petsc_sparse_matrix::extract_neighbor_index(
                &(nn.__ctx.colloid_vec));
 
   Vec x;
-  MatCreateVecs(nn.get_reference(), &x, NULL);
+  MatCreateVecs(nn.GetReference(), &x, NULL);
 
   VecScatterCreate(x, isg_colloid_sub_field, nn.__ctx.fluid_vec1, NULL,
                    &(nn.__ctx.fluid_scatter));
@@ -1199,7 +1199,7 @@ void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x) {
     _x.create(_rhs);
 
     petsc_ksp ksp;
-    KSP &_ksp = ksp.get_reference();
+    KSP &_ksp = ksp.GetReference();
     KSPCreate(PETSC_COMM_WORLD, &_ksp);
     KSPSetOperators(_ksp, __mat, __mat);
     KSPSetFromOptions(_ksp);
@@ -1212,7 +1212,7 @@ void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x) {
     PCSetUp(_pc);
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-    KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
+    KSPSolve(_ksp, _rhs.GetReference(), _x.GetReference());
     MPI_Barrier(MPI_COMM_WORLD);
 
     KSPDestroy(&_ksp);
@@ -1229,7 +1229,7 @@ void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x,
     _x.create(_rhs);
     _null.create(_rhs);
 
-    Vec &null = _null.get_reference();
+    Vec &null = _null.GetReference();
 
     PetscScalar *a;
     VecGetArray(null, &a);
@@ -1248,7 +1248,7 @@ void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x,
     petsc_ksp ksp;
     ksp.setup(__shell_mat);
 
-    KSP &_ksp = ksp.get_reference();
+    KSP &_ksp = ksp.GetReference();
 
     PC _pc;
     KSPGetPC(_ksp, &_pc);
@@ -1264,7 +1264,7 @@ void petsc_sparse_matrix::solve(vector<double> &rhs, vector<double> &x,
     HypreConstConstraintPCSetUp(_pc, &__mat, block_size);
 
     PetscPrintf(PETSC_COMM_WORLD, "final solving of linear system\n");
-    KSPSolve(_ksp, _rhs.get_reference(), _x.get_reference());
+    KSPSolve(_ksp, _rhs.GetReference(), _x.GetReference());
     MPI_Barrier(MPI_COMM_WORLD);
 
     _x.copy(x);

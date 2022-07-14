@@ -26,6 +26,6 @@ void petsc_ksp::setup(Mat &mat) {
 
 void petsc_ksp::solve(petsc_vector &rhs, petsc_vector &x) {
   if (ksp != PETSC_NULL) {
-    KSPSolve(ksp, rhs.get_reference(), x.get_reference());
+    KSPSolve(ksp, rhs.GetReference(), x.GetReference());
   }
 }
