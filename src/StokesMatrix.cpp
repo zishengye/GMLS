@@ -1,5 +1,7 @@
 #include "StokesMatrix.hpp"
 #include "petscmat.h"
+#include "petscsys.h"
+#include "petscvec.h"
 
 #include <algorithm>
 #include <mpi.h>
@@ -144,14 +146,14 @@ void StokesMatrix::SetGraph(
     }
   }
 
-  std::vector<std::vector<PetscInt>> rigidBodyFieldIndexMap(numRigidBody_);
+  rigidBodyFieldIndexMap_.resize(numRigidBody_);
   for (unsigned int i = 0; i < numLocalParticle_; i++) {
     if (particleType[i] >= 4) {
       for (unsigned int j = 0; j < neighborLists(i, 0); j++) {
         const unsigned int neighborParticleIndex =
             globalIndex[neighborLists(i, j + 1)];
         for (unsigned int axes = 0; axes < fieldDof_; axes++) {
-          rigidBodyFieldIndexMap[attachedRigidBody[i]].push_back(
+          rigidBodyFieldIndexMap_[attachedRigidBody[i]].push_back(
               neighborParticleIndex * fieldDof_ + axes);
         }
       }
@@ -159,12 +161,12 @@ void StokesMatrix::SetGraph(
   }
 
   for (unsigned int i = 0; i < numRigidBody_; i++) {
-    std::sort(rigidBodyFieldIndexMap[i].begin(),
-              rigidBodyFieldIndexMap[i].end());
-    rigidBodyFieldIndexMap[i].erase(
-        std::unique(rigidBodyFieldIndexMap[i].begin(),
-                    rigidBodyFieldIndexMap[i].end()),
-        rigidBodyFieldIndexMap[i].end());
+    std::sort(rigidBodyFieldIndexMap_[i].begin(),
+              rigidBodyFieldIndexMap_[i].end());
+    rigidBodyFieldIndexMap_[i].erase(
+        std::unique(rigidBodyFieldIndexMap_[i].begin(),
+                    rigidBodyFieldIndexMap_[i].end()),
+        rigidBodyFieldIndexMap_[i].end());
     MPI_Barrier(MPI_COMM_WORLD);
 
     int targetRank = 0;
@@ -173,7 +175,7 @@ void StokesMatrix::SetGraph(
     MPI_Allreduce(MPI_IN_PLACE, &targetRank, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
 
-    int sendCount = rigidBodyFieldIndexMap[i].size();
+    int sendCount = rigidBodyFieldIndexMap_[i].size();
     std::vector<int> index;
     std::vector<int> recvCount(mpiSize_);
     std::vector<int> recvOffset(mpiSize_ + 1);
@@ -186,7 +188,7 @@ void StokesMatrix::SetGraph(
       }
       index.resize(recvOffset[mpiSize_]);
     }
-    MPI_Gatherv(rigidBodyFieldIndexMap[i].data(), sendCount, MPI_INT,
+    MPI_Gatherv(rigidBodyFieldIndexMap_[i].data(), sendCount, MPI_INT,
                 index.data(), recvCount.data(), recvOffset.data(), MPI_INT,
                 targetRank, MPI_COMM_WORLD);
 
@@ -199,21 +201,28 @@ void StokesMatrix::SetGraph(
     }
   }
 
+  rigidBodyFieldValueMap_.resize(rigidBodyDof_ * numRigidBody_);
+  for (unsigned int i = 0; i < numRigidBody_; i++) {
+    for (unsigned int j = 0; j < rigidBodyDof_; j++)
+      rigidBodyFieldValueMap_[i * rigidBodyDof_ + j].resize(
+          rigidBodyFieldIndexMap_[i].size());
+  }
+
   PetscNestedMatrix::GraphAssemble();
 
-  std::vector<unsigned int> flattenedRigidBodyFieldIndexMap;
+  std::vector<unsigned int> flattenedRigidBodyFieldIndexMap_;
   for (unsigned int i = 0; i < numRigidBody_; i++) {
-    for (unsigned int j = 0; j < rigidBodyFieldIndexMap[i].size(); j++) {
-      flattenedRigidBodyFieldIndexMap.push_back(rigidBodyFieldIndexMap[i][j] /
-                                                fieldDof_);
+    for (unsigned int j = 0; j < rigidBodyFieldIndexMap_[i].size(); j++) {
+      flattenedRigidBodyFieldIndexMap_.push_back(rigidBodyFieldIndexMap_[i][j] /
+                                                 fieldDof_);
     }
   }
-  std::sort(flattenedRigidBodyFieldIndexMap.begin(),
-            flattenedRigidBodyFieldIndexMap.end());
-  flattenedRigidBodyFieldIndexMap.erase(
-      std::unique(flattenedRigidBodyFieldIndexMap.begin(),
-                  flattenedRigidBodyFieldIndexMap.end()),
-      flattenedRigidBodyFieldIndexMap.end());
+  std::sort(flattenedRigidBodyFieldIndexMap_.begin(),
+            flattenedRigidBodyFieldIndexMap_.end());
+  flattenedRigidBodyFieldIndexMap_.erase(
+      std::unique(flattenedRigidBodyFieldIndexMap_.begin(),
+                  flattenedRigidBodyFieldIndexMap_.end()),
+      flattenedRigidBodyFieldIndexMap_.end());
   MPI_Barrier(MPI_COMM_WORLD);
 
   std::vector<int> gatheredField;
@@ -237,10 +246,10 @@ void StokesMatrix::SetGraph(
     startIndex = endIndex;
     endIndex = startIndex + gatheredParticleNum;
 
-    auto start = std::lower_bound(flattenedRigidBodyFieldIndexMap.begin(),
-                                  flattenedRigidBodyFieldIndexMap.end(),
+    auto start = std::lower_bound(flattenedRigidBodyFieldIndexMap_.begin(),
+                                  flattenedRigidBodyFieldIndexMap_.end(),
                                   (PetscInt)startIndex);
-    auto end = std::lower_bound(start, flattenedRigidBodyFieldIndexMap.end(),
+    auto end = std::lower_bound(start, flattenedRigidBodyFieldIndexMap_.end(),
                                 (PetscInt)endIndex);
     auto it = start;
     while (it != end) {
@@ -276,6 +285,47 @@ void StokesMatrix::SetGraph(
 }
 
 unsigned long StokesMatrix::Assemble() {
+  // move data
+  auto a10 = PetscNestedMatrix::GetMatrix(1, 0);
+
+  for (unsigned int i = 0; i < numRigidBody_; i++) {
+    int targetRank = 0;
+    if (i >= rigidBodyStartIndex_ && i < rigidBodyEndIndex_)
+      targetRank = mpiRank_;
+    MPI_Allreduce(MPI_IN_PLACE, &targetRank, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+
+    int sendCount = rigidBodyFieldIndexMap_[i].size();
+    std::vector<int> index;
+    std::vector<double> value;
+    std::vector<int> recvCount(mpiSize_);
+    std::vector<int> recvOffset(mpiSize_ + 1);
+    MPI_Gather(&sendCount, 1, MPI_INT, recvCount.data(), 1, MPI_INT, targetRank,
+               MPI_COMM_WORLD);
+    if (targetRank == mpiRank_) {
+      recvOffset[0] = 0;
+      for (unsigned int j = 0; j < mpiSize_; j++) {
+        recvOffset[j + 1] = recvCount[j] + recvOffset[j];
+      }
+      index.resize(recvOffset[mpiSize_]);
+      value.resize(recvOffset[mpiSize_]);
+    }
+    MPI_Gatherv(rigidBodyFieldIndexMap_[i].data(), sendCount, MPI_INT,
+                index.data(), recvCount.data(), recvOffset.data(), MPI_INT,
+                targetRank, MPI_COMM_WORLD);
+
+    for (unsigned int j = 0; j < rigidBodyDof_; j++) {
+      MPI_Gatherv(rigidBodyFieldValueMap_[i * rigidBodyDof_ + j].data(),
+                  sendCount, MPI_DOUBLE, value.data(), recvCount.data(),
+                  recvOffset.data(), MPI_DOUBLE, targetRank, MPI_COMM_WORLD);
+
+      if (targetRank == mpiRank_) {
+        a10->Increment((i - rigidBodyStartIndex_) * rigidBodyDof_ + j, index,
+                       value);
+      }
+    }
+  }
+
   unsigned long nnz = PetscNestedMatrix::Assemble();
 
   // replace the matrix with a shell matrix
@@ -361,20 +411,26 @@ void StokesMatrix::IncrementFieldField(const PetscInt row,
 
 void StokesMatrix::IncrementFieldRigidBody(const PetscInt row,
                                            const PetscInt index,
-                                           const PetscInt value) {
+                                           const PetscReal value) {
   PetscNestedMatrix::GetMatrix(0, 1)->Increment(row, index, value);
 }
 
 void StokesMatrix::IncrementRigidBodyField(const PetscInt row,
                                            const PetscInt index,
-                                           const PetscInt value) {
-  PetscNestedMatrix::GetMatrix(1, 0)->IncrementGlobalIndex(row, index, value);
+                                           const PetscReal value) {
+  unsigned int rigidBodyIndex = row / rigidBodyDof_;
+  auto result =
+      std::lower_bound(rigidBodyFieldIndexMap_[rigidBodyIndex].begin(),
+                       rigidBodyFieldIndexMap_[rigidBodyIndex].end(), index);
+  std::size_t mapIndex =
+      result - rigidBodyFieldIndexMap_[rigidBodyIndex].begin();
+  rigidBodyFieldValueMap_[row][mapIndex] = value;
 }
 
 void StokesMatrix::IncrementRigidBodyRigidBody(const PetscInt row,
                                                const PetscInt index,
-                                               const PetscInt value) {
-  PetscNestedMatrix::GetMatrix(0, 0)->Increment(row, index, value);
+                                               const PetscReal value) {
+  PetscNestedMatrix::GetMatrix(1, 1)->Increment(row, index, value);
 }
 
 PetscErrorCode StokesMatrix::FieldMatrixMult(Vec x, Vec y) {

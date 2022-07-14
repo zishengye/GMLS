@@ -26,6 +26,8 @@ protected:
   std::vector<Mat> nestedNeighborWholeMat_;
 
   std::shared_ptr<PetscNestedVec> x_, b_;
+  std::vector<std::vector<PetscInt>> rigidBodyFieldIndexMap_;
+  std::vector<std::vector<PetscReal>> rigidBodyFieldValueMap_;
 
 public:
   StokesMatrix();
@@ -51,11 +53,11 @@ public:
                            const std::vector<PetscInt> &index,
                            const std::vector<PetscReal> &value);
   void IncrementFieldRigidBody(const PetscInt row, const PetscInt index,
-                               const PetscInt value);
+                               const PetscReal value);
   void IncrementRigidBodyField(const PetscInt row, const PetscInt index,
-                               const PetscInt value);
+                               const PetscReal value);
   void IncrementRigidBodyRigidBody(const PetscInt row, const PetscInt index,
-                                   const PetscInt value);
+                                   const PetscReal value);
 
   Mat &GetNeighborNeighborMatrix() { return neighborMat_; }
 

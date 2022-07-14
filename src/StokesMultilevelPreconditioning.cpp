@@ -681,7 +681,7 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
     KSPSetOperators(ksp_field_base->GetReference(), ff, ff);
     if (dimension == 3) {
       KSPSetType(ksp_field_base->GetReference(), KSPRICHARDSON);
-      KSPSetTolerances(ksp_field_base->GetReference(), 1e-2, 1e-50, 1e50, 5);
+      KSPSetTolerances(ksp_field_base->GetReference(), 1e-2, 1e-50, 1e50, 10);
       KSPSetResidualHistory(ksp_field_base->GetReference(), NULL, 500,
                             PETSC_TRUE);
 

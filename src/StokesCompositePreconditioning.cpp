@@ -360,10 +360,10 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
               shell->multi->get_x_list()[i]->GetReference(),
               shell->multi->getA(i)->GetNeighborX()->GetReference());
 
-      VecISCopy(shell->multi->get_r_list()[i]->GetSubVector(0),
+      VecISCopy(shell->multi->get_b_list()[i]->GetSubVector(0),
                 shell->multi->getA(i)->GetNeighborIS(), SCATTER_FORWARD,
                 shell->multi->getA(i)->GetNeighborB()->GetSubVector(0));
-      VecCopy(shell->multi->get_r_list()[i]->GetSubVector(1),
+      VecCopy(shell->multi->get_b_list()[i]->GetSubVector(1),
               shell->multi->getA(i)->GetNeighborB()->GetSubVector(1));
 
       VecAXPY(shell->multi->getA(i)->GetNeighborB()->GetReference(), -1.0,
