@@ -1243,25 +1243,44 @@ void StokesEquation::ConstructRhs() {
         double y = coord[i][1];
         double z = coord[i][2];
 
-        rhsField_[fieldDof * current_particle_local_index] =
-            cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
-        rhsField_[fieldDof * current_particle_local_index + 1] =
-            -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
-        rhsField_[fieldDof * current_particle_local_index + 2] =
-            sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+        // rhsField_[fieldDof * current_particle_local_index] =
+        //     cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z);
+        // rhsField_[fieldDof * current_particle_local_index + 1] =
+        //     -2 * sin(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+        // rhsField_[fieldDof * current_particle_local_index + 2] =
+        //     sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
 
-        const int neumann_index = neumann_map[i];
+        rhsField_[fieldDof * current_particle_local_index] =
+            sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z);
+        rhsField_[fieldDof * current_particle_local_index + 1] =
+            -2 * cos(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+        rhsField_[fieldDof * current_particle_local_index + 2] =
+            cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+
+        // rhsField_[fieldDof * current_particle_local_index + velocityDof] =
+        //     -4.0 * pow(M_PI, 2.0) *
+        //         (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
+        //          cos(2.0 * M_PI * z)) +
+        //     bi_(i) * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+        //                   sin(M_PI * y) * sin(M_PI * z) -
+        //               normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+        //                   cos(M_PI * y) * sin(M_PI * z) +
+        //               normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+        //                   sin(M_PI * y) * cos(M_PI * z)) +
+        //     bi_(i) * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
+        //               normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
+        //               normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
 
         rhsField_[fieldDof * current_particle_local_index + velocityDof] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
                  cos(2.0 * M_PI * z)) +
-            bi_(i) * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                          sin(M_PI * y) * sin(M_PI * z) -
-                      normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                          cos(M_PI * y) * sin(M_PI * z) +
-                      normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                          sin(M_PI * y) * cos(M_PI * z)) +
+            bi_(i) * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                          cos(M_PI * y) * cos(M_PI * z) -
+                      normal[i][1] * 6.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                          sin(M_PI * y) * cos(M_PI * z) +
+                      normal[i][2] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                          cos(M_PI * y) * sin(M_PI * z)) +
             bi_(i) * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
                       normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
                       normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
@@ -1286,15 +1305,26 @@ void StokesEquation::ConstructRhs() {
         double y = coord[i][1];
         double z = coord[i][2];
 
+        // rhsField_[fieldDof * current_particle_local_index] =
+        //     3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI *
+        //     z) + 2.0 * M_PI * sin(2.0 * M_PI * x);
+        // rhsField_[fieldDof * current_particle_local_index + 1] =
+        //     -6.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) *
+        //         sin(M_PI * z) +
+        //     2.0 * M_PI * sin(2.0 * M_PI * y);
+        // rhsField_[fieldDof * current_particle_local_index + 2] =
+        //     3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
+        //     z) + 2.0 * M_PI * sin(2.0 * M_PI * z);
+
         rhsField_[fieldDof * current_particle_local_index] =
-            3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z) +
+            3.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * x);
         rhsField_[fieldDof * current_particle_local_index + 1] =
-            -6.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) *
-                sin(M_PI * z) +
+            -6.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) *
+                cos(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
         rhsField_[fieldDof * current_particle_local_index + 2] =
-            3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
+            3.0 * pow(M_PI, 2) * cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * z);
 
         rhsField_[fieldDof * current_particle_local_index + velocityDof] =
