@@ -80,6 +80,10 @@ void PetscMatrix::SetColIndex(const PetscInt row,
 
 void PetscMatrix::Increment(const PetscInt row, const PetscInt col,
                             const PetscReal value) {
+  if (row > localRowSize_) {
+    std::cout << "increment wrong row setup" << std::endl;
+    return;
+  }
   MatSetValue(mat_, row + rowRangeLow_, col, value, INSERT_VALUES);
 }
 
@@ -91,6 +95,11 @@ void PetscMatrix::IncrementGlobalIndex(const PetscInt row, const PetscInt col,
 void PetscMatrix::Increment(const PetscInt row,
                             const std::vector<PetscInt> &index,
                             const std::vector<PetscReal> &value) {
+  if (row > localRowSize_) {
+    std::cout << "increment wrong row setup" << std::endl;
+    return;
+  }
+
   std::vector<PetscInt> rowIndex(1);
   rowIndex[0] = row + rowRangeLow_;
 

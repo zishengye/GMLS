@@ -398,6 +398,10 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
                                    i * rigidBodyDof + j, 1.0);
 
     I.Assemble();
+
+    PetscReal matNorm;
+    MatNorm(interpolation11->GetReference(), NORM_1, &matNorm);
+    PetscPrintf(PETSC_COMM_WORLD, "mat norm: %f\n", matNorm);
   }
 
   timer2 = MPI_Wtime();
@@ -676,9 +680,10 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
     PC pcFieldBase;
 
     Mat &ff = A_list[refinementStep]->GetMatrix(0, 0)->GetReference();
+    Mat &ffShell = A_list[refinementStep]->GetFieldFieldShellMatrix();
 
     KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->GetReference());
-    KSPSetOperators(ksp_field_base->GetReference(), ff, ff);
+    KSPSetOperators(ksp_field_base->GetReference(), ff, ffShell);
     if (dimension == 3) {
       KSPSetType(ksp_field_base->GetReference(), KSPRICHARDSON);
       KSPSetTolerances(ksp_field_base->GetReference(), 1e-2, 1e-50, 1e50, 10);
@@ -737,6 +742,7 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
     }
   } else {
     Mat &ff = A_list[refinementStep]->GetMatrix(0, 0)->GetReference();
+    Mat &ffShell = A_list[refinementStep]->GetFieldFieldShellMatrix();
 
     // setup relaxation on field for current level
     KSPCreate(MPI_COMM_WORLD,
@@ -745,7 +751,7 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
     KSPSetType(field_relaxation_list[refinementStep]->GetReference(),
                KSPRICHARDSON);
     KSPSetOperators(field_relaxation_list[refinementStep]->GetReference(), ff,
-                    ff);
+                    ffShell);
     KSPSetTolerances(field_relaxation_list[refinementStep]->GetReference(),
                      5e-1, 1e-50, 1e10, 1);
 

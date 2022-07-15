@@ -97,16 +97,11 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     VecRestoreArray(shell->multi->get_b_list()[i]->GetReference(), &a);
 
     // fluid part smoothing
-    VecCopy(shell->multi->get_b_list()[i]->GetSubVector(0),
-            shell->multi->get_b_field_list()[i]->GetReference());
+    VecSet(shell->multi->get_x_list()[i]->GetReference(), 0.0);
 
     KSPSolve(shell->multi->get_field_relaxation(i)->GetReference(),
-             shell->multi->get_b_field_list()[i]->GetReference(),
-             shell->multi->get_x_field_list()[i]->GetReference());
-
-    VecSet(shell->multi->get_x_list()[i]->GetReference(), 0.0);
-    VecCopy(shell->multi->get_x_field_list()[i]->GetReference(),
-            shell->multi->get_x_list()[i]->GetSubVector(0));
+             shell->multi->get_b_list()[i]->GetSubVector(0),
+             shell->multi->get_x_list()[i]->GetSubVector(0));
 
     // orthogonalize to constant vector
     VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
@@ -203,15 +198,10 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   VecRestoreArray(shell->multi->get_b_list()[0]->GetReference(), &a);
 
   VecSet(shell->multi->get_x_list()[0]->GetReference(), 0.0);
-  VecCopy(shell->multi->get_b_list()[0]->GetSubVector(0),
-          shell->multi->get_b_field_list()[0]->GetReference());
 
   KSPSolve(shell->multi->get_field_base()->GetReference(),
-           shell->multi->get_b_field_list()[0]->GetReference(),
-           shell->multi->get_x_field_list()[0]->GetReference());
-
-  VecCopy(shell->multi->get_x_field_list()[0]->GetReference(),
-          shell->multi->get_x_list()[0]->GetSubVector(0));
+           shell->multi->get_b_list()[0]->GetSubVector(0),
+           shell->multi->get_x_list()[0]->GetSubVector(0));
 
   // orthogonalize to constant vector
   VecGetArray(shell->multi->get_x_list()[0]->GetReference(), &a);
@@ -327,11 +317,8 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
 
     VecRestoreArray(shell->multi->get_r_list()[i]->GetReference(), &a);
 
-    VecCopy(shell->multi->get_r_list()[i]->GetSubVector(0),
-            shell->multi->get_r_field_list()[i]->GetReference());
-
     KSPSolve(shell->multi->get_field_relaxation(i)->GetReference(),
-             shell->multi->get_r_field_list()[i]->GetReference(),
+             shell->multi->get_r_list()[i]->GetSubVector(0),
              shell->multi->get_x_field_list()[i]->GetReference());
 
     VecAXPY(shell->multi->get_x_list()[i]->GetSubVector(0), 1.0,
@@ -358,26 +345,26 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       // neighbor part smoothing
       MatMult(shell->multi->getA(i)->GetNeighborWholeMatrix(),
               shell->multi->get_x_list()[i]->GetReference(),
-              shell->multi->getA(i)->GetNeighborX()->GetReference());
+              shell->multi->getA(i)->GetNeighborB()->GetReference());
 
       VecISCopy(shell->multi->get_b_list()[i]->GetSubVector(0),
                 shell->multi->getA(i)->GetNeighborIS(), SCATTER_FORWARD,
-                shell->multi->getA(i)->GetNeighborB()->GetSubVector(0));
+                shell->multi->getA(i)->GetNeighborX()->GetSubVector(0));
       VecCopy(shell->multi->get_b_list()[i]->GetSubVector(1),
-              shell->multi->getA(i)->GetNeighborB()->GetSubVector(1));
+              shell->multi->getA(i)->GetNeighborX()->GetSubVector(1));
 
-      VecAXPY(shell->multi->getA(i)->GetNeighborB()->GetReference(), -1.0,
-              shell->multi->getA(i)->GetNeighborX()->GetReference());
+      VecAXPY(shell->multi->getA(i)->GetNeighborX()->GetReference(), -1.0,
+              shell->multi->getA(i)->GetNeighborB()->GetReference());
 
       KSPSolve(shell->multi->get_colloid_relaxation(i)->GetReference(),
-               shell->multi->getA(i)->GetNeighborB()->GetReference(),
-               shell->multi->getA(i)->GetNeighborX()->GetReference());
+               shell->multi->getA(i)->GetNeighborX()->GetReference(),
+               shell->multi->getA(i)->GetNeighborB()->GetReference());
 
       VecISAXPY(shell->multi->get_x_list()[i]->GetSubVector(0),
                 shell->multi->getA(i)->GetNeighborIS(), 1.0,
-                shell->multi->getA(i)->GetNeighborX()->GetSubVector(0));
+                shell->multi->getA(i)->GetNeighborB()->GetSubVector(0));
       VecAXPY(shell->multi->get_x_list()[i]->GetSubVector(1), 1.0,
-              shell->multi->getA(i)->GetNeighborX()->GetSubVector(1));
+              shell->multi->getA(i)->GetNeighborB()->GetSubVector(1));
     }
 
     // orthogonalize to constant vector
