@@ -1463,6 +1463,14 @@ void StokesEquation::ConstructRhs() {
 void StokesEquation::SolveEquation() {
   const int numRigidBody = rbMgr_->get_rigid_body_num();
 
+  const unsigned int translationDof = (dim_ == 3 ? 3 : 2);
+  const unsigned int rotationDof = (dim_ == 3 ? 3 : 1);
+  const unsigned int rigidBodyDof = (dim_ == 3 ? 6 : 3);
+
+  std::vector<Vec3> &rigid_body_velocity = rbMgr_->get_velocity();
+  std::vector<Vec3> &rigid_body_angular_velocity =
+      rbMgr_->get_angular_velocity();
+
   auto &local_idx = *(geoMgr_->get_current_work_particle_local_index());
 
   // build interpolation and restriction operators
@@ -1471,9 +1479,19 @@ void StokesEquation::SolveEquation() {
     timer1 = MPI_Wtime();
 
     multiMgr_->build_interpolation_restriction(numRigidBody, dim_, polyOrder_);
-    multiMgr_->initial_guess_from_previous_adaptive_step(
-        resField_, velocity, pressure, rbMgr_->get_velocity(),
-        rbMgr_->get_angular_velocity());
+    multiMgr_->initial_guess_from_previous_adaptive_step(resField_, velocity,
+                                                         pressure);
+
+    for (int i = rigidBodyStartIndex_; i < rigidBodyEndIndex_; i++) {
+      for (int j = 0; j < translationDof; j++) {
+        resRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof + j] =
+            rigid_body_velocity[i][j];
+      }
+      for (int j = 0; j < rotationDof; j++) {
+        resRigidBody_[(i - rigidBodyStartIndex_) * rigidBodyDof +
+                      translationDof + j] = rigid_body_angular_velocity[i][j];
+      }
+    }
 
     timer2 = MPI_Wtime();
     PetscPrintf(PETSC_COMM_WORLD,
@@ -1506,10 +1524,6 @@ void StokesEquation::SolveEquation() {
   numLocalParticle = coord.size();
   MPI_Allreduce(&numLocalParticle, &numGlobalParticleNum, 1, MPI_UNSIGNED,
                 MPI_SUM, MPI_COMM_WORLD);
-
-  const unsigned int translationDof = (dim_ == 3 ? 3 : 2);
-  const unsigned int rotationDof = (dim_ == 3 ? 3 : 1);
-  const unsigned int rigidBodyDof = (dim_ == 3 ? 6 : 3);
 
   const unsigned int fieldDof = dim_ + 1;
   const unsigned int velocityDof = dim_;
@@ -1546,10 +1560,6 @@ void StokesEquation::SolveEquation() {
   for (int i = 0; i < numLocalParticle; i++) {
     pressure[i] -= average_pressure;
   }
-
-  std::vector<Vec3> &rigid_body_velocity = rbMgr_->get_velocity();
-  std::vector<Vec3> &rigid_body_angular_velocity =
-      rbMgr_->get_angular_velocity();
 
   // communicate velocity and angular velocity
   std::vector<double> translation_velocity(numRigidBody * translationDof);

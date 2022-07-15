@@ -110,10 +110,10 @@ public:
 
   void clear();
 
-  void initial_guess_from_previous_adaptive_step(
-      std::vector<double> &initial_guess, std::vector<Vec3> &velocity,
-      std::vector<double> &pressure, std::vector<Vec3> &rb_velocity,
-      std::vector<Vec3> &rb_angular_velocity);
+  void
+  initial_guess_from_previous_adaptive_step(std::vector<double> &initial_guess,
+                                            std::vector<Vec3> &velocity,
+                                            std::vector<double> &pressure);
   void build_interpolation_restriction(const int _num_rigid_body,
                                        const int _dim, const int _poly_order);
 

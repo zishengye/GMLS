@@ -589,8 +589,7 @@ void StokesMultilevelPreconditioning::build_interpolation_restriction(
 
 void StokesMultilevelPreconditioning::initial_guess_from_previous_adaptive_step(
     std::vector<double> &initial_guess, std::vector<Vec3> &velocity,
-    std::vector<double> &pressure, std::vector<Vec3> &rb_velocity,
-    std::vector<Vec3> &rb_angular_velocity) {
+    std::vector<double> &pressure) {
   auto &local_idx = *(geo_mgr->get_last_work_particle_local_index());
 
   PetscNestedMatrix &I = *(getI(current_refinement_level - 1));
@@ -617,6 +616,8 @@ void StokesMultilevelPreconditioning::initial_guess_from_previous_adaptive_step(
 
   VecRestoreArray(x2, &a);
 
+  MatMult(I.GetMatrix(0, 0)->GetReference(), x2, x1);
+  MatMult(R.GetMatrix(0, 0)->GetReference(), x1, x2);
   MatMult(I.GetMatrix(0, 0)->GetReference(), x2, x1);
 
   VecGetArray(x1, &a);
