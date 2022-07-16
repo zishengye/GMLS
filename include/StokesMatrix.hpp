@@ -20,7 +20,6 @@ protected:
 
   IS isgNeighbor_;
   Mat neighborSchurMat_, neighborMat_, neighborWholeMat_;
-  Mat fieldFieldShellMat_;
 
   std::vector<Mat> nestedNeighborMat_;
   std::vector<Mat> nestedNeighborWholeMat_;
@@ -69,7 +68,7 @@ public:
 
   Mat &GetNeighborSchurMatrix() { return neighborSchurMat_; }
 
-  Mat &GetFieldFieldShellMatrix() { return fieldFieldShellMat_; }
+  Mat &GetFieldFieldShellMatrix() { return nestedMat_[0]; }
 
   std::shared_ptr<PetscNestedVec> &GetNeighborX() { return x_; }
 

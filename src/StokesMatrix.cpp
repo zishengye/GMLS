@@ -83,8 +83,6 @@ StokesMatrix::~StokesMatrix() {
   MatDestroy(&neighborWholeMat_);
   MatDestroy(&nestedMat_[0]);
 
-  fieldFieldShellMat_ = PETSC_NULL;
-
   ISDestroy(&isgNeighbor_);
 
   for (unsigned int i = 0; i < 3; i++) {
@@ -326,21 +324,22 @@ unsigned long StokesMatrix::Assemble() {
     }
   }
 
-  unsigned long nnz = PetscNestedMatrix::Assemble();
-
   // replace the matrix with a shell matrix
-  fieldFieldShellMat_ = nestedMat_[0];
+  for (auto it : nestedWrappedMat_)
+    it->Assemble();
+
+  nestedMat_[1] = nestedWrappedMat_[1]->GetReference();
+  nestedMat_[2] = nestedWrappedMat_[2]->GetReference();
+  nestedMat_[3] = nestedWrappedMat_[3]->GetReference();
 
   PetscInt rowSize, colSize;
-  MatGetLocalSize(fieldFieldShellMat_, &rowSize, &colSize);
+  MatGetLocalSize(nestedWrappedMat_[0]->GetReference(), &rowSize, &colSize);
   MatCreateShell(MPI_COMM_WORLD, rowSize, colSize, PETSC_DECIDE, PETSC_DECIDE,
                  this, &nestedMat_[0]);
 
   MatShellSetOperation(nestedMat_[0], MATOP_MULT,
                        (void (*)(void))FieldMatrixMultWrapper);
 
-  // reconstruct the matrix
-  MatDestroy(&mat_);
   MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL, nestedMat_.data(),
                 &mat_);
 
@@ -363,8 +362,8 @@ unsigned long StokesMatrix::Assemble() {
   x_->Create();
   b_->Create();
 
-  MatCreateSubMatrix(fieldFieldShellMat_, isgNeighbor_, isgNeighbor_,
-                     MAT_INITIAL_MATRIX, &nestedNeighborMat_[0]);
+  MatCreateSubMatrix(nestedWrappedMat_[0]->GetReference(), isgNeighbor_,
+                     isgNeighbor_, MAT_INITIAL_MATRIX, &nestedNeighborMat_[0]);
   MatCreateSubMatrix(nestedMat_[1], isgNeighbor_, PETSC_NULL,
                      MAT_INITIAL_MATRIX, &nestedNeighborMat_[1]);
   MatCreateSubMatrix(nestedMat_[2], isgColloid, isgNeighbor_,
@@ -373,8 +372,9 @@ unsigned long StokesMatrix::Assemble() {
   MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL,
                 nestedNeighborMat_.data(), &neighborMat_);
 
-  MatCreateSubMatrix(fieldFieldShellMat_, isgNeighbor_, PETSC_NULL,
-                     MAT_INITIAL_MATRIX, &nestedNeighborWholeMat_[0]);
+  MatCreateSubMatrix(nestedWrappedMat_[0]->GetReference(), isgNeighbor_,
+                     PETSC_NULL, MAT_INITIAL_MATRIX,
+                     &nestedNeighborWholeMat_[0]);
   MatCreateSubMatrix(nestedMat_[1], isgNeighbor_, PETSC_NULL,
                      MAT_INITIAL_MATRIX, &nestedNeighborWholeMat_[1]);
   MatCreateSubMatrix(nestedMat_[2], isgColloid, PETSC_NULL, MAT_INITIAL_MATRIX,
@@ -400,7 +400,7 @@ unsigned long StokesMatrix::Assemble() {
   MatDestroy(&B);
   MatDestroy(&C);
 
-  return nnz;
+  return 0;
 }
 
 void StokesMatrix::IncrementFieldField(const PetscInt row,
@@ -454,7 +454,7 @@ PetscErrorCode StokesMatrix::FieldMatrixMult(Vec x, Vec y) {
 
   VecRestoreArray(x, &a);
 
-  MatMult(fieldFieldShellMat_, x, y);
+  MatMult(nestedWrappedMat_[0]->GetReference(), x, y);
 
   VecGetArray(y, &a);
 

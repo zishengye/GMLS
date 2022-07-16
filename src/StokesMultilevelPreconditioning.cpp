@@ -2,6 +2,7 @@
 #include "PetscNestedMatrix.hpp"
 #include "StokesCompositePreconditioning.hpp"
 #include "gmls_solver.hpp"
+#include "petscsys.h"
 
 #include <algorithm>
 #include <iostream>
@@ -684,25 +685,16 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
     Mat &ffShell = A_list[refinementStep]->GetFieldFieldShellMatrix();
 
     KSPCreate(PETSC_COMM_WORLD, &ksp_field_base->GetReference());
-    KSPSetOperators(ksp_field_base->GetReference(), ff, ffShell);
-    if (dimension == 3) {
-      KSPSetType(ksp_field_base->GetReference(), KSPRICHARDSON);
-      KSPSetTolerances(ksp_field_base->GetReference(), 1e-2, 1e-50, 1e50, 10);
-      KSPSetResidualHistory(ksp_field_base->GetReference(), NULL, 500,
-                            PETSC_TRUE);
+    KSPSetOperators(ksp_field_base->GetReference(), ffShell, ff);
+    KSPSetType(ksp_field_base->GetReference(), KSPRICHARDSON);
+    KSPSetTolerances(ksp_field_base->GetReference(), 1e-2, 1e-50, 1e50, 10);
+    KSPSetResidualHistory(ksp_field_base->GetReference(), NULL, 500,
+                          PETSC_TRUE);
 
-      KSPGetPC(ksp_field_base->GetReference(), &pcFieldBase);
-      PCSetType(pcFieldBase, PCSOR);
-    } else {
-      KSPSetType(ksp_field_base->GetReference(), KSPPREONLY);
-
-      KSPGetPC(ksp_field_base->GetReference(), &pcFieldBase);
-      PCSetType(pcFieldBase, PCLU);
-      PCFactorSetMatSolverType(pcFieldBase, MATSOLVERMUMPS);
-    }
+    KSPGetPC(ksp_field_base->GetReference(), &pcFieldBase);
+    PCSetType(pcFieldBase, PCSOR);
     PCSetFromOptions(pcFieldBase);
-    PCSetUp(pcFieldBase);
-    KSPSetUp(ksp_field_base->GetReference());
+    // KSPSetUp(ksp_field_base->GetReference());
 
     if (hasRigidBody != 0) {
       Mat &nn = A_list[refinementStep]->GetNeighborNeighborMatrix();
@@ -751,8 +743,8 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
 
     KSPSetType(field_relaxation_list[refinementStep]->GetReference(),
                KSPRICHARDSON);
-    KSPSetOperators(field_relaxation_list[refinementStep]->GetReference(), ff,
-                    ffShell);
+    KSPSetOperators(field_relaxation_list[refinementStep]->GetReference(),
+                    ffShell, ff);
     KSPSetTolerances(field_relaxation_list[refinementStep]->GetReference(),
                      5e-1, 1e-50, 1e10, 1);
 
@@ -763,7 +755,7 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
     PCSetFromOptions(field_relaxation_pc);
     PCSetUp(field_relaxation_pc);
 
-    KSPSetUp(field_relaxation_list[refinementStep]->GetReference());
+    // KSPSetUp(field_relaxation_list[refinementStep]->GetReference());
 
     if (hasRigidBody != 0) {
       Mat &nn = A_list[refinementStep]->GetNeighborNeighborMatrix();

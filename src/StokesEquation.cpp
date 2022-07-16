@@ -4,6 +4,7 @@
 #include "petsc_sparse_matrix.hpp"
 
 #include <iomanip>
+#include <mpi.h>
 #include <utility>
 
 bool compare(const std::pair<int, double> &firstElem,
@@ -108,8 +109,8 @@ void StokesEquation::BuildCoefficientMatrix() {
   timer1 = MPI_Wtime();
   PetscPrintf(PETSC_COMM_WORLD, "\nSolving GMLS subproblems...\n");
 
-  int numLocalParticle;
-  int numGlobalParticleNum;
+  unsigned int numLocalParticle;
+  unsigned int numGlobalParticleNum;
 
   numLocalParticle = coord.size();
   MPI_Allreduce(&numLocalParticle, &numGlobalParticleNum, 1, MPI_UNSIGNED,
@@ -250,9 +251,9 @@ void StokesEquation::BuildCoefficientMatrix() {
   Kokkos::deep_copy(colloid_tangent_bundle_device, colloid_tangent_bundle_host);
 
   if (dim_ == 2)
-    number_of_batches = std::max(numLocalParticle / 10000, 1);
+    number_of_batches = std::max(numLocalParticle / 10000, (unsigned int)1);
   else
-    number_of_batches = std::max(numLocalParticle / 1000, 1);
+    number_of_batches = std::max(numLocalParticle / 1000, (unsigned int)1);
 
   // neighbor search
   auto point_cloud_search(
@@ -837,7 +838,7 @@ void StokesEquation::BuildCoefficientMatrix() {
         Compadre::WeightingFunctionType::Power);
     boundaryPressureBasis.setWeightingParameter(4);
     boundaryPressureBasis.setOrderOfQuadraturePoints(2);
-    boundaryPressureBasis.setDimensionOfQuadraturePoints(dim_ - 1);
+    boundaryPressureBasis.setDimensionOfQuadraturePoints(1);
     boundaryPressureBasis.setQuadratureType("LINE");
 
     boundaryPressureBasis.generateAlphas(1, false);
@@ -1009,9 +1010,9 @@ void StokesEquation::BuildCoefficientMatrix() {
 
       const unsigned int currentRigidBodyIndex =
           attached_rigid_body[i] * rigidBodyDof;
-      Vec3 rci = coord[i] - rigid_body_position[attached_rigid_body[i]];
       if (particle_type[i] > 0) {
         if (particle_type[i] >= 4) {
+          Vec3 rci = coord[i] - rigid_body_position[attached_rigid_body[i]];
           // translation
           for (unsigned int axes1 = 0; axes1 < translationDof; axes1++) {
             A.IncrementFieldRigidBody(fieldDof * currentParticleIndex + axes1,
@@ -1167,7 +1168,7 @@ void StokesEquation::BuildCoefficientMatrix() {
     if (particle_type[i] == 0)
       innerParticleCounter++;
   }
-  MPI_Allreduce(MPI_IN_PLACE, &innerParticleCounter, 1, MPI_INT, MPI_SUM,
+  MPI_Allreduce(MPI_IN_PLACE, &innerParticleCounter, 1, MPI_UNSIGNED, MPI_SUM,
                 MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "total inner particle count: %ld\n",
               innerParticleCounter);
@@ -1189,8 +1190,8 @@ void StokesEquation::ConstructRhs() {
       rbMgr_->get_angvelocity_torque_switch();
   const auto numRigidBody = rbMgr_->get_rigid_body_num();
 
-  int numLocalParticle;
-  int numGlobalParticleNum;
+  unsigned int numLocalParticle;
+  unsigned int numGlobalParticleNum;
 
   numLocalParticle = coord.size();
   MPI_Allreduce(&numLocalParticle, &numGlobalParticleNum, 1, MPI_UNSIGNED,

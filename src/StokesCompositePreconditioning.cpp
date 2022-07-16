@@ -266,10 +266,9 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   // sweep up
   for (int i = 1; i <= shell->refinement_level; i++) {
     // interpolation
-    Mat &I = shell->multi->get_interpolation_list()[i - 1]->GetReference();
-    Vec &v1 = shell->multi->get_t_list()[i]->GetReference();
-    Vec &v2 = shell->multi->get_x_list()[i - 1]->GetReference();
-    MatMult(I, v2, v1);
+    MatMult(shell->multi->get_interpolation_list()[i - 1]->GetReference(),
+            shell->multi->get_x_list()[i - 1]->GetReference(),
+            shell->multi->get_t_list()[i]->GetReference());
 
     // post-smooth
     // fluid part smoothing
@@ -447,52 +446,7 @@ PetscErrorCode HypreConstConstraintPCSetUp(PC pc, Mat *a, PetscInt block_size) {
   return 0;
 }
 
-PetscErrorCode HypreConstConstraintPCApply(PC pc, Vec x, Vec y) {
-  HypreConstConstraintPC *shell;
-  PCShellGetContext(pc, (void **)&shell);
-
-  PetscReal *a;
-  PetscInt size;
-
-  VecGetLocalSize(x, &size);
-
-  PetscInt local_particle_num = size / shell->block_size;
-
-  PetscReal sum = 0.0;
-  VecGetArray(x, &a);
-  for (PetscInt i = 0; i < local_particle_num; i++) {
-    sum += a[shell->block_size * i + shell->offset];
-  }
-  MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  VecGetSize(x, &size);
-
-  sum /= (size / shell->block_size);
-  for (PetscInt i = 0; i < local_particle_num; i++) {
-    a[shell->block_size * i + shell->offset] -= sum;
-  }
-  VecRestoreArray(x, &a);
-
-  int localsize = local_particle_num;
-  MPI_Allreduce(MPI_IN_PLACE, &localsize, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-  KSPSolve(shell->ksp_hypre, x, y);
-
-  sum = 0.0;
-  VecGetArray(y, &a);
-  for (PetscInt i = 0; i < local_particle_num; i++) {
-    sum += a[shell->block_size * i + shell->offset];
-  }
-  MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  VecGetSize(y, &size);
-
-  sum /= (size / shell->block_size);
-  for (PetscInt i = 0; i < local_particle_num; i++) {
-    a[shell->block_size * i + shell->offset] -= sum;
-  }
-  VecRestoreArray(y, &a);
-
-  return 0;
-}
+PetscErrorCode HypreConstConstraintPCApply(PC pc, Vec x, Vec y) { return 0; }
 
 PetscErrorCode HypreConstConstraintPCDestroy(PC pc) {
   HypreConstConstraintPC *shell;
