@@ -1,4 +1,5 @@
 #include "PetscMatrix.hpp"
+#include "petscsystypes.h"
 
 PetscMatrix::PetscMatrix() : PetscMatrixBase() {}
 
@@ -84,12 +85,12 @@ void PetscMatrix::Increment(const PetscInt row, const PetscInt col,
     std::cout << "increment wrong row setup" << std::endl;
     return;
   }
-  MatSetValue(mat_, row + rowRangeLow_, col, value, INSERT_VALUES);
+  MatSetValue(mat_, row + rowRangeLow_, col, value, ADD_VALUES);
 }
 
 void PetscMatrix::IncrementGlobalIndex(const PetscInt row, const PetscInt col,
                                        const PetscReal value) {
-  MatSetValue(mat_, row, col, value, INSERT_VALUES);
+  MatSetValue(mat_, row, col, value, ADD_VALUES);
 }
 
 void PetscMatrix::Increment(const PetscInt row,
@@ -105,10 +106,11 @@ void PetscMatrix::Increment(const PetscInt row,
 
   if (blockSize_ == 1) {
     MatSetValues(mat_, 1, rowIndex.data(), index.size(), index.data(),
-                 value.data(), INSERT_VALUES);
-  } else
+                 value.data(), ADD_VALUES);
+  } else {
     MatSetValuesBlocked(mat_, 1, rowIndex.data(), index.size(), index.data(),
-                        value.data(), INSERT_VALUES);
+                        value.data(), ADD_VALUES);
+  }
 }
 
 unsigned long PetscMatrix::GraphAssemble() {
@@ -146,6 +148,8 @@ unsigned long PetscMatrix::GraphAssemble() {
                   diagNonzero.data(), 0, offDiagNonzero.data(), &mat_);
 
   MatSetUp(mat_);
+
+  MatZeroEntries(mat_);
 
   return diagNumNonzero + offDiagNumNonzero;
 }
