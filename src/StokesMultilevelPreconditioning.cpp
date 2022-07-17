@@ -617,8 +617,6 @@ void StokesMultilevelPreconditioning::initial_guess_from_previous_adaptive_step(
   VecRestoreArray(x2, &a);
 
   MatMult(I.GetMatrix(0, 0)->GetReference(), x2, x1);
-  MatMult(R.GetMatrix(0, 0)->GetReference(), x1, x2);
-  MatMult(I.GetMatrix(0, 0)->GetReference(), x2, x1);
 
   VecGetArray(x1, &a);
   for (int i = 0; i < initial_guess.size(); i++) {
