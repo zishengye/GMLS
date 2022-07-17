@@ -40,11 +40,11 @@ public:
     geometry_mgr = mgr;
   }
 
-  const int get_rigid_body_num() { return rigid_body_position.size(); }
+  int get_rigid_body_num() { return rigid_body_position.size(); }
 
   std::vector<int> &get_rigid_body_type() { return rigid_body_type; }
 
-  const int get_rigid_body_type(const int _rigid_body_index) {
+  int get_rigid_body_type(const int _rigid_body_index) {
     if (_rigid_body_index < rigid_body_position.size()) {
       return rigid_body_type[_rigid_body_index];
     } else {
@@ -62,7 +62,7 @@ public:
 
   std::vector<Vec3> &get_position() { return rigid_body_position; }
 
-  const Vec3 &get_position(const int _rigid_body_index) {
+  Vec3 get_position(const int _rigid_body_index) {
     if (_rigid_body_index < rigid_body_position.size()) {
       return rigid_body_position[_rigid_body_index];
     } else {
@@ -72,7 +72,7 @@ public:
 
   std::vector<Vec3> &get_orientation() { return rigid_body_orientation; }
 
-  const Vec3 &get_orientation(const int _rigid_body_index) {
+  Vec3 get_orientation(const int _rigid_body_index) {
     if (_rigid_body_index < rigid_body_position.size()) {
       return rigid_body_orientation[_rigid_body_index];
     } else {

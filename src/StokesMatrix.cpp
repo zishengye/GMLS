@@ -13,6 +13,15 @@ PetscErrorCode FieldMatrixMultWrapper(Mat mat, Vec x, Vec y) {
   return ctx->FieldMatrixMult(x, y);
 }
 
+PetscErrorCode FieldMatrixSORWrapper(Mat mat, Vec b, PetscReal omega,
+                                     MatSORType flag, PetscReal shift,
+                                     PetscInt its, PetscInt lits, Vec x) {
+  StokesMatrix *ctx;
+  MatShellGetContext(mat, &ctx);
+
+  return ctx->FieldMatrixSOR(b, omega, flag, shift, its, lits, x);
+}
+
 void StokesMatrix::InitInternal() {
   MPI_Allreduce(&numLocalParticle_, &numGlobalParticle_, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
@@ -98,8 +107,8 @@ StokesMatrix::~StokesMatrix() {
   nestedNeighborWholeMat_[3] = PETSC_NULL;
 }
 
-void StokesMatrix::Resize(const unsigned long numLocalParticle,
-                          const unsigned int numRigidBody) {
+void StokesMatrix::SetSize(const unsigned long numLocalParticle,
+                           const unsigned int numRigidBody) {
   rigidBodyDof_ = (dimension_ == 3) ? 6 : 3;
   numLocalParticle_ = numLocalParticle;
   numRigidBody_ = numRigidBody;
@@ -339,6 +348,8 @@ unsigned long StokesMatrix::Assemble() {
 
   MatShellSetOperation(nestedMat_[0], MATOP_MULT,
                        (void (*)(void))FieldMatrixMultWrapper);
+  MatShellSetOperation(nestedMat_[0], MATOP_SOR,
+                       (void (*)(void))FieldMatrixSORWrapper);
 
   MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL, nestedMat_.data(),
                 &mat_);
@@ -447,7 +458,7 @@ PetscErrorCode StokesMatrix::FieldMatrixMult(Vec x, Vec y) {
   }
   MPI_Allreduce(MPI_IN_PLACE, &pressureSum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
-  averagePressure = pressureSum / numGlobalParticle_;
+  averagePressure = pressureSum / (double)numGlobalParticle_;
   for (int i = 0; i < numLocalParticle_; i++) {
     a[i * fieldDof_ + velocityDof_] -= averagePressure;
   }
@@ -464,12 +475,59 @@ PetscErrorCode StokesMatrix::FieldMatrixMult(Vec x, Vec y) {
   }
   MPI_Allreduce(MPI_IN_PLACE, &pressureSum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
-  averagePressure = pressureSum / numGlobalParticle_;
+  averagePressure = pressureSum / (double)numGlobalParticle_;
   for (int i = 0; i < numLocalParticle_; i++) {
     a[i * fieldDof_ + velocityDof_] -= averagePressure;
   }
 
   VecRestoreArray(y, &a);
+
+  return 0;
+}
+
+PetscErrorCode StokesMatrix::FieldMatrixSOR(Vec b, PetscReal omega,
+                                            MatSORType flag, PetscReal shift,
+                                            PetscInt its, PetscInt lits,
+                                            Vec x) {
+  PetscReal *a;
+
+  PetscReal pressureSum = 0.0;
+  PetscReal averagePressure;
+
+  VecGetArray(b, &a);
+
+  pressureSum = 0.0;
+  for (int i = 0; i < numLocalParticle_; i++) {
+    pressureSum += a[i * fieldDof_ + velocityDof_];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressureSum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  averagePressure = pressureSum / (double)numGlobalParticle_;
+  PetscPrintf(PETSC_COMM_WORLD, "global particle num: %ld\n",
+              numGlobalParticle_);
+  for (int i = 0; i < numLocalParticle_; i++) {
+    a[i * fieldDof_ + velocityDof_] -= averagePressure;
+  }
+
+  VecRestoreArray(b, &a);
+
+  MatSOR(nestedWrappedMat_[0]->GetReference(), b, omega, flag, shift, its, lits,
+         x);
+
+  VecGetArray(x, &a);
+
+  pressureSum = 0.0;
+  for (int i = 0; i < numLocalParticle_; i++) {
+    pressureSum += a[i * fieldDof_ + velocityDof_];
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pressureSum, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  averagePressure = pressureSum / (double)numGlobalParticle_;
+  for (int i = 0; i < numLocalParticle_; i++) {
+    a[i * fieldDof_ + velocityDof_] -= averagePressure;
+  }
+
+  VecRestoreArray(x, &a);
 
   return 0;
 }

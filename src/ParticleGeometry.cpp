@@ -3474,7 +3474,7 @@ void ParticleGeometry::split_field_surface_particle(
                     Vec3 dist = pos;
                     double norm = dist.mag();
                     new_normal = dist * (-1.0 / norm);
-                    if (dist.mag() < R + 1e-5 * h)
+                    if (dist.mag() < R + 1e-5 * h) {
                       if (!insert) {
                         coord[tag] = pos;
                         normal[tag] = new_normal;
@@ -3486,6 +3486,7 @@ void ParticleGeometry::split_field_surface_particle(
                         insert_particle(pos, 1, h, new_normal,
                                         new_adaptive_level, new_volume);
                       }
+                    }
                   }
                 }
               }
@@ -5420,7 +5421,7 @@ void ParticleGeometry::find_closest_rigid_body(Vec3 coord,
         double half_side_length = rigid_body_size[0];
         double theta = rigid_body_ori[0];
 
-        double temp_dist;
+        double temp_dist = 0.0;
 
         Vec3 abs_dis = coord - rigid_body_pos;
         Vec3 dis =

@@ -73,10 +73,10 @@ public:
     return res;
   }
 
-  const double Q0() const { return data_[0]; }
-  const double Q1() const { return data_[1]; }
-  const double Q2() const { return data_[2]; }
-  const double Q3() const { return data_[3]; }
+  double Q0() const { return data_[0]; }
+  double Q1() const { return data_[1]; }
+  double Q2() const { return data_[2]; }
+  double Q3() const { return data_[3]; }
 
   void SetQ0(const double q0) { data_[0] = q0; }
   void SetQ1(const double q1) { data_[1] = q1; }

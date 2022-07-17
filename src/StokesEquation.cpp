@@ -620,7 +620,7 @@ void StokesEquation::BuildCoefficientMatrix() {
   int velocityDof = dim_;
 
   StokesMatrix &A = *(multiMgr_->getA(currentRefinementLevel_));
-  A.Resize(numLocalParticle, numRigidBody);
+  A.SetSize(numLocalParticle, numRigidBody);
 
   PetscMemoryGetCurrentUsage(&mem);
   MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -1980,7 +1980,7 @@ void StokesEquation::CalculateError() {
         ghost_coefficients_chunk;
     coefficients_chunk.resize(numLocalParticle);
 
-    size_t coefficients_size;
+    size_t coefficients_size = 0;
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
         "source coordinates", source_coord.size(), 3);

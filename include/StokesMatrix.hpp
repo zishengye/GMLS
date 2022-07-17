@@ -6,6 +6,9 @@
 #include "petscsystypes.h"
 
 PetscErrorCode FieldMatrixMultWrapper(Mat mat, Vec x, Vec y);
+PetscErrorCode FieldMatrixSORWrapper(Mat mat, Vec b, PetscReal omega,
+                                     MatSORType flag, PetscReal shift,
+                                     PetscInt its, PetscInt lits, Vec x);
 
 class StokesMatrix : public PetscNestedMatrix {
 private:
@@ -37,8 +40,8 @@ public:
                const unsigned int numRigidBody, const unsigned int dimension);
   ~StokesMatrix();
 
-  void Resize(const unsigned long numLocalParticle,
-              const unsigned int numRigidBody);
+  void SetSize(const unsigned long numLocalParticle,
+               const unsigned int numRigidBody);
 
   void SetGraph(const std::vector<int> &localIndex,
                 const std::vector<int> &globalIndex,
@@ -77,6 +80,10 @@ public:
   IS &GetNeighborIS() { return isgNeighbor_; }
 
   PetscErrorCode FieldMatrixMult(Vec x, Vec y);
+
+  PetscErrorCode FieldMatrixSOR(Vec b, PetscReal omega, MatSORType flag,
+                                PetscReal shift, PetscInt its, PetscInt lits,
+                                Vec x);
 };
 
 #endif

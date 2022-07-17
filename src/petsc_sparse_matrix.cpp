@@ -404,7 +404,9 @@ int petsc_sparse_matrix::assemble(int block_size) {
 }
 
 int petsc_sparse_matrix::assemble(int block_size, int num_rigid_body,
-                                  int rigid_body_dof) {}
+                                  int rigid_body_dof) {
+  return 0;
+}
 
 int petsc_sparse_matrix::assemble(petsc_sparse_matrix &pmat, int block_size,
                                   int num_rigid_body, int rigid_body_dof) {

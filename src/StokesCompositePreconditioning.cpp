@@ -80,7 +80,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   for (int i = shell->refinement_level; i > 0; i--) {
     // pre smooth
     // orthogonalize to constant vector
-    VecGetArray(shell->multi->get_b_list()[i]->GetReference(), &a);
+    VecGetArray(shell->multi->get_b_list()[i]->GetSubVector(0), &a);
 
     pressure_sum = 0.0;
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
@@ -94,7 +94,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
 
-    VecRestoreArray(shell->multi->get_b_list()[i]->GetReference(), &a);
+    VecRestoreArray(shell->multi->get_b_list()[i]->GetSubVector(0), &a);
 
     // fluid part smoothing
     VecSet(shell->multi->get_x_list()[i]->GetReference(), 0.0);
@@ -104,21 +104,21 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
              shell->multi->get_x_list()[i]->GetSubVector(0));
 
     // orthogonalize to constant vector
-    VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
+    {
+      VecGetArray(shell->multi->get_x_list()[i]->GetSubVector(0), &a);
 
-    pressure_sum = 0.0;
-    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
-      pressure_sum += a[idx * shell->field_dof + pressure_offset];
-    }
-    MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
-    average_pressure =
-        pressure_sum / (double)shell->multi->get_global_particle_num(i);
-    for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
-      a[idx * shell->field_dof + pressure_offset] -= average_pressure;
-    }
+      pressure_sum = 0.0;
+      for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+        pressure_sum += a[idx * shell->field_dof + pressure_offset];
+      }
+      average_pressure =
+          pressure_sum / (double)shell->multi->get_global_particle_num(i);
+      for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
+        a[idx * shell->field_dof + pressure_offset] -= average_pressure;
+      }
 
-    VecRestoreArray(shell->multi->get_x_list()[i]->GetReference(), &a);
+      VecRestoreArray(shell->multi->get_x_list()[i]->GetSubVector(0), &a);
+    }
 
     if (shell->num_rigid_body != 0) {
       // neighbor part smoothing
@@ -131,6 +131,12 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
                 shell->multi->getA(i)->GetNeighborX()->GetSubVector(0));
       VecCopy(shell->multi->get_b_list()[i]->GetSubVector(1),
               shell->multi->getA(i)->GetNeighborX()->GetSubVector(1));
+
+      // VecISCopy(shell->multi->get_r_list()[i]->GetSubVector(0),
+      //           shell->multi->getA(i)->GetNeighborIS(), SCATTER_FORWARD,
+      //           shell->multi->getA(i)->GetNeighborB()->GetSubVector(0));
+      // VecCopy(shell->multi->get_r_list()[i]->GetSubVector(1),
+      //         shell->multi->getA(i)->GetNeighborB()->GetSubVector(1));
 
       VecAXPY(shell->multi->getA(i)->GetNeighborX()->GetReference(), -1.0,
               shell->multi->getA(i)->GetNeighborB()->GetReference());
@@ -147,21 +153,19 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     }
 
     // orthogonalize to constant vector
-    VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
+    VecGetArray(shell->multi->get_x_list()[i]->GetSubVector(0), &a);
 
     pressure_sum = 0.0;
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
       pressure_sum += a[idx * shell->field_dof + pressure_offset];
     }
-    MPI_Allreduce(MPI_IN_PLACE, &pressure_sum, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
     average_pressure =
         pressure_sum / (double)shell->multi->get_global_particle_num(i);
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
 
-    VecRestoreArray(shell->multi->get_x_list()[i]->GetReference(), &a);
+    VecRestoreArray(shell->multi->get_x_list()[i]->GetSubVector(0), &a);
 
     // restriction
     MatMult(shell->multi->getA(i)->GetReference(),
@@ -171,17 +175,16 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     VecAYPX(shell->multi->get_r_list()[i]->GetReference(), -1.0,
             shell->multi->get_b_list()[i]->GetReference());
 
-    Mat &R = shell->multi->get_restriction_list()[i - 1]->GetReference();
-    Vec &v1 = shell->multi->get_r_list()[i]->GetReference();
-    Vec &v2 = shell->multi->get_b_list()[i - 1]->GetReference();
-    MatMult(R, v1, v2);
+    MatMult(shell->multi->get_restriction_list()[i - 1]->GetReference(),
+            shell->multi->get_r_list()[i]->GetReference(),
+            shell->multi->get_b_list()[i - 1]->GetReference());
   }
 
   // solve on base level
   // stage 1
 
   // orthogonalize to constant vector
-  VecGetArray(shell->multi->get_b_list()[0]->GetReference(), &a);
+  VecGetArray(shell->multi->get_b_list()[0]->GetSubVector(0), &a);
 
   pressure_sum = 0.0;
   for (int i = 0; i < shell->multi->get_local_particle_num(0); i++) {
@@ -195,7 +198,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     a[i * shell->field_dof + pressure_offset] -= average_pressure;
   }
 
-  VecRestoreArray(shell->multi->get_b_list()[0]->GetReference(), &a);
+  VecRestoreArray(shell->multi->get_b_list()[0]->GetSubVector(0), &a);
 
   VecSet(shell->multi->get_x_list()[0]->GetReference(), 0.0);
 
@@ -204,7 +207,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
            shell->multi->get_x_list()[0]->GetSubVector(0));
 
   // orthogonalize to constant vector
-  VecGetArray(shell->multi->get_x_list()[0]->GetReference(), &a);
+  VecGetArray(shell->multi->get_x_list()[0]->GetSubVector(0), &a);
 
   pressure_sum = 0.0;
   for (int idx = 0; idx < shell->multi->get_local_particle_num(0); idx++) {
@@ -218,7 +221,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     a[idx * shell->field_dof + pressure_offset] -= average_pressure;
   }
 
-  VecRestoreArray(shell->multi->get_x_list()[0]->GetReference(), &a);
+  VecRestoreArray(shell->multi->get_x_list()[0]->GetSubVector(0), &a);
 
   if (shell->num_rigid_body != 0) {
     // stage 2
@@ -247,7 +250,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
   }
 
   // orthogonalize to constant vector
-  VecGetArray(shell->multi->get_x_list()[0]->GetReference(), &a);
+  VecGetArray(shell->multi->get_x_list()[0]->GetSubVector(0), &a);
 
   pressure_sum = 0.0;
   for (int idx = 0; idx < shell->multi->get_local_particle_num(0); idx++) {
@@ -261,7 +264,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     a[idx * shell->field_dof + pressure_offset] -= average_pressure;
   }
 
-  VecRestoreArray(shell->multi->get_x_list()[0]->GetReference(), &a);
+  VecRestoreArray(shell->multi->get_x_list()[0]->GetSubVector(0), &a);
 
   // sweep up
   for (int i = 1; i <= shell->refinement_level; i++) {
@@ -276,7 +279,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
             shell->multi->get_t_list()[i]->GetReference());
 
     // orthogonalize to constant vector
-    VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
+    VecGetArray(shell->multi->get_x_list()[i]->GetSubVector(0), &a);
 
     pressure_sum = 0.0;
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
@@ -290,7 +293,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
 
-    VecRestoreArray(shell->multi->get_x_list()[i]->GetReference(), &a);
+    VecRestoreArray(shell->multi->get_x_list()[i]->GetSubVector(0), &a);
 
     MatMult(shell->multi->getA(i)->GetReference(),
             shell->multi->get_x_list()[i]->GetReference(),
@@ -300,7 +303,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
             shell->multi->get_b_list()[i]->GetReference());
 
     // orthogonalize to constant vector
-    VecGetArray(shell->multi->get_r_list()[i]->GetReference(), &a);
+    VecGetArray(shell->multi->get_r_list()[i]->GetSubVector(0), &a);
 
     pressure_sum = 0.0;
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
@@ -314,7 +317,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
 
-    VecRestoreArray(shell->multi->get_r_list()[i]->GetReference(), &a);
+    VecRestoreArray(shell->multi->get_r_list()[i]->GetSubVector(0), &a);
 
     KSPSolve(shell->multi->get_field_relaxation(i)->GetReference(),
              shell->multi->get_r_list()[i]->GetSubVector(0),
@@ -324,7 +327,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
             shell->multi->get_x_field_list()[i]->GetReference());
 
     // orthogonalize to constant vector
-    VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
+    VecGetArray(shell->multi->get_x_list()[i]->GetSubVector(0), &a);
 
     pressure_sum = 0.0;
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
@@ -338,7 +341,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
 
-    VecRestoreArray(shell->multi->get_x_list()[i]->GetReference(), &a);
+    VecRestoreArray(shell->multi->get_x_list()[i]->GetSubVector(0), &a);
 
     if (shell->num_rigid_body != 0) {
       // neighbor part smoothing
@@ -367,7 +370,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
     }
 
     // orthogonalize to constant vector
-    VecGetArray(shell->multi->get_x_list()[i]->GetReference(), &a);
+    VecGetArray(shell->multi->get_x_list()[i]->GetSubVector(0), &a);
 
     pressure_sum = 0.0;
     for (int idx = 0; idx < shell->multi->get_local_particle_num(i); idx++) {
@@ -381,7 +384,7 @@ PetscErrorCode HypreLUShellPCApplyAdaptive(PC pc, Vec x, Vec y) {
       a[idx * shell->field_dof + pressure_offset] -= average_pressure;
     }
 
-    VecRestoreArray(shell->multi->get_x_list()[i]->GetReference(), &a);
+    VecRestoreArray(shell->multi->get_x_list()[i]->GetSubVector(0), &a);
   }
 
   VecCopy(shell->multi->get_x_list()[shell->refinement_level]->GetReference(),

@@ -63,7 +63,7 @@ public:
     return ((data[0] < y[0]) || (data[1] < y[1]) || (data[2] < y[2]));
   }
 
-  const Triple<T> operator-(Triple<T> y) const {
+  Triple<T> operator-(Triple<T> y) const {
     return Triple<T>(data[0] - y[0], data[1] - y[1], data[2] - y[2]);
   }
 
@@ -71,7 +71,7 @@ public:
     return Triple<T>(a * data[0], a * data[1], a * data[2]);
   }
 
-  const double mag() const {
+  double mag() const {
     return sqrt(data[0] * data[0] + data[1] * data[1] + data[2] * data[2]);
   }
 
