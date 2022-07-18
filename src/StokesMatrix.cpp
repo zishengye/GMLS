@@ -515,8 +515,6 @@ PetscErrorCode StokesMatrix::FieldMatrixSOR(Vec b, PetscReal omega,
   MPI_Allreduce(MPI_IN_PLACE, &pressureSum, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
   averagePressure = pressureSum / (double)numGlobalParticle_;
-  PetscPrintf(PETSC_COMM_WORLD, "global particle num: %ld\n",
-              numGlobalParticle_);
   for (int i = 0; i < numLocalParticle_; i++) {
     a[i * fieldDof_ + velocityDof_] -= averagePressure;
   }
