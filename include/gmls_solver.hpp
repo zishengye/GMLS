@@ -20,10 +20,10 @@
 #include <Kokkos_Timer.hpp>
 
 #include "ParticleGeometry.hpp"
+#include "PetscWrapper.hpp"
 #include "StokesMultilevelPreconditioning.hpp"
 #include "Vec3.hpp"
 #include "info.hpp"
-#include "petsc_sparse_matrix.hpp"
 #include "search_command.hpp"
 
 #include "StokesEquation.hpp"

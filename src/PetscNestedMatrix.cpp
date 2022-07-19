@@ -1,4 +1,5 @@
 #include "PetscNestedMatrix.hpp"
+#include "petscsystypes.h"
 
 PetscNestedMatrix::PetscNestedMatrix()
     : nestedRowBlockSize_(0), nestedColBlockSize_(0), PetscMatrixBase() {}
@@ -55,7 +56,7 @@ std::shared_ptr<PetscMatrix> PetscNestedMatrix::GetMatrix(const PetscInt row,
 unsigned long PetscNestedMatrix::GraphAssemble() {
   unsigned long nnz = 0;
 
-  for (auto it : nestedWrappedMat_)
+  for (auto &it : nestedWrappedMat_)
     nnz += it->GraphAssemble();
 
   return nnz;
@@ -63,7 +64,7 @@ unsigned long PetscNestedMatrix::GraphAssemble() {
 
 unsigned long PetscNestedMatrix::Assemble() {
   unsigned long nnz = 0;
-  for (auto it : nestedWrappedMat_)
+  for (auto &it : nestedWrappedMat_)
     nnz += it->Assemble();
 
   nestedMat_[0] = nestedWrappedMat_[0]->GetReference();

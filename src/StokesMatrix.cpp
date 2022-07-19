@@ -216,7 +216,7 @@ void StokesMatrix::SetGraph(
     for (unsigned int j = 0; j < rigidBodyDof_; j++) {
       rigidBodyFieldValueMap_[i * rigidBodyDof_ + j].resize(
           rigidBodyFieldIndexMap_[i].size());
-      for (auto v : rigidBodyFieldValueMap_[i * rigidBodyDof_ + j])
+      for (auto &v : rigidBodyFieldValueMap_[i * rigidBodyDof_ + j])
         v = 0.0;
     }
   }
@@ -343,7 +343,7 @@ unsigned long StokesMatrix::Assemble() {
   }
 
   // replace the matrix with a shell matrix
-  for (auto it : nestedWrappedMat_)
+  for (auto &it : nestedWrappedMat_)
     it->Assemble();
 
   nestedMat_[1] = nestedWrappedMat_[1]->GetReference();

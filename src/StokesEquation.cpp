@@ -1,7 +1,6 @@
 #include "StokesEquation.hpp"
 #include "DivergenceFree.hpp"
 #include "gmls_solver.hpp"
-#include "petsc_sparse_matrix.hpp"
 
 #include <iomanip>
 #include <mpi.h>
@@ -48,14 +47,12 @@ void StokesEquation::Init(std::shared_ptr<ParticleGeometry> geoMgr,
   MPI_Comm_size(MPI_COMM_WORLD, &mpiSize_);
 
   currentRefinementLevel_ = 0;
-  multiMgr_->reset();
-  multiMgr_->init(dim_, geoMgr_);
-  multiMgr_->set_num_rigid_body(rbMgr_->get_rigid_body_num());
+  multiMgr_->Reset();
+  multiMgr_->Init(dim_, geoMgr_);
+  multiMgr_->SetNumRigidBody(rbMgr_->get_rigid_body_num());
 }
 
 void StokesEquation::Update() {
-  multiMgr_->add_new_level();
-
   BuildCoefficientMatrix();
   ConstructRhs();
   SolveEquation();
@@ -68,7 +65,7 @@ void StokesEquation::Update() {
 
 void StokesEquation::Reset() {
   currentRefinementLevel_ = 0;
-  multiMgr_->reset();
+  multiMgr_->Reset();
 }
 
 void StokesEquation::BuildCoefficientMatrix() {
@@ -619,7 +616,7 @@ void StokesEquation::BuildCoefficientMatrix() {
   int fieldDof = dim_ + 1;
   int velocityDof = dim_;
 
-  StokesMatrix &A = *(multiMgr_->getA(currentRefinementLevel_));
+  StokesMatrix &A = *(multiMgr_->GetLinearSystem(currentRefinementLevel_));
   A.SetSize(numLocalParticle, numRigidBody);
 
   PetscMemoryGetCurrentUsage(&mem);
@@ -1474,14 +1471,15 @@ void StokesEquation::SolveEquation() {
 
   auto &local_idx = *(geoMgr_->get_current_work_particle_local_index());
 
+  multiMgr_->AddNewLevel(local_idx.size());
+
   // build interpolation and restriction operators
   double timer1, timer2;
   if (currentRefinementLevel_ != 0) {
     timer1 = MPI_Wtime();
 
-    multiMgr_->build_interpolation_restriction(numRigidBody, dim_, polyOrder_);
-    multiMgr_->initial_guess_from_previous_adaptive_step(resField_, velocity,
-                                                         pressure);
+    multiMgr_->BuildInterpolationRestrictionOperators(numRigidBody, dim_);
+    multiMgr_->InitialGuess(resField_, velocity, pressure);
 
     for (int i = rigidBodyStartIndex_; i < rigidBodyEndIndex_; i++) {
       for (int j = 0; j < translationDof; j++) {

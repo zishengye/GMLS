@@ -2,6 +2,7 @@
 #define _STOKES_MULTILEVEL_HPP_
 
 #include <memory>
+#include <mpi.h>
 #include <vector>
 
 #include "ParticleGeometry.hpp"
@@ -10,136 +11,92 @@
 #include "StokesMatrix.hpp"
 
 class StokesMultilevelPreconditioning {
-public:
-  typedef std::shared_ptr<StokesMatrix> StokesMatrixType;
-  typedef std::shared_ptr<PetscNestedMatrix> NestedMatrixType;
-  typedef std::shared_ptr<PetscVector> vector_type;
-  typedef std::shared_ptr<petsc_is> is_type;
-  typedef std::shared_ptr<petsc_ksp> ksp_type;
-  typedef std::shared_ptr<petsc_vecscatter> vecscatter_type;
-
 private:
-  std::vector<StokesMatrixType> A_list; // coefficient matrix list
-  std::vector<NestedMatrixType> I_list; // interpolation matrix list
-  std::vector<NestedMatrixType> R_list; // restriction matrix list
+  std::vector<std::shared_ptr<StokesMatrix>>
+      linearSystemList_; // coefficient matrix list
+  std::vector<std::shared_ptr<PetscNestedMatrix>>
+      interpolationList_; // interpolation matrix list
+  std::vector<std::shared_ptr<PetscNestedMatrix>>
+      restrictionList_; // restriction matrix list
 
   // vector list
-  std::vector<std::shared_ptr<PetscNestedVec>> x_list;
-  std::vector<std::shared_ptr<PetscNestedVec>> b_list;
-  std::vector<std::shared_ptr<PetscNestedVec>> r_list;
-  std::vector<std::shared_ptr<PetscNestedVec>> t_list;
+  std::vector<std::shared_ptr<PetscNestedVec>> xList_;
+  std::vector<std::shared_ptr<PetscNestedVec>> yList_;
+  std::vector<std::shared_ptr<PetscNestedVec>> bList_;
+  std::vector<std::shared_ptr<PetscNestedVec>> rList_;
 
-  std::vector<vector_type> x_field_list;
-  std::vector<vector_type> y_field_list;
-  std::vector<vector_type> b_field_list;
-  std::vector<vector_type> r_field_list;
+  std::vector<std::shared_ptr<PetscVector>> xFieldList_;
+  std::vector<std::shared_ptr<PetscVector>> yFieldList_;
+  std::vector<std::shared_ptr<PetscVector>> bFieldList_;
+  std::vector<std::shared_ptr<PetscVector>> rFieldList_;
 
   // relaxation list
-  std::vector<ksp_type> field_relaxation_list;
-  std::vector<ksp_type> colloid_relaxation_list;
+  std::vector<std::shared_ptr<PetscKsp>> fieldRelaxationList_;
+  std::vector<std::shared_ptr<PetscKsp>> neighborRelaxationList_;
 
-  std::vector<int> local_particle_num_list;
-  std::vector<int> global_particle_num_list;
+  std::vector<unsigned int> numLocalParticleList_;
+  std::vector<unsigned int> numGlobalParticleList_;
 
-  ksp_type ksp_field_base, ksp_colloid_base;
+  int mpiRank_, mpiSize_;
 
-  int mpi_rank, mpi_size;
+  int dimension_, numRigidBody_;
 
-  int dimension, num_rigid_body;
+  int currentRefinementLevel_;
 
-  bool base_level_initialized;
-
-  int current_refinement_level;
-
-  std::shared_ptr<ParticleGeometry> geo_mgr;
+  std::shared_ptr<ParticleGeometry> geoMgr_;
 
 public:
-  StokesMultilevelPreconditioning()
-      : base_level_initialized(false), current_refinement_level(-1) {}
+  StokesMultilevelPreconditioning() : currentRefinementLevel_(-1) {}
 
-  ~StokesMultilevelPreconditioning() { clear(); }
+  ~StokesMultilevelPreconditioning() { Clear(); }
 
-  void init(int _dimension, std::shared_ptr<ParticleGeometry> _geo_mgr) {
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+  void Init(const int dimension, std::shared_ptr<ParticleGeometry> geoMgr) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpiSize_);
 
-    set_dimension(_dimension);
+    dimension_ = dimension;
 
-    geo_mgr = _geo_mgr;
+    geoMgr_ = geoMgr;
   }
 
-  void reset() { clear(); }
+  void Reset() { Clear(); }
 
-  inline void set_dimension(int _dimension) { dimension = _dimension; }
-
-  inline void set_num_rigid_body(int _num_rigid_body) {
-    num_rigid_body = _num_rigid_body;
+  inline void SetNumRigidBody(const int numRigidBody) {
+    numRigidBody_ = numRigidBody;
   }
 
-  inline int get_dimension() { return dimension; }
-
-  inline int get_num_rigid_body() { return num_rigid_body; }
-
-  StokesMatrixType getA(int num_level) { return A_list[num_level]; }
-  NestedMatrixType getI(int num_level) { return I_list[num_level]; }
-  NestedMatrixType getR(int num_level) { return R_list[num_level]; }
-  ksp_type get_field_relaxation(int num_level) {
-    return field_relaxation_list[num_level];
-  }
-  ksp_type get_colloid_relaxation(int num_level) {
-    return colloid_relaxation_list[num_level];
-  }
-  ksp_type get_field_base() { return ksp_field_base; }
-  ksp_type get_colloid_base() { return ksp_colloid_base; }
-
-  void add_new_level() {
-    if (!base_level_initialized) {
-      ksp_field_base = std::make_shared<petsc_ksp>();
-      ksp_colloid_base = std::make_shared<petsc_ksp>();
+  void AddNewLevel(const unsigned int numLocalParticle) {
+    linearSystemList_.push_back(std::make_shared<StokesMatrix>(dimension_));
+    if (currentRefinementLevel_ >= 0) {
+      interpolationList_.push_back(std::make_shared<PetscNestedMatrix>(2, 2));
+      restrictionList_.push_back(std::make_shared<PetscNestedMatrix>(2, 2));
     }
 
-    A_list.push_back(std::make_shared<StokesMatrix>(dimension));
-    if (base_level_initialized) {
-      I_list.push_back(std::make_shared<PetscNestedMatrix>(2, 2));
-      R_list.push_back(std::make_shared<PetscNestedMatrix>(2, 2));
-    }
+    currentRefinementLevel_++;
 
-    base_level_initialized = true;
-    current_refinement_level++;
+    unsigned int numGlobalParticle;
+    MPI_Allreduce(&numLocalParticle, &numGlobalParticle, 1, MPI_UNSIGNED,
+                  MPI_SUM, MPI_COMM_WORLD);
+
+    numLocalParticleList_.push_back(numLocalParticle);
+    numGlobalParticleList_.push_back(numGlobalParticle);
   }
 
-  void clear();
+  void RemoveConstant(const unsigned int refinementLevel, Vec x);
 
-  void
-  initial_guess_from_previous_adaptive_step(std::vector<double> &initial_guess,
-                                            std::vector<Vec3> &velocity,
-                                            std::vector<double> &pressure);
-  void build_interpolation_restriction(const int _num_rigid_body,
-                                       const int _dim, const int _poly_order);
+  void Clear();
 
-  std::vector<NestedMatrixType> &get_interpolation_list() { return I_list; }
-  std::vector<NestedMatrixType> &get_restriction_list() { return R_list; }
-
-  std::vector<std::shared_ptr<PetscNestedVec>> &get_x_list() { return x_list; }
-  std::vector<std::shared_ptr<PetscNestedVec>> &get_b_list() { return b_list; }
-  std::vector<std::shared_ptr<PetscNestedVec>> &get_r_list() { return r_list; }
-  std::vector<std::shared_ptr<PetscNestedVec>> &get_t_list() { return t_list; }
-
-  std::vector<vector_type> &get_x_field_list() { return x_field_list; }
-  std::vector<vector_type> &get_y_field_list() { return y_field_list; }
-  std::vector<vector_type> &get_b_field_list() { return b_field_list; }
-  std::vector<vector_type> &get_r_field_list() { return r_field_list; }
-
-  int get_local_particle_num(int level_num) {
-    return local_particle_num_list[level_num];
-  }
-
-  int get_global_particle_num(int level_num) {
-    return global_particle_num_list[level_num];
-  }
+  void InitialGuess(std::vector<double> &initial_guess,
+                    std::vector<Vec3> &velocity, std::vector<double> &pressure);
+  void BuildInterpolationRestrictionOperators(const int numRigidBody,
+                                              const int dimension);
 
   int Solve(std::vector<double> &rhs1, std::vector<double> &x1,
             std::vector<double> &rhs2, std::vector<double> &x2);
+
+  std::shared_ptr<StokesMatrix> GetLinearSystem(int num_level) {
+    return linearSystemList_[num_level];
+  }
 };
 
 #endif
