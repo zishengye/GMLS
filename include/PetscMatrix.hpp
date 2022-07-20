@@ -36,7 +36,8 @@ public:
 
   ~PetscMatrix();
 
-  void Resize(const PetscInt m, const PetscInt n, const PetscInt blockSize = 1);
+  virtual void Resize(const PetscInt m, const PetscInt n,
+                      const PetscInt blockSize = 1);
 
   PetscInt GetRowSize();
   PetscInt GetColSize();

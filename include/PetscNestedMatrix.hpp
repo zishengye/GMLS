@@ -5,6 +5,8 @@
 
 #include <memory>
 
+PetscErrorCode NestedMatMultWrapper(Mat mat, Vec x, Vec y);
+
 class PetscNestedMatrix : public PetscMatrixBase {
 protected:
   PetscInt nestedRowBlockSize_, nestedColBlockSize_;
@@ -27,6 +29,8 @@ public:
 
   unsigned long GraphAssemble();
   unsigned long Assemble();
+
+  PetscErrorCode NestedMatrixMult(Vec x, Vec y);
 };
 
 #endif

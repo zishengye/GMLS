@@ -41,6 +41,10 @@ void PetscVector::Create(HostRealVector &vec) {
   VecRestoreArray(vec_, &a);
 }
 
+void PetscVector::Create(const PetscInt size) {
+  VecCreateMPI(MPI_COMM_WORLD, size, PETSC_DECIDE, &vec_);
+}
+
 void PetscVector::Copy(HostRealVector &vec) {
   PetscInt size;
   VecGetLocalSize(vec_, &size);

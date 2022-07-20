@@ -189,7 +189,7 @@ bool gmls_solver::refinement() {
 
   int iteration_finished = 1;
   ite_counter = 0;
-  while (iteration_finished != 0 && ite_counter < 15) {
+  while (iteration_finished != 0 && ite_counter < 20) {
     ite_counter++;
     geo_mgr->ghost_forward(split_tag, ghost_split_tag);
     candidate_split_tag = split_tag;

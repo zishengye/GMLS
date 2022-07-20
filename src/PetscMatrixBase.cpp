@@ -18,7 +18,8 @@ void PetscMatrixBase::Clear() {
   mat_ = PETSC_NULL;
 }
 
-void PetscMatrixBase::Resize(const PetscInt m, const PetscInt n) {}
+void PetscMatrixBase::Resize(const PetscInt m, const PetscInt n,
+                             const PetscInt blockSize) {}
 
 PetscInt PetscMatrixBase::GetRowSize() { return 0; }
 

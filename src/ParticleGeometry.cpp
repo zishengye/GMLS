@@ -2583,15 +2583,22 @@ bool ParticleGeometry::generate_rigid_body_surface_particle() {
   for (int i = 0; i < coord.size(); i++) {
     if (particle_type[i] >= 4) {
       if (dim == 2) {
-        if (is_field_particle(coord[i], spacing[i]) == 0)
+        if (is_field_particle(coord[i], spacing[i]) == 0) {
           pass_test = 1;
+          break;
+        }
       }
       if (dim == 3) {
-        if (is_field_particle(coord[i], spacing[i]) == 0)
+        if (is_field_particle(coord[i], spacing[i]) == 0) {
           pass_test = 1;
+          break;
+        }
       }
-      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) == -1)
+      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) !=
+          attached_rigid_body[i]) {
         pass_test = 1;
+        break;
+      }
     }
   }
 
@@ -3108,6 +3115,32 @@ bool ParticleGeometry::adaptive_refine(std::vector<int> &split_tag) {
 
   split_field_particle(field_particle_split_tag);
   split_gap_particle(gap_split_tag);
+
+  std::vector<int> &attached_rigid_body =
+      (*current_local_managing_particle_attached_rigid_body);
+
+  int pass_test = 0;
+  for (int i = 0; i < coord.size(); i++) {
+    if (particle_type[i] >= 4) {
+      if (dim == 2) {
+        if (is_field_particle(coord[i], spacing[i]) == 0) {
+          pass_test = 1;
+          break;
+        }
+      }
+      if (dim == 3) {
+        if (is_field_particle(coord[i], spacing[i]) == 0) {
+          pass_test = 1;
+          break;
+        }
+      }
+      if (is_gap_particle(coord[i], 1e-4, attached_rigid_body[i]) == -1) {
+        pass_test = 1;
+        break;
+      }
+    }
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &pass_test, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
   return true;
 }
@@ -4057,8 +4090,10 @@ bool ParticleGeometry::split_rigid_body_surface_particle(
         if (coord[i][0] < bounding_box[0][0] ||
             coord[i][0] > bounding_box[1][0] ||
             coord[i][1] < bounding_box[0][1] ||
-            coord[i][1] > bounding_box[1][1])
+            coord[i][1] > bounding_box[1][1]) {
           pass_test = 1;
+          break;
+        }
       }
       if (dim == 3) {
         if (coord[i][0] < bounding_box[0][0] ||
@@ -4066,10 +4101,13 @@ bool ParticleGeometry::split_rigid_body_surface_particle(
             coord[i][1] < bounding_box[0][1] ||
             coord[i][1] > bounding_box[1][1] ||
             coord[i][2] < bounding_box[0][2] ||
-            coord[i][2] > bounding_box[1][2])
+            coord[i][2] > bounding_box[1][2]) {
           pass_test = 1;
+          break;
+        }
       }
-      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) == -1) {
+      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) !=
+          attached_rigid_body[i]) {
         pass_test = 1;
         break;
       }
@@ -4214,7 +4252,7 @@ int ParticleGeometry::is_gap_particle(const Vec3 &_pos, double _spacing,
   }
 
   int rigid_body_num = rb_mgr->get_rigid_body_num();
-  for (size_t idx = 0; idx < rigid_body_num; idx++) {
+  for (int idx = 0; idx < rigid_body_num; idx++) {
     int rigid_body_type = rb_mgr->get_rigid_body_type(idx);
     Vec3 rigid_body_pos = rb_mgr->get_position(idx);
     Vec3 rigid_body_ori = rb_mgr->get_orientation(idx);
@@ -4229,9 +4267,10 @@ int ParticleGeometry::is_gap_particle(const Vec3 &_pos, double _spacing,
         Vec3 dis = _pos - rigid_body_pos;
         if (_attached_rigid_body_index >= 0) {
           // this is a particle on the rigid body surface
-          if (_attached_rigid_body_index != idx &&
-              dis.mag() < rigid_body_size[0] + 1e-3 * _spacing)
+          if ((_attached_rigid_body_index != idx) &&
+              (dis.mag() < rigid_body_size[0] + 1e-3 * _spacing)) {
             return idx;
+          }
         } else {
           // this is a fluid particle
 
@@ -4508,21 +4547,6 @@ int ParticleGeometry::is_field_particle(const Vec3 &_pos, double _spacing) {
           _pos[2] < bounding_box[0][2] || _pos[2] > bounding_box[1][2])
         return 0;
     }
-  }
-  if (domain_type == 1) {
-    double cap_radius;
-    cap_radius = auxiliary_size[0];
-
-    if (_pos[2] < 0.0)
-      return 0;
-
-    double R = cap_radius;
-
-    Vec3 dist = _pos;
-    if (dist.mag() > R)
-      return -1;
-    else if (dist.mag() > R - 0.5 * _spacing)
-      return 0;
   }
   return -2;
 }

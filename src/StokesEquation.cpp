@@ -1,6 +1,8 @@
 #include "StokesEquation.hpp"
 #include "DivergenceFree.hpp"
 #include "gmls_solver.hpp"
+#include "petscsys.h"
+#include "petscvec.h"
 
 #include <iomanip>
 #include <mpi.h>
@@ -112,6 +114,8 @@ void StokesEquation::BuildCoefficientMatrix() {
   numLocalParticle = coord.size();
   MPI_Allreduce(&numLocalParticle, &numGlobalParticleNum, 1, MPI_UNSIGNED,
                 MPI_SUM, MPI_COMM_WORLD);
+
+  multiMgr_->AddNewLevel(numLocalParticle);
 
   int num_source_coord = source_coord.size();
 
@@ -290,8 +294,8 @@ void StokesEquation::BuildCoefficientMatrix() {
       1.0);
 
   for (unsigned int i = 0; i < numLocalParticle; i++) {
-    double minEpsilon = 1.50 * spacing[i];
-    double minSpacing = 0.25 * spacing[i];
+    double minEpsilon = 1.500005 * spacing[i];
+    double minSpacing = 0.250005 * spacing[i];
     epsilon_(i) = std::max(minEpsilon, epsilon_(i));
     unsigned int scaling =
         std::max(0.0, std::ceil((epsilon_(i) - minEpsilon) / minSpacing));
@@ -598,7 +602,6 @@ void StokesEquation::BuildCoefficientMatrix() {
     ite_counter++;
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(MPI_COMM_WORLD,
               "iteration count: %d min neighbor: %d, max neighbor: %d , mean "
               "neighbor %f, max ratio: %f\n",
@@ -606,8 +609,8 @@ void StokesEquation::BuildCoefficientMatrix() {
               mean_neighbor / (double)numGlobalParticleNum, max_ratio);
 
   // matrix assembly
-  MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD, "\nGenerating Stokes Matrix...\n");
+  MPI_Barrier(MPI_COMM_WORLD);
 
   const int translationDof = (dim_ == 3 ? 3 : 2);
   const int rotationDof = (dim_ == 3 ? 3 : 1);
@@ -1255,30 +1258,16 @@ void StokesEquation::ConstructRhs() {
         rhsField_[fieldDof * current_particle_local_index + 2] =
             cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
 
-        // rhsField_[fieldDof * current_particle_local_index + velocityDof] =
-        //     -4.0 * pow(M_PI, 2.0) *
-        //         (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
-        //          cos(2.0 * M_PI * z)) +
-        //     bi_(i) * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-        //                   sin(M_PI * y) * sin(M_PI * z) -
-        //               normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-        //                   cos(M_PI * y) * sin(M_PI * z) +
-        //               normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-        //                   sin(M_PI * y) * cos(M_PI * z)) +
-        //     bi_(i) * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
-        //               normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
-        //               normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
-
         rhsField_[fieldDof * current_particle_local_index + velocityDof] =
             -4.0 * pow(M_PI, 2.0) *
                 (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) +
                  cos(2.0 * M_PI * z)) +
-            bi_(i) * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
-                          cos(M_PI * y) * cos(M_PI * z) -
-                      normal[i][1] * 6.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                          sin(M_PI * y) * cos(M_PI * z) +
-                      normal[i][2] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
-                          cos(M_PI * y) * sin(M_PI * z)) +
+            bi_(i) * (normal[i][0] * 3.0 * pow(M_PI, 2.0) * cos(M_PI * x) *
+                          sin(M_PI * y) * sin(M_PI * z) -
+                      normal[i][1] * 6.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                          cos(M_PI * y) * sin(M_PI * z) +
+                      normal[i][2] * 3.0 * pow(M_PI, 2.0) * sin(M_PI * x) *
+                          sin(M_PI * y) * cos(M_PI * z)) +
             bi_(i) * (normal[i][0] * 2.0 * M_PI * sin(2.0 * M_PI * x) +
                       normal[i][1] * 2.0 * M_PI * sin(2.0 * M_PI * y) +
                       normal[i][2] * 2.0 * M_PI * sin(2.0 * M_PI * z));
@@ -1303,26 +1292,15 @@ void StokesEquation::ConstructRhs() {
         double y = coord[i][1];
         double z = coord[i][2];
 
-        // rhsField_[fieldDof * current_particle_local_index] =
-        //     3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI *
-        //     z) + 2.0 * M_PI * sin(2.0 * M_PI * x);
-        // rhsField_[fieldDof * current_particle_local_index + 1] =
-        //     -6.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) *
-        //         sin(M_PI * z) +
-        //     2.0 * M_PI * sin(2.0 * M_PI * y);
-        // rhsField_[fieldDof * current_particle_local_index + 2] =
-        //     3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI *
-        //     z) + 2.0 * M_PI * sin(2.0 * M_PI * z);
-
         rhsField_[fieldDof * current_particle_local_index] =
-            3.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z) +
+            3.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * sin(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * x);
         rhsField_[fieldDof * current_particle_local_index + 1] =
-            -6.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) *
-                cos(M_PI * z) +
+            -6.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) *
+                sin(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * y);
         rhsField_[fieldDof * current_particle_local_index + 2] =
-            3.0 * pow(M_PI, 2) * cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z) +
+            3.0 * pow(M_PI, 2) * sin(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
             2.0 * M_PI * sin(2.0 * M_PI * z);
 
         rhsField_[fieldDof * current_particle_local_index + velocityDof] =
@@ -1470,8 +1448,6 @@ void StokesEquation::SolveEquation() {
       rbMgr_->get_angular_velocity();
 
   auto &local_idx = *(geoMgr_->get_current_work_particle_local_index());
-
-  multiMgr_->AddNewLevel(local_idx.size());
 
   // build interpolation and restriction operators
   double timer1, timer2;

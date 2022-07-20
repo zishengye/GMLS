@@ -27,7 +27,8 @@ public:
   virtual int GetRowSize();
   virtual int GetColSize();
 
-  virtual void Resize(const PetscInt m, const PetscInt n);
+  virtual void Resize(const PetscInt m, const PetscInt n,
+                      const PetscInt blockSize = 1);
 
   virtual unsigned long GraphAssemble();
   virtual unsigned long Assemble();

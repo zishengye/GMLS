@@ -20,6 +20,7 @@ public:
   void Create(std::vector<double> &vec);
   void Create(PetscVector &vec);
   void Create(HostRealVector &vec);
+  void Create(const PetscInt size);
 
   void Copy(std::vector<double> &vec);
   void Copy(HostRealVector &vec);

@@ -891,7 +891,7 @@ void gmls_solver::implicit_midpoint_integration() {
   SNESSetFromOptions(snes);
   SNESSetUp(snes);
 
-  rtol = 1e-5;
+  rtol = 1e-3;
   atol = 1e-10;
   dt = max_dt;
   t = 0;

@@ -2,7 +2,6 @@
 #define _PetscStokesMatrix_Hpp_
 
 #include "PetscNestedMatrix.hpp"
-#include "PetscNestedVec.hpp"
 #include "petscsystypes.h"
 
 PetscErrorCode FieldMatrixMultWrapper(Mat mat, Vec x, Vec y);
@@ -22,12 +21,12 @@ protected:
   unsigned int translationDof_, rotationDof_;
 
   IS isgNeighbor_;
-  Mat neighborSchurMat_, neighborMat_, neighborWholeMat_;
+  Mat neighborSchurMat_, neighborMat_;
 
   std::vector<Mat> nestedNeighborMat_;
-  std::vector<Mat> nestedNeighborWholeMat_;
+  std::vector<PetscInt> idxNeighbor_;
 
-  std::shared_ptr<PetscNestedVec> x_, b_;
+  std::shared_ptr<PetscVector> x_, b_;
   std::vector<std::vector<PetscInt>> rigidBodyFieldIndexMap_;
   std::vector<std::vector<PetscReal>> rigidBodyFieldValueMap_;
 
@@ -63,8 +62,6 @@ public:
 
   Mat &GetNeighborNeighborMatrix() { return neighborMat_; }
 
-  Mat &GetNeighborWholeMatrix() { return neighborWholeMat_; }
-
   Mat &GetNeighborNeighborSubMatrix(const PetscInt row, const PetscInt col) {
     return nestedNeighborMat_[row * 2 + col];
   }
@@ -73,9 +70,9 @@ public:
 
   Mat &GetFieldFieldShellMatrix() { return nestedMat_[0]; }
 
-  std::shared_ptr<PetscNestedVec> &GetNeighborX() { return x_; }
+  std::shared_ptr<PetscVector> &GetNeighborX() { return x_; }
 
-  std::shared_ptr<PetscNestedVec> &GetNeighborB() { return b_; }
+  std::shared_ptr<PetscVector> &GetNeighborB() { return b_; }
 
   IS &GetNeighborIS() { return isgNeighbor_; }
 
@@ -84,6 +81,16 @@ public:
   PetscErrorCode FieldMatrixSOR(Vec b, PetscReal omega, MatSORType flag,
                                 PetscReal shift, PetscInt its, PetscInt lits,
                                 Vec x);
+
+  void ConstantVec(Vec v);
+
+  void ForwardField(Vec x, Vec y);
+
+  void BackwardField(Vec x, Vec y);
+
+  void ForwardNeighbor(Vec x, Vec y);
+
+  void BackwardNeighbor(Vec x, Vec y);
 };
 
 #endif

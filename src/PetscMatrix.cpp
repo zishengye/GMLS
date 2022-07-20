@@ -151,6 +151,9 @@ unsigned long PetscMatrix::GraphAssemble() {
 
   MatZeroEntries(mat_);
 
+  diagMatrixCol_.clear();
+  offDiagMatrixCol_.clear();
+
   return diagNumNonzero + offDiagNumNonzero;
 }
 

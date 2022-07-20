@@ -6,9 +6,11 @@
 #include <vector>
 
 #include "ParticleGeometry.hpp"
-#include "PetscNestedVec.hpp"
 #include "PetscWrapper.hpp"
 #include "StokesMatrix.hpp"
+#include "petscsystypes.h"
+
+PetscErrorCode StokesMultilevelIterationWrapper(PC pc, Vec x, Vec y);
 
 class StokesMultilevelPreconditioning {
 private:
@@ -20,10 +22,10 @@ private:
       restrictionList_; // restriction matrix list
 
   // vector list
-  std::vector<std::shared_ptr<PetscNestedVec>> xList_;
-  std::vector<std::shared_ptr<PetscNestedVec>> yList_;
-  std::vector<std::shared_ptr<PetscNestedVec>> bList_;
-  std::vector<std::shared_ptr<PetscNestedVec>> rList_;
+  std::vector<std::shared_ptr<PetscVector>> xList_;
+  std::vector<std::shared_ptr<PetscVector>> yList_;
+  std::vector<std::shared_ptr<PetscVector>> bList_;
+  std::vector<std::shared_ptr<PetscVector>> rList_;
 
   std::vector<std::shared_ptr<PetscVector>> xFieldList_;
   std::vector<std::shared_ptr<PetscVector>> yFieldList_;
@@ -97,6 +99,8 @@ public:
   std::shared_ptr<StokesMatrix> GetLinearSystem(int num_level) {
     return linearSystemList_[num_level];
   }
+
+  PetscErrorCode MultilevelIteration(Vec x, Vec y);
 };
 
 #endif

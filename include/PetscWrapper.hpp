@@ -5,7 +5,6 @@
 #include "PetscMatrix.hpp"
 #include "PetscMatrixBase.hpp"
 #include "PetscNestedMatrix.hpp"
-#include "PetscNestedVec.hpp"
 #include "PetscVector.hpp"
 
 #endif

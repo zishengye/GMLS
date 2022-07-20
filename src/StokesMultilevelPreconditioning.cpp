@@ -1,7 +1,10 @@
 #include "StokesMultilevelPreconditioning.hpp"
 #include "PetscNestedMatrix.hpp"
+#include "PetscVector.hpp"
 #include "gmls_solver.hpp"
+#include "petscksp.h"
 #include "petscsys.h"
+#include "petscvec.h"
 
 #include <algorithm>
 #include <iostream>
@@ -10,10 +13,19 @@
 using namespace std;
 using namespace Compadre;
 
+PetscErrorCode StokesMultilevelIterationWrapper(PC pc, Vec x, Vec y) {
+  StokesMultilevelPreconditioning *ctx;
+  PCShellGetContext(pc, (void **)&ctx);
+
+  return ctx->MultilevelIteration(x, y);
+}
+
 void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
     const int numRigidBody, const int dimension_) {
-  PetscNestedMatrix &I = *(interpolationList_[currentRefinementLevel_ - 1]);
-  PetscNestedMatrix &R = *(restrictionList_[currentRefinementLevel_ - 1]);
+  PetscNestedMatrix &interpolation =
+      *(interpolationList_[currentRefinementLevel_ - 1]);
+  PetscNestedMatrix &restriction =
+      *(restrictionList_[currentRefinementLevel_ - 1]);
 
   int fieldDof = dimension_ + 1;
   int velocityDof = dimension_;
@@ -270,10 +282,10 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
     auto old_to_new_velocity_alphas =
         old_to_new_velocity_solution_set->getAlphas();
 
-    auto interpolation00 = I.GetMatrix(0, 0);
-    auto interpolation01 = I.GetMatrix(0, 1);
-    auto interpolation10 = I.GetMatrix(1, 0);
-    auto interpolation11 = I.GetMatrix(1, 1);
+    auto interpolation00 = interpolation.GetMatrix(0, 0);
+    auto interpolation01 = interpolation.GetMatrix(0, 1);
+    auto interpolation10 = interpolation.GetMatrix(1, 0);
+    auto interpolation11 = interpolation.GetMatrix(1, 1);
 
     interpolation00->Resize(fieldDof * numNewLocalParticle,
                             fieldDof * numOldLocalParticle);
@@ -336,7 +348,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
       }
     }
 
-    I.GraphAssemble();
+    interpolation.GraphAssemble();
 
     // compute interpolation matrix entity
     const auto pressure_old_to_new_alphas_index =
@@ -397,7 +409,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
         interpolation11->Increment((i - rigidBodyStartIndex) * rigidBodyDof + j,
                                    i * rigidBodyDof + j, 1.0);
 
-    I.Assemble();
+    interpolation.Assemble();
 
     PetscReal matNorm;
     MatNorm(interpolation11->GetReference(), NORM_1, &matNorm);
@@ -433,10 +445,10 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
     MPI_Allreduce(&numNewLocalParticle, &numNewGlobalParticleNum, 1,
                   MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
 
-    auto restriction00 = R.GetMatrix(0, 0);
-    auto restriction01 = R.GetMatrix(0, 1);
-    auto restriction10 = R.GetMatrix(1, 0);
-    auto restriction11 = R.GetMatrix(1, 1);
+    auto restriction00 = restriction.GetMatrix(0, 0);
+    auto restriction01 = restriction.GetMatrix(0, 1);
+    auto restriction10 = restriction.GetMatrix(1, 0);
+    auto restriction11 = restriction.GetMatrix(1, 1);
 
     restriction00->Resize(fieldDof * numOldLocalParticle,
                           fieldDof * numNewLocalParticle);
@@ -563,7 +575,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
       }
     }
 
-    R.GraphAssemble();
+    restriction.GraphAssemble();
 
     for (int i = 0; i < numOldLocalParticle; i++) {
       int current_particle_local_index = old_local_index[i];
@@ -583,7 +595,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
         restriction11->Increment((i - rigidBodyStartIndex) * rigidBodyDof + j,
                                  i * rigidBodyDof + j, 1.0);
 
-    R.Assemble();
+    restriction.Assemble();
   }
 }
 
@@ -801,38 +813,42 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
 
   Mat &matA = linearSystemList_[refinementStep]->GetReference();
 
-  PetscNestedVec rhs(2), x(2);
-  rhs.Create(0, rhs0);
-  rhs.Create(1, rhs1);
-  rhs.Create();
+  PetscVector rhs, x;
+  rhs.Create(rhs0.size() + rhs1.size());
+  x.Create(rhs0.size() + rhs1.size());
 
-  x.Create(0, x0);
-  x.Create(1, x1);
-  x.Create();
+  PetscReal *a;
+  VecGetArray(rhs.GetReference(), &a);
+  for (unsigned int i = 0; i < rhs0.size(); i++)
+    a[i] = rhs0[i];
+  for (unsigned int i = 0; i < rhs1.size(); i++)
+    a[rhs0.size() + i] = rhs1[i];
+  VecRestoreArray(rhs.GetReference(), &a);
 
-  xFieldList_.push_back(std::make_shared<PetscNestedVec>(2));
-  yFieldList_.push_back(std::make_shared<PetscNestedVec>(2));
-  bFieldList_.push_back(std::make_shared<PetscNestedVec>(2));
-  rFieldList_.push_back(std::make_shared<PetscNestedVec>(2));
-
-  xList_[refinementStep]->Duplicate(x);
-  yList_[refinementStep]->Duplicate(x);
-  bList_[refinementStep]->Duplicate(x);
-  rList_[refinementStep]->Duplicate(x);
+  xList_.push_back(std::make_shared<PetscVector>());
+  yList_.push_back(std::make_shared<PetscVector>());
+  bList_.push_back(std::make_shared<PetscVector>());
+  rList_.push_back(std::make_shared<PetscVector>());
 
   xFieldList_.push_back(std::make_shared<PetscVector>());
   yFieldList_.push_back(std::make_shared<PetscVector>());
   bFieldList_.push_back(std::make_shared<PetscVector>());
   rFieldList_.push_back(std::make_shared<PetscVector>());
 
-  VecDuplicate(x.GetSubVector(0),
-               &(xFieldList_[refinementStep]->GetReference()));
-  VecDuplicate(x.GetSubVector(0),
-               &(yFieldList_[refinementStep]->GetReference()));
-  VecDuplicate(x.GetSubVector(0),
-               &(bFieldList_[refinementStep]->GetReference()));
-  VecDuplicate(x.GetSubVector(0),
-               &(rFieldList_[refinementStep]->GetReference()));
+  xList_[refinementStep]->Create(rhs0.size() + rhs1.size());
+  yList_[refinementStep]->Create(rhs0.size() + rhs1.size());
+  bList_[refinementStep]->Create(rhs0.size() + rhs1.size());
+  rList_[refinementStep]->Create(rhs0.size() + rhs1.size());
+
+  xFieldList_.push_back(std::make_shared<PetscVector>());
+  yFieldList_.push_back(std::make_shared<PetscVector>());
+  bFieldList_.push_back(std::make_shared<PetscVector>());
+  rFieldList_.push_back(std::make_shared<PetscVector>());
+
+  xFieldList_[refinementStep]->Create(rhs0.size());
+  yFieldList_[refinementStep]->Create(rhs0.size());
+  bFieldList_[refinementStep]->Create(rhs0.size());
+  rFieldList_[refinementStep]->Create(rhs0.size());
 
   KSP ksp;
   KSPCreate(PETSC_COMM_WORLD, &ksp);
@@ -844,6 +860,9 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
   KSPSetFromOptions(ksp);
 
   PCSetType(pc, PCSHELL);
+
+  PCShellSetApply(pc, StokesMultilevelIterationWrapper);
+  PCShellSetContext(pc, this);
 
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD,
@@ -874,8 +893,12 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
 
   KSPDestroy(&ksp);
 
-  x.Copy(0, x0);
-  x.Copy(1, x1);
+  VecGetArray(x.GetReference(), &a);
+  for (unsigned int i = 0; i < x0.size(); i++)
+    x0[i] = a[i];
+  for (unsigned int i = 0; i < x1.size(); i++)
+    x1[i] = a[rhs0.size() + i];
+  VecRestoreArray(x.GetReference(), &a);
 
   PetscLogDouble maxMem, mem;
   PetscMemoryGetCurrentUsage(&mem);
@@ -912,4 +935,144 @@ void StokesMultilevelPreconditioning::Clear() {
   numGlobalParticleList_.clear();
 
   currentRefinementLevel_ = -1;
+}
+
+PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
+                                                                    Vec y) {
+  VecCopy(x, bList_[currentRefinementLevel_]->GetReference());
+
+  for (unsigned int i = currentRefinementLevel_; i > 0; i--) {
+    linearSystemList_[i]->ConstantVec(bList_[i]->GetReference());
+
+    VecSet(xList_[i]->GetReference(), 0.0);
+
+    linearSystemList_[i]->ForwardField(bList_[i]->GetReference(),
+                                       bFieldList_[i]->GetReference());
+
+    KSPSolve(fieldRelaxationList_[i]->GetReference(),
+             bFieldList_[i]->GetReference(), xFieldList_[i]->GetReference());
+
+    linearSystemList_[i]->ConstantVec(xFieldList_[i]->GetReference());
+
+    linearSystemList_[i]->BackwardField(xList_[i]->GetReference(),
+                                        xFieldList_[i]->GetReference());
+
+    if (numRigidBody_ != 0) {
+      MatMult(linearSystemList_[i]->GetReference(), xList_[i]->GetReference(),
+              yList_[i]->GetReference());
+
+      VecAYPX(yList_[i]->GetReference(), -1.0, bList_[i]->GetReference());
+
+      linearSystemList_[i]->ForwardNeighbor(
+          yList_[i]->GetReference(),
+          linearSystemList_[i]->GetNeighborB()->GetReference());
+
+      KSPSolve(neighborRelaxationList_[i]->GetReference(),
+               linearSystemList_[i]->GetNeighborB()->GetReference(),
+               linearSystemList_[i]->GetNeighborX()->GetReference());
+
+      VecSet(yList_[i]->GetReference(), 0.0);
+      linearSystemList_[i]->BackwardNeighbor(
+          yList_[i]->GetReference(),
+          linearSystemList_[i]->GetNeighborX()->GetReference());
+      VecAXPY(xList_[i]->GetReference(), 1.0, yList_[i]->GetReference());
+      linearSystemList_[i]->ConstantVec(xList_[i]->GetReference());
+    }
+
+    MatMult(linearSystemList_[i]->GetReference(), xList_[i]->GetReference(),
+            rList_[i]->GetReference());
+    VecAYPX(rList_[i]->GetReference(), -1.0, bList_[i]->GetReference());
+
+    MatMult(restrictionList_[i - 1]->GetReference(), rList_[i]->GetReference(),
+            bList_[i - 1]->GetReference());
+  }
+
+  // solve on base level
+  linearSystemList_[0]->ConstantVec(bList_[0]->GetReference());
+
+  VecSet(xList_[0]->GetReference(), 0.0);
+
+  linearSystemList_[0]->ForwardField(bList_[0]->GetReference(),
+                                     bFieldList_[0]->GetReference());
+
+  KSPSolve(fieldRelaxationList_[0]->GetReference(),
+           bFieldList_[0]->GetReference(), xFieldList_[0]->GetReference());
+
+  linearSystemList_[0]->BackwardField(xList_[0]->GetReference(),
+                                      xFieldList_[0]->GetReference());
+
+  linearSystemList_[0]->ConstantVec(xList_[0]->GetReference());
+
+  if (numRigidBody_ != 0) {
+    MatMult(linearSystemList_[0]->GetReference(), xList_[0]->GetReference(),
+            yList_[0]->GetReference());
+
+    VecAYPX(yList_[0]->GetReference(), -1.0, bList_[0]->GetReference());
+
+    linearSystemList_[0]->ForwardNeighbor(
+        yList_[0]->GetReference(),
+        linearSystemList_[0]->GetNeighborB()->GetReference());
+
+    KSPSolve(neighborRelaxationList_[0]->GetReference(),
+             linearSystemList_[0]->GetNeighborB()->GetReference(),
+             linearSystemList_[0]->GetNeighborX()->GetReference());
+
+    VecSet(yList_[0]->GetReference(), 0.0);
+    linearSystemList_[0]->BackwardNeighbor(
+        yList_[0]->GetReference(),
+        linearSystemList_[0]->GetNeighborX()->GetReference());
+    VecAXPY(xList_[0]->GetReference(), 1.0, yList_[0]->GetReference());
+
+    linearSystemList_[0]->ConstantVec(xList_[0]->GetReference());
+  }
+
+  for (unsigned int i = 1; i <= currentRefinementLevel_; i++) {
+    MatMult(interpolationList_[i - 1]->GetReference(),
+            xList_[i - 1]->GetReference(), yList_[i]->GetReference());
+    VecAXPY(xList_[i]->GetReference(), 1.0, yList_[i]->GetReference());
+    linearSystemList_[i]->ConstantVec(xList_[i]->GetReference());
+
+    MatMult(linearSystemList_[i]->GetReference(), xList_[i]->GetReference(),
+            rList_[i]->GetReference());
+    VecAYPX(rList_[i]->GetReference(), -1.0, bList_[i]->GetReference());
+
+    linearSystemList_[i]->ForwardField(rList_[i]->GetReference(),
+                                       rFieldList_[i]->GetReference());
+
+    KSPSolve(fieldRelaxationList_[i]->GetReference(),
+             rFieldList_[i]->GetReference(), yFieldList_[i]->GetReference());
+
+    VecSet(yList_[i]->GetReference(), 0.0);
+    linearSystemList_[i]->BackwardField(yList_[i]->GetReference(),
+                                        yFieldList_[i]->GetReference());
+
+    VecAXPY(xList_[i]->GetReference(), 1.0, yList_[i]->GetReference());
+    linearSystemList_[i]->ConstantVec(xList_[i]->GetReference());
+
+    if (numRigidBody_ != 0) {
+      MatMult(linearSystemList_[i]->GetReference(), xList_[i]->GetReference(),
+              yList_[i]->GetReference());
+
+      VecAYPX(yList_[i]->GetReference(), -1.0, bList_[i]->GetReference());
+
+      linearSystemList_[i]->ForwardNeighbor(
+          yList_[i]->GetReference(),
+          linearSystemList_[i]->GetNeighborB()->GetReference());
+
+      KSPSolve(neighborRelaxationList_[i]->GetReference(),
+               linearSystemList_[i]->GetNeighborB()->GetReference(),
+               linearSystemList_[i]->GetNeighborX()->GetReference());
+
+      VecSet(yList_[i]->GetReference(), 0.0);
+      linearSystemList_[i]->BackwardNeighbor(
+          yList_[i]->GetReference(),
+          linearSystemList_[i]->GetNeighborX()->GetReference());
+      VecAXPY(xList_[i]->GetReference(), 1.0, yList_[i]->GetReference());
+      linearSystemList_[i]->ConstantVec(xList_[i]->GetReference());
+    }
+  }
+
+  VecCopy(xList_[currentRefinementLevel_]->GetReference(), y);
+
+  return 0;
 }
