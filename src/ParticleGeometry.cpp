@@ -2594,8 +2594,8 @@ bool ParticleGeometry::generate_rigid_body_surface_particle() {
           break;
         }
       }
-      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) !=
-          attached_rigid_body[i]) {
+      auto result = is_gap_particle(coord[i], 0.0, attached_rigid_body[i]);
+      if (result != attached_rigid_body[i] && result >= 0) {
         pass_test = 1;
         break;
       }
@@ -3134,7 +3134,8 @@ bool ParticleGeometry::adaptive_refine(std::vector<int> &split_tag) {
           break;
         }
       }
-      if (is_gap_particle(coord[i], 1e-4, attached_rigid_body[i]) == -1) {
+      auto result = is_gap_particle(coord[i], 0.0, attached_rigid_body[i]);
+      if (result != attached_rigid_body[i] && result >= 0) {
         pass_test = 1;
         break;
       }
@@ -4106,8 +4107,8 @@ bool ParticleGeometry::split_rigid_body_surface_particle(
           break;
         }
       }
-      if (is_gap_particle(coord[i], 0.0, attached_rigid_body[i]) !=
-          attached_rigid_body[i]) {
+      auto result = is_gap_particle(coord[i], 0.0, attached_rigid_body[i]);
+      if (result != attached_rigid_body[i] && result >= 0) {
         pass_test = 1;
         break;
       }

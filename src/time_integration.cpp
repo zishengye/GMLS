@@ -270,7 +270,8 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
     output << endl;
     output.close();
 
-    output_runge_kutta.open("traj_runge_kutta.txt", ios::trunc);
+    output_runge_kutta.open(trajectory_output_file_name + "runge_kutta",
+                            ios::trunc);
     output_runge_kutta.close();
 
     outputVelocity.open(velocity_output_file_name, ios::trunc);
@@ -498,7 +499,8 @@ void gmls_solver::adaptive_runge_kutta_intagration() {
         }
 
         if (rank == 0) {
-          output_runge_kutta.open("traj_runge_kutta.txt", ios::app);
+          output_runge_kutta.open(trajectory_output_file_name + "runge_kutta",
+                                  ios::app);
           output_runge_kutta << t << '\t';
           for (int num = 0; num < numRigidBody; num++) {
             for (int j = 0; j < 3; j++) {

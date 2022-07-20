@@ -141,15 +141,15 @@ gmls_solver::gmls_solver(int argc, char **argv) {
     rigid_body_inclusion = true;
     if (SearchCommand<string>(argc, argv, "-traj_output",
                               trajectory_output_file_name) == 1) {
-      trajectory_output_file_name = "traj.txt";
+      trajectory_output_file_name = "traj";
     }
     if (SearchCommand<string>(argc, argv, "-vel_output",
                               velocity_output_file_name) == 1) {
-      velocity_output_file_name = "vel.txt";
+      velocity_output_file_name = "vel";
     }
     if (SearchCommand<string>(argc, argv, "-force_output",
                               force_output_file_name) == 1) {
-      force_output_file_name = "force.txt";
+      force_output_file_name = "force";
     }
   } else {
     rigid_body_inclusion = false;
