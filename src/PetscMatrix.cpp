@@ -151,8 +151,8 @@ unsigned long PetscMatrix::GraphAssemble() {
 
   MatZeroEntries(mat_);
 
-  diagMatrixCol_.clear();
-  offDiagMatrixCol_.clear();
+  decltype(diagMatrixCol_)().swap(diagMatrixCol_);
+  decltype(offDiagMatrixCol_)().swap(offDiagMatrixCol_);
 
   return diagNumNonzero + offDiagNumNonzero;
 }

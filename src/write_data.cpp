@@ -496,27 +496,6 @@ void gmls_solver::write_refinement_data(vector<int> &split_tag,
     file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
                   ".vtk",
               ios::app);
-    file << "SCALARS nn int 1" << endl;
-    file << "LOOKUP_TABLE default" << endl;
-    file.close();
-  });
-
-  serial_operation([num_neighbor, this]() {
-    ofstream file;
-    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
-                  ".vtk",
-              ios::app);
-    for (size_t i = 0; i < num_neighbor.size(); i++) {
-      file << num_neighbor[i] << endl;
-    }
-    file.close();
-  });
-
-  master_operation(0, [this]() {
-    ofstream file;
-    file.open("./vtk/adaptive_step" + to_string(current_refinement_step) +
-                  ".vtk",
-              ios::app);
     file << "SCALARS l int 1" << endl;
     file << "LOOKUP_TABLE default" << endl;
     file.close();

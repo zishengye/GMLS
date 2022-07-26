@@ -91,8 +91,11 @@ StokesMatrix::~StokesMatrix() {
   MatDestroy(&neighborSchurMat_);
   MatDestroy(&neighborMat_);
   MatDestroy(&nestedMat_[0]);
+  MatDestroy(&schurMat_);
 
   ISDestroy(&isgNeighbor_);
+  ISDestroy(&isgColloid_);
+  ISDestroy(&isgField_);
 
   for (unsigned int i = 0; i < 3; i++) {
     if (nestedNeighborMat_[i] != PETSC_NULL)
@@ -376,21 +379,25 @@ unsigned long StokesMatrix::Assemble() {
   idxColloid.resize(highRange - lowRange);
   for (unsigned int i = 0; i < idxColloid.size(); i++)
     idxColloid[i] = lowRange + i;
-  IS isgColloid;
   ISCreateGeneral(PETSC_COMM_WORLD, idxColloid.size(), idxColloid.data(),
-                  PETSC_COPY_VALUES, &isgColloid);
+                  PETSC_COPY_VALUES, &isgColloid_);
+
+  std::vector<PetscInt> idxField;
+  idxField.resize(numLocalParticle_ * fieldDof_);
+  for (unsigned int i = 0; i < idxField.size(); i++)
+    idxField[i] = lowRange + i;
+  ISCreateGeneral(PETSC_COMM_WORLD, idxField.size(), idxField.data(),
+                  PETSC_COPY_VALUES, &isgField_);
 
   MatCreateSubMatrix(nestedWrappedMat_[0]->GetReference(), isgNeighbor_,
                      isgNeighbor_, MAT_INITIAL_MATRIX, &nestedNeighborMat_[0]);
   MatCreateSubMatrix(nestedMat_[1], isgNeighbor_, PETSC_NULL,
                      MAT_INITIAL_MATRIX, &nestedNeighborMat_[1]);
-  MatCreateSubMatrix(nestedMat_[2], isgColloid, isgNeighbor_,
+  MatCreateSubMatrix(nestedMat_[2], isgColloid_, isgNeighbor_,
                      MAT_INITIAL_MATRIX, &nestedNeighborMat_[2]);
   nestedNeighborMat_[3] = nestedMat_[3];
   MatCreateNest(MPI_COMM_WORLD, 2, PETSC_NULL, 2, PETSC_NULL,
                 nestedNeighborMat_.data(), &neighborMat_);
-
-  ISDestroy(&isgColloid);
 
   Mat B, C;
   MatCreate(MPI_COMM_WORLD, &B);
@@ -402,6 +409,21 @@ unsigned long StokesMatrix::Assemble() {
              &neighborSchurMat_);
   MatScale(neighborSchurMat_, -1.0);
   MatAXPY(neighborSchurMat_, 1.0, nestedNeighborMat_[3],
+          DIFFERENT_NONZERO_PATTERN);
+
+  MatDestroy(&B);
+  MatDestroy(&C);
+
+  MatCreate(MPI_COMM_WORLD, &B);
+  MatSetType(B, MATMPIAIJ);
+  MatInvertBlockDiagonalMat(nestedWrappedMat_[0]->GetReference(), B);
+
+  MatMatMult(B, nestedWrappedMat_[1]->GetReference(), MAT_INITIAL_MATRIX,
+             PETSC_DEFAULT, &C);
+  MatMatMult(nestedWrappedMat_[2]->GetReference(), C, MAT_INITIAL_MATRIX,
+             PETSC_DEFAULT, &schurMat_);
+  MatScale(schurMat_, -1.0);
+  MatAXPY(schurMat_, 1.0, nestedWrappedMat_[3]->GetReference(),
           DIFFERENT_NONZERO_PATTERN);
 
   MatDestroy(&B);

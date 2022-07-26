@@ -127,11 +127,15 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
     Kokkos::deep_copy(old_source_coords_device, old_source_coords_host);
     Kokkos::deep_copy(new_target_coords_device, new_target_coords_host);
 
-    auto old_to_new_point_search(
-        CreatePointCloudSearch(old_source_coords_host, dimension_));
+    double max_epsilon = geoMgr_->get_old_cutoff_distance();
+    int ite_counter = 1;
+    int min_neighbor = 1000, max_neighbor = 0;
 
-    int estimated_num_neighbor_max =
-        pow(2, dimension_) * pow(2 * (polyOrder + 1.5), dimension_);
+    auto neighbor_needed =
+        1.0 * Compadre::GMLS::getNP(polyOrder, dimension_,
+                                    DivergenceFreeVectorTaylorPolynomial);
+
+    int estimated_num_neighbor_max = neighbor_needed + 1;
 
     Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
         old_to_new_neighbor_lists_device("old to new neighbor lists",
@@ -145,142 +149,106 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
     Kokkos::View<double *>::HostMirror old_epsilon_host =
         Kokkos::create_mirror_view(old_epsilon_device);
 
-    for (int i = 0; i < coord.size(); i++) {
-      if (new_added[i] < 0) {
-        old_epsilon_host[new_actual_index[i]] = spacing[i];
-      }
-    }
+    {
+      auto old_to_new_point_search(
+          CreatePointCloudSearch(old_source_coords_host, dimension_));
 
-    auto neighbor_needed =
-        2.0 * Compadre::GMLS::getNP(polyOrder, dimension_,
-                                    DivergenceFreeVectorTaylorPolynomial);
-    size_t actual_neighbor_max;
-
-    double sub_timer1, sub_timer2;
-    sub_timer1 = MPI_Wtime();
-
-    double max_epsilon = geoMgr_->get_old_cutoff_distance();
-    int ite_counter = 1;
-    int min_neighbor = 1000, max_neighbor = 0;
-    old_to_new_point_search.generate2DNeighborListsFromKNNSearch(
-        true, new_target_coords_host, old_to_new_neighbor_lists_host,
-        old_epsilon_host, neighbor_needed, 1.0);
-
-    counter = 0;
-    for (int i = 0; i < coord.size(); i++) {
-      if (new_added[i] < 0) {
-        double minEpsilon = 1.50 * spacing[i];
-        double minSpacing = 0.25 * spacing[i];
-        old_epsilon_host(new_actual_index[i]) =
-            std::max(minEpsilon, old_epsilon_host(new_actual_index[i]));
-
-        int scaling = std::max(
-            0.0,
-            std::ceil((old_epsilon_host(new_actual_index[i]) - minEpsilon) /
-                      minSpacing));
-        old_epsilon_host(new_actual_index[i]) =
-            minEpsilon + scaling * minSpacing;
-
-        counter++;
-      }
-    }
-
-    auto actual_neighbor =
-        old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
-            true, new_target_coords_host, old_to_new_neighbor_lists_host,
-            old_epsilon_host, 0.0, 0.0);
-    if (actual_neighbor > old_to_new_neighbor_lists_host.extent(1)) {
-      Kokkos::resize(old_to_new_neighbor_lists_device, actual_new_target,
-                     actual_neighbor);
-      old_to_new_neighbor_lists_host =
-          Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
-    }
-    old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
-        false, new_target_coords_host, old_to_new_neighbor_lists_host,
-        old_epsilon_host, 0.0, 0.0);
-
-    min_neighbor = 1000;
-    max_neighbor = 0;
-    int enough_neighbor = 0;
-    for (int i = 0; i < coord.size(); i++) {
-      if (new_added[i] < 0) {
-        int num_neighbor =
-            old_to_new_neighbor_lists_host(new_actual_index[i], 0);
-        if (num_neighbor < neighbor_needed) {
-          if ((old_epsilon_host[new_actual_index[i]] + 0.25 * spacing[i]) <
-              max_epsilon) {
-            old_epsilon_host[new_actual_index[i]] += 0.25 * spacing[i];
-            enough_neighbor = 1;
-          }
+      for (int i = 0; i < coord.size(); i++) {
+        if (new_added[i] < 0) {
+          old_epsilon_host[new_actual_index[i]] = spacing[i];
         }
-        if (min_neighbor > num_neighbor)
-          min_neighbor = num_neighbor;
-        if (max_neighbor < num_neighbor)
-          max_neighbor = num_neighbor;
       }
+
+      size_t actual_neighbor_max;
+
+      double sub_timer1, sub_timer2;
+      sub_timer1 = MPI_Wtime();
+
+      old_to_new_point_search.generate2DNeighborListsFromKNNSearch(
+          true, new_target_coords_host, old_to_new_neighbor_lists_host,
+          old_epsilon_host, neighbor_needed, 1.0);
+
+      counter = 0;
+      for (int i = 0; i < coord.size(); i++) {
+        if (new_added[i] < 0) {
+          double minEpsilon = 1.50 * spacing[i];
+          double minSpacing = 0.25 * spacing[i];
+          old_epsilon_host(new_actual_index[i]) =
+              std::max(minEpsilon, old_epsilon_host(new_actual_index[i]));
+
+          int scaling = std::max(
+              0.0,
+              std::ceil((old_epsilon_host(new_actual_index[i]) - minEpsilon) /
+                        minSpacing));
+          old_epsilon_host(new_actual_index[i]) =
+              minEpsilon + scaling * minSpacing;
+
+          counter++;
+        }
+      }
+
+      auto actual_neighbor =
+          old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
+              true, new_target_coords_host, old_to_new_neighbor_lists_host,
+              old_epsilon_host, 0.0, 0.0) +
+          1;
+      if (actual_neighbor > old_to_new_neighbor_lists_host.extent(1)) {
+        Kokkos::resize(old_to_new_neighbor_lists_device, actual_new_target,
+                       actual_neighbor);
+        old_to_new_neighbor_lists_host =
+            Kokkos::create_mirror_view(old_to_new_neighbor_lists_device);
+      }
+      old_to_new_point_search.generate2DNeighborListsFromRadiusSearch(
+          false, new_target_coords_host, old_to_new_neighbor_lists_host,
+          old_epsilon_host, 0.0, 0.0);
+
+      min_neighbor = 1000;
+      max_neighbor = 0;
+      int enough_neighbor = 0;
+      for (int i = 0; i < coord.size(); i++) {
+        if (new_added[i] < 0) {
+          int num_neighbor =
+              old_to_new_neighbor_lists_host(new_actual_index[i], 0);
+          if (num_neighbor < neighbor_needed) {
+            if ((old_epsilon_host[new_actual_index[i]] + 0.25 * spacing[i]) <
+                max_epsilon) {
+              old_epsilon_host[new_actual_index[i]] += 0.25 * spacing[i];
+              enough_neighbor = 1;
+            }
+          }
+          if (min_neighbor > num_neighbor)
+            min_neighbor = num_neighbor;
+          if (max_neighbor < num_neighbor)
+            max_neighbor = num_neighbor;
+        }
+      }
+
+      MPI_Allreduce(MPI_IN_PLACE, &min_neighbor, 1, MPI_INT, MPI_MIN,
+                    MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &max_neighbor, 1, MPI_INT, MPI_MAX,
+                    MPI_COMM_WORLD);
+
+      MPI_Allreduce(MPI_IN_PLACE, &enough_neighbor, 1, MPI_INT, MPI_SUM,
+                    MPI_COMM_WORLD);
+
+      sub_timer2 = MPI_Wtime();
+
+      PetscPrintf(
+          PETSC_COMM_WORLD,
+          "iteration count: %d, min neighbor: %d, max neighbor: %d, time "
+          "duration: %fs\n",
+          ite_counter, min_neighbor, max_neighbor, sub_timer2 - sub_timer1);
     }
 
-    MPI_Allreduce(MPI_IN_PLACE, &min_neighbor, 1, MPI_INT, MPI_MIN,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &max_neighbor, 1, MPI_INT, MPI_MAX,
-                  MPI_COMM_WORLD);
-
-    MPI_Allreduce(MPI_IN_PLACE, &enough_neighbor, 1, MPI_INT, MPI_SUM,
-                  MPI_COMM_WORLD);
-
-    sub_timer2 = MPI_Wtime();
-
+    PetscLogDouble minMem, maxMem, mem;
+    PetscMemoryGetCurrentUsage(&mem);
+    MPI_Allreduce(&mem, &maxMem, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&mem, &minMem, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     PetscPrintf(PETSC_COMM_WORLD,
-                "iteration count: %d, min neighbor: %d, max neighbor: %d, time "
-                "duration: %fs\n",
-                ite_counter, min_neighbor, max_neighbor,
-                sub_timer2 - sub_timer1);
-
-    Kokkos::deep_copy(old_to_new_neighbor_lists_device,
-                      old_to_new_neighbor_lists_host);
-    Kokkos::deep_copy(old_epsilon_device, old_epsilon_host);
-
-    GMLS old_to_new_pressure_basis(ScalarTaylorPolynomial, PointSample,
-                                   polyOrder, dimension_, "LU", "STANDARD");
-    GMLS old_to_new_velocity_basis(DivergenceFreeVectorTaylorPolynomial,
-                                   VectorPointSample, polyOrder, dimension_,
-                                   "LU", "STANDARD");
-
-    // old to new pressure field transition
-    old_to_new_pressure_basis.setProblemData(
-        old_to_new_neighbor_lists_device, old_source_coords_device,
-        new_target_coords_device, old_epsilon_device);
-
-    old_to_new_pressure_basis.addTargets(ScalarPointEvaluation);
-
-    old_to_new_pressure_basis.setWeightingType(WeightingFunctionType::Power);
-    old_to_new_pressure_basis.setWeightingParameter(4);
-
-    // ensure each batch contains less than 200 particles
-    int num_of_batches = actual_new_target / 100 + 1;
-    old_to_new_pressure_basis.generateAlphas(num_of_batches);
-
-    auto old_to_new_pressure_solution_set =
-        old_to_new_pressure_basis.getSolutionSetHost();
-    auto old_to_new_pressure_alphas =
-        old_to_new_pressure_solution_set->getAlphas();
-
-    // old to new velocity field transition
-    old_to_new_velocity_basis.setProblemData(
-        old_to_new_neighbor_lists_device, old_source_coords_device,
-        new_target_coords_device, old_epsilon_device);
-
-    old_to_new_velocity_basis.addTargets(VectorPointEvaluation);
-
-    old_to_new_velocity_basis.setWeightingType(WeightingFunctionType::Power);
-    old_to_new_velocity_basis.setWeightingParameter(4);
-
-    old_to_new_velocity_basis.generateAlphas(num_of_batches);
-
-    auto old_to_new_velocity_solution_set =
-        old_to_new_velocity_basis.getSolutionSetHost();
-    auto old_to_new_velocity_alphas =
-        old_to_new_velocity_solution_set->getAlphas();
+                "Current memory usage %.2f GB, maximum memory usage: %.2f GB, "
+                "minimum: %.2f GB\n",
+                mem / 1e9, maxMem / 1e9, minMem / 1e9);
 
     auto interpolation00 = interpolation.GetMatrix(0, 0);
     auto interpolation01 = interpolation.GetMatrix(0, 1);
@@ -299,7 +267,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
     // compute matrix graph
     vector<PetscInt> index;
     for (int i = 0; i < numNewLocalParticle; i++) {
-      int current_particle_local_index = local_idx[i];
+      int particleLocalIndex = local_idx[i];
       if (new_added[i] < 0) {
         // velocity interpolation
         index.resize(old_to_new_neighbor_lists_host(new_actual_index[i], 0) *
@@ -315,8 +283,8 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
         }
 
         for (int k = 0; k < velocityDof; k++)
-          interpolation00->SetColIndex(
-              fieldDof * current_particle_local_index + k, index);
+          interpolation00->SetColIndex(fieldDof * particleLocalIndex + k,
+                                       index);
 
         // pressure interpolation
         index.resize(old_to_new_neighbor_lists_host(new_actual_index[i], 0));
@@ -327,13 +295,13 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
                      velocityDof;
         }
         interpolation00->SetColIndex(
-            fieldDof * current_particle_local_index + velocityDof, index);
+            fieldDof * particleLocalIndex + velocityDof, index);
       } else {
         index.resize(1);
         for (int j = 0; j < fieldDof; j++) {
           index[0] = fieldDof * new_added[i] + j;
-          interpolation00->SetColIndex(
-              fieldDof * current_particle_local_index + j, index);
+          interpolation00->SetColIndex(fieldDof * particleLocalIndex + j,
+                                       index);
         }
       }
     }
@@ -350,55 +318,176 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
 
     interpolation.GraphAssemble();
 
-    // compute interpolation matrix entity
-    const auto pressure_old_to_new_alphas_index =
-        old_to_new_pressure_solution_set->getAlphaColumnOffset(
-            ScalarPointEvaluation, 0, 0, 0, 0);
-    vector<int> velocity_old_to_new_alphas_index(pow(dimension_, 2));
-    for (int axes1 = 0; axes1 < dimension_; axes1++)
-      for (int axes2 = 0; axes2 < dimension_; axes2++)
-        velocity_old_to_new_alphas_index[axes1 * dimension_ + axes2] =
-            old_to_new_velocity_solution_set->getAlphaColumnOffset(
-                VectorPointEvaluation, axes1, 0, axes2, 0);
+    PetscMemoryGetCurrentUsage(&mem);
+    MPI_Allreduce(&mem, &maxMem, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&mem, &minMem, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD,
+                "Current memory usage %.2f GB, maximum memory usage: %.2f GB, "
+                "minimum: %.2f GB\n",
+                mem / 1e9, maxMem / 1e9, minMem / 1e9);
 
-    for (int i = 0; i < numNewLocalParticle; i++) {
-      int current_particle_local_index = local_idx[i];
-      if (new_added[i] < 0) {
-        for (int j = 0;
-             j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
-          for (int axes1 = 0; axes1 < dimension_; axes1++)
-            for (int axes2 = 0; axes2 < dimension_; axes2++) {
-              auto alpha_index =
-                  old_to_new_velocity_solution_set->getAlphaIndex(
-                      new_actual_index[i],
-                      velocity_old_to_new_alphas_index[axes1 * dimension_ +
-                                                       axes2]);
-              int neighbor_index =
-                  old_source_index[old_to_new_neighbor_lists_host(
-                      new_actual_index[i], j + 1)];
-              interpolation00->Increment(
-                  fieldDof * current_particle_local_index + axes1,
-                  fieldDof * neighbor_index + axes2,
-                  old_to_new_velocity_alphas(alpha_index + j));
+    const unsigned int batchSize = (dimension_ == 2) ? 1000 : 100;
+    const unsigned int numBatch =
+        numNewLocalParticle / batchSize +
+        ((numNewLocalParticle % batchSize > 0) ? 1 : 0);
+
+    for (unsigned int batch = 0; batch < numBatch; batch++) {
+      const unsigned int startParticle = batch * batchSize;
+      const unsigned int endParticle =
+          std::min((batch + 1) * batchSize, (unsigned int)numNewLocalParticle);
+
+      unsigned int numBatchTargetParticle = 0;
+      for (unsigned int i = startParticle; i < endParticle; i++) {
+        if (new_added[i] < 0)
+          numBatchTargetParticle++;
+      }
+
+      Kokkos::View<int **, Kokkos::DefaultExecutionSpace>
+          batchNeighborListsDevice("batch neighbor lists",
+                                   numBatchTargetParticle,
+                                   old_to_new_neighbor_lists_device.extent(1));
+      Kokkos::View<int **>::HostMirror batchNeighborListsHost =
+          Kokkos::create_mirror_view(batchNeighborListsDevice);
+
+      Kokkos::View<double *, Kokkos::DefaultExecutionSpace> batchEpsilonDevice(
+          "batch epsilon", numBatchTargetParticle);
+      Kokkos::View<double *>::HostMirror batchEpsilonHost =
+          Kokkos::create_mirror_view(batchEpsilonDevice);
+
+      Kokkos::View<double **, Kokkos::DefaultExecutionSpace> batchCoordsDevice(
+          "batch coords", numBatchTargetParticle, dimension_);
+      Kokkos::View<double **>::HostMirror batchCoordsHost =
+          Kokkos::create_mirror_view(batchCoordsDevice);
+
+      counter = 0;
+      for (unsigned int i = startParticle; i < endParticle; i++) {
+        if (new_added[i] < 0) {
+          for (int j = 0; j < dimension_; j++) {
+            batchCoordsHost(counter, j) = coord[i][j];
+          }
+          batchNeighborListsHost(counter, 0) =
+              old_to_new_neighbor_lists_host(new_actual_index[i], 0);
+          for (unsigned int j = 0; j < batchNeighborListsHost(counter, 0);
+               j++) {
+            batchNeighborListsHost(counter, j + 1) =
+                old_to_new_neighbor_lists_host(new_actual_index[i], j + 1);
+          }
+
+          batchEpsilonHost(counter) = old_epsilon_host(new_actual_index[i]);
+
+          counter++;
+        }
+      }
+
+      Kokkos::deep_copy(batchEpsilonDevice, batchEpsilonHost);
+      Kokkos::deep_copy(batchNeighborListsDevice, batchNeighborListsHost);
+      Kokkos::deep_copy(batchCoordsDevice, batchCoordsHost);
+
+      // velocity block
+      if (numBatchTargetParticle != 0) {
+        GMLS velocityBasis(DivergenceFreeVectorTaylorPolynomial,
+                           VectorPointSample, polyOrder, dimension_, "LU",
+                           "STANDARD");
+
+        // old to new velocity field transition
+        velocityBasis.setProblemData(batchNeighborListsDevice,
+                                     old_source_coords_device,
+                                     batchCoordsDevice, batchEpsilonDevice);
+
+        velocityBasis.addTargets(VectorPointEvaluation);
+
+        velocityBasis.setWeightingType(WeightingFunctionType::Power);
+        velocityBasis.setWeightingParameter(4);
+
+        velocityBasis.generateAlphas(1, false);
+
+        auto velocitySolutionSet = velocityBasis.getSolutionSetHost();
+        auto velocityAlphas = velocitySolutionSet->getAlphas();
+
+        // compute interpolation matrix entity
+        vector<int> velocityAlphasIndex(pow(dimension_, 2));
+        for (int axes1 = 0; axes1 < dimension_; axes1++)
+          for (int axes2 = 0; axes2 < dimension_; axes2++)
+            velocityAlphasIndex[axes1 * dimension_ + axes2] =
+                velocitySolutionSet->getAlphaColumnOffset(VectorPointEvaluation,
+                                                          axes1, 0, axes2, 0);
+
+        counter = 0;
+        for (unsigned int i = startParticle; i < endParticle; i++) {
+          int particleLocalIndex = local_idx[i];
+          if (new_added[i] < 0) {
+            for (int j = 0; j < batchNeighborListsHost(counter, 0); j++) {
+              for (int axes1 = 0; axes1 < dimension_; axes1++)
+                for (int axes2 = 0; axes2 < dimension_; axes2++) {
+                  auto alpha_index = velocitySolutionSet->getAlphaIndex(
+                      counter, velocityAlphasIndex[axes1 * dimension_ + axes2]);
+                  int neighbor_index =
+                      old_source_index[batchNeighborListsHost(counter, j + 1)];
+                  interpolation00->Increment(fieldDof * particleLocalIndex +
+                                                 axes1,
+                                             fieldDof * neighbor_index + axes2,
+                                             velocityAlphas(alpha_index + j));
+                }
             }
-        }
 
-        for (int j = 0;
-             j < old_to_new_neighbor_lists_host(new_actual_index[i], 0); j++) {
-          auto alpha_index = old_to_new_pressure_solution_set->getAlphaIndex(
-              new_actual_index[i], pressure_old_to_new_alphas_index);
-          int neighbor_index = old_source_index[old_to_new_neighbor_lists_host(
-              new_actual_index[i], j + 1)];
-          interpolation00->Increment(
-              fieldDof * current_particle_local_index + velocityDof,
-              fieldDof * neighbor_index + velocityDof,
-              old_to_new_pressure_alphas(alpha_index + j));
+            counter++;
+          }
         }
-      } else {
-        for (int j = 0; j < fieldDof; j++) {
-          interpolation00->Increment(fieldDof * current_particle_local_index +
-                                         j,
-                                     fieldDof * new_added[i] + j, 1.0);
+      }
+
+      // pressure block
+      if (numBatchTargetParticle != 0) {
+        GMLS pressureBasis(ScalarTaylorPolynomial, PointSample, polyOrder,
+                           dimension_, "LU", "STANDARD");
+
+        // old to new pressure field transition
+        pressureBasis.setProblemData(batchNeighborListsDevice,
+                                     old_source_coords_device,
+                                     batchCoordsDevice, batchEpsilonDevice);
+
+        pressureBasis.addTargets(ScalarPointEvaluation);
+
+        pressureBasis.setWeightingType(WeightingFunctionType::Power);
+        pressureBasis.setWeightingParameter(4);
+
+        pressureBasis.generateAlphas(1, false);
+
+        auto pressureSolution = pressureBasis.getSolutionSetHost();
+        auto pressureAlphas = pressureSolution->getAlphas();
+
+        const auto pressureAlphasIndex = pressureSolution->getAlphaColumnOffset(
+            ScalarPointEvaluation, 0, 0, 0, 0);
+
+        counter = 0;
+        for (unsigned int i = startParticle; i < endParticle; i++) {
+          int particleLocalIndex = local_idx[i];
+          if (new_added[i] < 0) {
+            for (int j = 0; j < batchNeighborListsHost(counter, 0); j++) {
+              auto alpha_index =
+                  pressureSolution->getAlphaIndex(counter, pressureAlphasIndex);
+              int neighbor_index =
+                  old_source_index[batchNeighborListsHost(counter, j + 1)];
+              interpolation00->Increment(
+                  fieldDof * particleLocalIndex + velocityDof,
+                  fieldDof * neighbor_index + velocityDof,
+                  pressureAlphas(alpha_index + j));
+            }
+
+            counter++;
+          }
+        }
+      }
+
+      {
+        for (unsigned int i = startParticle; i < endParticle; i++) {
+          int particleLocalIndex = local_idx[i];
+          if (new_added[i] >= 0) {
+            for (int j = 0; j < fieldDof; j++) {
+              interpolation00->Increment(fieldDof * particleLocalIndex + j,
+                                         fieldDof * new_added[i] + j, 1.0);
+            }
+          }
         }
       }
     }
@@ -410,10 +499,6 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
                                    i * rigidBodyDof + j, 1.0);
 
     interpolation.Assemble();
-
-    PetscReal matNorm;
-    MatNorm(interpolation11->GetReference(), NORM_1, &matNorm);
-    PetscPrintf(PETSC_COMM_WORLD, "mat norm: %f\n", matNorm);
   }
 
   timer2 = MPI_Wtime();
@@ -487,8 +572,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
 
     auto point_search(CreatePointCloudSearch(source_coords_host, dimension_));
 
-    int estimated_num_neighbor_max =
-        pow(2, dimension_) * pow(2 * 3.0, dimension_);
+    int estimated_num_neighbor_max = pow(2, dimension_) + 1;
 
     Kokkos::View<int **, Kokkos::DefaultExecutionSpace> neighbor_lists_device(
         "old to new neighbor lists", old_coord.size(),
@@ -505,6 +589,15 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
       epsilon_host(i) = 0.25 * sqrt(dimension_) * old_spacing[i] + 1e-15;
     }
 
+    int actual_neighbor = point_search.generate2DNeighborListsFromRadiusSearch(
+                              true, target_coords_host, neighbor_lists_host,
+                              epsilon_host, 0.0, 0.0) +
+                          1;
+
+    if (actual_neighbor > neighbor_lists_host.extent(1)) {
+      Kokkos::resize(neighbor_lists_device, old_coord.size(), actual_neighbor);
+      neighbor_lists_host = Kokkos::create_mirror_view(neighbor_lists_device);
+    }
     point_search.generate2DNeighborListsFromRadiusSearch(
         false, target_coords_host, neighbor_lists_host, epsilon_host, 0.0, 0.0);
 
@@ -541,7 +634,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
     vector<PetscInt> index;
     int min_neighbor = 1000, max_neighbor = 0;
     for (int i = 0; i < numOldLocalParticle; i++) {
-      int current_particle_local_index = old_local_index[i];
+      int particleLocalIndex = old_local_index[i];
       index.resize(neighbor_lists_host(i, 0));
       if (min_neighbor > neighbor_lists_host(i, 0))
         min_neighbor = neighbor_lists_host(i, 0);
@@ -553,8 +646,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
           index[k] = source_index[neighbor_index] * fieldDof + j;
         }
 
-        restriction00->SetColIndex(fieldDof * current_particle_local_index + j,
-                                   index);
+        restriction00->SetColIndex(fieldDof * particleLocalIndex + j, index);
       }
     }
 
@@ -578,11 +670,11 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
     restriction.GraphAssemble();
 
     for (int i = 0; i < numOldLocalParticle; i++) {
-      int current_particle_local_index = old_local_index[i];
+      int particleLocalIndex = old_local_index[i];
       for (int j = 0; j < fieldDof; j++) {
         for (int k = 0; k < neighbor_lists_host(i, 0); k++) {
           int neighbor_index = neighbor_lists_host(i, k + 1);
-          restriction00->Increment(fieldDof * current_particle_local_index + j,
+          restriction00->Increment(fieldDof * particleLocalIndex + j,
                                    source_index[neighbor_index] * fieldDof + j,
                                    1.0 / neighbor_lists_host(i, 0));
         }
@@ -619,11 +711,11 @@ void StokesMultilevelPreconditioning::InitialGuess(
   VecGetArray(x2, &a);
 
   for (int i = 0; i < numOldLocalParticle; i++) {
-    int current_particle_local_index = local_idx[i];
+    int particleLocalIndex = local_idx[i];
     for (int j = 0; j < velocityDof; j++) {
-      a[current_particle_local_index * fieldDof + j] = velocity[i][j];
+      a[particleLocalIndex * fieldDof + j] = velocity[i][j];
     }
-    a[current_particle_local_index * fieldDof + velocityDof] = pressure[i];
+    a[particleLocalIndex * fieldDof + velocityDof] = pressure[i];
   }
 
   VecRestoreArray(x2, &a);
@@ -675,8 +767,11 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
   int velocityDof = dimension_;
   int rigidBodyDof = (dimension_ == 3) ? 6 : 3;
 
+  Mat &matA = linearSystemList_[refinementStep]->GetReference();
+
   fieldRelaxationList_.push_back(make_shared<PetscKsp>());
   neighborRelaxationList_.push_back(make_shared<PetscKsp>());
+  wholeRelaxationList_.push_back(make_shared<PetscKsp>());
 
   // setup preconditioner for base level
   if (refinementStep == 0) {
@@ -698,7 +793,7 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
     KSPGetPC(fieldRelaxationList_[0]->GetReference(), &pcFieldBase);
     PCSetType(pcFieldBase, PCSOR);
     PCSetFromOptions(pcFieldBase);
-    // KSPSetUp(ksp_field_base->GetReference());
+    KSPSetUp(fieldRelaxationList_[0]->GetReference());
 
     if (hasRigidBody != 0) {
       Mat &nn = linearSystemList_[refinementStep]->GetNeighborNeighborMatrix();
@@ -729,14 +824,45 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
       PCSetFromOptions(pcNeighborBase);
       PCSetUp(pcNeighborBase);
 
-      KSP *fieldsplit_sub_ksp;
+      KSP *fieldsplitSubKsp;
       PetscInt n;
-      PCFieldSplitGetSubKSP(pcNeighborBase, &n, &fieldsplit_sub_ksp);
-      KSPSetOperators(fieldsplit_sub_ksp[1], S, S);
-      KSPSetOperators(fieldsplit_sub_ksp[0], sub00, sub00);
-      KSPSetUp(fieldsplit_sub_ksp[0]);
-      KSPSetUp(fieldsplit_sub_ksp[1]);
-      PetscFree(fieldsplit_sub_ksp);
+      PCFieldSplitGetSubKSP(pcNeighborBase, &n, &fieldsplitSubKsp);
+      KSPSetOperators(fieldsplitSubKsp[1], S, S);
+      KSPSetOperators(fieldsplitSubKsp[0], sub00, sub00);
+      KSPSetUp(fieldsplitSubKsp[0]);
+      KSPSetUp(fieldsplitSubKsp[1]);
+      PetscFree(fieldsplitSubKsp);
+
+      // KSPCreate(MPI_COMM_WORLD, &wholeRelaxationList_[0]->GetReference());
+
+      // KSPSetType(wholeRelaxationList_[0]->GetReference(), KSPGMRES);
+      // KSPGMRESSetRestart(wholeRelaxationList_[0]->GetReference(), 100);
+      // KSPSetTolerances(wholeRelaxationList_[0]->GetReference(), 1e-2, 1e-50,
+      //                  1e50, 500);
+      // KSPSetOperators(wholeRelaxationList_[0]->GetReference(), matA, matA);
+
+      // PC pcWholeBase;
+      // KSPGetPC(wholeRelaxationList_[0]->GetReference(), &pcWholeBase);
+      // PCSetType(pcWholeBase, PCFIELDSPLIT);
+
+      // IS &isgField = linearSystemList_[0]->GetFieldIS();
+      // IS &isgColloid = linearSystemList_[0]->GetColloidIS();
+
+      // PCFieldSplitSetIS(pcWholeBase, "0", isgField);
+      // PCFieldSplitSetIS(pcWholeBase, "1", isgColloid);
+
+      // PCFieldSplitSetSchurPre(pcWholeBase, PC_FIELDSPLIT_SCHUR_PRE_USER, S);
+      // PCSetFromOptions(pcWholeBase);
+      // PCSetUp(pcWholeBase);
+
+      // PCFieldSplitGetSubKSP(pcWholeBase, &n, &fieldsplitSubKsp);
+      // KSPSetOperators(fieldsplitSubKsp[1],
+      //                 linearSystemList_[0]->GetSchurMatrix(),
+      //                 linearSystemList_[0]->GetSchurMatrix());
+      // KSPSetOperators(fieldsplitSubKsp[0], ff, ffShell);
+      // KSPSetUp(fieldsplitSubKsp[0]);
+      // KSPSetUp(fieldsplitSubKsp[1]);
+      // PetscFree(fieldsplitSubKsp);
     }
   } else {
     Mat &ff =
@@ -762,7 +888,7 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
     PCSetFromOptions(field_relaxation_pc);
     PCSetUp(field_relaxation_pc);
 
-    // KSPSetUp(fieldRelaxationList_[refinementStep]->GetReference());
+    KSPSetUp(fieldRelaxationList_[refinementStep]->GetReference());
 
     if (hasRigidBody != 0) {
       Mat &nn = linearSystemList_[refinementStep]->GetNeighborNeighborMatrix();
@@ -775,7 +901,7 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
       KSPGMRESSetRestart(
           neighborRelaxationList_[refinementStep]->GetReference(), 100);
       KSPSetTolerances(neighborRelaxationList_[refinementStep]->GetReference(),
-                       1e-2, 1e-50, 1e10, 500);
+                       1e-1, 1e-50, 1e10, 500);
       KSPSetOperators(neighborRelaxationList_[refinementStep]->GetReference(),
                       nn, nn);
 
@@ -799,19 +925,17 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
       PCSetFromOptions(neighbor_relaxation_pc);
       PCSetUp(neighbor_relaxation_pc);
 
-      KSP *fieldsplit_sub_ksp;
+      KSP *fieldsplitSubKsp;
       PetscInt n;
-      PCFieldSplitGetSubKSP(neighbor_relaxation_pc, &n, &fieldsplit_sub_ksp);
-      KSPSetOperators(fieldsplit_sub_ksp[1], S, S);
-      KSPSetOperators(fieldsplit_sub_ksp[0], sub00, sub00);
-      KSPSetFromOptions(fieldsplit_sub_ksp[0]);
-      KSPSetUp(fieldsplit_sub_ksp[0]);
-      KSPSetUp(fieldsplit_sub_ksp[1]);
-      PetscFree(fieldsplit_sub_ksp);
+      PCFieldSplitGetSubKSP(neighbor_relaxation_pc, &n, &fieldsplitSubKsp);
+      KSPSetOperators(fieldsplitSubKsp[1], S, S);
+      KSPSetOperators(fieldsplitSubKsp[0], sub00, sub00);
+      KSPSetFromOptions(fieldsplitSubKsp[0]);
+      KSPSetUp(fieldsplitSubKsp[0]);
+      KSPSetUp(fieldsplitSubKsp[1]);
+      PetscFree(fieldsplitSubKsp);
     }
   }
-
-  Mat &matA = linearSystemList_[refinementStep]->GetReference();
 
   PetscVector rhs, x;
   rhs.Create(rhs0.size() + rhs1.size());
@@ -864,6 +988,16 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
   PCShellSetApply(pc, StokesMultilevelIterationWrapper);
   PCShellSetContext(pc, this);
 
+  KSPSetUp(ksp);
+
+  fieldRelaxationDuration_.resize(linearSystemList_.size());
+  neighborRelaxationDuration_.resize(linearSystemList_.size());
+
+  for (unsigned int i = 0; i < linearSystemList_.size(); i++) {
+    fieldRelaxationDuration_[i] = 0;
+    neighborRelaxationDuration_[i] = 0;
+  }
+
   MPI_Barrier(MPI_COMM_WORLD);
   PetscPrintf(PETSC_COMM_WORLD,
               "start of stokes_multilevel preconditioner setup\n");
@@ -908,6 +1042,13 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
               "Current memory usage %.2f GB, maximum memory usage: %.2f GB\n",
               mem / 1e9, maxMem / 1e9);
 
+  for (unsigned int i = 0; i < fieldRelaxationDuration_.size(); i++) {
+    PetscPrintf(MPI_COMM_WORLD,
+                "Level: %d, field relaxation duration: %.4fs, neighbor "
+                "relaxation duration: %.4fs\n",
+                i, fieldRelaxationDuration_[i], neighborRelaxationDuration_[i]);
+  }
+
   return 0;
 }
 
@@ -939,6 +1080,7 @@ void StokesMultilevelPreconditioning::Clear() {
 
 PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
                                                                     Vec y) {
+  double timer1, timer2;
   VecCopy(x, bList_[currentRefinementLevel_]->GetReference());
 
   for (unsigned int i = currentRefinementLevel_; i > 0; i--) {
@@ -949,8 +1091,13 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
     linearSystemList_[i]->ForwardField(bList_[i]->GetReference(),
                                        bFieldList_[i]->GetReference());
 
+    timer1 = MPI_Wtime();
+
     KSPSolve(fieldRelaxationList_[i]->GetReference(),
              bFieldList_[i]->GetReference(), xFieldList_[i]->GetReference());
+
+    timer2 = MPI_Wtime();
+    fieldRelaxationDuration_[i] += (timer2 - timer1);
 
     linearSystemList_[i]->ConstantVec(xFieldList_[i]->GetReference());
 
@@ -967,6 +1114,8 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
           yList_[i]->GetReference(),
           linearSystemList_[i]->GetNeighborB()->GetReference());
 
+      timer1 = MPI_Wtime();
+
       KSPSolve(neighborRelaxationList_[i]->GetReference(),
                linearSystemList_[i]->GetNeighborB()->GetReference(),
                linearSystemList_[i]->GetNeighborX()->GetReference());
@@ -977,6 +1126,9 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
           linearSystemList_[i]->GetNeighborX()->GetReference());
       VecAXPY(xList_[i]->GetReference(), 1.0, yList_[i]->GetReference());
       linearSystemList_[i]->ConstantVec(xList_[i]->GetReference());
+
+      timer2 = MPI_Wtime();
+      neighborRelaxationDuration_[i] += (timer2 - timer1);
     }
 
     MatMult(linearSystemList_[i]->GetReference(), xList_[i]->GetReference(),
@@ -988,6 +1140,8 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
   }
 
   // solve on base level
+  timer1 = MPI_Wtime();
+
   linearSystemList_[0]->ConstantVec(bList_[0]->GetReference());
 
   VecSet(xList_[0]->GetReference(), 0.0);
@@ -1003,6 +1157,9 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
 
   linearSystemList_[0]->ConstantVec(xList_[0]->GetReference());
 
+  timer2 = MPI_Wtime();
+  fieldRelaxationDuration_[0] += (timer2 - timer1);
+
   if (numRigidBody_ != 0) {
     MatMult(linearSystemList_[0]->GetReference(), xList_[0]->GetReference(),
             yList_[0]->GetReference());
@@ -1012,6 +1169,8 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
     linearSystemList_[0]->ForwardNeighbor(
         yList_[0]->GetReference(),
         linearSystemList_[0]->GetNeighborB()->GetReference());
+
+    timer1 = MPI_Wtime();
 
     KSPSolve(neighborRelaxationList_[0]->GetReference(),
              linearSystemList_[0]->GetNeighborB()->GetReference(),
@@ -1024,6 +1183,24 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
     VecAXPY(xList_[0]->GetReference(), 1.0, yList_[0]->GetReference());
 
     linearSystemList_[0]->ConstantVec(xList_[0]->GetReference());
+
+    timer2 = MPI_Wtime();
+    neighborRelaxationDuration_[0] += (timer2 - timer1);
+
+    // MatMult(linearSystemList_[0]->GetReference(), xList_[0]->GetReference(),
+    //         rList_[0]->GetReference());
+
+    // linearSystemList_[0]->ConstantVec(rList_[0]->GetReference());
+
+    // VecAYPX(rList_[0]->GetReference(), -1.0, bList_[0]->GetReference());
+
+    // KSPSolve(wholeRelaxationList_[0]->GetReference(),
+    // rList_[0]->GetReference(),
+    //          yList_[0]->GetReference());
+
+    // VecAXPY(xList_[0]->GetReference(), 1.0, yList_[0]->GetReference());
+
+    // linearSystemList_[0]->ConstantVec(xList_[0]->GetReference());
   }
 
   for (unsigned int i = 1; i <= currentRefinementLevel_; i++) {
@@ -1031,6 +1208,8 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
             xList_[i - 1]->GetReference(), yList_[i]->GetReference());
     VecAXPY(xList_[i]->GetReference(), 1.0, yList_[i]->GetReference());
     linearSystemList_[i]->ConstantVec(xList_[i]->GetReference());
+
+    timer1 = MPI_Wtime();
 
     MatMult(linearSystemList_[i]->GetReference(), xList_[i]->GetReference(),
             rList_[i]->GetReference());
@@ -1049,6 +1228,9 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
     VecAXPY(xList_[i]->GetReference(), 1.0, yList_[i]->GetReference());
     linearSystemList_[i]->ConstantVec(xList_[i]->GetReference());
 
+    timer2 = MPI_Wtime();
+    fieldRelaxationDuration_[i] += (timer2 - timer1);
+
     if (numRigidBody_ != 0) {
       MatMult(linearSystemList_[i]->GetReference(), xList_[i]->GetReference(),
               yList_[i]->GetReference());
@@ -1058,6 +1240,8 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
       linearSystemList_[i]->ForwardNeighbor(
           yList_[i]->GetReference(),
           linearSystemList_[i]->GetNeighborB()->GetReference());
+
+      timer1 = MPI_Wtime();
 
       KSPSolve(neighborRelaxationList_[i]->GetReference(),
                linearSystemList_[i]->GetNeighborB()->GetReference(),
@@ -1069,6 +1253,9 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
           linearSystemList_[i]->GetNeighborX()->GetReference());
       VecAXPY(xList_[i]->GetReference(), 1.0, yList_[i]->GetReference());
       linearSystemList_[i]->ConstantVec(xList_[i]->GetReference());
+
+      timer2 = MPI_Wtime();
+      neighborRelaxationDuration_[i] += (timer2 - timer1);
     }
   }
 

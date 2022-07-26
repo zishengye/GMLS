@@ -254,7 +254,7 @@ void StokesEquation::BuildCoefficientMatrix() {
   if (dim_ == 2)
     number_of_batches = std::max(numLocalParticle / 10000, (unsigned int)1);
   else
-    number_of_batches = std::max(numLocalParticle / 1000, (unsigned int)1);
+    number_of_batches = std::max(numLocalParticle / 100, (unsigned int)1);
 
   // neighbor search
   auto point_cloud_search(
@@ -639,10 +639,12 @@ void StokesEquation::BuildCoefficientMatrix() {
 
   Kokkos::resize(bi_, numLocalParticle);
 
-  const unsigned int batchSize =
-      ((dim_ == 2) ? 500 : 100) * omp_get_max_threads();
+  const unsigned int batchSize = (dim_ == 2) ? 1000 : 100;
   const unsigned int numBatch = numLocalParticle / batchSize +
                                 ((numLocalParticle % batchSize > 0) ? 1 : 0);
+
+  double profilingTimer1, profilingTimer2;
+  double profilingDuration = 0.0;
 
   for (unsigned int batch = 0; batch < numBatch; batch++) {
     const unsigned int startParticle = batch * batchSize;
@@ -909,6 +911,8 @@ void StokesEquation::BuildCoefficientMatrix() {
 
     const unsigned int blockStorageSize = fieldDof * fieldDof;
 
+    profilingTimer1 = MPI_Wtime();
+
     for (unsigned int i = startParticle; i < endParticle; i++) {
       const PetscInt currentParticleIndex = local_idx[i];
 
@@ -1149,9 +1153,15 @@ void StokesEquation::BuildCoefficientMatrix() {
         boundaryCounter++;
       }
     }
+
+    profilingTimer2 = MPI_Wtime();
+    profilingDuration += (profilingTimer2 - profilingTimer1);
   }
 
   A.Assemble();
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Matrix assembly duration assembly only: %.4fs\n",
+              profilingDuration);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
@@ -1449,6 +1459,16 @@ void StokesEquation::SolveEquation() {
 
   auto &local_idx = *(geoMgr_->get_current_work_particle_local_index());
 
+  PetscLogDouble minMem, maxMem, mem;
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(&mem, &maxMem, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+  MPI_Allreduce(&mem, &minMem, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage %.2f GB, maximum memory usage: %.2f GB, "
+              "minimum: %.2f GB\n",
+              mem / 1e9, maxMem / 1e9, minMem / 1e9);
+
   // build interpolation and restriction operators
   double timer1, timer2;
   if (currentRefinementLevel_ != 0) {
@@ -1475,6 +1495,15 @@ void StokesEquation::SolveEquation() {
   }
 
   PetscLogDefaultBegin();
+
+  PetscMemoryGetCurrentUsage(&mem);
+  MPI_Allreduce(&mem, &maxMem, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+  MPI_Allreduce(&mem, &minMem, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,
+              "Current memory usage %.2f GB, maximum memory usage: %.2f GB, "
+              "minimum: %.2f GB\n",
+              mem / 1e9, maxMem / 1e9, minMem / 1e9);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();

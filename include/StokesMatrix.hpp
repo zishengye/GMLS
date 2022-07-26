@@ -20,8 +20,8 @@ protected:
   unsigned int rigidBodyStartIndex_, rigidBodyEndIndex_;
   unsigned int translationDof_, rotationDof_;
 
-  IS isgNeighbor_;
-  Mat neighborSchurMat_, neighborMat_;
+  IS isgNeighbor_, isgColloid_, isgField_;
+  Mat neighborSchurMat_, neighborMat_, schurMat_;
 
   std::vector<Mat> nestedNeighborMat_;
   std::vector<PetscInt> idxNeighbor_;
@@ -68,6 +68,8 @@ public:
 
   Mat &GetNeighborSchurMatrix() { return neighborSchurMat_; }
 
+  Mat &GetSchurMatrix() { return schurMat_; }
+
   Mat &GetFieldFieldShellMatrix() { return nestedMat_[0]; }
 
   std::shared_ptr<PetscVector> &GetNeighborX() { return x_; }
@@ -75,6 +77,10 @@ public:
   std::shared_ptr<PetscVector> &GetNeighborB() { return b_; }
 
   IS &GetNeighborIS() { return isgNeighbor_; }
+
+  IS &GetFieldIS() { return isgField_; }
+
+  IS &GetColloidIS() { return isgColloid_; }
 
   PetscErrorCode FieldMatrixMult(Vec x, Vec y);
 

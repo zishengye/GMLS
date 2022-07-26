@@ -32,9 +32,13 @@ private:
   std::vector<std::shared_ptr<PetscVector>> bFieldList_;
   std::vector<std::shared_ptr<PetscVector>> rFieldList_;
 
+  std::vector<double> fieldRelaxationDuration_;
+  std::vector<double> neighborRelaxationDuration_;
+
   // relaxation list
   std::vector<std::shared_ptr<PetscKsp>> fieldRelaxationList_;
   std::vector<std::shared_ptr<PetscKsp>> neighborRelaxationList_;
+  std::vector<std::shared_ptr<PetscKsp>> wholeRelaxationList_;
 
   std::vector<unsigned int> numLocalParticleList_;
   std::vector<unsigned int> numGlobalParticleList_;
