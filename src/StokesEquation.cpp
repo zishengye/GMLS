@@ -1,11 +1,14 @@
 #include "StokesEquation.hpp"
 #include "DivergenceFree.hpp"
+#include "Kokkos_Core_fwd.hpp"
+#include "Kokkos_OpenMP.hpp"
 #include "gmls_solver.hpp"
 #include "petscsys.h"
 #include "petscvec.h"
 
 #include <iomanip>
 #include <mpi.h>
+#include <omp.h>
 #include <utility>
 
 bool compare(const std::pair<int, double> &firstElem,
@@ -646,6 +649,9 @@ void StokesEquation::BuildCoefficientMatrix() {
   double profilingTimer1, profilingTimer2;
   double profilingDuration = 0.0;
 
+  double generateAlphasTimer1, generateAlphasTimer2;
+  double generateAlphasDuration = 0.0;
+
   for (unsigned int batch = 0; batch < numBatch; batch++) {
     const unsigned int startParticle = batch * batchSize;
     const unsigned int endParticle =
@@ -770,7 +776,10 @@ void StokesEquation::BuildCoefficientMatrix() {
     interiorVelocityBasis.setDimensionOfQuadraturePoints(1);
     interiorVelocityBasis.setQuadratureType("LINE");
 
+    generateAlphasTimer1 = MPI_Wtime();
     interiorVelocityBasis.generateAlphas(1, false);
+    generateAlphasTimer2 = MPI_Wtime();
+    generateAlphasDuration += (generateAlphasTimer2 - generateAlphasTimer1);
 
     auto interiorVelocitySolutionSet =
         interiorVelocityBasis.getSolutionSetHost();
@@ -804,7 +813,10 @@ void StokesEquation::BuildCoefficientMatrix() {
     interiorPressureBasis.setDimensionOfQuadraturePoints(1);
     interiorPressureBasis.setQuadratureType("LINE");
 
+    generateAlphasTimer1 = MPI_Wtime();
     interiorPressureBasis.generateAlphas(1, false);
+    generateAlphasTimer2 = MPI_Wtime();
+    generateAlphasDuration += (generateAlphasTimer2 - generateAlphasTimer1);
 
     auto interiorPressureSolutionSet =
         interiorPressureBasis.getSolutionSetHost();
@@ -843,7 +855,10 @@ void StokesEquation::BuildCoefficientMatrix() {
     boundaryPressureBasis.setDimensionOfQuadraturePoints(1);
     boundaryPressureBasis.setQuadratureType("LINE");
 
+    generateAlphasTimer1 = MPI_Wtime();
     boundaryPressureBasis.generateAlphas(1, false);
+    generateAlphasTimer2 = MPI_Wtime();
+    generateAlphasDuration += (generateAlphasTimer2 - generateAlphasTimer1);
 
     auto boundaryPressureSolutionSet =
         boundaryPressureBasis.getSolutionSetHost();
@@ -879,7 +894,10 @@ void StokesEquation::BuildCoefficientMatrix() {
     boundaryVelocityBasis.setDimensionOfQuadraturePoints(1);
     boundaryVelocityBasis.setQuadratureType("LINE");
 
+    generateAlphasTimer1 = MPI_Wtime();
     boundaryVelocityBasis.generateAlphas(1, false);
+    generateAlphasTimer2 = MPI_Wtime();
+    generateAlphasDuration += (generateAlphasTimer2 - generateAlphasTimer1);
 
     auto boundaryVelocitySolutionSet =
         boundaryVelocityBasis.getSolutionSetHost();
@@ -1162,6 +1180,8 @@ void StokesEquation::BuildCoefficientMatrix() {
   PetscPrintf(PETSC_COMM_WORLD,
               "Matrix assembly duration assembly only: %.4fs\n",
               profilingDuration);
+  PetscPrintf(PETSC_COMM_WORLD, "Generate Alphas duration: %.4fs\n",
+              generateAlphasDuration);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer2 = MPI_Wtime();
@@ -1513,11 +1533,11 @@ void StokesEquation::SolveEquation() {
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
               timer2 - timer1);
 
-  if (useViewer_) {
-    PetscViewer viewer;
-    PetscViewerASCIIGetStdout(PETSC_COMM_WORLD, &viewer);
-    PetscLogView(viewer);
-  }
+  // if (useViewer_) {
+  PetscViewer viewer;
+  PetscViewerASCIIGetStdout(PETSC_COMM_WORLD, &viewer);
+  PetscLogView(viewer);
+  // }
 
   // copy data
   std::vector<Vec3> &coord = *(geoMgr_->get_current_work_particle_coord());
@@ -2055,7 +2075,7 @@ void StokesEquation::CalculateError() {
                                          target_coord_device, epsilon_device);
 
       std::vector<Compadre::TargetOperation> velocity_operation(2);
-      velocity_operation[0] = Compadre::ScalarPointEvaluation;
+      velocity_operation[0] = Compadre::VectorPointEvaluation;
       velocity_operation[1] = Compadre::GradientOfVectorPointEvaluation;
 
       temp_velocity_basis.addTargets(velocity_operation);
