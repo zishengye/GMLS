@@ -406,7 +406,7 @@ void StokesEquation::BuildCoefficientMatrix() {
       temp_staggered_basis.setDimensionOfQuadraturePoints(1);
       temp_staggered_basis.setQuadratureType("LINE");
 
-      temp_staggered_basis.generateAlphas(1, false);
+      temp_staggered_basis.generateAlphas(number_of_batches, false);
 
       auto solution_set = temp_staggered_basis.getSolutionSetHost();
       auto temp_pressure_alpha = solution_set->getAlphas();
@@ -526,7 +526,7 @@ void StokesEquation::BuildCoefficientMatrix() {
       temp_staggered_basis.setDimensionOfQuadraturePoints(1);
       temp_staggered_basis.setQuadratureType("LINE");
 
-      temp_staggered_basis.generateAlphas(1, false);
+      temp_staggered_basis.generateAlphas(number_of_batches, false);
 
       auto solution_set = temp_staggered_basis.getSolutionSetHost();
       auto temp_pressure_alpha = solution_set->getAlphas();

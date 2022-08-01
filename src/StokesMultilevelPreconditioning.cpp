@@ -3,6 +3,7 @@
 #include "PetscVector.hpp"
 #include "gmls_solver.hpp"
 #include "petscksp.h"
+#include "petscpc.h"
 #include "petscsys.h"
 #include "petscvec.h"
 
@@ -132,7 +133,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
     int min_neighbor = 1000, max_neighbor = 0;
 
     auto neighbor_needed =
-        1.0 * Compadre::GMLS::getNP(polyOrder, dimension_,
+        2.0 * Compadre::GMLS::getNP(polyOrder, dimension_,
                                     DivergenceFreeVectorTaylorPolynomial);
 
     int estimated_num_neighbor_max = neighbor_needed + 1;
@@ -772,6 +773,7 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
   fieldRelaxationList_.push_back(make_shared<PetscKsp>());
   neighborRelaxationList_.push_back(make_shared<PetscKsp>());
   wholeRelaxationList_.push_back(make_shared<PetscKsp>());
+  wholePcList_.push_back(make_shared<StokesSchurComplementPreconditioning>());
 
   // setup preconditioner for base level
   if (refinementStep == 0) {
@@ -783,7 +785,7 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
         linearSystemList_[refinementStep]->GetFieldFieldShellMatrix();
 
     KSPCreate(PETSC_COMM_WORLD, &fieldRelaxationList_[0]->GetReference());
-    KSPSetOperators(fieldRelaxationList_[0]->GetReference(), ff, ffShell);
+    KSPSetOperators(fieldRelaxationList_[0]->GetReference(), ff, ff);
     KSPSetType(fieldRelaxationList_[0]->GetReference(), KSPRICHARDSON);
     KSPSetTolerances(fieldRelaxationList_[0]->GetReference(), 1e-2, 1e-50, 1e50,
                      10);
@@ -833,36 +835,24 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
       KSPSetUp(fieldsplitSubKsp[1]);
       PetscFree(fieldsplitSubKsp);
 
-      // KSPCreate(MPI_COMM_WORLD, &wholeRelaxationList_[0]->GetReference());
+      KSPCreate(MPI_COMM_WORLD, &wholeRelaxationList_[0]->GetReference());
 
-      // KSPSetType(wholeRelaxationList_[0]->GetReference(), KSPGMRES);
-      // KSPGMRESSetRestart(wholeRelaxationList_[0]->GetReference(), 100);
-      // KSPSetTolerances(wholeRelaxationList_[0]->GetReference(), 1e-2, 1e-50,
-      //                  1e50, 500);
-      // KSPSetOperators(wholeRelaxationList_[0]->GetReference(), matA, matA);
+      KSPSetType(wholeRelaxationList_[0]->GetReference(), KSPGMRES);
+      KSPGMRESSetRestart(wholeRelaxationList_[0]->GetReference(), 100);
+      KSPSetTolerances(wholeRelaxationList_[0]->GetReference(), 1e-2, 1e-50,
+                       1e50, 500);
+      KSPSetOperators(wholeRelaxationList_[0]->GetReference(), matA, matA);
 
-      // PC pcWholeBase;
-      // KSPGetPC(wholeRelaxationList_[0]->GetReference(), &pcWholeBase);
-      // PCSetType(pcWholeBase, PCFIELDSPLIT);
+      PC pcWholeBase;
+      KSPGetPC(wholeRelaxationList_[0]->GetReference(), &pcWholeBase);
+      PCSetType(pcWholeBase, PCSHELL);
 
-      // IS &isgField = linearSystemList_[0]->GetFieldIS();
-      // IS &isgColloid = linearSystemList_[0]->GetColloidIS();
+      wholePcList_[0]->AddLinearSystem(linearSystemList_[0]);
 
-      // PCFieldSplitSetIS(pcWholeBase, "0", isgField);
-      // PCFieldSplitSetIS(pcWholeBase, "1", isgColloid);
+      PCShellSetApply(pcWholeBase, StokesSchurComplementIterationWrapper);
+      PCShellSetContext(pcWholeBase, wholePcList_[0].get());
 
-      // PCFieldSplitSetSchurPre(pcWholeBase, PC_FIELDSPLIT_SCHUR_PRE_USER, S);
-      // PCSetFromOptions(pcWholeBase);
-      // PCSetUp(pcWholeBase);
-
-      // PCFieldSplitGetSubKSP(pcWholeBase, &n, &fieldsplitSubKsp);
-      // KSPSetOperators(fieldsplitSubKsp[1],
-      //                 linearSystemList_[0]->GetSchurMatrix(),
-      //                 linearSystemList_[0]->GetSchurMatrix());
-      // KSPSetOperators(fieldsplitSubKsp[0], ff, ffShell);
-      // KSPSetUp(fieldsplitSubKsp[0]);
-      // KSPSetUp(fieldsplitSubKsp[1]);
-      // PetscFree(fieldsplitSubKsp);
+      KSPSetUp(wholeRelaxationList_[0]->GetReference());
     }
   } else {
     Mat &ff =
@@ -934,6 +924,35 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
       KSPSetUp(fieldsplitSubKsp[0]);
       KSPSetUp(fieldsplitSubKsp[1]);
       PetscFree(fieldsplitSubKsp);
+
+      // KSPCreate(MPI_COMM_WORLD,
+      //           &wholeRelaxationList_[currentRefinementLevel_]->GetReference());
+
+      // KSPSetType(wholeRelaxationList_[currentRefinementLevel_]->GetReference(),
+      //            KSPGMRES);
+      // KSPGMRESSetRestart(
+      //     wholeRelaxationList_[currentRefinementLevel_]->GetReference(),
+      //     100);
+      // KSPSetTolerances(
+      //     wholeRelaxationList_[currentRefinementLevel_]->GetReference(),
+      //     1e-1, 1e-50, 1e50, 500);
+      // KSPSetOperators(
+      //     wholeRelaxationList_[currentRefinementLevel_]->GetReference(),
+      //     matA, matA);
+
+      // PC pcWholeBase;
+      // KSPGetPC(wholeRelaxationList_[currentRefinementLevel_]->GetReference(),
+      //          &pcWholeBase);
+      // PCSetType(pcWholeBase, PCSHELL);
+
+      // wholePcList_[currentRefinementLevel_]->AddLinearSystem(
+      //     linearSystemList_[currentRefinementLevel_]);
+
+      // PCShellSetApply(pcWholeBase, StokesSchurComplementIterationWrapper);
+      // PCShellSetContext(pcWholeBase,
+      //                   wholePcList_[currentRefinementLevel_].get());
+
+      // KSPSetUp(wholeRelaxationList_[currentRefinementLevel_]->GetReference());
     }
   }
 
@@ -948,6 +967,13 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
   for (unsigned int i = 0; i < rhs1.size(); i++)
     a[rhs0.size() + i] = rhs1[i];
   VecRestoreArray(rhs.GetReference(), &a);
+
+  VecGetArray(x.GetReference(), &a);
+  for (unsigned int i = 0; i < rhs0.size(); i++)
+    a[i] = x0[i];
+  for (unsigned int i = 0; i < rhs1.size(); i++)
+    a[rhs0.size() + i] = x1[i];
+  VecRestoreArray(x.GetReference(), &a);
 
   xList_.push_back(std::make_shared<PetscVector>());
   yList_.push_back(std::make_shared<PetscVector>());
@@ -1071,6 +1097,8 @@ void StokesMultilevelPreconditioning::Clear() {
 
   fieldRelaxationList_.clear();
   neighborRelaxationList_.clear();
+  wholeRelaxationList_.clear();
+  wholePcList_.clear();
 
   numLocalParticleList_.clear();
   numGlobalParticleList_.clear();
@@ -1129,6 +1157,21 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
 
       timer2 = MPI_Wtime();
       neighborRelaxationDuration_[i] += (timer2 - timer1);
+
+      // MatMult(linearSystemList_[i]->GetReference(),
+      // xList_[i]->GetReference(),
+      //         rList_[i]->GetReference());
+
+      // linearSystemList_[i]->ConstantVec(rList_[i]->GetReference());
+
+      // VecAYPX(rList_[i]->GetReference(), -1.0, bList_[i]->GetReference());
+
+      // KSPSolve(wholeRelaxationList_[i]->GetReference(),
+      //          rList_[i]->GetReference(), yList_[i]->GetReference());
+
+      // VecAXPY(xList_[i]->GetReference(), 1.0, yList_[i]->GetReference());
+
+      // linearSystemList_[i]->ConstantVec(xList_[i]->GetReference());
     }
 
     MatMult(linearSystemList_[i]->GetReference(), xList_[i]->GetReference(),
@@ -1256,6 +1299,21 @@ PetscErrorCode StokesMultilevelPreconditioning::MultilevelIteration(Vec x,
 
       timer2 = MPI_Wtime();
       neighborRelaxationDuration_[i] += (timer2 - timer1);
+
+      // MatMult(linearSystemList_[i]->GetReference(),
+      // xList_[i]->GetReference(),
+      //         rList_[i]->GetReference());
+
+      // linearSystemList_[i]->ConstantVec(rList_[i]->GetReference());
+
+      // VecAYPX(rList_[i]->GetReference(), -1.0, bList_[i]->GetReference());
+
+      // KSPSolve(wholeRelaxationList_[i]->GetReference(),
+      //          rList_[i]->GetReference(), yList_[i]->GetReference());
+
+      // VecAXPY(xList_[i]->GetReference(), 1.0, yList_[i]->GetReference());
+
+      // linearSystemList_[i]->ConstantVec(xList_[i]->GetReference());
     }
   }
 

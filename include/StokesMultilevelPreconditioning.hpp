@@ -8,6 +8,7 @@
 #include "ParticleGeometry.hpp"
 #include "PetscWrapper.hpp"
 #include "StokesMatrix.hpp"
+#include "StokesSchurComplementPreconditioning.hpp"
 #include "petscsystypes.h"
 
 PetscErrorCode StokesMultilevelIterationWrapper(PC pc, Vec x, Vec y);
@@ -39,6 +40,8 @@ private:
   std::vector<std::shared_ptr<PetscKsp>> fieldRelaxationList_;
   std::vector<std::shared_ptr<PetscKsp>> neighborRelaxationList_;
   std::vector<std::shared_ptr<PetscKsp>> wholeRelaxationList_;
+  std::vector<std::shared_ptr<StokesSchurComplementPreconditioning>>
+      wholePcList_;
 
   std::vector<unsigned int> numLocalParticleList_;
   std::vector<unsigned int> numGlobalParticleList_;
