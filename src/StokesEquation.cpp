@@ -691,12 +691,12 @@ void StokesEquation::BuildCoefficientMatrix() {
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
         interiorParticleCoordsDevice("interior particle coord",
-                                     numInteriorParticle, dim_);
+                                     numInteriorParticle, 3);
     Kokkos::View<double **>::HostMirror interiorParticleCoordsHost =
         Kokkos::create_mirror_view(interiorParticleCoordsDevice);
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
         boundaryParticleCoordsDevice("boundary particle coord",
-                                     numBoundaryParticle, dim_);
+                                     numBoundaryParticle, 3);
     Kokkos::View<double **>::HostMirror boundaryParticleCoordsHost =
         Kokkos::create_mirror_view(boundaryParticleCoordsDevice);
 
@@ -1533,11 +1533,11 @@ void StokesEquation::SolveEquation() {
   PetscPrintf(PETSC_COMM_WORLD, "linear system solving duration: %fs\n",
               timer2 - timer1);
 
-  // if (useViewer_) {
-  PetscViewer viewer;
-  PetscViewerASCIIGetStdout(PETSC_COMM_WORLD, &viewer);
-  PetscLogView(viewer);
-  // }
+  if (useViewer_) {
+    PetscViewer viewer;
+    PetscViewerASCIIGetStdout(PETSC_COMM_WORLD, &viewer);
+    PetscLogView(viewer);
+  }
 
   // copy data
   std::vector<Vec3> &coord = *(geoMgr_->get_current_work_particle_coord());

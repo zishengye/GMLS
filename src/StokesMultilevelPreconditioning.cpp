@@ -357,7 +357,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
           Kokkos::create_mirror_view(batchEpsilonDevice);
 
       Kokkos::View<double **, Kokkos::DefaultExecutionSpace> batchCoordsDevice(
-          "batch coords", numBatchTargetParticle, dimension_);
+          "batch coords", numBatchTargetParticle, 3);
       Kokkos::View<double **>::HostMirror batchCoordsHost =
           Kokkos::create_mirror_view(batchCoordsDevice);
 
