@@ -835,24 +835,24 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
       KSPSetUp(fieldsplitSubKsp[1]);
       PetscFree(fieldsplitSubKsp);
 
-      KSPCreate(MPI_COMM_WORLD, &wholeRelaxationList_[0]->GetReference());
+      // KSPCreate(MPI_COMM_WORLD, &wholeRelaxationList_[0]->GetReference());
 
-      KSPSetType(wholeRelaxationList_[0]->GetReference(), KSPGMRES);
-      KSPGMRESSetRestart(wholeRelaxationList_[0]->GetReference(), 100);
-      KSPSetTolerances(wholeRelaxationList_[0]->GetReference(), 1e-2, 1e-50,
-                       1e50, 500);
-      KSPSetOperators(wholeRelaxationList_[0]->GetReference(), matA, matA);
+      // KSPSetType(wholeRelaxationList_[0]->GetReference(), KSPGMRES);
+      // KSPGMRESSetRestart(wholeRelaxationList_[0]->GetReference(), 100);
+      // KSPSetTolerances(wholeRelaxationList_[0]->GetReference(), 1e-2, 1e-50,
+      //                  1e50, 500);
+      // KSPSetOperators(wholeRelaxationList_[0]->GetReference(), matA, matA);
 
-      PC pcWholeBase;
-      KSPGetPC(wholeRelaxationList_[0]->GetReference(), &pcWholeBase);
-      PCSetType(pcWholeBase, PCSHELL);
+      // PC pcWholeBase;
+      // KSPGetPC(wholeRelaxationList_[0]->GetReference(), &pcWholeBase);
+      // PCSetType(pcWholeBase, PCSHELL);
 
-      wholePcList_[0]->AddLinearSystem(linearSystemList_[0]);
+      // wholePcList_[0]->AddLinearSystem(linearSystemList_[0]);
 
-      PCShellSetApply(pcWholeBase, StokesSchurComplementIterationWrapper);
-      PCShellSetContext(pcWholeBase, wholePcList_[0].get());
+      // PCShellSetApply(pcWholeBase, StokesSchurComplementIterationWrapper);
+      // PCShellSetContext(pcWholeBase, wholePcList_[0].get());
 
-      KSPSetUp(wholeRelaxationList_[0]->GetReference());
+      // KSPSetUp(wholeRelaxationList_[0]->GetReference());
     }
   } else {
     Mat &ff =
@@ -887,11 +887,11 @@ int StokesMultilevelPreconditioning::Solve(std::vector<double> &rhs0,
                 neighborRelaxationList_[refinementStep]->GetPointer());
 
       KSPSetType(neighborRelaxationList_[refinementStep]->GetReference(),
-                 KSPGMRES);
-      KSPGMRESSetRestart(
-          neighborRelaxationList_[refinementStep]->GetReference(), 100);
-      KSPSetTolerances(neighborRelaxationList_[refinementStep]->GetReference(),
-                       1e-1, 1e-50, 1e10, 500);
+                 KSPPREONLY);
+      // KSPGMRESSetRestart(
+      //     neighborRelaxationList_[refinementStep]->GetReference(), 100);
+      // KSPSetTolerances(neighborRelaxationList_[refinementStep]->GetReference(),
+      //                  1e-1, 1e-50, 1e10, 500);
       KSPSetOperators(neighborRelaxationList_[refinementStep]->GetReference(),
                       nn, nn);
 
