@@ -83,7 +83,7 @@ cmake \
 [Trilinos]
 cmake -D Trilinos_ENABLE_Zoltan2:BOOL=ON -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX_PATH -D Trilinos_ENABLE_Fortran:BOOL=OFF -D BUILD_SHARED_LIBS=ON -D TPL_ENABLE_MPI:BOOL=ON -D Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES=OFF -D Kokkos_ENABLE_OpenMP:BOOL=ON -D Kokkos_ENABLE_SERIAL:BOOL=OFF -D Trilinos_ENABLE_OpenMP:BOOL=ON ../
 
-## How to executate the program
+## How to execute the program
 
 To invoke the executable, one need to use mpiexec and use "-input" command to transfer executation command for the program. Here is an example
 
