@@ -25,6 +25,7 @@ protected:
 
   std::vector<Mat> nestedNeighborMat_;
   std::vector<PetscInt> idxNeighbor_;
+  std::vector<PetscInt> idxNonNeighborPressure_, idxNeighborPressure_;
 
   std::shared_ptr<PetscVector> x_, b_;
   std::vector<std::vector<PetscInt>> rigidBodyFieldIndexMap_;
@@ -89,6 +90,8 @@ public:
                                 Vec x);
 
   void ConstantVec(Vec v);
+
+  void ConstantVecNonNeighborPressure(Vec v);
 
   void ForwardField(Vec x, Vec y);
 

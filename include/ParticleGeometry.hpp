@@ -161,7 +161,7 @@ private:
   // mpi
   int rank, size;
 
-  int min_count, max_count, current_count, stride;
+  int min_count, max_count, current_count, stride, polyOrder_;
 
 public:
   ParticleGeometry()
@@ -173,7 +173,8 @@ public:
 
   ~ParticleGeometry() {}
 
-  void init(const int _dim, const int _problem_type = STANDARD_PROBLEM,
+  void init(const int _dim, const int polyOrder,
+            const int _problem_type = STANDARD_PROBLEM,
             const int _refinement_type = ADAPTIVE_REFINE, double _spacing = 0.1,
             double _cutoff_multiplier = 3.0, const int _min_count = 0,
             const int _max_count = 0, const int _stride = 0,

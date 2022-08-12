@@ -98,7 +98,8 @@ public:
   void InitialGuess(std::vector<double> &initial_guess,
                     std::vector<Vec3> &velocity, std::vector<double> &pressure);
   void BuildInterpolationRestrictionOperators(const int numRigidBody,
-                                              const int dimension);
+                                              const int dimension,
+                                              const int polyOrder);
 
   int Solve(std::vector<double> &rhs1, std::vector<double> &x1,
             std::vector<double> &rhs2, std::vector<double> &x2);

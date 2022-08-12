@@ -272,14 +272,22 @@ void StokesMatrix::SetGraph(
     MPI_Reduce(gatheredField.data(), localField.data(), gatheredParticleNum,
                MPI_INT, MPI_SUM, i, MPI_COMM_WORLD);
 
+    idxNeighborPressure_.clear();
+    idxNonNeighborPressure_.clear();
+
     if (i == mpiRank_) {
-      for (unsigned int j = 0; j < localField.size(); j++)
+      for (unsigned int j = 0; j < localField.size(); j++) {
         if (localField[j] != 0) {
           for (unsigned int k = 0; k < fieldDof_; k++) {
             idxNeighbor.push_back((j + startIndex) * fieldDof_ + k);
             idxNeighbor_.push_back(j * fieldDof_ + k);
           }
+
+          idxNeighborPressure_.push_back(j * fieldDof_ + velocityDof_);
+        } else {
+          idxNonNeighborPressure_.push_back(j * fieldDof_ + velocityDof_);
         }
+      }
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -292,6 +300,16 @@ void StokesMatrix::SetGraph(
   std::sort(idxNeighbor_.begin(), idxNeighbor_.end());
   idxNeighbor_.erase(std::unique(idxNeighbor_.begin(), idxNeighbor_.end()),
                      idxNeighbor_.end());
+
+  std::sort(idxNeighborPressure_.begin(), idxNeighborPressure_.end());
+  idxNeighborPressure_.erase(
+      std::unique(idxNeighborPressure_.begin(), idxNeighborPressure_.end()),
+      idxNeighborPressure_.end());
+
+  std::sort(idxNonNeighborPressure_.begin(), idxNonNeighborPressure_.end());
+  idxNonNeighborPressure_.erase(std::unique(idxNonNeighborPressure_.begin(),
+                                            idxNonNeighborPressure_.end()),
+                                idxNonNeighborPressure_.end());
 
   ISCreateGeneral(MPI_COMM_WORLD, idxNeighbor.size(), idxNeighbor.data(),
                   PETSC_COPY_VALUES, &isgNeighbor_);
@@ -564,6 +582,36 @@ void StokesMatrix::ConstantVec(Vec v) {
     a[fieldDof_ * i + velocityDof_] -= average;
   }
   VecRestoreArray(v, &a);
+}
+
+void StokesMatrix::ConstantVecNonNeighborPressure(Vec v) {
+  PetscReal *a;
+  VecGetArray(v, &a);
+  PetscReal sum = 0.0;
+  PetscReal sum1, sum2;
+  PetscReal average;
+  for (unsigned int i = 0; i < numLocalParticle_; i++) {
+    sum += a[fieldDof_ * i + velocityDof_];
+  }
+  MPI_Allreduce(&sum, &sum1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  sum = 0.0;
+  for (unsigned int i = 0; i < idxNeighborPressure_.size(); i++) {
+    sum += a[idxNeighborPressure_[i]];
+  }
+  MPI_Allreduce(&sum, &sum2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  int numNonNeighborPressure = idxNonNeighborPressure_.size();
+  MPI_Allreduce(MPI_IN_PLACE, &numNonNeighborPressure, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+  average = (sum1 - sum2) / (double)numNonNeighborPressure;
+  for (unsigned int i = 0; i < idxNonNeighborPressure_.size(); i++) {
+    a[idxNonNeighborPressure_[i]] -= average;
+  }
+  sum = 0.0;
+  for (unsigned int i = 0; i < numLocalParticle_; i++) {
+    sum += a[fieldDof_ * i + velocityDof_];
+  }
+  MPI_Allreduce(&sum, &average, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 }
 
 void StokesMatrix::ForwardField(Vec x, Vec y) {

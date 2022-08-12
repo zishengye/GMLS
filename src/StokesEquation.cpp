@@ -404,7 +404,7 @@ void StokesEquation::BuildCoefficientMatrix() {
 
       temp_staggered_basis.setWeightingType(
           Compadre::WeightingFunctionType::Power);
-      temp_staggered_basis.setWeightingParameter(4);
+      temp_staggered_basis.setWeightingParameter(2 * polyOrder_);
       temp_staggered_basis.setOrderOfQuadraturePoints(2);
       temp_staggered_basis.setDimensionOfQuadraturePoints(1);
       temp_staggered_basis.setQuadratureType("LINE");
@@ -524,7 +524,7 @@ void StokesEquation::BuildCoefficientMatrix() {
 
       temp_staggered_basis.setWeightingType(
           Compadre::WeightingFunctionType::Power);
-      temp_staggered_basis.setWeightingParameter(4);
+      temp_staggered_basis.setWeightingParameter(2 * polyOrder_);
       temp_staggered_basis.setOrderOfQuadraturePoints(2);
       temp_staggered_basis.setDimensionOfQuadraturePoints(1);
       temp_staggered_basis.setQuadratureType("LINE");
@@ -771,7 +771,7 @@ void StokesEquation::BuildCoefficientMatrix() {
 
     interiorVelocityBasis.setWeightingType(
         Compadre::WeightingFunctionType::Power);
-    interiorVelocityBasis.setWeightingParameter(4);
+    interiorVelocityBasis.setWeightingParameter(2 * polyOrder_);
     interiorVelocityBasis.setOrderOfQuadraturePoints(2);
     interiorVelocityBasis.setDimensionOfQuadraturePoints(1);
     interiorVelocityBasis.setQuadratureType("LINE");
@@ -808,7 +808,7 @@ void StokesEquation::BuildCoefficientMatrix() {
 
     interiorPressureBasis.setWeightingType(
         Compadre::WeightingFunctionType::Power);
-    interiorPressureBasis.setWeightingParameter(4);
+    interiorPressureBasis.setWeightingParameter(2 * polyOrder_);
     interiorPressureBasis.setOrderOfQuadraturePoints(2);
     interiorPressureBasis.setDimensionOfQuadraturePoints(1);
     interiorPressureBasis.setQuadratureType("LINE");
@@ -850,7 +850,7 @@ void StokesEquation::BuildCoefficientMatrix() {
 
     boundaryPressureBasis.setWeightingType(
         Compadre::WeightingFunctionType::Power);
-    boundaryPressureBasis.setWeightingParameter(4);
+    boundaryPressureBasis.setWeightingParameter(2 * polyOrder_);
     boundaryPressureBasis.setOrderOfQuadraturePoints(2);
     boundaryPressureBasis.setDimensionOfQuadraturePoints(1);
     boundaryPressureBasis.setQuadratureType("LINE");
@@ -889,7 +889,7 @@ void StokesEquation::BuildCoefficientMatrix() {
 
     boundaryVelocityBasis.setWeightingType(
         Compadre::WeightingFunctionType::Power);
-    boundaryVelocityBasis.setWeightingParameter(4);
+    boundaryVelocityBasis.setWeightingParameter(2 * polyOrder_);
     boundaryVelocityBasis.setOrderOfQuadraturePoints(2);
     boundaryVelocityBasis.setDimensionOfQuadraturePoints(1);
     boundaryVelocityBasis.setQuadratureType("LINE");
@@ -1494,7 +1494,8 @@ void StokesEquation::SolveEquation() {
   if (currentRefinementLevel_ != 0) {
     timer1 = MPI_Wtime();
 
-    multiMgr_->BuildInterpolationRestrictionOperators(numRigidBody, dim_);
+    multiMgr_->BuildInterpolationRestrictionOperators(numRigidBody, dim_,
+                                                      polyOrder_);
     multiMgr_->InitialGuess(resField_, velocity, pressure);
 
     for (int i = rigidBodyStartIndex_; i < rigidBodyEndIndex_; i++) {
@@ -2082,7 +2083,7 @@ void StokesEquation::CalculateError() {
 
       temp_velocity_basis.setWeightingType(
           Compadre::WeightingFunctionType::Power);
-      temp_velocity_basis.setWeightingParameter(4);
+      temp_velocity_basis.setWeightingParameter(2 * polyOrder_);
 
       temp_velocity_basis.generateAlphas(1, true);
 

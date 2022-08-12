@@ -22,7 +22,7 @@ PetscErrorCode StokesMultilevelIterationWrapper(PC pc, Vec x, Vec y) {
 }
 
 void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
-    const int numRigidBody, const int dimension_) {
+    const int numRigidBody, const int dimension_, const int polyOrder) {
   PetscNestedMatrix &interpolation =
       *(interpolationList_[currentRefinementLevel_ - 1]);
   PetscNestedMatrix &restriction =
@@ -30,7 +30,6 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
 
   int fieldDof = dimension_ + 1;
   int velocityDof = dimension_;
-  int polyOrder = 2;
 
   int rigidBodyDof = (dimension_ == 3) ? 6 : 3;
 
@@ -399,7 +398,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
         velocityBasis.addTargets(VectorPointEvaluation);
 
         velocityBasis.setWeightingType(WeightingFunctionType::Power);
-        velocityBasis.setWeightingParameter(4);
+        velocityBasis.setWeightingParameter(2 * polyOrder);
 
         velocityBasis.generateAlphas(1, false);
 
@@ -450,7 +449,7 @@ void StokesMultilevelPreconditioning::BuildInterpolationRestrictionOperators(
         pressureBasis.addTargets(ScalarPointEvaluation);
 
         pressureBasis.setWeightingType(WeightingFunctionType::Power);
-        pressureBasis.setWeightingParameter(4);
+        pressureBasis.setWeightingParameter(2 * polyOrder);
 
         pressureBasis.generateAlphas(1, false);
 

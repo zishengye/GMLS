@@ -236,12 +236,14 @@ static int bounding_box_split(Vec3 &bounding_box_size,
   return 0;
 }
 
-void ParticleGeometry::init(const int _dim, const int _problem_type,
-                            const int _refinement_type, double _spacing,
-                            double _cutoff_multiplier, const int _min_count,
-                            const int _max_count, const int _stride,
+void ParticleGeometry::init(const int _dim, const int polyOrder,
+                            const int _problem_type, const int _refinement_type,
+                            double _spacing, double _cutoff_multiplier,
+                            const int _min_count, const int _max_count,
+                            const int _stride,
                             string geometry_input_file_name) {
   dim = _dim;
+  polyOrder_ = polyOrder;
   problem_type = _problem_type;
   refinement_type = _refinement_type;
   uniform_spacing0 = _spacing;
@@ -2784,8 +2786,9 @@ bool ParticleGeometry::automatic_refine(std::vector<int> &split_tag,
 
     // Note: only works for 2-nd poly
     int min_num_neighbor =
-        max(Compadre::GMLS::getNP(2, dim, DivergenceFreeVectorTaylorPolynomial),
-            Compadre::GMLS::getNP(3, dim));
+        max(Compadre::GMLS::getNP(polyOrder_, dim,
+                                  DivergenceFreeVectorTaylorPolynomial),
+            Compadre::GMLS::getNP(polyOrder_ + 1, dim));
     int satisfied_num_neighbor = pow(2.0, dim / 2.0) * min_num_neighbor;
 
     int num_target_coord = 0;
