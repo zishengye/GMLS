@@ -36,11 +36,11 @@ int main(int argc, char *argv[]) {
   int dim;
   SearchCommand<int>(inputCommandCount, inputCommand, "-Dim", dim);
 
-  rigid_body_manager rb_mgr;
+  RigidBodyManager rb_mgr;
   rb_mgr.init(rigid_body_input_file_name, dim);
 
   rigid_body_surface_particle_hierarchy hierarchy;
-  hierarchy.init(make_shared<rigid_body_manager>(rb_mgr), dim);
+  hierarchy.init(make_shared<RigidBodyManager>(rb_mgr), dim);
 
   hierarchy.set_coarse_level_resolution(0.2);
 

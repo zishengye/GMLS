@@ -7,9 +7,9 @@
 #include <Compadre_PointCloudSearch.hpp>
 #include <petscksp.h>
 
+#include "Geometry.hpp"
+#include "RigidBodyManager.hpp"
 #include "Vec3.hpp"
-#include "geometry.hpp"
-#include "rigid_body_manager.hpp"
 
 class rigid_body_surface_particle_hierarchy {
 private:
@@ -29,7 +29,7 @@ private:
   std::vector<std::vector<int>> mapping;
   std::vector<std::vector<int>> hierarchy_mapping;
 
-  std::shared_ptr<rigid_body_manager> rb_mgr;
+  std::shared_ptr<RigidBodyManager> rb_mgr;
 
   std::vector<int> rb_idx;
 
@@ -58,7 +58,7 @@ public:
 
   ~rigid_body_surface_particle_hierarchy() {}
 
-  void init(std::shared_ptr<rigid_body_manager> mgr, const int dim);
+  void init(std::shared_ptr<RigidBodyManager> mgr, const int dim);
 
   void set_coarse_level_resolution(const double h0) {
     coarse_level_resolution = h0;

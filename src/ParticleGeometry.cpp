@@ -351,7 +351,6 @@ void ParticleGeometry::init(const int _dim, const int polyOrder,
     if (min_count != 0) {
       current_count = min_count;
       uniform_spacing = bounding_box_size[0] / current_count;
-      cutoff_multiplier = cutoff_multiplier;
       cutoff_distance = uniform_spacing * (cutoff_multiplier + 0.5);
     }
   }
@@ -373,7 +372,7 @@ void ParticleGeometry::init(const int _dim, const int polyOrder,
   init_domain_boundary();
 }
 
-void ParticleGeometry::init_rigid_body(shared_ptr<rigid_body_manager> mgr) {
+void ParticleGeometry::init_rigid_body(shared_ptr<RigidBodyManager> mgr) {
   rb_mgr = mgr;
   rb_mgr->init_geometry_manager(make_shared<ParticleGeometry>(*this));
 

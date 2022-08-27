@@ -10,8 +10,8 @@
 
 #include "ParticleGeometry.hpp"
 #include "PetscWrapper.hpp"
+#include "RigidBodyManager.hpp"
 #include "StokesMultilevelPreconditioning.hpp"
-#include "rigid_body_manager.hpp"
 
 #define VELOCITY_ERROR_EST 1
 #define PRESSURE_ERROR_EST 2
@@ -19,7 +19,7 @@
 class StokesEquation {
 private:
   std::shared_ptr<ParticleGeometry> geoMgr_;
-  std::shared_ptr<rigid_body_manager> rbMgr_;
+  std::shared_ptr<RigidBodyManager> rbMgr_;
 
   std::shared_ptr<StokesMultilevelPreconditioning> multiMgr_;
 
@@ -69,7 +69,7 @@ public:
   StokesEquation() { useViewer_ = false; }
 
   void Init(std::shared_ptr<ParticleGeometry> geoMgr,
-            std::shared_ptr<rigid_body_manager> rbMgr, const int polyOrder,
+            std::shared_ptr<RigidBodyManager> rbMgr, const int polyOrder,
             const int dim, const int errorEstimationMethod = VELOCITY_ERROR_EST,
             const double epsilonMultiplier = 0.0, const double eta = 1.0);
   void Reset();

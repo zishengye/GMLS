@@ -10,10 +10,10 @@
 #include <memory>
 #include <vector>
 
+#include "Geometry.hpp"
 #include "KdTree.hpp"
+#include "RigidBodyManager.hpp"
 #include "Vec3.hpp"
-#include "geometry.hpp"
-#include "rigid_body_manager.hpp"
 #include "rigid_body_surface_particle_hierarchy.hpp"
 #include "trilinos_wrapper.hpp"
 
@@ -33,7 +33,7 @@ private:
   double cutoff_multiplier;
   double cutoff_distance, old_cutoff_distance;
 
-  std::shared_ptr<rigid_body_manager> rb_mgr;
+  std::shared_ptr<RigidBodyManager> rb_mgr;
   std::shared_ptr<rigid_body_surface_particle_hierarchy> hierarchy;
 
   // work domain
@@ -179,7 +179,7 @@ public:
             double _cutoff_multiplier = 3.0, const int _min_count = 0,
             const int _max_count = 0, const int _stride = 0,
             std::string geometry_input_file_name = "");
-  void init_rigid_body(std::shared_ptr<rigid_body_manager> mgr);
+  void init_rigid_body(std::shared_ptr<RigidBodyManager> mgr);
 
   bool generate_uniform_particle();
 

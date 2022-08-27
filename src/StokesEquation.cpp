@@ -35,7 +35,7 @@ void solution(double r, double phi, double omega, double &u, double &v) {
 }
 
 void StokesEquation::Init(std::shared_ptr<ParticleGeometry> geoMgr,
-                          std::shared_ptr<rigid_body_manager> rbMgr,
+                          std::shared_ptr<RigidBodyManager> rbMgr,
                           const int polyOrder, const int dim,
                           const int errorEstimationMethod,
                           const double epsilonMultiplier, const double eta) {

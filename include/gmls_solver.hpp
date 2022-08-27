@@ -123,7 +123,7 @@ private:
 
   // geometry manager
   std::shared_ptr<ParticleGeometry> geo_mgr;
-  std::shared_ptr<rigid_body_manager> rb_mgr;
+  std::shared_ptr<RigidBodyManager> rb_mgr;
 
   bool refinement();
 

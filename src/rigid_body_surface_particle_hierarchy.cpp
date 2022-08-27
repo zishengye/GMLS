@@ -490,7 +490,7 @@ void rigid_body_surface_particle_hierarchy::build_hierarchy_mapping(
 }
 
 void rigid_body_surface_particle_hierarchy::init(
-    shared_ptr<rigid_body_manager> mgr, const int dim) {
+    shared_ptr<RigidBodyManager> mgr, const int dim) {
   rb_mgr = mgr;
   dimension = dim;
 

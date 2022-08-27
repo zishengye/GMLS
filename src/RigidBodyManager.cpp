@@ -1,11 +1,11 @@
-#include "rigid_body_manager.hpp"
+#include "RigidBodyManager.hpp"
 #include "PetscWrapper.hpp"
 
 #include <fstream>
 
 using namespace std;
 
-void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
+void RigidBodyManager::init(string rigid_body_input_file_name, int dim) {
   ifstream input(rigid_body_input_file_name, ios::in);
   if (!input.is_open()) {
     PetscPrintf(PETSC_COMM_WORLD, "rigid body input file does not exist\n");
@@ -115,12 +115,12 @@ void rigid_body_manager::init(string rigid_body_input_file_name, int dim) {
   input.close();
 }
 
-bool rigid_body_manager::rigid_body_collision_detection() {
+bool RigidBodyManager::rigid_body_collision_detection() {
   double min_dis;
   return rigid_body_collision_detection(min_dis);
 }
 
-bool rigid_body_manager::rigid_body_collision_detection(double &min_dis) {
+bool RigidBodyManager::rigid_body_collision_detection(double &min_dis) {
   min_dis = 1.0;
 
   // distance between colloids

@@ -1,16 +1,16 @@
-#ifndef _RIGID_BODY_MANAGER_HPP_
-#define _RIGID_BODY_MANAGER_HPP_
+#ifndef _RigidBodyManager_Hpp_
+#define _RigidBodyManager_Hpp_
 
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "Geometry.hpp"
 #include "ParticleGeometry.hpp"
 #include "Quaternion.hpp"
 #include "Vec3.hpp"
-#include "geometry.hpp"
 
-class rigid_body_manager {
+class RigidBodyManager {
 private:
   std::vector<Vec3> rigid_body_position;
   std::vector<Vec3> rigid_body_orientation;
@@ -30,9 +30,9 @@ private:
   std::shared_ptr<ParticleGeometry> geometry_mgr;
 
 public:
-  rigid_body_manager() {}
+  RigidBodyManager() {}
 
-  ~rigid_body_manager() {}
+  ~RigidBodyManager() {}
 
   void init(std::string rigid_body_input_file_name, int dim);
 

@@ -212,7 +212,7 @@ gmls_solver::gmls_solver(int argc, char **argv) {
   MPI_Barrier(MPI_COMM_WORLD);
 
   geo_mgr = make_shared<ParticleGeometry>();
-  rb_mgr = make_shared<rigid_body_manager>();
+  rb_mgr = make_shared<RigidBodyManager>();
 
   geo_mgr->init(dim, polynomial_order, STANDARD_PROBLEM, refinement_method,
                 spacing, epsilon_multiplier, min_count, max_count, stride,
