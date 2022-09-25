@@ -42,35 +42,45 @@ void StokesMatrix::InitInternal() {
   translationDof_ = dimension_;
   rotationDof_ = (dimension_ == 3) ? 3 : 1;
 
-  auto a00 = PetscNestedMatrix::GetMatrix(0, 0);
-  auto a01 = PetscNestedMatrix::GetMatrix(0, 1);
-  auto a10 = PetscNestedMatrix::GetMatrix(1, 0);
-  auto a11 = PetscNestedMatrix::GetMatrix(1, 1);
+  auto uu = PetscNestedMatrix::GetMatrix(0, 0);
+  auto up = PetscNestedMatrix::GetMatrix(0, 1);
+  auto uc = PetscNestedMatrix::GetMatrix(0, 2);
+  auto pu = PetscNestedMatrix::GetMatrix(1, 0);
+  auto pp = PetscNestedMatrix::GetMatrix(1, 1);
+  auto pc = PetscNestedMatrix::GetMatrix(1, 2);
+  auto cu = PetscNestedMatrix::GetMatrix(2, 0);
+  auto cp = PetscNestedMatrix::GetMatrix(2, 1);
+  auto cc = PetscNestedMatrix::GetMatrix(2, 2);
 
-  a00->Resize(numLocalParticle_, numLocalParticle_, fieldDof_);
-  a01->Resize(numLocalParticle_ * fieldDof_,
-              numLocalRigidBody_ * rigidBodyDof_);
-  a10->Resize(numLocalRigidBody_ * rigidBodyDof_,
-              numLocalParticle_ * fieldDof_);
-  a11->Resize(numLocalRigidBody_ * rigidBodyDof_,
-              numLocalRigidBody_ * rigidBodyDof_);
+  uu->Resize(numLocalParticle_, numLocalParticle_, velocityDof_);
+  up->Resize(numLocalParticle_ * velocityDof_, numLocalRigidBody_);
+  uc->Resize(numLocalParticle_ * velocityDof_,
+             numLocalRigidBody_ * rigidBodyDof_);
+  pu->Resize(numLocalParticle_, numLocalParticle_ * velocityDof_);
+  pp->Resize(numLocalParticle_, numLocalParticle_);
+  pc->Resize(numLocalParticle_, numLocalRigidBody_ * rigidBodyDof_);
+  cu->Resize(numLocalRigidBody_ * rigidBodyDof_,
+             numLocalParticle_ * velocityDof_);
+  cp->Resize(numLocalRigidBody_ * rigidBodyDof_, numLocalParticle_);
+  cc->Resize(numLocalRigidBody_ * rigidBodyDof_,
+             numLocalRigidBody_ * rigidBodyDof_);
 
   x_ = std::make_shared<PetscVector>();
   b_ = std::make_shared<PetscVector>();
 }
 
-StokesMatrix::StokesMatrix() : PetscNestedMatrix(2, 2) {}
+StokesMatrix::StokesMatrix() : PetscNestedMatrix(3, 3) {}
 
 StokesMatrix::StokesMatrix(const unsigned int dimension)
     : dimension_(dimension), numRigidBody_(0), numLocalParticle_(0),
       fieldDof_(dimension + 1), velocityDof_(dimension),
-      PetscNestedMatrix(2, 2) {}
+      PetscNestedMatrix(3, 3) {}
 
 StokesMatrix::StokesMatrix(const unsigned long numLocalParticle,
                            const unsigned int dimension)
     : dimension_(dimension), numRigidBody_(0),
       numLocalParticle_(numLocalParticle), fieldDof_(dimension + 1),
-      velocityDof_(dimension), PetscNestedMatrix(2, 2) {
+      velocityDof_(dimension), PetscNestedMatrix(3, 3) {
   rigidBodyDof_ = (dimension_ == 3) ? 6 : 3;
 
   InitInternal();
@@ -81,7 +91,7 @@ StokesMatrix::StokesMatrix(const unsigned long numLocalParticle,
                            const unsigned int dimension)
     : dimension_(dimension), numRigidBody_(numRigidBody),
       numLocalParticle_(numLocalParticle), fieldDof_(dimension + 1),
-      velocityDof_(dimension), PetscNestedMatrix(2, 2) {
+      velocityDof_(dimension), PetscNestedMatrix(3, 3) {
   rigidBodyDof_ = (dimension_ == 3) ? 6 : 3;
 
   InitInternal();
@@ -450,37 +460,58 @@ unsigned long StokesMatrix::Assemble() {
   return 0;
 }
 
-void StokesMatrix::IncrementFieldField(const PetscInt row,
-                                       const std::vector<PetscInt> &index,
-                                       const std::vector<PetscReal> &value) {
+void StokesMatrix::IncrementVelocityVelocity(
+    const PetscInt row, const std::vector<PetscInt> &index,
+    const std::vector<PetscReal> &value) {
   PetscNestedMatrix::GetMatrix(0, 0)->Increment(row, index, value);
 }
 
-void StokesMatrix::IncrementFieldRigidBody(const PetscInt row,
-                                           const PetscInt index,
-                                           const PetscReal value) {
+void StokesMatrix::IncrementVelocityPressure(
+    const PetscInt row, const std::vector<PetscInt> &index,
+    const std::vector<PetscReal> &value) {
   PetscNestedMatrix::GetMatrix(0, 1)->Increment(row, index, value);
 }
 
-void StokesMatrix::IncrementRigidBodyField(const PetscInt row,
-                                           const PetscInt index,
-                                           const PetscReal value) {
-  unsigned int rigidBodyIndex = row / rigidBodyDof_;
-  auto result =
-      std::lower_bound(rigidBodyFieldIndexMap_[rigidBodyIndex].begin(),
-                       rigidBodyFieldIndexMap_[rigidBodyIndex].end(), index);
-  std::size_t mapIndex =
-      result - rigidBodyFieldIndexMap_[rigidBodyIndex].begin();
-  if (mapIndex < rigidBodyFieldIndexMap_[rigidBodyIndex].size())
-    rigidBodyFieldValueMap_[row][mapIndex] += value;
-  else
-    std::cout << "rigid body-field wrong increment" << std::endl;
+void StokesMatrix::IncrementVelocityRigidBody(const PetscInt row,
+                                              const PetscInt index,
+                                              const PetscReal value) {
+  PetscNestedMatrix::GetMatrix(0, 2)->Increment(row, index, value);
+}
+
+void StokesMatrix::IncrementPressureVelocity(
+    const PetscInt row, const std::vector<PetscInt> &index,
+    const std::vector<PetscReal> &value) {
+  PetscNestedMatrix::GetMatrix(1, 0)->Increment(row, index, value);
+}
+
+void StokesMatrix::IncrementPressurePressure(
+    const PetscInt row, const std::vector<PetscInt> &index,
+    const std::vector<PetscReal> &value) {
+  PetscNestedMatrix::GetMatrix(1, 1)->Increment(row, index, value);
+}
+
+void StokesMatrix::IncrementPressureRigidBody(const PetscInt row,
+                                              const PetscInt index,
+                                              const PetscReal value) {
+  PetscNestedMatrix::GetMatrix(1, 2)->Increment(row, index, value);
+}
+
+void StokesMatrix::IncrementRigidBodyVelocity(const PetscInt row,
+                                              const PetscInt index,
+                                              const PetscReal value) {
+  PetscNestedMatrix::GetMatrix(2, 0)->Increment(row, index, value);
+}
+
+void StokesMatrix::IncrementRigidBodyPressure(const PetscInt row,
+                                              const PetscInt index,
+                                              const PetscReal value) {
+  PetscNestedMatrix::GetMatrix(2, 0)->Increment(row, index, value);
 }
 
 void StokesMatrix::IncrementRigidBodyRigidBody(const PetscInt row,
                                                const PetscInt index,
                                                const PetscReal value) {
-  PetscNestedMatrix::GetMatrix(1, 1)->Increment(row, index, value);
+  PetscNestedMatrix::GetMatrix(2, 0)->Increment(row, index, value);
 }
 
 PetscErrorCode StokesMatrix::FieldMatrixMult(Vec x, Vec y) {

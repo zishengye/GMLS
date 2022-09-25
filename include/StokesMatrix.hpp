@@ -51,13 +51,28 @@ public:
 
   unsigned long Assemble();
 
-  void IncrementFieldField(const PetscInt row,
-                           const std::vector<PetscInt> &index,
-                           const std::vector<PetscReal> &value);
-  void IncrementFieldRigidBody(const PetscInt row, const PetscInt index,
-                               const PetscReal value);
-  void IncrementRigidBodyField(const PetscInt row, const PetscInt index,
-                               const PetscReal value);
+  void IncrementVelocityVelocity(const PetscInt row,
+                                 const std::vector<PetscInt> &index,
+                                 const std::vector<PetscReal> &value);
+  void IncrementVelocityPressure(const PetscInt row,
+                                 const std::vector<PetscInt> &index,
+                                 const std::vector<PetscReal> &value);
+  void IncrementVelocityRigidBody(const PetscInt row, const PetscInt index,
+                                  const PetscReal value);
+
+  void IncrementPressureVelocity(const PetscInt row,
+                                 const std::vector<PetscInt> &index,
+                                 const std::vector<PetscReal> &value);
+  void IncrementPressurePressure(const PetscInt row,
+                                 const std::vector<PetscInt> &index,
+                                 const std::vector<PetscReal> &value);
+  void IncrementPressureRigidBody(const PetscInt row, const PetscInt index,
+                                  const PetscReal value);
+
+  void IncrementRigidBodyVelocity(const PetscInt row, const PetscInt index,
+                                  const PetscReal value);
+  void IncrementRigidBodyPressure(const PetscInt row, const PetscInt index,
+                                  const PetscReal value);
   void IncrementRigidBodyRigidBody(const PetscInt row, const PetscInt index,
                                    const PetscReal value);
 
