@@ -1,5 +1,5 @@
-#ifndef _PetscStokesMatrix_Hpp_
-#define _PetscStokesMatrix_Hpp_
+#ifndef _StokesMatrix_Hpp_
+#define _StokesMatrix_Hpp_
 
 #include "PetscNestedMatrix.hpp"
 #include "petscsystypes.h"
@@ -28,8 +28,10 @@ protected:
   std::vector<PetscInt> idxNonNeighborPressure_, idxNeighborPressure_;
 
   std::shared_ptr<PetscVector> x_, b_;
-  std::vector<std::vector<PetscInt>> rigidBodyFieldIndexMap_;
-  std::vector<std::vector<PetscReal>> rigidBodyFieldValueMap_;
+  std::vector<std::vector<PetscInt>> rigidBodyVelocityIndexMap_;
+  std::vector<std::vector<PetscReal>> rigidBodyVelocityValueMap_;
+  std::vector<std::vector<PetscInt>> rigidBodyPressureIndexMap_;
+  std::vector<std::vector<PetscReal>> rigidBodyPressureValueMap_;
 
 public:
   StokesMatrix();

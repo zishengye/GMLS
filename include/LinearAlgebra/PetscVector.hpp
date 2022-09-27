@@ -3,11 +3,10 @@
 
 #include <vector>
 
-#include <petscksp.h>
-
 #include "Typedef.hpp"
 
-class PetscVector {
+namespace LinearAlgebra {
+template <class LinearAlgebraBackend> class Vector {
 protected:
   Vec vec_;
 
@@ -30,5 +29,6 @@ public:
   Vec &GetReference();
   Vec *GetPointer();
 };
+} // namespace LinearAlgebra
 
 #endif

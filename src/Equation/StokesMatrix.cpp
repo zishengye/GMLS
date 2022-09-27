@@ -24,6 +24,12 @@ PetscErrorCode FieldMatrixSORWrapper(Mat mat, Vec b, PetscReal omega,
 }
 
 void StokesMatrix::InitInternal() {
+  /*! \brief initialize stokes matrix
+   *! \date Spe 27, 2022
+   *! \author Zisheng Ye <zisheng_ye@Outlook.com>
+   *
+   * Implement discrete Stokes operator as a 2x2 matrix.
+   */
   MPI_Allreduce(&numLocalParticle_, &numGlobalParticle_, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
@@ -44,13 +50,8 @@ void StokesMatrix::InitInternal() {
 
   auto uu = PetscNestedMatrix::GetMatrix(0, 0);
   auto up = PetscNestedMatrix::GetMatrix(0, 1);
-  auto uc = PetscNestedMatrix::GetMatrix(0, 2);
   auto pu = PetscNestedMatrix::GetMatrix(1, 0);
   auto pp = PetscNestedMatrix::GetMatrix(1, 1);
-  auto pc = PetscNestedMatrix::GetMatrix(1, 2);
-  auto cu = PetscNestedMatrix::GetMatrix(2, 0);
-  auto cp = PetscNestedMatrix::GetMatrix(2, 1);
-  auto cc = PetscNestedMatrix::GetMatrix(2, 2);
 
   uu->Resize(numLocalParticle_, numLocalParticle_, velocityDof_);
   up->Resize(numLocalParticle_ * velocityDof_, numLocalRigidBody_);
@@ -130,8 +131,15 @@ void StokesMatrix::SetGraph(
     const Kokkos::View<int **, Kokkos::HostSpace> &neighborLists) {
   auto a00 = PetscNestedMatrix::GetMatrix(0, 0);
   auto a01 = PetscNestedMatrix::GetMatrix(0, 1);
+  auto a02 = PetscNestedMatrix::GetMatrix(0, 2);
+
   auto a10 = PetscNestedMatrix::GetMatrix(1, 0);
   auto a11 = PetscNestedMatrix::GetMatrix(1, 1);
+  auto a12 = PetscNestedMatrix::GetMatrix(1, 2);
+
+  auto a20 = PetscNestedMatrix::GetMatrix(2, 0);
+  auto a21 = PetscNestedMatrix::GetMatrix(2, 1);
+  auto a22 = PetscNestedMatrix::GetMatrix(2, 2);
 
   for (unsigned int i = 0; i < numLocalParticle_; i++) {
     const int currentParticleLocalIndex = localIndex[i];
@@ -160,27 +168,30 @@ void StokesMatrix::SetGraph(
     }
   }
 
-  rigidBodyFieldIndexMap_.resize(numRigidBody_);
+  rigidBodyVelocityIndexMap_.resize(numRigidBody_);
   for (unsigned int i = 0; i < numLocalParticle_; i++) {
     if (particleType[i] >= 4) {
       for (unsigned int j = 0; j < neighborLists(i, 0); j++) {
         const unsigned int neighborParticleIndex =
             globalIndex[neighborLists(i, j + 1)];
-        for (unsigned int axes = 0; axes < fieldDof_; axes++) {
-          rigidBodyFieldIndexMap_[attachedRigidBody[i]].push_back(
-              neighborParticleIndex * fieldDof_ + axes);
+        for (unsigned int axes = 0; axes < velocityDof_; axes++) {
+          rigidBodyVelocityIndexMap_[attachedRigidBody[i]].push_back(
+              neighborParticleIndex * velocityDof_ + axes);
         }
+        rigidBodyPressureIndexMap_[attachedRigidBody[i]].push_back(
+            neighborParticleIndex);
       }
     }
   }
 
+  // rigid body-velocity block
   for (unsigned int i = 0; i < numRigidBody_; i++) {
-    std::sort(rigidBodyFieldIndexMap_[i].begin(),
-              rigidBodyFieldIndexMap_[i].end());
-    rigidBodyFieldIndexMap_[i].erase(
-        std::unique(rigidBodyFieldIndexMap_[i].begin(),
-                    rigidBodyFieldIndexMap_[i].end()),
-        rigidBodyFieldIndexMap_[i].end());
+    std::sort(rigidBodyVelocityIndexMap_[i].begin(),
+              rigidBodyVelocityIndexMap_[i].end());
+    rigidBodyVelocityIndexMap_[i].erase(
+        std::unique(rigidBodyVelocityIndexMap_[i].begin(),
+                    rigidBodyVelocityIndexMap_[i].end()),
+        rigidBodyVelocityIndexMap_[i].end());
     MPI_Barrier(MPI_COMM_WORLD);
 
     int targetRank = 0;
@@ -189,7 +200,7 @@ void StokesMatrix::SetGraph(
     MPI_Allreduce(MPI_IN_PLACE, &targetRank, 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
 
-    int sendCount = rigidBodyFieldIndexMap_[i].size();
+    int sendCount = rigidBodyVelocityIndexMap_[i].size();
     std::vector<int> index;
     std::vector<int> recvCount(mpiSize_);
     std::vector<int> recvOffset(mpiSize_ + 1);
@@ -203,7 +214,7 @@ void StokesMatrix::SetGraph(
       }
       index.resize(recvOffset[mpiSize_]);
     }
-    MPI_Gatherv(rigidBodyFieldIndexMap_[i].data(), sendCount, MPI_INT,
+    MPI_Gatherv(rigidBodyVelocityIndexMap_[i].data(), sendCount, MPI_INT,
                 index.data(), recvCount.data(), recvOffset.data(), MPI_INT,
                 targetRank, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
@@ -212,18 +223,18 @@ void StokesMatrix::SetGraph(
       std::sort(index.begin(), index.end());
       index.erase(std::unique(index.begin(), index.end()), index.end());
       for (unsigned int j = 0; j < rigidBodyDof_; j++) {
-        a10->SetColIndex((i - rigidBodyStartIndex_) * rigidBodyDof_ + j, index);
+        a20->SetColIndex((i - rigidBodyStartIndex_) * rigidBodyDof_ + j, index);
       }
     }
     MPI_Barrier(MPI_COMM_WORLD);
   }
 
-  rigidBodyFieldValueMap_.resize(rigidBodyDof_ * numRigidBody_);
+  rigidBodyVelocityValueMap_.resize(rigidBodyDof_ * numRigidBody_);
   for (unsigned int i = 0; i < numRigidBody_; i++) {
     for (unsigned int j = 0; j < rigidBodyDof_; j++) {
-      rigidBodyFieldValueMap_[i * rigidBodyDof_ + j].resize(
-          rigidBodyFieldIndexMap_[i].size());
-      for (auto &v : rigidBodyFieldValueMap_[i * rigidBodyDof_ + j])
+      rigidBodyVelocityValueMap_[i * rigidBodyDof_ + j].resize(
+          rigidBodyVelocityIndexMap_[i].size());
+      for (auto &v : rigidBodyVelocityValueMap_[i * rigidBodyDof_ + j])
         v = 0.0;
     }
   }
