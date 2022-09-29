@@ -60,4 +60,8 @@ file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
 add_compile_options(-O3 -Werror -Wall -Wextra -Wwrite-strings -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter -Wno-deprecated-copy -Wno-reorder -Wno-sign-compare -Wno-unused-but-set-variable -Wno-deprecated-declarations -Wno-unused-result -Wno-implicit-fallthrough -fopenmp -fPIC)
 
-add_executable(nsmpi ${sources} ${PROJECT_SOURCE_DIR}/main/ns.cpp)
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+
+add_library(GmlsModule SHARED ${sources})
+
+include(${PROJECT_SOURCE_DIR}/test/UnitTest.cmake)
