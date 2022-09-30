@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.9.0)
 project(GMLS_SOLVER)
 
 # set(CMAKE_VERBOSE_MAKEFILE on)
+find_package(GTest REQUIRED)
 find_package(MPI)
 
 set(TRILINOS_PATH /opt/trilinos/)

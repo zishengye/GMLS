@@ -1,0 +1,4 @@
+#ifndef _Geometry_RigidBodySurfaceParticle_Hpp_
+#define _Geometry_RigidBodySurfaceParticle_Hpp_
+
+#endif

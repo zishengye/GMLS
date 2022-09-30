@@ -5,6 +5,7 @@
 
 typedef scalar_type Scalar;
 typedef local_index_type LocalIndex;
+typedef global_index_type Size;
 typedef global_index_type GlobalIndex;
 
 typedef Kokkos::View<Scalar **, Kokkos::DefaultHostExecutionSpace>
