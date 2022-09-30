@@ -8,6 +8,13 @@ typedef local_index_type LocalIndex;
 typedef global_index_type Size;
 typedef global_index_type GlobalIndex;
 
+typedef void Void;
+typedef bool Boolean;
+
+#include <string>
+
+typedef std::string String;
+
 typedef Kokkos::View<Scalar **, Kokkos::DefaultHostExecutionSpace>
     HostRealMatrix;
 typedef Kokkos::View<Scalar **, Kokkos::DefaultExecutionSpace> DeviceRealMatrix;

@@ -12,36 +12,38 @@
 #include "Core/Parallel.hpp"
 #include "Core/Typedef.hpp"
 
+namespace Geometry {
 typedef Zoltan2::BasicVectorAdapter<
-    Zoltan2::BasicUserTypes<Scalar, LocalIndex, GlobalIndex>>
+    Zoltan2::BasicUserTypes<double, int, long long>>
     InputAdapter;
 
 class Partition {
 private:
   int mpiRank_, mpiSize_;
 
-  std::vector<std::size_t> migrationInNum_, migrationOutNum_;
+  std::vector<GlobalIndex> migrationInNum_, migrationOutNum_;
 
-  std::vector<std::size_t> migrationInGraph_, migrationInGraphNum_;
-  std::vector<std::size_t> migrationOutGraph_, migrationOutGraphNum_;
+  std::vector<GlobalIndex> migrationInGraph_, migrationInGraphNum_;
+  std::vector<GlobalIndex> migrationOutGraph_, migrationOutGraphNum_;
 
-  std::vector<std::size_t> migrationInOffset_, migrationOutOffset_;
+  std::vector<GlobalIndex> migrationInOffset_, migrationOutOffset_;
 
-  std::vector<std::size_t> localReserveMap_, localMigrationMap_;
+  std::vector<GlobalIndex> localReserveMap_, localMigrationMap_;
 
-  std::vector<std::size_t> migrationMapIdx_;
+  std::vector<GlobalIndex> migrationMapIdx_;
 
 public:
   Partition();
 
   ~Partition();
 
-  void ConstructPartition(const HostRealMatrix &coords,
+  Void ConstructPartition(const HostRealMatrix &coords,
                           const HostIndexVector &index);
-  void ApplyPartition(HostRealMatrix &data);
-  void ApplyPartition(HostRealVector &data);
-  void ApplyPartition(HostIndexVector &data);
-  void ApplyPartition(HostIntVector &data);
+  Void ApplyPartition(HostRealMatrix &data);
+  Void ApplyPartition(HostRealVector &data);
+  Void ApplyPartition(HostIndexVector &data);
+  Void ApplyPartition(HostIntVector &data);
 };
+} // namespace Geometry
 
 #endif

@@ -51,7 +51,7 @@ link_directories("/opt/compadre/lib/")
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
-link_libraries("-lHYPRE -lpetsc -lstdc++ -lm -lgfortran -ldl -lgomp")
+link_libraries("-lpetsc -lstdc++ -lm -lgfortran -ldl -lgomp")
 link_libraries("-lcompadre")
 link_libraries(${Trilinos_LIBRARIES})
 link_libraries(${Trilinos_TPL_LIBRARIES})

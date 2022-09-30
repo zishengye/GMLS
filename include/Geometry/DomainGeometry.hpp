@@ -13,7 +13,7 @@ enum SupportedDomainShape { UndefinedDomain, Box, Cylinder, Sphere };
 class DomainGeometry {
 private:
   std::vector<Scalar> size_;
-  int dimension_;
+  Size dimension_;
   SupportedDomainShape shape_;
 
   int mpiSize_, mpiRank_;
@@ -24,25 +24,27 @@ public:
 
   ~DomainGeometry();
 
-  bool IsInterior(Scalar x, Scalar y, Scalar z);
-  void IsInterior(Kokkos::View<Scalar **> coords, Kokkos::View<bool *> results);
-  bool IsBoundary(Scalar x, Scalar y, Scalar z);
-  void IsBoundary(Kokkos::View<Scalar **> coords, Kokkos::View<bool *> results);
+  Boolean IsInterior(Scalar x, Scalar y, Scalar z);
+  Void IsInterior(Kokkos::View<Scalar **> coords,
+                  Kokkos::View<Boolean *> results);
+  Boolean IsBoundary(Scalar x, Scalar y, Scalar z);
+  Void IsBoundary(Kokkos::View<Scalar **> coords,
+                  Kokkos::View<Boolean *> results);
   Scalar MeasureToBoundary(Scalar x, Scalar y, Scalar z);
-  void MeasureToBoundary(Kokkos::View<Scalar **> coords,
+  Void MeasureToBoundary(Kokkos::View<Scalar **> coords,
                          Kokkos::View<Scalar *> results);
 
-  void SetType(const SupportedDomainShape shape);
-  void SetDimension(const int dimension);
-  void SetGeometryFile(const std::string filename);
-  void SetSize(const std::vector<Scalar> &size);
+  Void SetType(const SupportedDomainShape shape);
+  Void SetDimension(const Size dimension);
+  Void SetGeometryFile(const String filename);
+  Void SetSize(const std::vector<Scalar> &size);
 
   SupportedDomainShape GetType();
-  int GetDimension();
-  Scalar GetSize(const int size_index);
+  Size GetDimension();
+  Scalar GetSize(const LocalIndex sizeIndex);
 
   LocalIndex EstimateNodeNum(const Scalar spacing);
-  void AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
+  Void AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
                          Kokkos::View<Scalar **> nodeNormal,
                          Kokkos::View<Scalar *> nodeSize,
                          Kokkos::View<std::size_t *> nodeType,

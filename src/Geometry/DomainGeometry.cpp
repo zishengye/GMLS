@@ -55,7 +55,7 @@ bool Geometry::DomainGeometry::IsInterior(Scalar x, Scalar y, Scalar z) {
   return false;
 }
 
-void Geometry::DomainGeometry::IsInterior(Kokkos::View<Scalar **> coords,
+Void Geometry::DomainGeometry::IsInterior(Kokkos::View<Scalar **> coords,
                                           Kokkos::View<bool *> results) {
   if (dimension_ == 2) {
     if (shape_ == Box) {
@@ -94,16 +94,16 @@ void Geometry::DomainGeometry::IsInterior(Kokkos::View<Scalar **> coords,
   }
 }
 
-void Geometry::DomainGeometry::SetType(
+Void Geometry::DomainGeometry::SetType(
     const Geometry::SupportedDomainShape shape) {
   shape_ = shape;
 }
 
-void Geometry::DomainGeometry::SetDimension(const int dimension) {
+Void Geometry::DomainGeometry::SetDimension(const Size dimension) {
   dimension_ = dimension;
 }
 
-void Geometry::DomainGeometry::SetSize(const std::vector<Scalar> &size) {
+Void Geometry::DomainGeometry::SetSize(const std::vector<Scalar> &size) {
   size_ = size;
 }
 
@@ -111,9 +111,9 @@ Geometry::SupportedDomainShape Geometry::DomainGeometry::GetType() {
   return shape_;
 }
 
-int Geometry::DomainGeometry::GetDimension() { return dimension_; }
+Size Geometry::DomainGeometry::GetDimension() { return dimension_; }
 
-Scalar Geometry::DomainGeometry::GetSize(const int size_index) {
+Scalar Geometry::DomainGeometry::GetSize(const LocalIndex size_index) {
   return size_[size_index];
 }
 
@@ -157,7 +157,7 @@ LocalIndex Geometry::DomainGeometry::EstimateNodeNum(const Scalar spacing) {
   return localBoundaryNodeNum + localInteriorNodeNum;
 }
 
-void Geometry::DomainGeometry::AssignUniformNode(
+Void Geometry::DomainGeometry::AssignUniformNode(
     Kokkos::View<Scalar **> nodeCoords, Kokkos::View<Scalar **> nodeNormal,
     Kokkos::View<Scalar *> nodeSize, Kokkos::View<std::size_t *> nodeType,
     const Scalar spacing) {
