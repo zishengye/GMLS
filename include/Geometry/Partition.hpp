@@ -13,6 +13,13 @@
 #include "Core/Typedef.hpp"
 
 namespace Geometry {
+/*! \note Type definition of InputAdapter
+ *! \date Sept 30, 2022
+ *! \author Zisheng Ye <zisheng_ye@outlook.com>
+ *
+ * The index type seems have to be signed types. Unsigned types fails the
+ * instantiation of the adapter.
+ */
 typedef Zoltan2::BasicVectorAdapter<
     Zoltan2::BasicUserTypes<double, int, long long>>
     InputAdapter;
