@@ -382,18 +382,6 @@ Void Equation::Equation::ConstructNeighborLists(
   pointCloudSearch.generate2DNeighborListsFromKNNSearch(
       true, coords, neighborLists_, epsilon_, satisfiedNumNeighbor, 1.0);
 
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, localParticleNum),
-      [&](const Size i) {
-        double minEpsilon = 1.50 * spacing(i);
-        double minSpacing = 0.25 * spacing(i);
-        epsilon_(i) = std::max(minEpsilon, epsilon_(i));
-        unsigned int scaling =
-            std::ceil((epsilon_(i) - minEpsilon) / minSpacing);
-        epsilon_(i) = minEpsilon + scaling * minSpacing;
-      });
-  Kokkos::fence();
-
   // perform neighbor search by epsilon size
   double maxRatio, meanNeighbor;
   unsigned int minNeighbor, maxNeighbor;

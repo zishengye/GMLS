@@ -29,6 +29,7 @@ void Equation::PoissonEquation::InitLinearSystem() {
   const unsigned int dimension = particleMgr_.GetDimension();
 
   const unsigned satisfiedNumNeighbor =
+      pow(sqrt(2), dimension) *
       Compadre::GMLS::getNP(polyOrder_ + 1, dimension);
 
   Equation::ConstructNeighborLists(satisfiedNumNeighbor);

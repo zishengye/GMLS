@@ -43,7 +43,7 @@ void Equation::PoissonPreconditioner::ConstructInterpolation(
         Compadre::CreatePointCloudSearch(sourceParticleCoordsHost, dimension));
 
     const unsigned int satisfiedNumNeighbor =
-        pow(sqrt(2), dimension) * Compadre::GMLS::getNP(2, dimension);
+        Compadre::GMLS::getNP(2, dimension);
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
         sourceParticleCoordsDevice("interpolation source particle coords",
@@ -414,8 +414,7 @@ void Equation::PoissonPreconditioner::ConstructRestriction(
     }
 
     unsigned int minNeighborLists;
-    unsigned int satisfiedNumNeighbor =
-        pow(sqrt(2), dimension) * Compadre::GMLS::getNP(2, dimension);
+    unsigned int satisfiedNumNeighbor = Compadre::GMLS::getNP(2, dimension);
 
     DeviceIndexMatrix interiorNeighborListsDevice(
         "interior particle neighbor lists", localInteriorParticleNum,
@@ -495,8 +494,7 @@ void Equation::PoissonPreconditioner::ConstructRestriction(
              minNeighbor, maxNeighbor,
              meanNeighbor / (double)globalInteriorParticleNum, maxRatio);
 
-    satisfiedNumNeighbor =
-        pow(sqrt(2), dimension - 1) * Compadre::GMLS::getNP(2, dimension - 1);
+    satisfiedNumNeighbor = Compadre::GMLS::getNP(2, dimension - 1);
 
     DeviceIndexMatrix boundaryNeighborListsDevice(
         "boundary particle neighbor list", localBoundaryParticleNum,
