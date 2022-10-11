@@ -16,7 +16,7 @@ Void LinearSolver<LinearAlgebraBackend>::AddLinearSystem(
     const LinearSolverDescriptor<LinearAlgebraBackend> &descriptor) {
   solver_.AddLinearSystem(mat->GetMatrix(), descriptor);
 
-  if (descriptor.outerIteration >= 0) {
+  if (descriptor.outerIteration > 0) {
     int mpiRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
 

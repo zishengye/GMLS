@@ -1,5 +1,6 @@
 #include "Equation/Poisson/PoissonEquation.hpp"
 #include "Discretization/PolyBasis.hpp"
+#include "LinearAlgebra/LinearAlgebra.hpp"
 
 #include <Compadre_Evaluator.hpp>
 #include <Compadre_GMLS.hpp>
@@ -626,8 +627,15 @@ void Equation::PoissonEquation::ConstructRhs() {
 }
 
 void Equation::PoissonEquation::SolveEquation() {
-  Equation::SolveEquation();
+  unsigned int currentRefinementLevel = linearSystemsPtr_.size() - 1;
+  // interpolation previous result
+  if (currentRefinementLevel > 0) {
+    LinearAlgebra::Vector<DefaultLinearAlgebraBackend> y;
+    y.Create(oldField_);
+    x_ = preconditionerPtr_->GetInterpolation(currentRefinementLevel) * y;
+  }
 
+  Equation::SolveEquation();
   x_.Copy(field_);
 }
 

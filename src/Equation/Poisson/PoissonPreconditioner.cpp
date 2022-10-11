@@ -817,10 +817,7 @@ void Equation::PoissonPreconditioner::ConstructSmoother() {
   const int currentLevel = linearSystemsPtr_.size() - 1;
 
   LinearAlgebra::LinearSolverDescriptor<DefaultLinearAlgebraBackend> descriptor;
-  if (currentLevel > 0)
-    descriptor.outerIteration = -1;
-  else
-    descriptor.outerIteration = 0;
+  descriptor.outerIteration = 0;
   descriptor.spd = -1;
   descriptor.setFromDatabase = false;
 
