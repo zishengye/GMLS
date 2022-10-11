@@ -139,15 +139,19 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
     equation.SetMaxRefinementIteration(10);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio();
-    equation.SetInteriorRhs(
-        [](const double x, const double y, const double z) { return 0.01; });
+    equation.SetInteriorRhs([](const double x, const double y, const double z) {
+      if (x < 0)
+        return 1.0;
+      else
+        return 1e-3;
+    });
     equation.SetBoundaryRhs(
         [](const double x, const double y, const double z) { return 0; });
     equation.SetKappa([](const double x, const double y, const double z) {
       if (x < 0)
         return 1.0;
       else
-        return 1.0;
+        return 1e-3;
     });
 
     equation.Init();
