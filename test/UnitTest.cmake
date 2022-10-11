@@ -11,3 +11,7 @@ target_link_libraries(TestParticle ${GTEST_LIBRARIES} -pthread GmlsModule)
 add_executable(TestLinearAlgebra ${TEST_SOURCE_DIR}/TestLinearAlgebra.cpp)
 target_include_directories(TestLinearAlgebra PUBLIC ${GTEST_INCLUDE_DIRS})
 target_link_libraries(TestLinearAlgebra ${GTEST_LIBRARIES} -pthread GmlsModule)
+
+add_executable(TestPoisson ${TEST_SOURCE_DIR}/TestPoisson.cpp)
+target_include_directories(TestPoisson PUBLIC ${GTEST_INCLUDE_DIRS})
+target_link_libraries(TestPoisson ${GTEST_LIBRARIES} -pthread GmlsModule)

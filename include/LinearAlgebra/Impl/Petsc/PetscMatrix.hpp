@@ -1,9 +1,65 @@
 #ifndef _LinearAlgebra_Impl_PetscMatrix_Hpp_
 #define _LinearAlgebra_Impl_PetscMatrix_Hpp_
 
+#include <vector>
+
+#include <petscksp.h>
+
+#include "Core/Typedef.hpp"
+#include "LinearAlgebra/Impl/Petsc/Petsc.hpp"
+
+/*! \brief Vector implementation based on Petsc.
+ *! \date Sept 30, 2022
+ *! \author Zisheng Ye <zisheng_ye@outlook.com>
+ *
+ *
+ */
+
 namespace LinearAlgebra {
 namespace Impl {
-class PetscMatrix {};
+class PetscMatrix {
+protected:
+  std::vector<unsigned long> rankColSize_, rankRowSize_;
+
+  std::shared_ptr<Mat> matPtr_;
+
+  int mpiRank_, mpiSize_;
+
+  PetscInt localColSize_, localRowSize_;
+  PetscInt globalColSize_, globalRowSize_;
+  PetscInt colRangeLow_, colRangeHigh_;
+  PetscInt rowRangeLow_, rowRangeHigh_;
+  PetscInt blockSize_, blockStorage_;
+
+  std::vector<std::vector<PetscInt>> diagMatrixCol_, offDiagMatrixCol_;
+
+public:
+  PetscMatrix();
+
+  ~PetscMatrix();
+
+  Void Resize(const PetscInt m, const PetscInt n, const PetscInt blockSize = 1);
+
+  Void Clear();
+
+  PetscInt GetLocalColSize() const;
+  PetscInt GetLocalRowSize() const;
+
+  PetscInt GetGlobalColSize() const;
+  PetscInt GetGlobalRowSize() const;
+
+  Void SetColIndex(const PetscInt row, const std::vector<PetscInt> &index);
+  Void Increment(const PetscInt row, const PetscInt col, const PetscReal value);
+  Void Increment(const PetscInt row, const std::vector<PetscInt> &index,
+                 const std::vector<PetscReal> &value);
+
+  Void GraphAssemble();
+  Void Assemble();
+
+  Void MatrixVectorMultiplication(PetscVector &vec1, PetscVector &vec2);
+
+  friend class PetscKsp;
+};
 } // namespace Impl
 } // namespace LinearAlgebra
 

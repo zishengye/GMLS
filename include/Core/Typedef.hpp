@@ -56,7 +56,4 @@ typedef Kokkos::View<std::size_t *, Kokkos::DefaultExecutionSpace>
 #error "WRONG SIZE_T SIZING"
 #endif
 
-#include "LinearAlgebra/Impl/Petsc/PetscBackend.hpp"
-typedef PetscBackend DefaultLinearAlgebraBackend;
-
 #endif
