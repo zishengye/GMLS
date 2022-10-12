@@ -5,6 +5,7 @@
 #include <Compadre_Evaluator.hpp>
 #include <Compadre_GMLS.hpp>
 #include <Compadre_PointCloudSearch.hpp>
+#include <Kokkos_Core_fwd.hpp>
 
 void Equation::PoissonEquation::InitLinearSystem() {
   double tStart, tEnd;
@@ -668,7 +669,8 @@ void Equation::PoissonEquation::CalculateError() {
   unsigned int coefficientSize;
   {
     Compadre::GMLS testBasis =
-        Compadre::GMLS(Compadre::ScalarTaylorPolynomial, Compadre::PointSample,
+        Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
+                       Compadre::StaggeredEdgeAnalyticGradientIntegralSample,
                        polyOrder_, dimension, "LU", "STANDARD");
     coefficientSize = testBasis.getPolynomialCoefficientsSize();
   }
@@ -721,9 +723,10 @@ void Equation::PoissonEquation::CalculateError() {
     Kokkos::deep_copy(batchParticleCoordsDevice, batchParticleCoordsHost);
 
     {
-      Compadre::GMLS batchBasis = Compadre::GMLS(
-          Compadre::ScalarTaylorPolynomial, Compadre::PointSample, polyOrder_,
-          dimension, "LU", "STANDARD");
+      Compadre::GMLS batchBasis =
+          Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
+                         Compadre::StaggeredEdgeAnalyticGradientIntegralSample,
+                         polyOrder_, dimension, "LU", "STANDARD");
 
       batchBasis.setProblemData(batchNeighborListsDevice, sourceCoordsDevice,
                                 batchParticleCoordsDevice, batchEpsilonDevice);

@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <cmath>
+#include <cstdio>
 #include <execution>
 #include <iostream>
 #include <vector>
@@ -95,37 +97,40 @@ Void Equation::Equation::Mark() {
   double currentErrorSplit = (maxError + minError) / 2.0;
   int iteCounter = 0;
   bool isSplit = false;
-  while (!isSplit) {
-    iteCounter++;
-    auto result = std::lower_bound(sortedError.begin(), sortedError.end(),
-                                   currentErrorSplit);
-    double localError = 0.0;
-    double globalError;
-    for (auto iter = result; iter != sortedError.end(); iter++) {
-      localError += *iter;
-    }
-    MPI_Allreduce(&localError, &globalError, 1, MPI_DOUBLE, MPI_SUM,
-                  MPI_COMM_WORLD);
+  if (markRatio_ != 1.0)
+    while (!isSplit && iteCounter < 20) {
+      iteCounter++;
+      auto result = std::lower_bound(sortedError.begin(), sortedError.end(),
+                                     currentErrorSplit);
+      double localError = 0.0;
+      double globalError;
+      for (auto iter = result; iter != sortedError.end(); iter++) {
+        localError += *iter;
+      }
+      MPI_Allreduce(&localError, &globalError, 1, MPI_DOUBLE, MPI_SUM,
+                    MPI_COMM_WORLD);
 
-    double nextError;
-    if (result != sortedError.begin()) {
-      nextError = *(result - 1);
-    } else
-      nextError = 0.0;
-    MPI_Allreduce(MPI_IN_PLACE, &nextError, 1, MPI_DOUBLE, MPI_MAX,
-                  MPI_COMM_WORLD);
+      double nextError;
+      if (result != sortedError.begin()) {
+        nextError = *(result - 1);
+      } else
+        nextError = 0.0;
+      MPI_Allreduce(MPI_IN_PLACE, &nextError, 1, MPI_DOUBLE, MPI_MAX,
+                    MPI_COMM_WORLD);
 
-    if (sqrt(globalError) <= markRatio_ * globalError_ &&
-        sqrt(globalError + nextError) > markRatio_ * globalError_)
-      isSplit = true;
-    else if (sqrt(globalError) <= markRatio_ * globalError_) {
-      maxError = currentErrorSplit;
-      currentErrorSplit = (maxError + minError) / 2.0;
-    } else {
-      minError = currentErrorSplit;
-      currentErrorSplit = (maxError + minError) / 2.0;
+      if (sqrt(globalError) <= markRatio_ * globalError_ &&
+          sqrt(globalError + nextError) > markRatio_ * globalError_)
+        isSplit = true;
+      else if (sqrt(globalError) <= markRatio_ * globalError_) {
+        maxError = currentErrorSplit;
+        currentErrorSplit = (maxError + minError) / 2.0;
+      } else {
+        minError = currentErrorSplit;
+        currentErrorSplit = (maxError + minError) / 2.0;
+      }
     }
-  }
+  else
+    currentErrorSplit = 0.0;
 
   currentErrorSplit = sqrt(currentErrorSplit);
 
@@ -171,7 +176,7 @@ Void Equation::Equation::Mark() {
   Kokkos::resize(crossRefinementLevel, error_.extent(0));
   int iterationFinished = 1;
   iteCounter = 0;
-  while (iterationFinished != 0) {
+  while (iterationFinished != 0 && iteCounter < 20) {
     iteCounter++;
 
     ghost_.ApplyGhost(splitTag_, ghostSplitTag);
@@ -382,6 +387,20 @@ Void Equation::Equation::ConstructNeighborLists(
   pointCloudSearch.generate2DNeighborListsFromKNNSearch(
       true, coords, neighborLists_, epsilon_, satisfiedNumNeighbor, 1.0);
 
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, localParticleNum),
+      [&](const int i) {
+        int scaling = floor(epsilon_(i) / spacing(i) * 1000 + 0.5) + 1;
+        epsilon_(i) = scaling * 1e-3 * spacing(i);
+        // double minEpsilon = 1.50 * spacing(i);
+        // double minSpacing = 0.50 * spacing(i);
+        // epsilon_(i) = std::max(minEpsilon, epsilon_(i));
+        // unsigned int scaling =
+        //     std::ceil((epsilon_(i) - minEpsilon) / minSpacing);
+        // epsilon_(i) = minEpsilon + scaling * minSpacing;
+      });
+  Kokkos::fence();
+
   // perform neighbor search by epsilon size
   double maxRatio, meanNeighbor;
   unsigned int minNeighbor, maxNeighbor;
@@ -431,7 +450,7 @@ Equation::Equation::Equation()
     : globalError_(0.0), globalNormalizedError_(0.0), errorTolerance_(1e-3),
       maxRefinementIteration_(6), refinementIteration_(0),
       refinementMethod_(AdaptiveRefinement), mpiRank_(0), mpiSize_(0),
-      outputLevel_(0), polyOrder_(2), ghostMultiplier_(3.0) {
+      outputLevel_(0), polyOrder_(2), ghostMultiplier_(8.0) {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiSize_);
 }
