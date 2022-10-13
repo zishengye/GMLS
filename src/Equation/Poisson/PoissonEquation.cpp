@@ -1,6 +1,8 @@
 #include "Equation/Poisson/PoissonEquation.hpp"
+#include "Core/Typedef.hpp"
 #include "Discretization/PolyBasis.hpp"
 #include "LinearAlgebra/LinearAlgebra.hpp"
+#include "Math/Vec3.hpp"
 
 #include <Compadre_Evaluator.hpp>
 #include <Compadre_GMLS.hpp>
@@ -31,7 +33,7 @@ void Equation::PoissonEquation::InitLinearSystem() {
 
   const unsigned satisfiedNumNeighbor =
       pow(sqrt(2), dimension) *
-      Compadre::GMLS::getNP(polyOrder_ + 1, dimension);
+      (Compadre::GMLS::getNP(polyOrder_ + 1, dimension) + 1);
 
   Equation::ConstructNeighborLists(satisfiedNumNeighbor);
 
