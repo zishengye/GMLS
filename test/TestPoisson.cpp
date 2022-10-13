@@ -202,7 +202,7 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
     const double a = 2.0;
     const double coeff = (sigmaF - sigmaP) / (sigmaF + sigmaP);
 
-    equation.SetPolyOrder(1);
+    // equation.SetPolyOrder(1);
     equation.SetDimension(2);
     equation.SetDomainSize(size);
     equation.SetDomainType(Geometry::Box);

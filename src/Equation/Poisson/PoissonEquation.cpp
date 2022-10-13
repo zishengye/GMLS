@@ -952,6 +952,48 @@ void Equation::PoissonEquation::CalculateError() {
              fieldGradientAnalyticalError);
   }
 
+  // smooth stage
+  for (std::size_t i = 0; i < localParticleNum; i++) {
+    const double localVolume = pow(spacing(i), dimension);
+    error_(i) = pow(error_(i), 2.0) / localVolume;
+  }
+
+  for (int ite = 0; ite < 1; ite++) {
+    HostRealVector ghostError;
+    ghost_.ApplyGhost(error_, ghostError);
+
+    for (std::size_t i = 0; i < localParticleNum; i++) {
+      error_(i) = 0.0;
+      double totalNeighborVolume = 0.0;
+      for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
+        const int neighborIndex = neighborLists_(i, j + 1);
+
+        double dX[3];
+        dX[0] = sourceCoords(neighborIndex, 0) - coords(i, 0);
+        dX[1] = sourceCoords(neighborIndex, 1) - coords(i, 1);
+        dX[2] = sourceCoords(neighborIndex, 2) - coords(i, 2);
+
+        const double r = sqrt(dX[0] * dX[0] + dX[1] * dX[1] + dX[2] * dX[2]);
+        const double h = epsilon_(i);
+        const int p = 4;
+
+        double WabIJ =
+            pow(1.0 - abs(r / h), p) * double((1.0 - abs(r / h)) > 0.0);
+
+        double sourceVolume = pow(ghostSpacing(neighborIndex), dimension);
+
+        error_(i) += pow(ghostError(neighborIndex), 2.0) * sourceVolume * WabIJ;
+        totalNeighborVolume += sourceVolume * WabIJ;
+      }
+      error_(i) /= totalNeighborVolume;
+    }
+  }
+
+  for (std::size_t i = 0; i < localParticleNum; i++) {
+    const double localVolume = pow(spacing(i), dimension);
+    error_(i) = sqrt(error_(i) * localVolume);
+  }
+
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
     printf("Duration of calculating error:%.4fs\n", tEnd - tStart);
