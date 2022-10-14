@@ -191,7 +191,7 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
   {
     Equation::PoissonEquation equation;
     equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.1);
+    equation.SetInitialDiscretizationResolution(0.2);
 
     std::vector<double> size(2);
     size[0] = 10.0;
@@ -202,13 +202,15 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
     const double a = 2.0;
     const double coeff = (sigmaF - sigmaP) / (sigmaF + sigmaP);
 
-    // equation.SetPolyOrder(1);
+    equation.SetPolyOrder(1);
     equation.SetDimension(2);
     equation.SetDomainSize(size);
     equation.SetDomainType(Geometry::Box);
     equation.SetMaxRefinementIteration(20);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio(0.9);
+    equation.SetBoundaryType(
+        [](const double x, const double y, const double z) { return true; });
     equation.SetInteriorRhs(
         [](const double x, const double y, const double z) { return 0.0; });
     equation.SetBoundaryRhs(
@@ -260,10 +262,51 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
   Kokkos::finalize();
 }
 
-// TEST(PoissonEquationTest, 2DPeriodicBoundaryCondition) {
+// TEST(PoissonEquationTest, 2DHybridBoundaryCondition) {
 //   Kokkos::initialize(globalArgc, globalArgv);
 //   PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.txt",
 //                   PETSC_NULL);
+
+//   {
+//     Equation::PoissonEquation equation;
+//     equation.SetErrorTolerance(1e-3);
+//     equation.SetInitialDiscretizationResolution(0.05);
+
+//     std::vector<double> size(2);
+//     size[0] = 1.0;
+//     size[1] = 1.0;
+
+//     equation.SetPolyOrder(1);
+//     equation.SetDimension(2);
+//     equation.SetDomainSize(size);
+//     equation.SetDomainType(Geometry::Box);
+//     equation.SetMaxRefinementIteration(10);
+//     equation.SetOutputLevel(1);
+//     equation.SetRefinementMarkRatio(0.95);
+//     equation.SetBoundaryType(
+//         [](const double x, const double y, const double z) {
+//           if (abs(y) < (1.0 / 20) && x < 0)
+//             return true;
+//           else
+//             return false;
+//         });
+//     equation.SetInteriorRhs(
+//         [](const double x, const double y, const double z) { return 1.0; });
+//     equation.SetBoundaryRhs(
+//         [](const double x, const double y, const double z) { return 0.0; });
+//     equation.SetKappa([](const double x, const double y, const double z) {
+//       if (x < 0.6)
+//         return 1.0;
+//       else
+//         return 1.0;
+//     });
+
+//     equation.Init();
+//     equation.Update();
+//   }
+
+//   PetscFinalize();
+//   Kokkos::finalize();
 // }
 
 // TEST(PoissonEquationTest, 3DLinearSystemSolving) {

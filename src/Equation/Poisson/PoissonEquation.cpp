@@ -355,8 +355,17 @@ void Equation::PoissonEquation::InitLinearSystem() {
             index[j] = neighborParticleIndex;
           }
         } else {
-          index.resize(1);
-          index[0] = sourceIndex(i);
+          if (boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2))) {
+            index.resize(1);
+            index[0] = sourceIndex(i);
+          } else {
+            index.resize(neighborLists_(i, 0));
+            for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
+              const PetscInt neighborParticleIndex =
+                  sourceIndex(neighborLists_(i, j + 1));
+              index[j] = neighborParticleIndex;
+            }
+          }
         }
         std::sort(index.begin(), index.end());
         A.SetColIndex(currentParticleIndex, index);
@@ -387,7 +396,7 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
   auto &sourceIndex = hostGhostParticleIndex_;
   auto &coords = particleMgr_.GetParticleCoords();
   auto &particleType = particleMgr_.GetParticleType();
-  // auto &normal = particleMgr_.GetParticleNormal();
+  auto &normal = particleMgr_.GetParticleNormal();
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
       "source coords", sourceCoords.extent(0), sourceCoords.extent(1));
@@ -398,6 +407,7 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
   const unsigned int dimension = particleMgr_.GetDimension();
 
   Kokkos::resize(kappa_, localParticleNum);
+  Kokkos::resize(bi_, localParticleNum);
 
   Kokkos::parallel_for(
       Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, localParticleNum),
@@ -461,6 +471,11 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
     Kokkos::View<double **>::HostMirror boundaryParticleCoordsHost =
         Kokkos::create_mirror_view(boundaryParticleCoordsDevice);
 
+    Kokkos::View<double ***, Kokkos::DefaultExecutionSpace> tangentBundleDevice(
+        "tangent bundles", boundaryParticleNum, dimension, dimension);
+    Kokkos::View<double ***>::HostMirror tangentBundleHost =
+        Kokkos::create_mirror_view(tangentBundleDevice);
+
     std::vector<unsigned int> batchMap;
     batchMap.resize(endParticle - startParticle);
 
@@ -507,6 +522,24 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
             for (unsigned int j = 0; j < coords.extent(1); j++) {
               boundaryParticleCoordsHost(boundaryCounter, j) = coords(i, j);
             }
+
+            if (dimension == 3) {
+              tangentBundleHost(boundaryCounter, 0, 0) = 0.0;
+              tangentBundleHost(boundaryCounter, 0, 1) = 0.0;
+              tangentBundleHost(boundaryCounter, 0, 2) = 0.0;
+              tangentBundleHost(boundaryCounter, 1, 0) = 0.0;
+              tangentBundleHost(boundaryCounter, 1, 1) = 0.0;
+              tangentBundleHost(boundaryCounter, 1, 2) = 0.0;
+              tangentBundleHost(boundaryCounter, 2, 0) = normal(i, 0);
+              tangentBundleHost(boundaryCounter, 2, 1) = normal(i, 1);
+              tangentBundleHost(boundaryCounter, 2, 2) = normal(i, 2);
+            }
+            if (dimension == 2) {
+              tangentBundleHost(boundaryCounter, 0, 0) = 0.0;
+              tangentBundleHost(boundaryCounter, 0, 1) = 0.0;
+              tangentBundleHost(boundaryCounter, 1, 0) = normal(i, 0);
+              tangentBundleHost(boundaryCounter, 1, 1) = normal(i, 1);
+            }
           }
         });
     Kokkos::fence();
@@ -517,6 +550,7 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
     Kokkos::deep_copy(boundaryEpsilonDevice, boundaryEpsilonHost);
     Kokkos::deep_copy(interiorParticleCoordsDevice, interiorParticleCoordsHost);
     Kokkos::deep_copy(boundaryParticleCoordsDevice, boundaryParticleCoordsHost);
+    Kokkos::deep_copy(tangentBundleDevice, tangentBundleHost);
 
     {
       Compadre::GMLS interiorBasis =
@@ -538,11 +572,39 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
 
       interiorBasis.generateAlphas(1, false);
 
-      auto solutionSet = interiorBasis.getSolutionSetHost();
-      auto interiorAlpha = solutionSet->getAlphas();
+      auto interiorSolutionSet = interiorBasis.getSolutionSetHost();
+      auto interiorAlpha = interiorSolutionSet->getAlphas();
 
       const unsigned int interiorLaplacianIndex =
-          solutionSet->getAlphaColumnOffset(
+          interiorSolutionSet->getAlphaColumnOffset(
+              Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
+
+      Compadre::GMLS boundaryBasis = Compadre::GMLS(
+          Compadre::ScalarTaylorPolynomial,
+          Compadre::StaggeredEdgeAnalyticGradientIntegralSample, polyOrder_,
+          dimension, "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
+
+      boundaryBasis.setProblemData(
+          boundaryNeighborListsDevice, sourceCoordsDevice,
+          boundaryParticleCoordsDevice, boundaryEpsilonDevice);
+
+      boundaryBasis.setTangentBundle(tangentBundleDevice);
+
+      boundaryBasis.addTargets(Compadre::LaplacianOfScalarPointEvaluation);
+
+      boundaryBasis.setWeightingType(Compadre::WeightingFunctionType::Power);
+      boundaryBasis.setWeightingParameter(4);
+      boundaryBasis.setOrderOfQuadraturePoints(2);
+      boundaryBasis.setDimensionOfQuadraturePoints(dimension - 1);
+      boundaryBasis.setQuadratureType("LINE");
+
+      boundaryBasis.generateAlphas(1, false);
+
+      auto boundarySolutionSet = boundaryBasis.getSolutionSetHost();
+      auto boundaryAlpha = boundarySolutionSet->getAlphas();
+
+      const unsigned int boundaryLaplacianIndex =
+          boundarySolutionSet->getAlphaColumnOffset(
               Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
 
       Kokkos::parallel_for(
@@ -552,16 +614,18 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
             std::vector<PetscInt> index;
             std::vector<PetscReal> value;
             const unsigned int interiorCounter = batchMap[i - startParticle];
+            const unsigned int boundaryCounter = batchMap[i - startParticle];
             const PetscInt currentParticleIndex = i;
             if (particleType(i) == 0) {
               double Aij = 0.0;
-              index.resize(interiorNeighborListsHost(interiorCounter, 0));
-              value.resize(interiorNeighborListsHost(interiorCounter, 0));
-              for (std::size_t j = 0;
-                   j < interiorNeighborListsHost(interiorCounter, 0); j++) {
+              const unsigned int numNeighbor =
+                  interiorNeighborListsHost(interiorCounter, 0);
+              index.resize(numNeighbor);
+              value.resize(numNeighbor);
+              for (std::size_t j = 0; j < numNeighbor; j++) {
                 const PetscInt neighborParticleIndex =
                     sourceIndex(neighborLists_(i, j + 1));
-                auto alphaIndex = solutionSet->getAlphaIndex(
+                auto alphaIndex = interiorSolutionSet->getAlphaIndex(
                     interiorCounter, interiorLaplacianIndex);
                 double kappaIJ =
                     0.5 * (kappa_(i) + sourceKappa(neighborLists_(i, j + 1)));
@@ -573,8 +637,34 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
 
               A.Increment(currentParticleIndex, index, value);
             } else {
-              // Dirichlet boundary condition
-              A.Increment(i, sourceIndex(i), 1.0);
+              if (boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2))) {
+                A.Increment(i, sourceIndex(i), 1.0);
+              } else {
+                double Aij = 0.0;
+                const unsigned int numNeighbor =
+                    boundaryNeighborListsHost(boundaryCounter, 0);
+                index.resize(numNeighbor);
+                value.resize(numNeighbor);
+
+                bi_(i) = boundarySolutionSet->getAlpha0TensorTo0Tensor(
+                    Compadre::LaplacianOfScalarPointEvaluation, boundaryCounter,
+                    numNeighbor);
+
+                for (std::size_t j = 0; j < numNeighbor; j++) {
+                  const PetscInt neighborParticleIndex =
+                      sourceIndex(neighborLists_(i, j + 1));
+                  auto alphaIndex = boundarySolutionSet->getAlphaIndex(
+                      boundaryCounter, boundaryLaplacianIndex);
+                  double kappaIJ =
+                      0.5 * (kappa_(i) + sourceKappa(neighborLists_(i, j + 1)));
+                  index[j] = neighborParticleIndex;
+                  value[j] = kappaIJ * boundaryAlpha(alphaIndex + j);
+                  Aij -= kappaIJ * boundaryAlpha(alphaIndex + j);
+                }
+                value[0] = Aij;
+
+                A.Increment(currentParticleIndex, index, value);
+              }
             }
           });
       Kokkos::fence();
@@ -617,7 +707,12 @@ void Equation::PoissonEquation::ConstructRhs() {
   std::vector<double> rhs(localParticleNum);
   for (std::size_t i = 0; i < localParticleNum; i++) {
     if (particleType(i) != 0) {
-      rhs[i] = boundaryRhs_(coords(i, 0), coords(i, 1), coords(i, 2));
+      if (boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2)))
+        rhs[i] = boundaryRhs_(coords(i, 0), coords(i, 1), coords(i, 2));
+      else
+        rhs[i] =
+            bi_(i) * boundaryRhs_(coords(i, 0), coords(i, 1), coords(i, 2)) +
+            interiorRhs_(coords(i, 0), coords(i, 1), coords(i, 2));
     } else {
       rhs[i] = interiorRhs_(coords(i, 0), coords(i, 1), coords(i, 2));
     }
@@ -952,47 +1047,47 @@ void Equation::PoissonEquation::CalculateError() {
              fieldGradientAnalyticalError);
   }
 
-  // smooth stage
-  for (std::size_t i = 0; i < localParticleNum; i++) {
-    const double localVolume = pow(spacing(i), dimension);
-    error_(i) = pow(error_(i), 2.0) / localVolume;
-  }
+  // // smooth stage
+  // for (std::size_t i = 0; i < localParticleNum; i++) {
+  //   const double localVolume = pow(spacing(i), dimension);
+  //   error_(i) = pow(error_(i), 2.0) / localVolume;
+  // }
 
-  for (int ite = 0; ite < 1; ite++) {
-    HostRealVector ghostError;
-    ghost_.ApplyGhost(error_, ghostError);
+  // for (int ite = 0; ite < 1; ite++) {
+  //   HostRealVector ghostError;
+  //   ghost_.ApplyGhost(error_, ghostError);
 
-    for (std::size_t i = 0; i < localParticleNum; i++) {
-      error_(i) = 0.0;
-      double totalNeighborVolume = 0.0;
-      for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
-        const int neighborIndex = neighborLists_(i, j + 1);
+  //   for (std::size_t i = 0; i < localParticleNum; i++) {
+  //     error_(i) = 0.0;
+  //     double totalNeighborVolume = 0.0;
+  //     for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
+  //       const int neighborIndex = neighborLists_(i, j + 1);
 
-        double dX[3];
-        dX[0] = sourceCoords(neighborIndex, 0) - coords(i, 0);
-        dX[1] = sourceCoords(neighborIndex, 1) - coords(i, 1);
-        dX[2] = sourceCoords(neighborIndex, 2) - coords(i, 2);
+  //       double dX[3];
+  //       dX[0] = sourceCoords(neighborIndex, 0) - coords(i, 0);
+  //       dX[1] = sourceCoords(neighborIndex, 1) - coords(i, 1);
+  //       dX[2] = sourceCoords(neighborIndex, 2) - coords(i, 2);
 
-        const double r = sqrt(dX[0] * dX[0] + dX[1] * dX[1] + dX[2] * dX[2]);
-        const double h = epsilon_(i);
-        const int p = 4;
+  //       const double r = sqrt(dX[0] * dX[0] + dX[1] * dX[1] + dX[2] * dX[2]);
+  //       const double h = epsilon_(i);
+  //       const int p = 4;
 
-        double WabIJ =
-            pow(1.0 - abs(r / h), p) * double((1.0 - abs(r / h)) > 0.0);
+  //       double WabIJ =
+  //           pow(1.0 - abs(r / h), p) * double((1.0 - abs(r / h)) > 0.0);
 
-        double sourceVolume = pow(ghostSpacing(neighborIndex), dimension);
+  //       double sourceVolume = pow(ghostSpacing(neighborIndex), dimension);
 
-        error_(i) += pow(ghostError(neighborIndex), 2.0) * sourceVolume * WabIJ;
-        totalNeighborVolume += sourceVolume * WabIJ;
-      }
-      error_(i) /= totalNeighborVolume;
-    }
-  }
+  //       error_(i) += pow(ghostError(neighborIndex), 2.0) * sourceVolume *
+  //       WabIJ; totalNeighborVolume += sourceVolume * WabIJ;
+  //     }
+  //     error_(i) /= totalNeighborVolume;
+  //   }
+  // }
 
-  for (std::size_t i = 0; i < localParticleNum; i++) {
-    const double localVolume = pow(spacing(i), dimension);
-    error_(i) = sqrt(error_(i) * localVolume);
-  }
+  // for (std::size_t i = 0; i < localParticleNum; i++) {
+  //   const double localVolume = pow(spacing(i), dimension);
+  //   error_(i) = sqrt(error_(i) * localVolume);
+  // }
 
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
@@ -1137,6 +1232,11 @@ void Equation::PoissonEquation::Init() {
 }
 
 HostRealVector &Equation::PoissonEquation::GetField() { return field_; }
+
+void Equation::PoissonEquation::SetBoundaryType(
+    const std::function<bool(const double, const double, const double)> &func) {
+  boundaryType_ = func;
+}
 
 void Equation::PoissonEquation::SetInteriorRhs(
     const std::function<double(const double, const double, const double)>

@@ -19,8 +19,9 @@ protected:
   virtual Void Output();
 
   HostRealMatrix recoveredGradientChunk_;
-  HostRealVector field_, oldField_, kappa_;
+  HostRealVector field_, oldField_, kappa_, bi_;
 
+  std::function<bool(const double, const double, const double)> boundaryType_;
   std::function<double(const double, const double, const double)> interiorRhs_;
   std::function<double(const double, const double, const double)> boundaryRhs_;
   std::function<double(const double, const double, const double)>
@@ -41,6 +42,9 @@ public:
 
   HostRealVector &GetField();
 
+  virtual Void SetBoundaryType(
+      const std::function<bool(const double, const double, const double)>
+          &func);
   virtual Void SetInteriorRhs(
       const std::function<double(const double, const double, const double)>
           &func);
