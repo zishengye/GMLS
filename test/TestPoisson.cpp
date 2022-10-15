@@ -183,100 +183,26 @@ char **globalArgv;
 //   Kokkos::finalize();
 // }
 
-TEST(PoissonEquationTest, 2DKappaDifference) {
-  Kokkos::initialize(globalArgc, globalArgv);
-  PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.txt",
-                  PETSC_NULL);
-
-  {
-    Equation::PoissonEquation equation;
-    equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.2);
-
-    std::vector<double> size(2);
-    size[0] = 10.0;
-    size[1] = 10.0;
-
-    const double sigmaF = 30.0;
-    const double sigmaP = 1.0;
-    const double a = 2.0;
-    const double coeff = (sigmaF - sigmaP) / (sigmaF + sigmaP);
-
-    equation.SetPolyOrder(1);
-    equation.SetDimension(2);
-    equation.SetDomainSize(size);
-    equation.SetDomainType(Geometry::Box);
-    equation.SetMaxRefinementIteration(20);
-    equation.SetOutputLevel(1);
-    equation.SetRefinementMarkRatio(0.9);
-    equation.SetBoundaryType(
-        [](const double x, const double y, const double z) { return true; });
-    equation.SetInteriorRhs(
-        [](const double x, const double y, const double z) { return 0.0; });
-    equation.SetBoundaryRhs(
-        [=](const double x, const double y, const double z) {
-          double r = sqrt(x * x + y * y);
-          return (1 - coeff * a * a / r / r) * x;
-        });
-    equation.SetKappa([=](const double x, const double y, const double z) {
-      double r = sqrt(x * x + y * y);
-      if (r < a)
-        return sigmaF;
-      else
-        return sigmaP;
-    });
-    equation.SetAnalyticalFieldSolution(
-        [=](const double x, const double y, const double z) {
-          double r = sqrt(x * x + y * y);
-          if (r < a)
-            return (1 - coeff) * x;
-          else
-            return (1 - coeff * a * a / r / r) * x;
-        });
-    equation.SetAnalyticalFieldGradientSolution(
-        [=](const double x, const double y, const double z,
-            const unsigned int i) {
-          double gradPolar[2];
-          double theta = std::atan2(y, x);
-          double r = sqrt(x * x + y * y);
-          if (r < a) {
-            gradPolar[0] = (1 - coeff) * cos(theta);
-            gradPolar[1] = -(1 - coeff) * sin(theta);
-          } else {
-            gradPolar[0] = (1 + coeff * a * a / r / r) * cos(theta);
-            gradPolar[1] = -(1 - coeff * a * a / r / r) * sin(theta);
-          }
-
-          double grad[2];
-          grad[0] = cos(theta) * gradPolar[0] - sin(theta) * gradPolar[1];
-          grad[1] = sin(theta) * gradPolar[0] + cos(theta) * gradPolar[1];
-
-          return grad[i];
-        });
-
-    equation.Init();
-    equation.Update();
-  }
-
-  PetscFinalize();
-  Kokkos::finalize();
-}
-
-// TEST(PoissonEquationTest, 2DHybridBoundaryCondition) {
+// TEST(PoissonEquationTest, 2DKappaDifference) {
 //   Kokkos::initialize(globalArgc, globalArgv);
 //   PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.txt",
 //                   PETSC_NULL);
 
 //   {
 //     Equation::PoissonEquation equation;
-//     equation.SetErrorTolerance(1e-3);
-//     equation.SetInitialDiscretizationResolution(0.05);
+//     equation.SetErrorTolerance(2e-2);
+//     equation.SetInitialDiscretizationResolution(0.2);
 
 //     std::vector<double> size(2);
-//     size[0] = 1.0;
-//     size[1] = 1.0;
+//     size[0] = 10.0;
+//     size[1] = 10.0;
 
-//     equation.SetPolyOrder(1);
+//     const double sigmaF = 100.0;
+//     const double sigmaP = 0.1;
+//     const double a = 2.0;
+//     const double coeff = (sigmaF - sigmaP) / (sigmaF + sigmaP);
+
+//     // equation.SetPolyOrder(1);
 //     equation.SetDimension(2);
 //     equation.SetDomainSize(size);
 //     equation.SetDomainType(Geometry::Box);
@@ -284,22 +210,49 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
 //     equation.SetOutputLevel(1);
 //     equation.SetRefinementMarkRatio(0.95);
 //     equation.SetBoundaryType(
-//         [](const double x, const double y, const double z) {
-//           if (abs(y) < (1.0 / 20) && x < 0)
-//             return true;
-//           else
-//             return false;
-//         });
+//         [](const double x, const double y, const double z) { return true; });
 //     equation.SetInteriorRhs(
-//         [](const double x, const double y, const double z) { return 1.0; });
-//     equation.SetBoundaryRhs(
 //         [](const double x, const double y, const double z) { return 0.0; });
-//     equation.SetKappa([](const double x, const double y, const double z) {
-//       if (x < 0.6)
-//         return 1.0;
+//     equation.SetBoundaryRhs(
+//         [=](const double x, const double y, const double z) {
+//           double r = sqrt(x * x + y * y);
+//           return (1 - coeff * a * a / r / r) * x;
+//         });
+//     equation.SetKappa([=](const double x, const double y, const double z) {
+//       double r = sqrt(x * x + y * y);
+//       if (r < a)
+//         return sigmaF;
 //       else
-//         return 1.0;
+//         return sigmaP;
 //     });
+//     equation.SetAnalyticalFieldSolution(
+//         [=](const double x, const double y, const double z) {
+//           double r = sqrt(x * x + y * y);
+//           if (r < a)
+//             return (1 - coeff) * x;
+//           else
+//             return (1 - coeff * a * a / r / r) * x;
+//         });
+//     equation.SetAnalyticalFieldGradientSolution(
+//         [=](const double x, const double y, const double z,
+//             const unsigned int i) {
+//           double gradPolar[2];
+//           double theta = std::atan2(y, x);
+//           double r = sqrt(x * x + y * y);
+//           if (r < a) {
+//             gradPolar[0] = (1 - coeff) * cos(theta);
+//             gradPolar[1] = -(1 - coeff) * sin(theta);
+//           } else {
+//             gradPolar[0] = (1 + coeff * a * a / r / r) * cos(theta);
+//             gradPolar[1] = -(1 - coeff * a * a / r / r) * sin(theta);
+//           }
+
+//           double grad[2];
+//           grad[0] = cos(theta) * gradPolar[0] - sin(theta) * gradPolar[1];
+//           grad[1] = sin(theta) * gradPolar[0] + cos(theta) * gradPolar[1];
+
+//           return grad[i];
+//         });
 
 //     equation.Init();
 //     equation.Update();
@@ -308,6 +261,53 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
 //   PetscFinalize();
 //   Kokkos::finalize();
 // }
+
+TEST(PoissonEquationTest, 2DHybridBoundaryCondition) {
+  Kokkos::initialize(globalArgc, globalArgv);
+  PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.txt",
+                  PETSC_NULL);
+
+  {
+    Equation::PoissonEquation equation;
+    equation.SetErrorTolerance(1e-3);
+    equation.SetInitialDiscretizationResolution(0.01);
+
+    std::vector<double> size(2);
+    size[0] = 1.0;
+    size[1] = 1.0;
+
+    equation.SetPolyOrder(1);
+    equation.SetDimension(2);
+    equation.SetDomainSize(size);
+    equation.SetDomainType(Geometry::Box);
+    equation.SetMaxRefinementIteration(10);
+    equation.SetOutputLevel(1);
+    equation.SetRefinementMarkRatio(0.95);
+    equation.SetBoundaryType(
+        [](const double x, const double y, const double z) {
+          if (abs(y) < (1.0 / 20) && x < 0)
+            return true;
+          else
+            return false;
+        });
+    equation.SetInteriorRhs(
+        [](const double x, const double y, const double z) { return 1.0; });
+    equation.SetBoundaryRhs(
+        [](const double x, const double y, const double z) { return 0.0; });
+    equation.SetKappa([](const double x, const double y, const double z) {
+      if (abs(y) < (1.0 / 20))
+        return 1.0;
+      else
+        return 1e-3;
+    });
+
+    equation.Init();
+    equation.Update();
+  }
+
+  PetscFinalize();
+  Kokkos::finalize();
+}
 
 // TEST(PoissonEquationTest, 3DLinearSystemSolving) {
 //   Kokkos::initialize(globalArgc, globalArgv);

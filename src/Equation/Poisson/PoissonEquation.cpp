@@ -1,4 +1,5 @@
 #include "Equation/Poisson/PoissonEquation.hpp"
+#include "Compadre_Operators.hpp"
 #include "Core/Typedef.hpp"
 #include "Discretization/PolyBasis.hpp"
 #include "LinearAlgebra/LinearAlgebra.hpp"
@@ -7,6 +8,7 @@
 #include <Compadre_Evaluator.hpp>
 #include <Compadre_GMLS.hpp>
 #include <Compadre_PointCloudSearch.hpp>
+#include <Kokkos_CopyViews.hpp>
 #include <Kokkos_Core_fwd.hpp>
 
 void Equation::PoissonEquation::InitLinearSystem() {
@@ -625,10 +627,13 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
               for (std::size_t j = 0; j < numNeighbor; j++) {
                 const PetscInt neighborParticleIndex =
                     sourceIndex(neighborLists_(i, j + 1));
+                const int neighborIndex = neighborLists_(i, j + 1);
                 auto alphaIndex = interiorSolutionSet->getAlphaIndex(
                     interiorCounter, interiorLaplacianIndex);
-                double kappaIJ =
-                    0.5 * (kappa_(i) + sourceKappa(neighborLists_(i, j + 1)));
+                double kappaIJ = kappaFunc_(
+                    0.5 * (coords(i, 0) + sourceCoords(neighborIndex, 0)),
+                    0.5 * (coords(i, 1) + sourceCoords(neighborIndex, 1)),
+                    0.5 * (coords(i, 2) + sourceCoords(neighborIndex, 2)));
                 index[j] = neighborParticleIndex;
                 value[j] = kappaIJ * interiorAlpha(alphaIndex + j);
                 Aij -= kappaIJ * interiorAlpha(alphaIndex + j);
@@ -653,10 +658,13 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
                 for (std::size_t j = 0; j < numNeighbor; j++) {
                   const PetscInt neighborParticleIndex =
                       sourceIndex(neighborLists_(i, j + 1));
+                  const int neighborIndex = neighborLists_(i, j + 1);
                   auto alphaIndex = boundarySolutionSet->getAlphaIndex(
                       boundaryCounter, boundaryLaplacianIndex);
-                  double kappaIJ =
-                      0.5 * (kappa_(i) + sourceKappa(neighborLists_(i, j + 1)));
+                  double kappaIJ = kappaFunc_(
+                      0.5 * (coords(i, 0) + sourceCoords(neighborIndex, 0)),
+                      0.5 * (coords(i, 1) + sourceCoords(neighborIndex, 1)),
+                      0.5 * (coords(i, 2) + sourceCoords(neighborIndex, 2)));
                   index[j] = neighborParticleIndex;
                   value[j] = kappaIJ * boundaryAlpha(alphaIndex + j);
                   Aij -= kappaIJ * boundaryAlpha(alphaIndex + j);
@@ -755,7 +763,8 @@ void Equation::PoissonEquation::CalculateError() {
 
   const unsigned int dimension = particleMgr_.GetDimension();
 
-  HostRealVector ghostField, ghostEpsilon, ghostSpacing;
+  HostRealVector ghostKappa, ghostField, ghostEpsilon, ghostSpacing;
+  ghost_.ApplyGhost(kappa_, ghostKappa);
   ghost_.ApplyGhost(field_, ghostField);
   ghost_.ApplyGhost(epsilon_, ghostEpsilon);
   ghost_.ApplyGhost(spacing, ghostSpacing);
@@ -768,13 +777,15 @@ void Equation::PoissonEquation::CalculateError() {
     Compadre::GMLS testBasis =
         Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
                        Compadre::StaggeredEdgeAnalyticGradientIntegralSample,
-                       polyOrder_, dimension, "LU", "STANDARD");
+                       polyOrder_ + 1, dimension, "LU", "STANDARD");
     coefficientSize = testBasis.getPolynomialCoefficientsSize();
   }
 
   HostRealMatrix coefficientChunk("coefficient chunk", localParticleNum,
                                   coefficientSize);
   HostRealMatrix ghostCoefficientChunk;
+
+  Kokkos::resize(gradientChunk_, localParticleNum, dimension);
 
   // get polynomial coefficients and direct gradients
   const unsigned int batchSize = ((dimension == 2) ? 500 : 100);
@@ -840,30 +851,52 @@ void Equation::PoissonEquation::CalculateError() {
 
       Compadre::Evaluator batchEvaluator(&batchBasis);
 
-      auto batchCoefficient =
-          batchEvaluator
-              .applyFullPolynomialCoefficientsBasisToDataAllComponents<
-                  double **, Kokkos::HostSpace>(ghostField);
+      // default Compadre implementation can't deal with different kappa in the
+      // field, the resulting coeff are manually calculated here.
+      auto batchCoefficientDevice =
+          batchBasis.getFullPolynomialCoefficientsBasis();
+      decltype(batchCoefficientDevice) batchCoefficientHost;
+      Kokkos::resize(batchCoefficientHost, batchCoefficientDevice.extent(0));
+      Kokkos::deep_copy(batchCoefficientHost, batchCoefficientDevice);
+
+      auto coeffMatrixDims =
+          batchBasis.getPolynomialCoefficientsDomainRangeSize();
+      auto coeffMemoryLayoutDims =
+          batchBasis.getPolynomialCoefficientsMemorySize();
+
       // duplicate coefficients
       particleCounter = 0;
       for (std::size_t i = startParticle; i < endParticle; i++) {
-        for (unsigned int j = 0; j < coefficientSize; j++)
-          coefficientChunk(i, j) = batchCoefficient(particleCounter, j);
+        const unsigned int numNeighbor =
+            batchNeighborListsHost(particleCounter, 0);
+        for (unsigned int j = 0; j < coefficientSize; j++) {
+          coefficientChunk(i, j) = 0.0;
+          for (unsigned int k = 0; k < numNeighbor; k++) {
+            const int particleIndex =
+                batchNeighborListsHost(particleCounter, 1);
+            const int neighborIndex =
+                batchNeighborListsHost(particleCounter, k + 1);
+            coefficientChunk(i, j) +=
+                batchCoefficientHost(particleCounter *
+                                         coeffMemoryLayoutDims(0) *
+                                         coeffMemoryLayoutDims(1) +
+                                     j * coeffMemoryLayoutDims(1) + k) *
+                (ghostField(particleIndex) - ghostField(neighborIndex));
+          }
+        }
+
+        auto coeffView = Kokkos::subview(coefficientChunk, i, Kokkos::ALL);
+        for (unsigned int axes = 0; axes < dimension; axes++)
+          gradientChunk_(i, axes) =
+              Discretization::CalScalarGrad(axes, dimension, 0.0, 0.0, 0.0,
+                                            polyOrder_, epsilon_(i), coeffView);
         particleCounter++;
       }
 
-      auto batchGradient =
-          batchEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
-              double **, Kokkos::HostSpace>(
-              ghostField, Compadre::GradientOfScalarPointEvaluation);
-
-      particleCounter = 0;
       for (std::size_t i = startParticle; i < endParticle; i++) {
         double localVolume = pow(spacing(i), dimension);
         for (unsigned int j = 0; j < dimension; j++)
-          localDirectGradientNorm +=
-              pow(batchGradient(particleCounter, j), 2) * localVolume;
-        particleCounter++;
+          localDirectGradientNorm += pow(gradientChunk_(i, j), 2) * localVolume;
       }
     }
   }
@@ -1015,7 +1048,7 @@ void Equation::PoissonEquation::CalculateError() {
 
             double difference =
                 analyticalFieldGradientSolution_(x, y, z, axes) -
-                recoveredGradientChunk_(i, axes);
+                gradientChunk_(i, axes);
             tFieldGradientAnalyticalError += pow(difference, 2);
           },
           Kokkos::Sum<double>(fieldGradientAnalyticalError));
@@ -1151,9 +1184,9 @@ void Equation::PoissonEquation::Output() {
       vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
                          ".vtk",
                      std::ios::out | std::ios::app | std::ios::binary);
-      for (std::size_t i = 0; i < recoveredGradientChunk_.extent(0); i++) {
-        for (std::size_t j = 0; j < recoveredGradientChunk_.extent(1); j++) {
-          float x = recoveredGradientChunk_(i, j);
+      for (std::size_t i = 0; i < gradientChunk_.extent(0); i++) {
+        for (std::size_t j = 0; j < gradientChunk_.extent(1); j++) {
+          float x = gradientChunk_(i, j);
           SwapEnd(x);
           vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
         }

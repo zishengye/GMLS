@@ -19,6 +19,7 @@ protected:
   virtual Void Output();
 
   HostRealMatrix recoveredGradientChunk_;
+  HostRealMatrix gradientChunk_;
   HostRealVector field_, oldField_, kappa_, bi_;
 
   std::function<bool(const double, const double, const double)> boundaryType_;
