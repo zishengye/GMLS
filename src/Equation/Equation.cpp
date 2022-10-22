@@ -32,6 +32,12 @@ Void Equation::Equation::ConstructLinearSystem() {}
 
 Void Equation::Equation::ConstructRhs() {}
 
+Void Equation::Equation::Clear() {
+  linearSystemsPtr_.clear();
+  preconditionerPtr_.reset();
+  particleMgr_.Clear();
+}
+
 Void Equation::Equation::DiscretizeEquation() {
   this->InitLinearSystem();
   this->ConstructLinearSystem();
@@ -504,6 +510,8 @@ Void Equation::Equation::SetRefinementMarkRatio(const Scalar ratio) {
 }
 
 Void Equation::Equation::Init() {
+  Clear();
+
   SetGhostMultiplier(8.0);
   particleMgr_.Init();
 }
@@ -533,7 +541,8 @@ Void Equation::Equation::Update() {
     this->CalculateError();
     this->Mark();
     this->Output();
-    particleMgr_.Refine(splitTag_);
+    if (refinementIteration_ + 1 < maxRefinementIteration_)
+      particleMgr_.Refine(splitTag_);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (mpiRank_ == 0)
@@ -548,4 +557,24 @@ Void Equation::Equation::Update() {
     printf("End of updating physics\nDuration of updating is %.4fs\n",
            tEnd - tStart);
   }
+}
+
+Void Equation::Equation::CalculateSensitivity(
+    DefaultParticleManager &particleMgr, HostRealVector &sensitivity) {}
+
+void Equation::Equation::SetKappa(
+    const std::function<double(const double, const double, const double)>
+        &func) {
+  singleKappaFunc_ = func;
+
+  kappaFuncType_ = 1;
+}
+
+void Equation::Equation::SetKappa(
+    const std::function<Void(const HostRealMatrix &coords,
+                             const HostRealVector &spacing,
+                             HostRealVector &kappa)> &func) {
+  multipleKappaFunc_ = func;
+
+  kappaFuncType_ = 2;
 }

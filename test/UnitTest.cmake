@@ -15,3 +15,7 @@ target_link_libraries(TestLinearAlgebra ${GTEST_LIBRARIES} -pthread GmlsModule)
 add_executable(TestPoisson ${TEST_SOURCE_DIR}/TestPoisson.cpp)
 target_include_directories(TestPoisson PUBLIC ${GTEST_INCLUDE_DIRS})
 target_link_libraries(TestPoisson ${GTEST_LIBRARIES} -pthread GmlsModule)
+
+add_executable(TestTopologyOptimization ${TEST_SOURCE_DIR}/TestTopologyOptimization.cpp)
+target_include_directories(TestTopologyOptimization PUBLIC ${GTEST_INCLUDE_DIRS})
+target_link_libraries(TestTopologyOptimization ${GTEST_LIBRARIES} -pthread GmlsModule)

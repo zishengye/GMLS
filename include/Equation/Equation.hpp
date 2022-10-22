@@ -60,6 +60,7 @@ protected:
   virtual Void ConstructLinearSystem();
   virtual Void ConstructRhs();
 
+  virtual Void Clear();
   virtual Void DiscretizeEquation();
   virtual Void InitPreconditioner();
   virtual Void SolveEquation();
@@ -80,6 +81,14 @@ protected:
   Geometry::Ghost ghost_;
   Scalar ghostMultiplier_;
 
+  std::function<double(const double, const double, const double)>
+      singleKappaFunc_;
+  std::function<Void(const HostRealMatrix &, const HostRealVector &,
+                     HostRealVector &)>
+      multipleKappaFunc_;
+
+  int kappaFuncType_;
+
 public:
   Equation();
 
@@ -97,6 +106,14 @@ public:
 
   virtual Void Init();
   virtual Void Update();
+  virtual Void CalculateSensitivity(DefaultParticleManager &particleMgr,
+                                    HostRealVector &sensitivity);
+
+  virtual Void SetKappa(const std::function<double(const double, const double,
+                                                   const double)> &func);
+  virtual Void SetKappa(
+      const std::function<Void(const HostRealMatrix &, const HostRealVector &,
+                               HostRealVector &)> &func);
 };
 } // namespace Equation
 

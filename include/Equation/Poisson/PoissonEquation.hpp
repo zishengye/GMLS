@@ -1,6 +1,7 @@
 #ifndef _Equation_PoissonEquation_Hpp_
 #define _Equation_PoissonEquation_Hpp_
 
+#include "Core/Typedef.hpp"
 #include "Equation/Equation.hpp"
 #include "Equation/Poisson/PoissonPreconditioner.hpp"
 
@@ -30,7 +31,6 @@ protected:
   std::function<double(const double, const double, const double,
                        const unsigned int)>
       analyticalFieldGradientSolution_;
-  std::function<double(const double, const double, const double)> kappaFunc_;
 
   bool isFieldAnalyticalSolutionSet_;
   bool isFieldGradientAnalyticalSolutionSet_;
@@ -40,8 +40,11 @@ public:
   ~PoissonEquation();
 
   virtual Void Init();
+  virtual Void CalculateSensitivity(DefaultParticleManager &particleMgr,
+                                    HostRealVector &sensitivity);
 
   HostRealVector &GetField();
+  HostRealVector &GetRhs();
 
   virtual Void SetBoundaryType(
       const std::function<bool(const double, const double, const double)>
@@ -58,8 +61,6 @@ public:
   virtual Void SetAnalyticalFieldGradientSolution(
       const std::function<double(const double, const double, const double,
                                  const unsigned int)> &func);
-  virtual Void SetKappa(const std::function<double(const double, const double,
-                                                   const double)> &func);
 };
 } // namespace Equation
 
