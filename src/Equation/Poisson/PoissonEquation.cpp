@@ -710,11 +710,14 @@ void Equation::PoissonEquation::ConstructRhs() {
 
   // copy old field value
   Kokkos::resize(oldField_, field_.extent(0));
+  Kokkos::resize(oldAdjoint_, field_.extent(0));
   for (unsigned int i = 0; i < field_.extent(0); i++) {
     oldField_(i) = field_(i);
+    oldAdjoint_(i) = adjoint_(i);
   }
 
   Kokkos::resize(field_, localParticleNum);
+  Kokkos::resize(adjoint_, localParticleNum);
   Kokkos::resize(error_, localParticleNum);
 
   std::vector<double> rhs(localParticleNum);
@@ -749,6 +752,19 @@ void Equation::PoissonEquation::SolveEquation() {
 
   Equation::SolveEquation();
   x_.Copy(field_);
+}
+
+void Equation::PoissonEquation::SolveAdjointEquation() {
+  unsigned int currentRefinementLevel = linearSystemsPtr_.size() - 1;
+  // interpolation previous result
+  if (currentRefinementLevel > 0) {
+    LinearAlgebra::Vector<DefaultLinearAlgebraBackend> y;
+    y.Create(oldAdjoint_);
+    x_ = preconditionerPtr_->GetInterpolation(currentRefinementLevel) * y;
+  }
+
+  Equation::SolveAdjointEquation();
+  x_.Copy(adjoint_);
 }
 
 void Equation::PoissonEquation::CalculateError() {
@@ -1321,7 +1337,8 @@ void Equation::PoissonEquation::CalculateSensitivity(
     interiorParticleNum = 0;
     boundaryParticleNum = 0;
     for (unsigned int i = startParticle; i < endParticle; i++) {
-      if (particleType(i) == 0)
+      if (particleType(i) == 0 ||
+          boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2)))
         interiorParticleNum++;
       else
         boundaryParticleNum++;
@@ -1375,7 +1392,8 @@ void Equation::PoissonEquation::CalculateSensitivity(
       interiorCounter = 0;
 
       for (unsigned int i = startParticle; i < endParticle; i++) {
-        if (particleType(i) == 0) {
+        if (particleType(i) == 0 ||
+            boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2))) {
           batchMap[i - startParticle] = interiorCounter;
 
           interiorCounter++;
@@ -1391,7 +1409,8 @@ void Equation::PoissonEquation::CalculateSensitivity(
         Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(startParticle,
                                                                endParticle),
         [&](const int i) {
-          if (particleType(i) == 0) {
+          if (particleType(i) == 0 ||
+              boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2))) {
             const unsigned int interiorCounter = batchMap[i - startParticle];
             interiorEpsilonHost(interiorCounter) = epsilon_(i);
             for (std::size_t j = 0; j <= neighborLists_(i, 0); j++) {
@@ -1503,7 +1522,8 @@ void Equation::PoissonEquation::CalculateSensitivity(
             const unsigned int interiorCounter = batchMap[i - startParticle];
             const unsigned int boundaryCounter = batchMap[i - startParticle];
             const PetscInt currentParticleIndex = i;
-            if (particleType(i) == 0) {
+            if (particleType(i) == 0 ||
+                boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2))) {
               double Aii = 0.0;
               const unsigned int numNeighbor =
                   interiorNeighborListsHost(interiorCounter, 0);
@@ -1525,7 +1545,10 @@ void Equation::PoissonEquation::CalculateSensitivity(
                 const PetscInt neighborParticleIndex =
                     sourceIndex(neighborLists_(i, j + 1));
                 globalSensitivity(neighborParticleIndex) +=
-                    Aii * field_(i) * ghostField(neighborLists_(i, j + 1));
+                    value[j] * adjoint_(i) *
+                    ghostField(neighborLists_(i, j + 1));
+                globalSensitivity(i) += value[j] * adjoint_(i) *
+                                        ghostField(neighborLists_(i, j + 1));
               }
             } else {
               double Aii = 0.0;
@@ -1549,7 +1572,10 @@ void Equation::PoissonEquation::CalculateSensitivity(
                 const PetscInt neighborParticleIndex =
                     sourceIndex(neighborLists_(i, j + 1));
                 globalSensitivity(neighborParticleIndex) +=
-                    Aii * field_(i) * ghostField(neighborLists_(i, j + 1));
+                    value[j] * adjoint_(i) *
+                    ghostField(neighborLists_(i, j + 1));
+                globalSensitivity(i) += value[j] * adjoint_(i) *
+                                        ghostField(neighborLists_(i, j + 1));
               }
             }
           });

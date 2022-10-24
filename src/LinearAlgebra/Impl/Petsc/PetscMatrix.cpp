@@ -1,5 +1,6 @@
 #include "LinearAlgebra/Impl/Petsc/PetscMatrix.hpp"
 #include "LinearAlgebra/Impl/Petsc/PetscVector.hpp"
+#include "petscmat.h"
 #include <memory>
 
 LinearAlgebra::Impl::PetscMatrix::PetscMatrix() {
@@ -71,6 +72,10 @@ Void LinearAlgebra::Impl::PetscMatrix::Resize(const PetscInt m,
   for (int i = 0; i < mpiRank_; i++)
     rowRangeLow_ += rankRowSize_[i];
   rowRangeHigh_ = rowRangeLow_ + rankRowSize_[mpiRank_];
+}
+
+Void LinearAlgebra::Impl::PetscMatrix::Transpose(PetscMatrix &mat) {
+  MatTranspose(*mat.matPtr_, MAT_INITIAL_MATRIX, matPtr_.get());
 }
 
 Void LinearAlgebra::Impl::PetscMatrix::Clear() {

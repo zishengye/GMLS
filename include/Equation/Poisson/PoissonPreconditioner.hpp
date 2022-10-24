@@ -16,6 +16,7 @@ public:
   virtual Void ConstructInterpolation(DefaultParticleManager &particleMgr);
   virtual Void ConstructRestriction(DefaultParticleManager &particleMgr);
   virtual Void ConstructSmoother();
+  virtual Void ConstructAdjointSmoother();
 };
 } // namespace Equation
 

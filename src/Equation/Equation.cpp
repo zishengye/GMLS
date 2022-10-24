@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <execution>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 #include "Equation/Equation.hpp"
@@ -15,6 +16,9 @@
 Void Equation::Equation::AddLinearSystem(std::shared_ptr<DefaultMatrix> mat) {
   linearSystemsPtr_.push_back(mat);
   preconditionerPtr_->AddLinearSystem(mat);
+
+  adjointLinearSystemsPtr_.emplace_back(std::make_shared<DefaultMatrix>());
+  preconditionerPtr_->AddAdjointLinearSystem(adjointLinearSystemsPtr_.back());
 }
 
 Void Equation::Equation::InitLinearSystem() {
@@ -34,6 +38,7 @@ Void Equation::Equation::ConstructRhs() {}
 
 Void Equation::Equation::Clear() {
   linearSystemsPtr_.clear();
+  adjointLinearSystemsPtr_.clear();
   preconditionerPtr_.reset();
   particleMgr_.Clear();
 }
@@ -66,9 +71,34 @@ Void Equation::Equation::InitPreconditioner() {
           });
 
   solver_.AddLinearSystem(linearSystemsPtr_[refinementIteration_], descriptor_);
+
+  if (isSolveAdjointEquation_) {
+    adjointLinearSystemsPtr_[refinementIteration_]->Transpose(
+        *linearSystemsPtr_[refinementIteration_]);
+
+    preconditionerPtr_->ConstructAdjointSmoother();
+
+    adjointDescriptor_.outerIteration = 1;
+    adjointDescriptor_.spd = -1;
+    adjointDescriptor_.maxIter = 500;
+    adjointDescriptor_.relativeTol = 1e-6;
+    adjointDescriptor_.setFromDatabase = true;
+
+    adjointDescriptor_.preconditioningIteration =
+        std::function<Void(DefaultVector &, DefaultVector &)>(
+            [=](DefaultVector &x, DefaultVector &y) {
+              preconditionerPtr_->ApplyAdjointPreconditioningIteration(x, y);
+            });
+    adjointSolver_.AddLinearSystem(
+        adjointLinearSystemsPtr_[refinementIteration_], adjointDescriptor_);
+  }
 }
 
 Void Equation::Equation::SolveEquation() { solver_.Solve(b_, x_); }
+
+Void Equation::Equation::SolveAdjointEquation() {
+  adjointSolver_.Solve(b_, x_);
+}
 
 Void Equation::Equation::CalculateError() {
   const LocalIndex localParticleNum = particleMgr_.GetLocalParticleNum();
@@ -456,7 +486,8 @@ Equation::Equation::Equation()
     : globalError_(0.0), globalNormalizedError_(0.0), errorTolerance_(1e-3),
       maxRefinementIteration_(6), refinementIteration_(0),
       refinementMethod_(AdaptiveRefinement), mpiRank_(0), mpiSize_(0),
-      outputLevel_(0), polyOrder_(2), ghostMultiplier_(8.0) {
+      outputLevel_(0), polyOrder_(2), ghostMultiplier_(8.0),
+      isSolveAdjointEquation_(false) {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiSize_);
 }
@@ -537,6 +568,15 @@ Void Equation::Equation::Update() {
       if (mpiRank_ == 0)
         printf("Duration of solving linear system: %.4fs\n",
                tLinearSystemEnd - tLinearSystemStart);
+
+      if (isSolveAdjointEquation_) {
+        tLinearSystemStart = MPI_Wtime();
+        this->SolveAdjointEquation();
+        tLinearSystemEnd = MPI_Wtime();
+        if (mpiRank_ == 0)
+          printf("Duration of solving adjoint linear system: %.4fs\n",
+                 tLinearSystemEnd - tLinearSystemStart);
+      }
     }
     this->CalculateError();
     this->Mark();
@@ -577,4 +617,8 @@ void Equation::Equation::SetKappa(
   multipleKappaFunc_ = func;
 
   kappaFuncType_ = 2;
+}
+
+void Equation::Equation::SetAdjointEquation() {
+  isSolveAdjointEquation_ = true;
 }

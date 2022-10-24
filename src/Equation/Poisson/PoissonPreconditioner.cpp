@@ -831,3 +831,32 @@ void Equation::PoissonPreconditioner::ConstructSmoother() {
     printf("Duration of building Poisson equation smoother:%.4fs\n",
            tEnd - tStart);
 }
+
+void Equation::PoissonPreconditioner::ConstructAdjointSmoother() {
+  double tStart, tEnd;
+  MPI_Barrier(MPI_COMM_WORLD);
+  tStart = MPI_Wtime();
+
+  if (mpiRank_ == 0)
+    printf("Start of constructing adjoint Poisson equation smoother\n");
+  MultilevelPreconditioner::ConstructAdjointSmoother();
+
+  const int currentLevel = adjointLinearSystemsPtr_.size() - 1;
+
+  LinearAlgebra::LinearSolverDescriptor<DefaultLinearAlgebraBackend> descriptor;
+  if (currentLevel == 0)
+    descriptor.outerIteration = 0;
+  else
+    descriptor.outerIteration = -1;
+  descriptor.spd = -1;
+  descriptor.setFromDatabase = false;
+
+  adjointSmootherPtr_[currentLevel].AddLinearSystem(
+      adjointLinearSystemsPtr_[currentLevel], descriptor);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  tEnd = MPI_Wtime();
+  if (mpiRank_ == 0)
+    printf("Duration of building adjoint Poisson equation smoother:%.4fs\n",
+           tEnd - tStart);
+}

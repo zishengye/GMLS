@@ -27,6 +27,7 @@ protected:
   int mpiRank_, mpiSize_;
 
   std::vector<std::shared_ptr<DefaultMatrix>> linearSystemsPtr_;
+  std::vector<std::shared_ptr<DefaultMatrix>> adjointLinearSystemsPtr_;
   std::vector<DefaultMatrix> interpolationPtr_;
   std::vector<DefaultMatrix> restrictionPtr_;
 
@@ -35,6 +36,7 @@ protected:
   std::vector<DefaultVector> auxiliaryVectorBPtr_;
 
   std::vector<DefaultLinearSolver> smootherPtr_;
+  std::vector<DefaultLinearSolver> adjointSmootherPtr_;
 
   Geometry::Ghost interpolationGhost_, restrictionGhost_;
 
@@ -44,16 +46,20 @@ public:
   ~MultilevelPreconditioner();
 
   Void ApplyPreconditioningIteration(DefaultVector &x, DefaultVector &y);
+  Void ApplyAdjointPreconditioningIteration(DefaultVector &x, DefaultVector &y);
 
   DefaultMatrix &GetInterpolation(const Size level);
   DefaultMatrix &GetRestriction(const Size level);
   DefaultLinearSolver &GetSmoother(const Size level);
+  DefaultLinearSolver &GetAdjointSmoother(const Size level);
 
   Void AddLinearSystem(std::shared_ptr<DefaultMatrix> &mat);
+  Void AddAdjointLinearSystem(std::shared_ptr<DefaultMatrix> &mat);
   Void PrepareVectors(const Size localSize);
   virtual Void ConstructInterpolation(DefaultParticleManager &particleMgr);
   virtual Void ConstructRestriction(DefaultParticleManager &particleMgr);
   virtual Void ConstructSmoother();
+  virtual Void ConstructAdjointSmoother();
 };
 } // namespace Equation
 

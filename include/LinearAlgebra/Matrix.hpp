@@ -25,6 +25,8 @@ public:
   virtual Void Resize(const Integer m, const Integer n,
                       const Integer blockSize = 1);
 
+  virtual Void Transpose(Matrix<LinearAlgebraBackend> &mat);
+
   virtual Integer GetLocalColSize() const;
   virtual Integer GetLocalRowSize() const;
 

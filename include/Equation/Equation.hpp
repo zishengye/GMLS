@@ -42,14 +42,15 @@ protected:
   HostIndexVector splitTag_;
 
   std::vector<std::shared_ptr<DefaultMatrix>> linearSystemsPtr_;
+  std::vector<std::shared_ptr<DefaultMatrix>> adjointLinearSystemsPtr_;
   std::shared_ptr<MultilevelPreconditioner> preconditionerPtr_;
   DefaultVector b_;
   DefaultVector x_;
 
-  DefaultLinearSolver solver_;
+  DefaultLinearSolver solver_, adjointSolver_;
 
   LinearAlgebra::LinearSolverDescriptor<DefaultLinearAlgebraBackend>
-      descriptor_;
+      descriptor_, adjointDescriptor_;
 
   HostRealMatrix hostGhostParticleCoords_;
   HostIndexVector hostGhostParticleType_;
@@ -64,6 +65,7 @@ protected:
   virtual Void DiscretizeEquation();
   virtual Void InitPreconditioner();
   virtual Void SolveEquation();
+  virtual Void SolveAdjointEquation();
   virtual Void CalculateError();
   virtual Void Mark();
 
@@ -88,6 +90,8 @@ protected:
       multipleKappaFunc_;
 
   int kappaFuncType_;
+
+  bool isSolveAdjointEquation_;
 
 public:
   Equation();
@@ -114,6 +118,7 @@ public:
   virtual Void SetKappa(
       const std::function<Void(const HostRealMatrix &, const HostRealVector &,
                                HostRealVector &)> &func);
+  Void SetAdjointEquation();
 };
 } // namespace Equation
 

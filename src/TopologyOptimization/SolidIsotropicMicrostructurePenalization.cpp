@@ -36,6 +36,7 @@ Void TopologyOptimization::SolidIsotropicMicrostructurePenalization::Init() {
     volume_(i) = pow(spacing(i), dimension);
   }
 
+  equationPtr_->SetAdjointEquation();
   equationPtr_->SetKappa([=](const HostRealMatrix &coords,
                              const HostRealVector &spacing,
                              HostRealVector &kappa) {

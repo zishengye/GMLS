@@ -19,6 +19,12 @@ Void Matrix<LinearAlgebraBackend>::Resize(const Integer m, const Integer n,
 }
 
 template <class LinearAlgebraBackend>
+Void Matrix<LinearAlgebraBackend>::Transpose(
+    Matrix<LinearAlgebraBackend> &mat) {
+  mat_.Transpose(mat.mat_);
+}
+
+template <class LinearAlgebraBackend>
 typename LinearAlgebraBackend::DefaultInteger
 Matrix<LinearAlgebraBackend>::GetLocalColSize() const {
   return mat_.GetLocalColSize();

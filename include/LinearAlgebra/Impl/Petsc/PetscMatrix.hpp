@@ -40,6 +40,8 @@ public:
 
   Void Resize(const PetscInt m, const PetscInt n, const PetscInt blockSize = 1);
 
+  Void Transpose(PetscMatrix &mat);
+
   Void Clear();
 
   PetscInt GetLocalColSize() const;
