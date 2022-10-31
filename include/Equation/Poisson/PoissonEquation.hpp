@@ -15,14 +15,11 @@ protected:
   virtual Void ConstructRhs();
 
   virtual Void SolveEquation();
-  virtual Void SolveAdjointEquation();
   virtual Void CalculateError();
-
-  virtual Void Output();
 
   HostRealMatrix recoveredGradientChunk_;
   HostRealMatrix gradientChunk_;
-  HostRealVector field_, oldField_, kappa_, bi_, adjoint_, oldAdjoint_;
+  HostRealVector field_, oldField_, kappa_, bi_;
 
   std::function<bool(const double, const double, const double)> boundaryType_;
   std::function<double(const double, const double, const double)> interiorRhs_;
@@ -40,9 +37,14 @@ public:
   PoissonEquation();
   ~PoissonEquation();
 
+  virtual Void Output();
+  virtual Void Output(String &outputFileName);
+
   virtual Void Init();
   virtual Void CalculateSensitivity(DefaultParticleManager &particleMgr,
                                     HostRealVector &sensitivity);
+
+  virtual Scalar GetObjFunc();
 
   HostRealVector &GetField();
   HostRealVector &GetRhs();
@@ -62,7 +64,6 @@ public:
   virtual Void SetAnalyticalFieldGradientSolution(
       const std::function<double(const double, const double, const double,
                                  const unsigned int)> &func);
-  Void SetAdjointEquation();
 };
 } // namespace Equation
 

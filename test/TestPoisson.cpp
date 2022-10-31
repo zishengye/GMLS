@@ -280,12 +280,12 @@ TEST(PoissonEquationTest, 2DHybridBoundaryCondition) {
     equation.SetDimension(2);
     equation.SetDomainSize(size);
     equation.SetDomainType(Geometry::Box);
-    equation.SetMaxRefinementIteration(10);
+    equation.SetMaxRefinementIteration(1);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio(0.95);
     equation.SetBoundaryType(
         [](const double x, const double y, const double z) {
-          if (abs(y) < (1.0 / 20) && x < 0)
+          if ((abs(y) < 0.5 && x < 0) || (abs(x) < 0.5 && y > 0))
             return true;
           else
             return false;
@@ -294,12 +294,9 @@ TEST(PoissonEquationTest, 2DHybridBoundaryCondition) {
         [](const double x, const double y, const double z) { return 1.0; });
     equation.SetBoundaryRhs(
         [](const double x, const double y, const double z) { return 0.0; });
-    equation.SetKappa([](const double x, const double y, const double z) {
-      if (abs(y) < (1.0 / 20))
-        return 1.0;
-      else
-        return 1e-3;
-    });
+    equation.SetKappa(
+        [](const double x, const double y, const double z) { return 0.5; });
+    equation.SetAdjointEquation();
 
     equation.Init();
     equation.Update();

@@ -7,6 +7,7 @@ namespace TopologyOptimization {
 class SolidIsotropicMicrostructurePenalization : public TopologyOptimization {
 protected:
   virtual Void Output();
+  virtual Void Output(String outputFileName);
 
 public:
   SolidIsotropicMicrostructurePenalization();

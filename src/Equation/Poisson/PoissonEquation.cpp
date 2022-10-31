@@ -710,14 +710,11 @@ void Equation::PoissonEquation::ConstructRhs() {
 
   // copy old field value
   Kokkos::resize(oldField_, field_.extent(0));
-  Kokkos::resize(oldAdjoint_, field_.extent(0));
   for (unsigned int i = 0; i < field_.extent(0); i++) {
     oldField_(i) = field_(i);
-    oldAdjoint_(i) = adjoint_(i);
   }
 
   Kokkos::resize(field_, localParticleNum);
-  Kokkos::resize(adjoint_, localParticleNum);
   Kokkos::resize(error_, localParticleNum);
 
   std::vector<double> rhs(localParticleNum);
@@ -752,19 +749,6 @@ void Equation::PoissonEquation::SolveEquation() {
 
   Equation::SolveEquation();
   x_.Copy(field_);
-}
-
-void Equation::PoissonEquation::SolveAdjointEquation() {
-  unsigned int currentRefinementLevel = linearSystemsPtr_.size() - 1;
-  // interpolation previous result
-  if (currentRefinementLevel > 0) {
-    LinearAlgebra::Vector<DefaultLinearAlgebraBackend> y;
-    y.Create(oldAdjoint_);
-    x_ = preconditionerPtr_->GetInterpolation(currentRefinementLevel) * y;
-  }
-
-  Equation::SolveAdjointEquation();
-  x_.Copy(adjoint_);
 }
 
 void Equation::PoissonEquation::CalculateError() {
@@ -872,8 +856,8 @@ void Equation::PoissonEquation::CalculateError() {
 
       Compadre::Evaluator batchEvaluator(&batchBasis);
 
-      // default Compadre implementation can't deal with different kappa in the
-      // field, the resulting coeff are manually calculated here.
+      // default Compadre implementation can't deal with different kappa in
+      // the field, the resulting coeff are manually calculated here.
       auto batchCoefficientDevice =
           batchBasis.getFullPolynomialCoefficientsBasis();
       decltype(batchCoefficientDevice) batchCoefficientHost;
@@ -1122,9 +1106,8 @@ void Equation::PoissonEquation::CalculateError() {
   //       dX[1] = sourceCoords(neighborIndex, 1) - coords(i, 1);
   //       dX[2] = sourceCoords(neighborIndex, 2) - coords(i, 2);
 
-  //       const double r = sqrt(dX[0] * dX[0] + dX[1] * dX[1] + dX[2] * dX[2]);
-  //       const double h = epsilon_(i);
-  //       const int p = 4;
+  //       const double r = sqrt(dX[0] * dX[0] + dX[1] * dX[1] + dX[2] *
+  //       dX[2]); const double h = epsilon_(i); const int p = 4;
 
   //       double WabIJ =
   //           pow(1.0 - abs(r / h), p) * double((1.0 - abs(r / h)) > 0.0);
@@ -1150,18 +1133,24 @@ void Equation::PoissonEquation::CalculateError() {
 }
 
 void Equation::PoissonEquation::Output() {
-  Equation::Output();
-
   if (outputLevel_ == 0)
     return;
+
+  std::string outputFileName =
+      "vtk/AdaptiveStep" + std::to_string(refinementIteration_) + ".vtk";
+
+  Output(outputFileName);
+}
+
+Void Equation::PoissonEquation::Output(String &outputFileName) {
+  Equation::Output(outputFileName);
 
   const unsigned int dimension = particleMgr_.GetDimension();
 
   std::ofstream vtkStream;
   // output field value
   if (mpiRank_ == 0) {
-    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                       ".vtk",
+    vtkStream.open(outputFileName,
                    std::ios::out | std::ios::app | std::ios::binary);
 
     vtkStream << "SCALARS f float 1" << std::endl
@@ -1171,8 +1160,7 @@ void Equation::PoissonEquation::Output() {
   }
   for (int rank = 0; rank < mpiSize_; rank++) {
     if (rank == mpiRank_) {
-      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                         ".vtk",
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::app | std::ios::binary);
       for (std::size_t i = 0; i < field_.extent(0); i++) {
         float x = field_(i);
@@ -1187,8 +1175,7 @@ void Equation::PoissonEquation::Output() {
 
   // output recovered gradient
   if (mpiRank_ == 0) {
-    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                       ".vtk",
+    vtkStream.open(outputFileName,
                    std::ios::out | std::ios::app | std::ios::binary);
 
     if (dimension == 2)
@@ -1202,8 +1189,7 @@ void Equation::PoissonEquation::Output() {
   }
   for (int rank = 0; rank < mpiSize_; rank++) {
     if (rank == mpiRank_) {
-      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                         ".vtk",
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::app | std::ios::binary);
       for (std::size_t i = 0; i < gradientChunk_.extent(0); i++) {
         for (std::size_t j = 0; j < gradientChunk_.extent(1); j++) {
@@ -1220,8 +1206,7 @@ void Equation::PoissonEquation::Output() {
 
   // output kappa
   if (mpiRank_ == 0) {
-    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                       ".vtk",
+    vtkStream.open(outputFileName,
                    std::ios::out | std::ios::app | std::ios::binary);
 
     vtkStream << "SCALARS kappa float 1" << std::endl
@@ -1231,8 +1216,7 @@ void Equation::PoissonEquation::Output() {
   }
   for (int rank = 0; rank < mpiSize_; rank++) {
     if (rank == mpiRank_) {
-      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                         ".vtk",
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::app | std::ios::binary);
       for (std::size_t i = 0; i < kappa_.extent(0); i++) {
         float x = kappa_(i);
@@ -1247,8 +1231,7 @@ void Equation::PoissonEquation::Output() {
 
   // output error
   if (mpiRank_ == 0) {
-    vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                       ".vtk",
+    vtkStream.open(outputFileName,
                    std::ios::out | std::ios::app | std::ios::binary);
 
     vtkStream << "SCALARS error float 1" << std::endl
@@ -1258,8 +1241,7 @@ void Equation::PoissonEquation::Output() {
   }
   for (int rank = 0; rank < mpiSize_; rank++) {
     if (rank == mpiRank_) {
-      vtkStream.open("vtk/AdaptiveStep" + std::to_string(refinementIteration_) +
-                         ".vtk",
+      vtkStream.open(outputFileName,
                      std::ios::out | std::ios::app | std::ios::binary);
       for (std::size_t i = 0; i < error_.extent(0); i++) {
         float x = error_(i);
@@ -1314,7 +1296,7 @@ void Equation::PoissonEquation::CalculateSensitivity(
 
   const unsigned int dimension = particleMgr_.GetDimension();
 
-  HostRealVector ghostField, ghostEpsilon, ghostSpacing;
+  HostRealVector ghostField, ghostAdjoint, ghostEpsilon, ghostSpacing;
   ghost_.ApplyGhost(field_, ghostField);
   ghost_.ApplyGhost(epsilon_, ghostEpsilon);
   ghost_.ApplyGhost(spacing, ghostSpacing);
@@ -1470,7 +1452,7 @@ void Equation::PoissonEquation::CalculateSensitivity(
           interiorNeighborListsDevice, sourceCoordsDevice,
           interiorParticleCoordsDevice, interiorEpsilonDevice);
 
-      interiorBasis.addTargets(Compadre::LaplacianOfScalarPointEvaluation);
+      interiorBasis.addTargets(Compadre::GradientOfScalarPointEvaluation);
 
       interiorBasis.setWeightingType(Compadre::WeightingFunctionType::Power);
       interiorBasis.setWeightingParameter(4);
@@ -1483,9 +1465,12 @@ void Equation::PoissonEquation::CalculateSensitivity(
       auto interiorSolutionSet = interiorBasis.getSolutionSetHost();
       auto interiorAlpha = interiorSolutionSet->getAlphas();
 
-      const unsigned int interiorLaplacianIndex =
-          interiorSolutionSet->getAlphaColumnOffset(
-              Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
+      Compadre::Evaluator interiorEvaluator(&interiorBasis);
+
+      auto interiorGradient =
+          interiorEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
+              double **, Kokkos::HostSpace>(
+              ghostField, Compadre::GradientOfScalarPointEvaluation);
 
       Compadre::GMLS boundaryBasis = Compadre::GMLS(
           Compadre::ScalarTaylorPolynomial,
@@ -1498,7 +1483,7 @@ void Equation::PoissonEquation::CalculateSensitivity(
 
       boundaryBasis.setTangentBundle(tangentBundleDevice);
 
-      boundaryBasis.addTargets(Compadre::LaplacianOfScalarPointEvaluation);
+      boundaryBasis.addTargets(Compadre::GradientOfScalarPointEvaluation);
 
       boundaryBasis.setWeightingType(Compadre::WeightingFunctionType::Power);
       boundaryBasis.setWeightingParameter(4);
@@ -1508,76 +1493,20 @@ void Equation::PoissonEquation::CalculateSensitivity(
 
       boundaryBasis.generateAlphas(1, false);
 
-      auto boundarySolutionSet = boundaryBasis.getSolutionSetHost();
-      auto boundaryAlpha = boundarySolutionSet->getAlphas();
+      Compadre::Evaluator boundaryEvaluator(&boundaryBasis);
 
-      const unsigned int boundaryLaplacianIndex =
-          boundarySolutionSet->getAlphaColumnOffset(
-              Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
+      auto boundaryGradient =
+          boundaryEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
+              double **, Kokkos::HostSpace>(
+              ghostField, Compadre::GradientOfScalarPointEvaluation);
 
       Kokkos::parallel_for(
           Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(startParticle,
                                                                  endParticle),
           [&](const int i) {
-            const unsigned int interiorCounter = batchMap[i - startParticle];
-            const unsigned int boundaryCounter = batchMap[i - startParticle];
-            const PetscInt currentParticleIndex = i;
-            if (particleType(i) == 0 ||
-                boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2))) {
-              double Aii = 0.0;
-              const unsigned int numNeighbor =
-                  interiorNeighborListsHost(interiorCounter, 0);
-
-              std::vector<PetscReal> value;
-              value.resize(numNeighbor);
-              for (std::size_t j = 0; j < numNeighbor; j++) {
-                const PetscInt neighborParticleIndex =
-                    sourceIndex(neighborLists_(i, j + 1));
-                const int neighborIndex = neighborLists_(i, j + 1);
-                auto alphaIndex = interiorSolutionSet->getAlphaIndex(
-                    interiorCounter, interiorLaplacianIndex);
-
-                value[j] = 0.5 * interiorAlpha(alphaIndex + j);
-                Aii -= 0.5 * interiorAlpha(alphaIndex + j);
-              }
-              value[0] = Aii;
-              for (std::size_t j = 0; j < numNeighbor; j++) {
-                const PetscInt neighborParticleIndex =
-                    sourceIndex(neighborLists_(i, j + 1));
-                globalSensitivity(neighborParticleIndex) +=
-                    value[j] * adjoint_(i) *
-                    ghostField(neighborLists_(i, j + 1));
-                globalSensitivity(i) += value[j] * adjoint_(i) *
-                                        ghostField(neighborLists_(i, j + 1));
-              }
-            } else {
-              double Aii = 0.0;
-              const unsigned int numNeighbor =
-                  boundaryNeighborListsHost(boundaryCounter, 0);
-
-              std::vector<PetscReal> value;
-              value.resize(numNeighbor);
-              for (std::size_t j = 0; j < numNeighbor; j++) {
-                const PetscInt neighborParticleIndex =
-                    sourceIndex(neighborLists_(i, j + 1));
-                const int neighborIndex = neighborLists_(i, j + 1);
-                auto alphaIndex = boundarySolutionSet->getAlphaIndex(
-                    boundaryCounter, boundaryLaplacianIndex);
-
-                value[j] = 0.5 * boundaryAlpha(alphaIndex + j);
-                Aii -= 0.5 * boundaryAlpha(alphaIndex + j);
-              }
-              value[0] = Aii;
-              for (std::size_t j = 0; j < numNeighbor; j++) {
-                const PetscInt neighborParticleIndex =
-                    sourceIndex(neighborLists_(i, j + 1));
-                globalSensitivity(neighborParticleIndex) +=
-                    value[j] * adjoint_(i) *
-                    ghostField(neighborLists_(i, j + 1));
-                globalSensitivity(i) += value[j] * adjoint_(i) *
-                                        ghostField(neighborLists_(i, j + 1));
-              }
-            }
+            sensitivity(i) = 0.0;
+            for (int j = 0; j < dimension; j++)
+              sensitivity(i) -= pow(gradientChunk_(i, j), 2);
           });
       Kokkos::fence();
     }
@@ -1587,15 +1516,29 @@ void Equation::PoissonEquation::CalculateSensitivity(
     printf("end of batch evaluation\n");
   MPI_Barrier(MPI_COMM_WORLD);
 
-  MPI_Allreduce(MPI_IN_PLACE, globalSensitivity.data(), (int)globalParticleNum,
-                MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  // MPI_Allreduce(MPI_IN_PLACE, globalSensitivity.data(),
+  // (int)globalParticleNum,
+  //               MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-  for (auto i = 0; i < localParticleNum; i++) {
-    sensitivity(i) = globalSensitivity(sourceIndex(i));
-  }
+  // for (auto i = 0; i < localParticleNum; i++) {
+  //   sensitivity(i) = globalSensitivity(sourceIndex(i));
+  // }
 
   Kokkos::fence();
   MPI_Barrier(MPI_COMM_WORLD);
+}
+
+Scalar Equation::PoissonEquation::GetObjFunc() {
+  auto &spacing = particleMgr_.GetParticleSize();
+  const unsigned int dimension = particleMgr_.GetDimension();
+
+  Scalar result = 0.0;
+  for (auto i = 0; i < field_.extent(0); i++) {
+    result += field_(i) * b_(i) * pow(spacing(i), dimension);
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  return result;
 }
 
 HostRealVector &Equation::PoissonEquation::GetField() { return field_; }

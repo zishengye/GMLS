@@ -17,6 +17,7 @@ protected:
 
   Void CalculateSensitivity();
   virtual Void Output();
+  virtual Void Output(String outputFileName);
 
   HostRealVector sensitivity_, density_, oldDensity_, volume_;
 

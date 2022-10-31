@@ -65,12 +65,10 @@ protected:
   virtual Void DiscretizeEquation();
   virtual Void InitPreconditioner();
   virtual Void SolveEquation();
-  virtual Void SolveAdjointEquation();
   virtual Void CalculateError();
   virtual Void Mark();
 
   virtual Void BuildGhost();
-  virtual Void Output();
 
   virtual Void ConstructNeighborLists(const Size satisfiedNumNeighbor);
 
@@ -91,8 +89,6 @@ protected:
 
   int kappaFuncType_;
 
-  bool isSolveAdjointEquation_;
-
 public:
   Equation();
 
@@ -108,6 +104,11 @@ public:
   Void SetGhostMultiplier(const Scalar multiplier);
   Void SetRefinementMarkRatio(const Scalar ratio = 0.8);
 
+  virtual Void Output();
+  virtual Void Output(String &outputFileName);
+
+  virtual Scalar GetObjFunc();
+
   virtual Void Init();
   virtual Void Update();
   virtual Void CalculateSensitivity(DefaultParticleManager &particleMgr,
@@ -118,7 +119,6 @@ public:
   virtual Void SetKappa(
       const std::function<Void(const HostRealMatrix &, const HostRealVector &,
                                HostRealVector &)> &func);
-  Void SetAdjointEquation();
 };
 } // namespace Equation
 

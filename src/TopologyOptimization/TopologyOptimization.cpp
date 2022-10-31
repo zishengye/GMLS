@@ -12,6 +12,10 @@ Void TopologyOptimization::TopologyOptimization::Output() {
   std::string outputFileName =
       "vtk/TopologyOptimization" + std::to_string(iteration_) + ".vtk";
 
+  TopologyOptimization::Output(outputFileName);
+}
+
+Void TopologyOptimization::TopologyOptimization::Output(String outputFileName) {
   if (mpiRank_ == 0)
     printf("Start of writing adaptive step output file\n");
   particleMgr_.Output(outputFileName, true);

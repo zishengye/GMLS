@@ -15,11 +15,11 @@ TEST(PoissonEquationTest, SolidIsotropicMicrostructurePenalization) {
   {
     Equation::PoissonEquation equation;
     equation.SetErrorTolerance(1e-3);
-    equation.SetInitialDiscretizationResolution(0.01);
+    equation.SetInitialDiscretizationResolution(0.005);
 
     equation.SetBoundaryType(
         [](const double x, const double y, const double z) {
-          if (abs(y) < (1.0 / 20) && x < 0)
+          if ((abs(y) < 0.5 && x < 0) || (abs(x) < 0.5 && y > 0))
             return true;
           else
             return false;
@@ -40,9 +40,9 @@ TEST(PoissonEquationTest, SolidIsotropicMicrostructurePenalization) {
     simpTo.SetDimension(2);
     simpTo.SetDomainSize(size);
     simpTo.SetDomainType(Geometry::Box);
-    simpTo.SetInitialDiscretizationResolution(0.01);
-    simpTo.SetVolumeFraction(0.5);
-    simpTo.SetMaxIteration(10);
+    simpTo.SetInitialDiscretizationResolution(0.005);
+    simpTo.SetVolumeFraction(0.4);
+    simpTo.SetMaxIteration(50);
 
     simpTo.Init();
     simpTo.Optimize();
