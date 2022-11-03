@@ -10,6 +10,7 @@
 #include <Compadre_PointCloudSearch.hpp>
 #include <Kokkos_CopyViews.hpp>
 #include <Kokkos_Core_fwd.hpp>
+#include <cstdio>
 #include <mpi.h>
 
 void Equation::PoissonEquation::InitLinearSystem() {
@@ -756,6 +757,9 @@ void Equation::PoissonEquation::CalculateError() {
   tStart = MPI_Wtime();
   Equation::CalculateError();
 
+  if (mpiRank_ == 0)
+    printf("Start of calculating error of Poisson equation\n");
+
   auto &sourceCoords = hostGhostParticleCoords_;
   auto &coords = particleMgr_.GetParticleCoords();
   auto &spacing = particleMgr_.GetParticleSize();
@@ -1275,37 +1279,31 @@ void Equation::PoissonEquation::CalculateSensitivity(
     printf("Start of calculating sensitivity\n");
   MPI_Barrier(MPI_COMM_WORLD);
 
+  auto &targetCoords = particleMgr.GetParticleCoords();
+  auto &targetSpacing = particleMgr.GetParticleSize();
+
+  auto &sourceCoords = particleMgr_.GetParticleCoords();
+
+  const unsigned int dimension = particleMgr.GetDimension();
+
+  Geometry::Ghost ghost;
+  ghost.Init(targetCoords, targetSpacing, sourceCoords, 8.0, dimension);
+
+  HostRealMatrix ghostCoords, ghostGradient;
+  ghost.ApplyGhost(sourceCoords, ghostCoords);
+
+  ghost.ApplyGhost(gradientChunk_, ghostGradient);
+
+  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> ghostCoordsDevice(
+      "ghost coords", ghostCoords.extent(0), ghostCoords.extent(1));
+  Kokkos::deep_copy(ghostCoordsDevice, ghostCoords);
+
   Kokkos::resize(sensitivity, particleMgr.GetLocalParticleNum());
 
   double tStart, tEnd;
   tStart = MPI_Wtime();
 
-  auto &sourceIndex = hostGhostParticleIndex_;
-  auto &sourceCoords = hostGhostParticleCoords_;
-  auto &coords = particleMgr_.GetParticleCoords();
-  auto &spacing = particleMgr_.GetParticleSize();
-  auto &particleType = particleMgr_.GetParticleType();
-  auto &normal = particleMgr_.GetParticleNormal();
-
-  Kokkos::View<double **, Kokkos::DefaultExecutionSpace> sourceCoordsDevice(
-      "source coords", sourceCoords.extent(0), sourceCoords.extent(1));
-  Kokkos::deep_copy(sourceCoordsDevice, sourceCoords);
-
-  const unsigned int localParticleNum = particleMgr_.GetLocalParticleNum();
-  const unsigned long globalParticleNum = particleMgr_.GetGlobalParticleNum();
-
-  const unsigned int dimension = particleMgr_.GetDimension();
-
-  HostRealVector ghostField, ghostAdjoint, ghostEpsilon, ghostSpacing;
-  ghost_.ApplyGhost(field_, ghostField);
-  ghost_.ApplyGhost(epsilon_, ghostEpsilon);
-  ghost_.ApplyGhost(spacing, ghostSpacing);
-
-  HostRealVector globalSensitivity;
-  Kokkos::resize(globalSensitivity, globalParticleNum);
-
-  double localDirectGradientNorm = 0.0;
-  double globalDirectGradientNorm;
+  const unsigned int localParticleNum = particleMgr.GetLocalParticleNum();
 
   // get polynomial coefficients and direct gradients
   const unsigned int batchSize = ((dimension == 2) ? 500 : 100);
@@ -1315,216 +1313,102 @@ void Equation::PoissonEquation::CalculateSensitivity(
     const unsigned int startParticle = batch * batchSize;
     const unsigned int endParticle =
         std::min((batch + 1) * batchSize, localParticleNum);
-    unsigned int interiorParticleNum, boundaryParticleNum;
-    interiorParticleNum = 0;
-    boundaryParticleNum = 0;
-    for (unsigned int i = startParticle; i < endParticle; i++) {
-      if (particleType(i) == 0 ||
-          boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2)))
-        interiorParticleNum++;
-      else
-        boundaryParticleNum++;
-    }
+    const unsigned int batchParticleNum = endParticle - startParticle;
+
+    auto pointCloudSearch(
+        Compadre::CreatePointCloudSearch(ghostCoords, dimension));
 
     Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
-        interiorNeighborListsDevice("interior particle neighbor list",
-                                    interiorParticleNum,
-                                    neighborLists_.extent(1));
-    Kokkos::View<std::size_t **>::HostMirror interiorNeighborListsHost =
-        Kokkos::create_mirror_view(interiorNeighborListsDevice);
-    Kokkos::View<std::size_t **, Kokkos::DefaultExecutionSpace>
-        boundaryNeighborListsDevice("boundary particle neighbor list",
-                                    boundaryParticleNum,
-                                    neighborLists_.extent(1));
-    Kokkos::View<std::size_t **>::HostMirror boundaryNeighborListsHost =
-        Kokkos::create_mirror_view(boundaryNeighborListsDevice);
+        batchNeighborListsDevice("batch particle neighbor list",
+                                 batchParticleNum, neighborLists_.extent(1));
+    Kokkos::View<std::size_t **>::HostMirror batchNeighborListsHost =
+        Kokkos::create_mirror_view(batchNeighborListsDevice);
 
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> interiorEpsilonDevice(
-        "interior particle epsilon", interiorParticleNum);
-    Kokkos::View<double *>::HostMirror interiorEpsilonHost =
-        Kokkos::create_mirror_view(interiorEpsilonDevice);
-    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> boundaryEpsilonDevice(
-        "boundary particle epsilon", boundaryParticleNum);
-    Kokkos::View<double *>::HostMirror boundaryEpsilonHost =
-        Kokkos::create_mirror_view(boundaryEpsilonDevice);
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace> batchEpsilonDevice(
+        "batch particle epsilon", batchParticleNum);
+    Kokkos::View<double *>::HostMirror batchEpsilonHost =
+        Kokkos::create_mirror_view(batchEpsilonDevice);
 
     Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-        interiorParticleCoordsDevice("interior particle coord",
-                                     interiorParticleNum, coords.extent(1));
-    Kokkos::View<double **>::HostMirror interiorParticleCoordsHost =
-        Kokkos::create_mirror_view(interiorParticleCoordsDevice);
-    Kokkos::View<double **, Kokkos::DefaultExecutionSpace>
-        boundaryParticleCoordsDevice("boundary particle coord",
-                                     boundaryParticleNum, coords.extent(1));
-    Kokkos::View<double **>::HostMirror boundaryParticleCoordsHost =
-        Kokkos::create_mirror_view(boundaryParticleCoordsDevice);
+        batchParticleCoordsDevice("batch particle coord", batchParticleNum, 3);
+    Kokkos::View<double **>::HostMirror batchParticleCoordsHost =
+        Kokkos::create_mirror_view(batchParticleCoordsDevice);
 
-    Kokkos::View<double ***, Kokkos::DefaultExecutionSpace> tangentBundleDevice(
-        "tangent bundles", boundaryParticleNum, dimension, dimension);
-    Kokkos::View<double ***>::HostMirror tangentBundleHost =
-        Kokkos::create_mirror_view(tangentBundleDevice);
-
-    std::vector<unsigned int> batchMap;
-    batchMap.resize(endParticle - startParticle);
-
-    {
-      unsigned int boundaryCounter, interiorCounter;
-
-      boundaryCounter = 0;
-      interiorCounter = 0;
-
-      for (unsigned int i = startParticle; i < endParticle; i++) {
-        if (particleType(i) == 0 ||
-            boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2))) {
-          batchMap[i - startParticle] = interiorCounter;
-
-          interiorCounter++;
-        } else {
-          batchMap[i - startParticle] = boundaryCounter;
-
-          boundaryCounter++;
-        }
+    std::size_t particleCounter = 0;
+    for (std::size_t i = startParticle; i < endParticle; i++) {
+      for (unsigned int j = 0; j < 3; j++) {
+        batchParticleCoordsHost(particleCounter, j) = targetCoords(i, j);
       }
+
+      particleCounter++;
     }
+
+    const unsigned satisfiedNumNeighbor =
+        pow(sqrt(2), dimension) *
+        (Compadre::GMLS::getNP(polyOrder_ + 1, dimension) + 1);
+
+    pointCloudSearch.generate2DNeighborListsFromKNNSearch(
+        true, batchParticleCoordsHost, batchNeighborListsHost, batchEpsilonHost,
+        satisfiedNumNeighbor, 1.0);
+
+    unsigned int minNeighborLists =
+        1 + pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+                true, batchParticleCoordsHost, batchNeighborListsHost,
+                batchEpsilonHost, 0.0, 0.0);
+    if (minNeighborLists > batchNeighborListsHost.extent(1))
+      Kokkos::resize(batchNeighborListsHost, batchParticleNum,
+                     minNeighborLists);
+    pointCloudSearch.generate2DNeighborListsFromRadiusSearch(
+        false, batchParticleCoordsHost, batchNeighborListsHost,
+        batchEpsilonHost, 0.0, 0.0);
+
+    Kokkos::deep_copy(batchNeighborListsDevice, batchNeighborListsHost);
+    Kokkos::deep_copy(batchParticleCoordsDevice, batchParticleCoordsHost);
+    Kokkos::deep_copy(batchEpsilonDevice, batchEpsilonHost);
+
+    Compadre::GMLS batchBasis =
+        Compadre::GMLS(Compadre::ScalarTaylorPolynomial, Compadre::PointSample,
+                       polyOrder_, dimension, "LU", "STANDARD");
+
+    batchBasis.setProblemData(batchNeighborListsDevice, ghostCoordsDevice,
+                              batchParticleCoordsDevice, batchEpsilonDevice);
+
+    batchBasis.addTargets(Compadre::ScalarPointEvaluation);
+
+    batchBasis.setWeightingType(Compadre::WeightingFunctionType::Power);
+    batchBasis.setWeightingParameter(4);
+    batchBasis.setOrderOfQuadraturePoints(2);
+    batchBasis.setDimensionOfQuadraturePoints(1);
+    batchBasis.setQuadratureType("LINE");
+
+    batchBasis.generateAlphas(1, true);
+
+    Compadre::Evaluator batchEvaluator(&batchBasis);
 
     Kokkos::parallel_for(
-        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(startParticle,
-                                                               endParticle),
-        [&](const int i) {
-          if (particleType(i) == 0 ||
-              boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2))) {
-            const unsigned int interiorCounter = batchMap[i - startParticle];
-            interiorEpsilonHost(interiorCounter) = epsilon_(i);
-            for (std::size_t j = 0; j <= neighborLists_(i, 0); j++) {
-              interiorNeighborListsHost(interiorCounter, j) =
-                  neighborLists_(i, j);
-            }
-            for (unsigned int j = 0; j < coords.extent(1); j++) {
-              interiorParticleCoordsHost(interiorCounter, j) = coords(i, j);
-            }
-          } else {
-            unsigned int boundaryCounter = batchMap[i - startParticle];
-            boundaryEpsilonHost(boundaryCounter) = epsilon_(i);
-            for (std::size_t j = 0; j <= neighborLists_(i, 0); j++) {
-              boundaryNeighborListsHost(boundaryCounter, j) =
-                  neighborLists_(i, j);
-            }
-            for (unsigned int j = 0; j < coords.extent(1); j++) {
-              boundaryParticleCoordsHost(boundaryCounter, j) = coords(i, j);
-            }
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+            0, batchParticleNum),
+        [&](const int i) { sensitivity(i + startParticle) = 0.0; });
 
-            if (dimension == 3) {
-              tangentBundleHost(boundaryCounter, 0, 0) = 0.0;
-              tangentBundleHost(boundaryCounter, 0, 1) = 0.0;
-              tangentBundleHost(boundaryCounter, 0, 2) = 0.0;
-              tangentBundleHost(boundaryCounter, 1, 0) = 0.0;
-              tangentBundleHost(boundaryCounter, 1, 1) = 0.0;
-              tangentBundleHost(boundaryCounter, 1, 2) = 0.0;
-              tangentBundleHost(boundaryCounter, 2, 0) = normal(i, 0);
-              tangentBundleHost(boundaryCounter, 2, 1) = normal(i, 1);
-              tangentBundleHost(boundaryCounter, 2, 2) = normal(i, 2);
-            }
-            if (dimension == 2) {
-              tangentBundleHost(boundaryCounter, 0, 0) = 0.0;
-              tangentBundleHost(boundaryCounter, 0, 1) = 0.0;
-              tangentBundleHost(boundaryCounter, 1, 0) = normal(i, 0);
-              tangentBundleHost(boundaryCounter, 1, 1) = normal(i, 1);
-            }
-          }
-        });
-    Kokkos::fence();
+    HostRealVector ghostGradientComponent;
+    Kokkos::resize(ghostGradientComponent, ghostGradient.extent(0));
 
-    Kokkos::deep_copy(interiorNeighborListsDevice, interiorNeighborListsHost);
-    Kokkos::deep_copy(boundaryNeighborListsDevice, boundaryNeighborListsHost);
-    Kokkos::deep_copy(interiorEpsilonDevice, interiorEpsilonHost);
-    Kokkos::deep_copy(boundaryEpsilonDevice, boundaryEpsilonHost);
-    Kokkos::deep_copy(interiorParticleCoordsDevice, interiorParticleCoordsHost);
-    Kokkos::deep_copy(boundaryParticleCoordsDevice, boundaryParticleCoordsHost);
-    Kokkos::deep_copy(tangentBundleDevice, tangentBundleHost);
+    for (int j = 0; j < dimension; j++) {
+      for (int i = 0; i < ghostGradient.extent(0); i++)
+        ghostGradientComponent(i) = ghostGradient(i + startParticle, j);
 
-    {
-      Compadre::GMLS interiorBasis =
-          Compadre::GMLS(Compadre::ScalarTaylorPolynomial,
-                         Compadre::StaggeredEdgeAnalyticGradientIntegralSample,
-                         polyOrder_, dimension, "LU", "STANDARD");
+      auto targetGradientComponent =
+          batchEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
+              double *, Kokkos::HostSpace>(ghostGradientComponent,
+                                           Compadre::ScalarPointEvaluation);
 
-      interiorBasis.setProblemData(
-          interiorNeighborListsDevice, sourceCoordsDevice,
-          interiorParticleCoordsDevice, interiorEpsilonDevice);
-
-      interiorBasis.addTargets(Compadre::GradientOfScalarPointEvaluation);
-
-      interiorBasis.setWeightingType(Compadre::WeightingFunctionType::Power);
-      interiorBasis.setWeightingParameter(4);
-      interiorBasis.setOrderOfQuadraturePoints(2);
-      interiorBasis.setDimensionOfQuadraturePoints(1);
-      interiorBasis.setQuadratureType("LINE");
-
-      interiorBasis.generateAlphas(1, false);
-
-      auto interiorSolutionSet = interiorBasis.getSolutionSetHost();
-      auto interiorAlpha = interiorSolutionSet->getAlphas();
-
-      Compadre::Evaluator interiorEvaluator(&interiorBasis);
-
-      auto interiorGradient =
-          interiorEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
-              double **, Kokkos::HostSpace>(
-              ghostField, Compadre::GradientOfScalarPointEvaluation);
-
-      Compadre::GMLS boundaryBasis = Compadre::GMLS(
-          Compadre::ScalarTaylorPolynomial,
-          Compadre::StaggeredEdgeAnalyticGradientIntegralSample, polyOrder_,
-          dimension, "LU", "STANDARD", "NEUMANN_GRAD_SCALAR");
-
-      boundaryBasis.setProblemData(
-          boundaryNeighborListsDevice, sourceCoordsDevice,
-          boundaryParticleCoordsDevice, boundaryEpsilonDevice);
-
-      boundaryBasis.setTangentBundle(tangentBundleDevice);
-
-      boundaryBasis.addTargets(Compadre::GradientOfScalarPointEvaluation);
-
-      boundaryBasis.setWeightingType(Compadre::WeightingFunctionType::Power);
-      boundaryBasis.setWeightingParameter(4);
-      boundaryBasis.setOrderOfQuadraturePoints(2);
-      boundaryBasis.setDimensionOfQuadraturePoints(dimension - 1);
-      boundaryBasis.setQuadratureType("LINE");
-
-      boundaryBasis.generateAlphas(1, false);
-
-      Compadre::Evaluator boundaryEvaluator(&boundaryBasis);
-
-      auto boundaryGradient =
-          boundaryEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
-              double **, Kokkos::HostSpace>(
-              ghostField, Compadre::GradientOfScalarPointEvaluation);
-
-      Kokkos::parallel_for(
-          Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(startParticle,
-                                                                 endParticle),
-          [&](const int i) {
-            sensitivity(i) = 0.0;
-            for (int j = 0; j < dimension; j++)
-              sensitivity(i) -= pow(gradientChunk_(i, j), 2);
-          });
-      Kokkos::fence();
+      for (int i = 0; i < batchParticleNum; i++)
+        sensitivity(i + startParticle) -= pow(targetGradientComponent(i), 2);
     }
   }
 
   if (mpiRank_ == 0)
-    printf("end of batch evaluation\n");
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // MPI_Allreduce(MPI_IN_PLACE, globalSensitivity.data(),
-  // (int)globalParticleNum,
-  //               MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-  // for (auto i = 0; i < localParticleNum; i++) {
-  //   sensitivity(i) = globalSensitivity(sourceIndex(i));
-  // }
-
-  Kokkos::fence();
+    printf("End of calculating sensitivity\n");
   MPI_Barrier(MPI_COMM_WORLD);
 }
 

@@ -1,3 +1,4 @@
+#include <Kokkos_CopyViews.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -16,9 +17,6 @@
 Void Equation::Equation::AddLinearSystem(std::shared_ptr<DefaultMatrix> mat) {
   linearSystemsPtr_.push_back(mat);
   preconditionerPtr_->AddLinearSystem(mat);
-
-  adjointLinearSystemsPtr_.emplace_back(std::make_shared<DefaultMatrix>());
-  preconditionerPtr_->AddAdjointLinearSystem(adjointLinearSystemsPtr_.back());
 }
 
 Void Equation::Equation::InitLinearSystem() {
@@ -38,7 +36,6 @@ Void Equation::Equation::ConstructRhs() {}
 
 Void Equation::Equation::Clear() {
   linearSystemsPtr_.clear();
-  adjointLinearSystemsPtr_.clear();
   preconditionerPtr_.reset();
   particleMgr_.Clear();
 }
@@ -553,16 +550,18 @@ Void Equation::Equation::Update() {
     this->CalculateError();
     this->Mark();
     this->Output();
-    if (refinementIteration_ + 1 < maxRefinementIteration_)
+
+    refinementIteration_++;
+    error = globalNormalizedError_;
+
+    if (refinementIteration_ < maxRefinementIteration_ &&
+        error > errorTolerance_)
       particleMgr_.Refine(splitTag_);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (mpiRank_ == 0)
       printf("End of adaptive refinement iteration %ld\n",
              refinementIteration_);
-
-    refinementIteration_++;
-    error = globalNormalizedError_;
   }
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {

@@ -42,12 +42,11 @@ protected:
   HostIndexVector splitTag_;
 
   std::vector<std::shared_ptr<DefaultMatrix>> linearSystemsPtr_;
-  std::vector<std::shared_ptr<DefaultMatrix>> adjointLinearSystemsPtr_;
   std::shared_ptr<MultilevelPreconditioner> preconditionerPtr_;
   DefaultVector b_;
   DefaultVector x_;
 
-  DefaultLinearSolver solver_, adjointSolver_;
+  DefaultLinearSolver solver_;
 
   LinearAlgebra::LinearSolverDescriptor<DefaultLinearAlgebraBackend>
       descriptor_, adjointDescriptor_;

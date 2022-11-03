@@ -124,11 +124,6 @@ Void TopologyOptimization::TopologyOptimization::SetMaxIteration(
   maxIteration_ = maxIteration;
 }
 
-Void TopologyOptimization::TopologyOptimization::Init() {
-  equationPtr_->SetPolyOrder(1);
-  equationPtr_->SetMaxRefinementIteration(1);
-  equationPtr_->SetOutputLevel(0);
-  equationPtr_->SetRefinementMarkRatio(1.0);
-}
+Void TopologyOptimization::TopologyOptimization::Init() {}
 
 Void TopologyOptimization::TopologyOptimization::Optimize() {}

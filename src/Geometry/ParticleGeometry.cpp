@@ -406,7 +406,7 @@ Void Geometry::HierarchicalEulerianParticleManager::RefineInternal(
   int newInteriorParticleNum = pow(2, dimension);
   int newBoundaryParticleNum = pow(2, dimension - 1);
 
-  // esimate number of particles in the next refinement iteration
+  // estimate number of particles in the next refinement iteration
   Kokkos::parallel_scan(
       Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, splitTag.extent(0)),
       KOKKOS_LAMBDA(const int i, int &tNewLocalParticleNum, bool isFinal) {
@@ -645,6 +645,12 @@ Void Geometry::HierarchicalEulerianParticleManager::Init() {
 
 Void Geometry::HierarchicalEulerianParticleManager::Clear() {
   EulerianParticleManager::Clear();
+
+  hierarchicalParticleSetPtr_.clear();
+  currentRefinementLevel_ = 0;
+
+  hierarchicalParticleSetPtr_.push_back(std::make_shared<ParticleSet>());
+  particleSetPtr_ = hierarchicalParticleSetPtr_[0];
 }
 
 Void Geometry::HierarchicalEulerianParticleManager::Refine(
