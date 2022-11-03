@@ -553,7 +553,7 @@ Void Geometry::HierarchicalEulerianParticleManager::RefineInternal(
               int counter = 0;
               std::vector<double> normal1(3);
               std::vector<double> normal2(3);
-              if (abs(oldParticleNormal(i, 0)) > 1e-3) {
+              if (std::abs(oldParticleNormal(i, 0)) > 1e-3) {
                 normal1[0] = 0;
                 normal1[1] = 1;
                 normal1[2] = 0;
@@ -563,7 +563,7 @@ Void Geometry::HierarchicalEulerianParticleManager::RefineInternal(
                 normal2[2] = 1;
               }
 
-              if (abs(oldParticleNormal(i, 1)) > 1e-3) {
+              if (std::abs(oldParticleNormal(i, 1)) > 1e-3) {
                 normal1[0] = 1;
                 normal1[1] = 0;
                 normal1[2] = 0;
@@ -573,7 +573,7 @@ Void Geometry::HierarchicalEulerianParticleManager::RefineInternal(
                 normal2[2] = 1;
               }
 
-              if (abs(oldParticleNormal(i, 2)) > 1e-3) {
+              if (std::abs(oldParticleNormal(i, 2)) > 1e-3) {
                 normal1[0] = 1;
                 normal1[1] = 0;
                 normal1[2] = 0;
