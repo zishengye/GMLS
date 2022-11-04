@@ -91,6 +91,8 @@ Void TopologyOptimization::SolidIsotropicMicrostructurePenalization::
   iteration_ = 0;
   Scalar change = 1;
 
+  auto &particleType = particleMgr_.GetParticleType();
+
   if (mpiRank_ == 0)
     printf("Start of SIMP optimization\n");
 
@@ -135,7 +137,8 @@ Void TopologyOptimization::SolidIsotropicMicrostructurePenalization::
 
       localVolume = 0.0;
       for (auto i = 0; i < density_.extent(0); i++)
-        localVolume += volume_(i) * resultingDensity(i);
+        if (particleType(i) == 0)
+          localVolume += volume_(i) * resultingDensity(i);
 
       MPI_Allreduce(&localVolume, &newVolume, 1, MPI_DOUBLE, MPI_SUM,
                     MPI_COMM_WORLD);

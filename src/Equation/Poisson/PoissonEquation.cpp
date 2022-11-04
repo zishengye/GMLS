@@ -1414,11 +1414,13 @@ void Equation::PoissonEquation::CalculateSensitivity(
 
 Scalar Equation::PoissonEquation::GetObjFunc() {
   auto &spacing = particleMgr_.GetParticleSize();
+  auto &particleType = particleMgr_.GetParticleType();
   const unsigned int dimension = particleMgr_.GetDimension();
 
   Scalar result = 0.0;
   for (auto i = 0; i < field_.extent(0); i++) {
-    result += field_(i) * b_(i) * pow(spacing(i), dimension);
+    if (particleType(i) == 0)
+      result += field_(i) * b_(i) * pow(spacing(i), dimension);
   }
   MPI_Allreduce(MPI_IN_PLACE, &result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
