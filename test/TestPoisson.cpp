@@ -296,7 +296,6 @@ TEST(PoissonEquationTest, 2DHybridBoundaryCondition) {
         [](const double x, const double y, const double z) { return 0.0; });
     equation.SetKappa(
         [](const double x, const double y, const double z) { return 0.5; });
-    equation.SetAdjointEquation();
 
     equation.Init();
     equation.Update();

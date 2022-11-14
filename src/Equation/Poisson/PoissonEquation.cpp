@@ -1,5 +1,4 @@
 #include "Equation/Poisson/PoissonEquation.hpp"
-#include "Compadre_Operators.hpp"
 #include "Core/Typedef.hpp"
 #include "Discretization/PolyBasis.hpp"
 #include "LinearAlgebra/LinearAlgebra.hpp"
@@ -7,13 +6,14 @@
 
 #include <Compadre_Evaluator.hpp>
 #include <Compadre_GMLS.hpp>
+#include <Compadre_Operators.hpp>
 #include <Compadre_PointCloudSearch.hpp>
 #include <Kokkos_CopyViews.hpp>
 #include <Kokkos_Core_fwd.hpp>
 #include <cstdio>
 #include <mpi.h>
 
-void Equation::PoissonEquation::InitLinearSystem() {
+Void Equation::PoissonEquation::InitLinearSystem() {
   double tStart, tEnd;
   tStart = MPI_Wtime();
   Equation::InitLinearSystem();
@@ -391,7 +391,7 @@ void Equation::PoissonEquation::InitLinearSystem() {
   }
 }
 
-void Equation::PoissonEquation::ConstructLinearSystem() {
+Void Equation::PoissonEquation::ConstructLinearSystem() {
   double tStart, tEnd;
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
@@ -695,7 +695,7 @@ void Equation::PoissonEquation::ConstructLinearSystem() {
   }
 }
 
-void Equation::PoissonEquation::ConstructRhs() {
+Void Equation::PoissonEquation::ConstructRhs() {
   double tStart, tEnd;
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
@@ -739,7 +739,7 @@ void Equation::PoissonEquation::ConstructRhs() {
   }
 }
 
-void Equation::PoissonEquation::SolveEquation() {
+Void Equation::PoissonEquation::SolveEquation() {
   unsigned int currentRefinementLevel = linearSystemsPtr_.size() - 1;
   // interpolation previous result
   if (currentRefinementLevel > 0) {
@@ -752,7 +752,7 @@ void Equation::PoissonEquation::SolveEquation() {
   x_.Copy(field_);
 }
 
-void Equation::PoissonEquation::CalculateError() {
+Void Equation::PoissonEquation::CalculateError() {
   double tStart, tEnd;
   tStart = MPI_Wtime();
   Equation::CalculateError();
@@ -860,8 +860,6 @@ void Equation::PoissonEquation::CalculateError() {
 
       Compadre::Evaluator batchEvaluator(&batchBasis);
 
-      // default Compadre implementation can't deal with different kappa in
-      // the field, the resulting coeff are manually calculated here.
       auto batchCoefficientDevice =
           batchBasis.getFullPolynomialCoefficientsBasis();
       decltype(batchCoefficientDevice) batchCoefficientHost;
@@ -1136,7 +1134,13 @@ void Equation::PoissonEquation::CalculateError() {
   }
 }
 
-void Equation::PoissonEquation::Output() {
+Equation::PoissonEquation::PoissonEquation()
+    : Equation(), isFieldAnalyticalSolutionSet_(false),
+      isFieldGradientAnalyticalSolutionSet_(false) {}
+
+Equation::PoissonEquation::~PoissonEquation() {}
+
+Void Equation::PoissonEquation::Output() {
   if (outputLevel_ == 0)
     return;
 
@@ -1259,19 +1263,13 @@ Void Equation::PoissonEquation::Output(String &outputFileName) {
   }
 }
 
-Equation::PoissonEquation::PoissonEquation()
-    : Equation(), isFieldAnalyticalSolutionSet_(false),
-      isFieldGradientAnalyticalSolutionSet_(false) {}
-
-Equation::PoissonEquation::~PoissonEquation() {}
-
-void Equation::PoissonEquation::Init() {
+Void Equation::PoissonEquation::Init() {
   Equation::Init();
 
   preconditionerPtr_ = std::make_shared<PoissonPreconditioner>();
 }
 
-void Equation::PoissonEquation::CalculateSensitivity(
+Void Equation::PoissonEquation::CalculateSensitivity(
     DefaultParticleManager &particleMgr, HostRealVector &sensitivity) {
   Equation::CalculateSensitivity(particleMgr, sensitivity);
 
@@ -1429,31 +1427,31 @@ Scalar Equation::PoissonEquation::GetObjFunc() {
 
 HostRealVector &Equation::PoissonEquation::GetField() { return field_; }
 
-void Equation::PoissonEquation::SetBoundaryType(
+Void Equation::PoissonEquation::SetBoundaryType(
     const std::function<bool(const double, const double, const double)> &func) {
   boundaryType_ = func;
 }
 
-void Equation::PoissonEquation::SetInteriorRhs(
+Void Equation::PoissonEquation::SetInteriorRhs(
     const std::function<double(const double, const double, const double)>
         &func) {
   interiorRhs_ = func;
 }
 
-void Equation::PoissonEquation::SetBoundaryRhs(
+Void Equation::PoissonEquation::SetBoundaryRhs(
     const std::function<double(const double, const double, const double)>
         &func) {
   boundaryRhs_ = func;
 }
 
-void Equation::PoissonEquation::SetAnalyticalFieldSolution(
+Void Equation::PoissonEquation::SetAnalyticalFieldSolution(
     const std::function<double(const double, const double, const double)>
         &func) {
   analyticalFieldSolution_ = func;
   isFieldAnalyticalSolutionSet_ = true;
 }
 
-void Equation::PoissonEquation::SetAnalyticalFieldGradientSolution(
+Void Equation::PoissonEquation::SetAnalyticalFieldGradientSolution(
     const std::function<double(const double, const double, const double,
                                const unsigned int)> &func) {
   analyticalFieldGradientSolution_ = func;
