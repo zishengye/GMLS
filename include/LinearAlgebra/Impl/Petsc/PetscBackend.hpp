@@ -4,6 +4,7 @@
 #include "Core/Typedef.hpp"
 
 #include "LinearAlgebra/Impl/Petsc/Petsc.hpp"
+#include "LinearAlgebra/Impl/Petsc/PetscBlockMatrix.hpp"
 #include "LinearAlgebra/Impl/Petsc/PetscKsp.hpp"
 #include "LinearAlgebra/Impl/Petsc/PetscMatrix.hpp"
 #include "LinearAlgebra/Impl/Petsc/PetscVector.hpp"
@@ -13,6 +14,7 @@ namespace Impl {
 class PetscBackend {
 public:
   typedef LinearAlgebra::Impl::PetscMatrix MatrixBase;
+  typedef LinearAlgebra::Impl::PetscBlockMatrix BlockMatrixBase;
   typedef LinearAlgebra::Impl::PetscVector VectorBase;
   typedef LinearAlgebra::Impl::PetscKsp LinearSolverBase;
 

@@ -9,7 +9,7 @@ Equation::PoissonPreconditioner::PoissonPreconditioner()
 
 Equation::PoissonPreconditioner::~PoissonPreconditioner() {}
 
-void Equation::PoissonPreconditioner::ConstructInterpolation(
+Void Equation::PoissonPreconditioner::ConstructInterpolation(
     DefaultParticleManager &particleMgr) {
   double tStart, tEnd;
   MPI_Barrier(MPI_COMM_WORLD);
@@ -279,7 +279,7 @@ void Equation::PoissonPreconditioner::ConstructInterpolation(
            tEnd - tStart);
 }
 
-void Equation::PoissonPreconditioner::ConstructRestriction(
+Void Equation::PoissonPreconditioner::ConstructRestriction(
     DefaultParticleManager &particleMgr) {
   double tStart, tEnd;
   MPI_Barrier(MPI_COMM_WORLD);
@@ -803,7 +803,7 @@ void Equation::PoissonPreconditioner::ConstructRestriction(
            tEnd - tStart);
 }
 
-void Equation::PoissonPreconditioner::ConstructSmoother() {
+Void Equation::PoissonPreconditioner::ConstructSmoother() {
   double tStart, tEnd;
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();
@@ -832,7 +832,7 @@ void Equation::PoissonPreconditioner::ConstructSmoother() {
            tEnd - tStart);
 }
 
-void Equation::PoissonPreconditioner::ConstructAdjointSmoother() {
+Void Equation::PoissonPreconditioner::ConstructAdjointSmoother() {
   double tStart, tEnd;
   MPI_Barrier(MPI_COMM_WORLD);
   tStart = MPI_Wtime();

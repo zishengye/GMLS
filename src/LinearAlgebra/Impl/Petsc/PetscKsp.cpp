@@ -82,10 +82,18 @@ Void LinearAlgebra::Impl::PetscKsp::AddLinearSystem(
 
     postCheck_ = true;
   } else {
-    PC pc;
-    KSPGetPC(*kspPtr_, &pc);
-    PCSetType(pc, PCSOR);
-    PCSetFromOptions(pc);
+    if (descriptor.customPreconditioner == false) {
+      PC pc;
+      KSPGetPC(*kspPtr_, &pc);
+      PCSetType(pc, PCSOR);
+      PCSetFromOptions(pc);
+    } else {
+      PC pc;
+      KSPGetPC(*kspPtr_, &pc);
+      PCSetType(pc, PCSHELL);
+      PCShellSetContext(pc, (void *)&descriptor);
+      PCShellSetApply(pc, PCShellWrapper);
+    }
   }
 
   KSPSetUp(*kspPtr_);

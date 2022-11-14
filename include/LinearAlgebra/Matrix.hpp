@@ -8,10 +8,12 @@
 #include "Core/Typedef.hpp"
 #include "LinearAlgebra/Vector.hpp"
 
+#include <memory>
+
 namespace LinearAlgebra {
 template <class LinearAlgebraBackend> class Matrix {
 protected:
-  typename LinearAlgebraBackend::MatrixBase mat_;
+  std::shared_ptr<typename LinearAlgebraBackend::MatrixBase> mat_;
 
   typedef typename LinearAlgebraBackend::DefaultInteger Integer;
   typedef typename LinearAlgebraBackend::DefaultScalar Scalar;
@@ -49,7 +51,7 @@ public:
   Void MatrixVectorMultiplication(Vector<LinearAlgebraBackend> &vec1,
                                   Vector<LinearAlgebraBackend> &vec2);
 
-  typename LinearAlgebraBackend::MatrixBase &GetMatrix();
+  std::shared_ptr<typename LinearAlgebraBackend::MatrixBase> GetMatrix();
 };
 } // namespace LinearAlgebra
 

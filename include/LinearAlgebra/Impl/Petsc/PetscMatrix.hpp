@@ -38,7 +38,8 @@ public:
 
   ~PetscMatrix();
 
-  Void Resize(const PetscInt m, const PetscInt n, const PetscInt blockSize = 1);
+  virtual Void Resize(const PetscInt m, const PetscInt n,
+                      const PetscInt blockSize = 1);
 
   Void Transpose(PetscMatrix &mat);
 
@@ -50,17 +51,20 @@ public:
   PetscInt GetGlobalColSize() const;
   PetscInt GetGlobalRowSize() const;
 
-  Void SetColIndex(const PetscInt row, const std::vector<PetscInt> &index);
-  Void Increment(const PetscInt row, const PetscInt col, const PetscReal value);
-  Void Increment(const PetscInt row, const std::vector<PetscInt> &index,
-                 const std::vector<PetscReal> &value);
+  virtual Void SetColIndex(const PetscInt row,
+                           const std::vector<PetscInt> &index);
+  virtual Void Increment(const PetscInt row, const PetscInt col,
+                         const PetscReal value);
+  virtual Void Increment(const PetscInt row, const std::vector<PetscInt> &index,
+                         const std::vector<PetscReal> &value);
 
-  Void GraphAssemble();
-  Void Assemble();
+  virtual Void GraphAssemble();
+  virtual Void Assemble();
 
-  Void MatrixVectorMultiplication(PetscVector &vec1, PetscVector &vec2);
+  virtual Void MatrixVectorMultiplication(PetscVector &vec1, PetscVector &vec2);
 
   friend class PetscKsp;
+  friend class PetscBlockMatrix;
 };
 } // namespace Impl
 } // namespace LinearAlgebra

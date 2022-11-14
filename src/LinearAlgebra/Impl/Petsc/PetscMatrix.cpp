@@ -1,7 +1,9 @@
 #include "LinearAlgebra/Impl/Petsc/PetscMatrix.hpp"
 #include "LinearAlgebra/Impl/Petsc/PetscVector.hpp"
-#include "petscmat.h"
+
 #include <memory>
+
+#include <petscmat.h>
 
 LinearAlgebra::Impl::PetscMatrix::PetscMatrix() {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);

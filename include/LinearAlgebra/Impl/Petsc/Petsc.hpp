@@ -12,7 +12,7 @@ class PetscBackend;
 
 class PetscVector;
 class PetscMatrix;
-class PetscNestedMatrix;
+class PetscBlockMatrix;
 class PetscKsp;
 } // namespace Impl
 } // namespace LinearAlgebra

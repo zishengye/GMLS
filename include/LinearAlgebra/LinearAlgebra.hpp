@@ -19,6 +19,7 @@ template <class LinearAlgebraBackend> Void LinearAlgebraFinalize() {
 #include "LinearAlgebra/Impl/Petsc/PetscBackend.hpp"
 typedef LinearAlgebra::Impl::PetscBackend DefaultLinearAlgebraBackend;
 
+#include "LinearAlgebra/BlockMatrix.hpp"
 #include "LinearAlgebra/LinearSolver.hpp"
 #include "LinearAlgebra/Matrix.hpp"
 #include "LinearAlgebra/Vector.hpp"

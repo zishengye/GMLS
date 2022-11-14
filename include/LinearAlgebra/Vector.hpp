@@ -54,6 +54,7 @@ public:
   typename LinearAlgebraBackend::VectorBase &GetVector();
 
   friend class Matrix<LinearAlgebraBackend>;
+  friend class BlockMatrix<LinearAlgebraBackend>;
 };
 
 } // namespace LinearAlgebra

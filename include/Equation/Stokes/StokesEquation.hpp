@@ -1,93 +1,106 @@
-#ifndef _StokesEquation_Hpp_
-#define _StokesEquation_Hpp_
+#ifndef _Equation_StokesEquation_Hpp_
+#define _Equation_StokesEquation_Hpp_
 
-#include <memory>
+#include "Core/Typedef.hpp"
+#include "Equation/Equation.hpp"
+#include "Equation/Stokes/StokesMatrix.hpp"
+#include "Equation/Stokes/StokesPreconditioner.hpp"
 
-#include <Compadre_Config.h>
-#include <Compadre_Evaluator.hpp>
-#include <Compadre_GMLS.hpp>
-#include <Compadre_PointCloudSearch.hpp>
-
-#include "ParticleGeometry.hpp"
-#include "PetscWrapper.hpp"
-#include "RigidBodyManager.hpp"
-#include "StokesMultilevelPreconditioning.hpp"
+#include <functional>
 
 #define VELOCITY_ERROR_EST 1
 #define PRESSURE_ERROR_EST 2
 
-class StokesEquation {
-private:
-  std::shared_ptr<ParticleGeometry> geoMgr_;
-  std::shared_ptr<RigidBodyManager> rbMgr_;
+namespace Equation {
+class StokesEquation : public Equation {
+protected:
+  virtual Void InitLinearSystem();
+  virtual Void ConstructLinearSystem();
+  virtual Void ConstructRhs();
 
-  std::shared_ptr<StokesMultilevelPreconditioning> multiMgr_;
+  virtual Void SolveEquation();
+  virtual Void CalculateError();
 
-  void BuildCoefficientMatrix();
-  void ConstructRhs();
-  void SolveEquation();
-  void CheckSolution();
-  void CalculateError();
-  void CollectForce();
+  HostRealMatrix recoveredGradientChunk_;
+  HostRealMatrix gradientChunk_;
+  HostRealMatrix velocity_, oldVelocity_;
+  HostRealVector pressure_, oldPressure_;
+  HostRealVector field_, oldField_;
+  HostRealVector kappa_, bi_;
 
-  Kokkos::View<int **, Kokkos::HostSpace> neighborLists_;
-  Kokkos::View<double *, Kokkos::HostSpace> epsilon_;
-  Kokkos::View<double *, Kokkos::HostSpace> bi_;
+  std::function<bool(const double, const double, const double)>
+      velocityBoundaryType_;
+  std::function<int(const double, const double, const double)>
+      pressureBoundaryType_;
+  std::function<double(const double, const double, const double,
+                       const unsigned int)>
+      velocityInteriorRhs_;
+  std::function<double(const double, const double, const double,
+                       const unsigned int)>
+      velocityBoundaryRhs_;
+  std::function<double(const double, const double, const double)>
+      pressureInteriorRhs_;
+  std::function<double(const double, const double, const double)>
+      pressureBoundaryRhs_;
+  std::function<double(const double, const double, const double,
+                       const unsigned int)>
+      analyticalVelocitySolution_;
+  std::function<double(const double, const double, const double)>
+      analyticalPressureSolution_;
+  std::function<double(const double, const double, const double,
+                       const unsigned int)>
+      analyticalVelocityGradientSolution_;
+  std::function<double(const double, const double, const double,
+                       const unsigned int)>
+      analyticalPressureGradientSolution_;
 
-  std::vector<double> rhsField_, rhsRigidBody_;
-  std::vector<double> resField_, resRigidBody_;
-  std::vector<double> error;
-
-  unsigned int rigidBodyDof_, numRigidBody_, numLocalRigidBody_;
-  unsigned int rigidBodyStartIndex_, rigidBodyEndIndex_;
-
-  std::vector<int> neumann_map;
-
-  std::vector<Vec3> velocity;
-  std::vector<double> pressure;
-
-  std::vector<int> invert_row_index;
-
-  std::vector<std::vector<double>> gradient;
-  int gradient_component_num;
-
-  int polyOrder_, dim_, errorEstimationMethod_;
-  double eta_;
-  int number_of_batches;
-
-  int min_neighbor, max_neighbor;
-
-  double global_error;
-
-  int mpiRank_, mpiSize_;
-
-  int currentRefinementLevel_;
-
-  bool useViewer_;
+  bool isVelocityAnalyticalSolutionSet_, isPressureAnalyticalSolutionSet_;
+  bool isVelocityGradientAnalyticalSolutionSet_,
+      isPressureGradientAnalyticalSolutionSet_;
 
 public:
-  StokesEquation() { useViewer_ = false; }
+  StokesEquation();
+  ~StokesEquation();
 
-  void Init(std::shared_ptr<ParticleGeometry> geoMgr,
-            std::shared_ptr<RigidBodyManager> rbMgr, const int polyOrder,
-            const int dim, const int errorEstimationMethod = VELOCITY_ERROR_EST,
-            const double epsilonMultiplier = 0.0, const double eta = 1.0);
-  void Reset();
-  void Update();
+  virtual Void Output();
+  virtual Void Output(String &outputFileName);
 
-  void SetViewer() { useViewer_ = true; }
+  virtual Void Init();
+  virtual Void CalculateSensitivity(DefaultParticleManager &particleMgr,
+                                    HostRealVector &sensitivity);
 
-  std::vector<Vec3> &get_velocity() { return velocity; }
+  virtual Scalar GetObjFunc();
 
-  std::vector<double> &get_pressure() { return pressure; }
-
-  std::vector<std::vector<double>> &get_gradient() { return gradient; }
-
-  std::vector<double> &get_error() { return error; }
-
-  Kokkos::View<double *, Kokkos::HostSpace> &getEpsilon() { return epsilon_; }
-
-  double get_estimated_error() { return global_error; }
+  virtual Void SetVelocityBoundaryType(
+      const std::function<bool(const double, const double, const double)>
+          &func);
+  virtual Void SetPressureBoundaryType(
+      const std::function<int(const double, const double, const double)> &func);
+  virtual Void SetVelocityInteriorRhs(
+      const std::function<double(const double, const double, const double,
+                                 const unsigned int)> &func);
+  virtual Void SetVelocityBoundaryRhs(
+      const std::function<double(const double, const double, const double,
+                                 const unsigned int)> &func);
+  virtual Void SetPressureInteriorRhs(
+      const std::function<double(const double, const double, const double)>
+          &func);
+  virtual Void SetPressureBoundaryRhs(
+      const std::function<double(const double, const double, const double)>
+          &func);
+  virtual Void SetAnalyticalVelocitySolution(
+      const std::function<double(const double, const double, const double,
+                                 const unsigned int)> &func);
+  virtual Void SetAnalyticalPressureSolution(
+      const std::function<double(const double, const double, const double)>
+          &func);
+  virtual Void SetAnalyticalVelocityGradientSolution(
+      const std::function<double(const double, const double, const double,
+                                 const unsigned int)> &func);
+  virtual Void SetAnalyticalPressureGradientSolution(
+      const std::function<double(const double, const double, const double,
+                                 const unsigned int)> &func);
 };
+} // namespace Equation
 
 #endif

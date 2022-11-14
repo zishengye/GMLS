@@ -49,6 +49,7 @@ public:
 
   friend class PetscKsp;
   friend class PetscMatrix;
+  friend class PetscBlockMatrix;
 };
 } // namespace Impl
 } // namespace LinearAlgebra

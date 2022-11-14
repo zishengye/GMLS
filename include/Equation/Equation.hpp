@@ -26,6 +26,8 @@ public:
       DefaultVector;
   typedef typename LinearAlgebra::Matrix<DefaultLinearAlgebraBackend>
       DefaultMatrix;
+  typedef typename LinearAlgebra::BlockMatrix<DefaultLinearAlgebraBackend>
+      DefaultBlockMatrix;
   typedef typename LinearAlgebra::LinearSolver<DefaultLinearAlgebraBackend>
       DefaultLinearSolver;
 
