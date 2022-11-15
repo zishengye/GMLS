@@ -28,7 +28,7 @@ template <class LinearAlgebraBackend> struct LinearSolverDescriptor {
   LocalIndex maxIter;
   Scalar relativeTol;
   Boolean setFromDatabase;
-  Boolean customPreconditioner;
+  Boolean customPreconditioner = false;
 
   std::function<Void(Vector<LinearAlgebraBackend> &,
                      Vector<LinearAlgebraBackend> &)>

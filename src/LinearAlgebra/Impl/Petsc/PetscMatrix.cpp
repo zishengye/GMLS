@@ -3,6 +3,7 @@
 
 #include <memory>
 
+#include <mpi.h>
 #include <petscmat.h>
 
 LinearAlgebra::Impl::PetscMatrix::PetscMatrix() {
