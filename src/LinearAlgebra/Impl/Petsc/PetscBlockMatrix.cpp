@@ -4,6 +4,7 @@
 #include "petscksp.h"
 #include "petscpc.h"
 #include "petscsys.h"
+#include "petscvec.h"
 
 #include <memory>
 
@@ -26,6 +27,16 @@ LinearAlgebra::Impl::PetscBlockMatrix::~PetscBlockMatrix() {
     KSPDestroy(&a00Ksp_);
   if (a11Ksp_ != PETSC_NULL)
     KSPDestroy(&a11Ksp_);
+
+  for (unsigned int i = 0; i < lhsVector_.size(); i++) {
+    if (lhsVector_[i] != PETSC_NULL)
+      VecDestroy(&lhsVector_[i]);
+  }
+
+  for (unsigned int i = 0; i < rhsVector_.size(); i++) {
+    if (rhsVector_[i] != PETSC_NULL)
+      VecDestroy(&rhsVector_[i]);
+  }
 }
 
 Void LinearAlgebra::Impl::PetscBlockMatrix::Resize(const PetscInt blockM,

@@ -14,11 +14,11 @@ TEST(PoissonEquationTest, SolidIsotropicMicrostructurePenalization) {
 
   {
     Equation::PoissonEquation equation;
-    equation.SetErrorTolerance(1e-1);
-    equation.SetInitialDiscretizationResolution(0.01);
+    equation.SetErrorTolerance(1e-2);
+    equation.SetInitialDiscretizationResolution(0.02);
 
-    equation.SetPolyOrder(1);
-    equation.SetMaxRefinementIteration(3);
+    equation.SetPolyOrder(2);
+    equation.SetMaxRefinementIteration(4);
     equation.SetOutputLevel(0);
     equation.SetRefinementMarkRatio(1.0);
 
@@ -45,7 +45,7 @@ TEST(PoissonEquationTest, SolidIsotropicMicrostructurePenalization) {
     simpTo.SetDimension(2);
     simpTo.SetDomainSize(size);
     simpTo.SetDomainType(Geometry::Box);
-    simpTo.SetInitialDiscretizationResolution(0.01);
+    simpTo.SetInitialDiscretizationResolution(0.02);
     simpTo.SetVolumeFraction(0.4);
     simpTo.SetMaxIteration(500);
 
