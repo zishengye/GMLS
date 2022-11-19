@@ -16,12 +16,12 @@ TEST(TopologyOptimizationTest, SolidIsotropicMicrostructurePenalization) {
   {
     Equation::PoissonEquation equation;
     equation.SetErrorTolerance(1e-2);
-    equation.SetInitialDiscretizationResolution(0.01);
+    equation.SetInitialDiscretizationResolution(0.02);
 
-    equation.SetPolyOrder(1);
-    equation.SetMaxRefinementIteration(10);
+    equation.SetPolyOrder(2);
+    equation.SetMaxRefinementIteration(5);
     equation.SetOutputLevel(0);
-    equation.SetRefinementMarkRatio(0.9);
+    equation.SetRefinementMarkRatio(0.95);
 
     equation.SetBoundaryType(
         [](const double x, const double y, const double z) {
@@ -31,7 +31,7 @@ TEST(TopologyOptimizationTest, SolidIsotropicMicrostructurePenalization) {
             return false;
         });
     equation.SetInteriorRhs(
-        [](const double x, const double y, const double z) { return 0.1; });
+        [](const double x, const double y, const double z) { return 0.0; });
     equation.SetBoundaryRhs([](const double x, const double y, const double z) {
       if ((abs(y) < 0.5 && x < 0) || (abs(x) < 0.5 && y < 0))
         return 0.0;
@@ -70,11 +70,11 @@ TEST(TopologyOptimizationTest, SolidIsotropicMicrostructurePenalization) {
 //   {
 //     Equation::PoissonEquation equation;
 //     equation.SetErrorTolerance(1e-2);
-//     equation.SetInitialDiscretizationResolution(0.01);
+//     equation.SetInitialDiscretizationResolution(0.02);
 
-//     equation.SetPolyOrder(1);
-//     equation.SetMaxRefinementIteration(4);
-//     equation.SetOutputLevel(0);
+//     equation.SetPolyOrder(2);
+//     equation.SetMaxRefinementIteration(5);
+//     equation.SetOutputLevel(1);
 //     equation.SetRefinementMarkRatio(1.0);
 
 //     equation.SetBoundaryType(
@@ -85,7 +85,7 @@ TEST(TopologyOptimizationTest, SolidIsotropicMicrostructurePenalization) {
 //             return false;
 //         });
 //     equation.SetInteriorRhs(
-//         [](const double x, const double y, const double z) { return 0.1; });
+//         [](const double x, const double y, const double z) { return 0.0; });
 //     equation.SetBoundaryRhs([](const double x, const double y, const double
 //     z) {
 //       if ((abs(y) < 0.5 && x < 0) || (abs(x) < 0.5 && y < 0))

@@ -313,11 +313,11 @@ Void Equation::Equation::BuildGhost() {
 }
 
 Void Equation::Equation::Output() {
-  std::string outputFileName =
-      "vtk/AdaptiveStep" + std::to_string(refinementIteration_) + ".vtk";
-
   if (outputLevel_ == 0)
     return;
+
+  std::string outputFileName =
+      "vtk/AdaptiveStep" + std::to_string(refinementIteration_) + ".vtk";
 
   Output(outputFileName);
 }

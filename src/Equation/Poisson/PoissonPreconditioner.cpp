@@ -221,7 +221,7 @@ Void Equation::PoissonPreconditioner::ConstructInterpolation(
 
     Compadre::GMLS interpolationBasis =
         Compadre::GMLS(Compadre::ScalarTaylorPolynomial, Compadre::PointSample,
-                       2, dimension, "LU", "STANDARD");
+                       1, dimension, "LU", "STANDARD");
 
     interpolationBasis.setProblemData(
         refinedNeighborListsDevice, sourceParticleCoordsDevice,

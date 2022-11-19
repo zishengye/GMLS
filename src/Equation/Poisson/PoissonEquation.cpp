@@ -1420,8 +1420,8 @@ Scalar Equation::PoissonEquation::GetObjFunc() {
 
   Scalar result = 0.0;
   for (auto i = 0; i < field_.extent(0); i++) {
-    if (particleType(i) == 0)
-      result += field_(i) * b_(i) * pow(spacing(i), dimension);
+    // if (particleType(i) == 0)
+    result += field_(i) * b_(i) * pow(spacing(i), dimension);
   }
   MPI_Allreduce(MPI_IN_PLACE, &result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
