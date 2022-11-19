@@ -1,5 +1,6 @@
 #include "Geometry/Ghost.hpp"
 #include "Core/Typedef.hpp"
+#include <mpi.h>
 
 Geometry::Ghost::Ghost() {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);
@@ -105,13 +106,13 @@ Void Geometry::Ghost::Init(const HostRealMatrix &targetCoords,
   ghostInNum_.clear();
 
   for (int i = 0; i < mpiSize_; i++) {
-    if (rankGhostOutMap[i].size() != 0) {
-      if (i != mpiRank_) {
+    if (i != mpiRank_) {
+      if (rankGhostOutMap[i].size() != 0) {
         ghostOutGraph_.push_back(i);
         ghostOutNum_.push_back(rankGhostOutMap[i].size());
-      } else {
-        localReserveNum_ = rankGhostOutMap[i].size();
       }
+    } else {
+      localReserveNum_ = rankGhostOutMap[i].size();
     }
   }
 

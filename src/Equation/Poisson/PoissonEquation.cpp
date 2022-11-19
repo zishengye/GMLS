@@ -1289,7 +1289,6 @@ Void Equation::PoissonEquation::CalculateSensitivity(
 
   HostRealMatrix ghostCoords, ghostGradient;
   ghost.ApplyGhost(sourceCoords, ghostCoords);
-
   ghost.ApplyGhost(gradientChunk_, ghostGradient);
 
   Kokkos::View<double **, Kokkos::DefaultExecutionSpace> ghostCoordsDevice(
@@ -1403,6 +1402,10 @@ Void Equation::PoissonEquation::CalculateSensitivity(
       for (int i = 0; i < batchParticleNum; i++)
         sensitivity(i + startParticle) -= pow(targetGradientComponent(i), 2);
     }
+  }
+
+  for (int i = 0; i < localParticleNum; i++) {
+    sensitivity(i) *= pow(targetSpacing(i), dimension);
   }
 
   if (mpiRank_ == 0)

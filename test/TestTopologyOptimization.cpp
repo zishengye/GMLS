@@ -1,4 +1,5 @@
 #include "Equation/Poisson/PoissonEquation.hpp"
+#include "TopologyOptimization/GeneralizedBendersDecomposition.hpp"
 #include "TopologyOptimization/SolidIsotropicMicrostructurePenalization.hpp"
 
 #include <gtest/gtest.h>
@@ -7,7 +8,7 @@
 int globalArgc;
 char **globalArgv;
 
-TEST(PoissonEquationTest, SolidIsotropicMicrostructurePenalization) {
+TEST(TopologyOptimizationTest, SolidIsotropicMicrostructurePenalization) {
   Kokkos::initialize(globalArgc, globalArgv);
   PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.txt",
                   PETSC_NULL);
@@ -15,12 +16,12 @@ TEST(PoissonEquationTest, SolidIsotropicMicrostructurePenalization) {
   {
     Equation::PoissonEquation equation;
     equation.SetErrorTolerance(1e-2);
-    equation.SetInitialDiscretizationResolution(0.02);
+    equation.SetInitialDiscretizationResolution(0.01);
 
-    equation.SetPolyOrder(2);
-    equation.SetMaxRefinementIteration(4);
+    equation.SetPolyOrder(1);
+    equation.SetMaxRefinementIteration(10);
     equation.SetOutputLevel(0);
-    equation.SetRefinementMarkRatio(1.0);
+    equation.SetRefinementMarkRatio(0.9);
 
     equation.SetBoundaryType(
         [](const double x, const double y, const double z) {
@@ -30,9 +31,13 @@ TEST(PoissonEquationTest, SolidIsotropicMicrostructurePenalization) {
             return false;
         });
     equation.SetInteriorRhs(
-        [](const double x, const double y, const double z) { return 1.0; });
-    equation.SetBoundaryRhs(
-        [](const double x, const double y, const double z) { return 0.0; });
+        [](const double x, const double y, const double z) { return 0.1; });
+    equation.SetBoundaryRhs([](const double x, const double y, const double z) {
+      if ((abs(y) < 0.5 && x < 0) || (abs(x) < 0.5 && y < 0))
+        return 0.0;
+      else
+        return 1.0;
+    });
 
     std::vector<double> size(2);
     size[0] = 1.0;
@@ -45,7 +50,7 @@ TEST(PoissonEquationTest, SolidIsotropicMicrostructurePenalization) {
     simpTo.SetDimension(2);
     simpTo.SetDomainSize(size);
     simpTo.SetDomainType(Geometry::Box);
-    simpTo.SetInitialDiscretizationResolution(0.02);
+    simpTo.SetInitialDiscretizationResolution(0.01);
     simpTo.SetVolumeFraction(0.4);
     simpTo.SetMaxIteration(500);
 
@@ -56,6 +61,60 @@ TEST(PoissonEquationTest, SolidIsotropicMicrostructurePenalization) {
   PetscFinalize();
   Kokkos::finalize();
 }
+
+// TEST(TopologyOptimizationTest, GeneralizedBendersDecomposition) {
+//   Kokkos::initialize(globalArgc, globalArgv);
+//   PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.txt",
+//                   PETSC_NULL);
+
+//   {
+//     Equation::PoissonEquation equation;
+//     equation.SetErrorTolerance(1e-2);
+//     equation.SetInitialDiscretizationResolution(0.01);
+
+//     equation.SetPolyOrder(1);
+//     equation.SetMaxRefinementIteration(4);
+//     equation.SetOutputLevel(0);
+//     equation.SetRefinementMarkRatio(1.0);
+
+//     equation.SetBoundaryType(
+//         [](const double x, const double y, const double z) {
+//           if ((abs(y) < 0.5 && x < 0) || (abs(x) < 0.5 && y < 0))
+//             return true;
+//           else
+//             return false;
+//         });
+//     equation.SetInteriorRhs(
+//         [](const double x, const double y, const double z) { return 0.1; });
+//     equation.SetBoundaryRhs([](const double x, const double y, const double
+//     z) {
+//       if ((abs(y) < 0.5 && x < 0) || (abs(x) < 0.5 && y < 0))
+//         return 0.0;
+//       else
+//         return 1.0;
+//     });
+
+//     std::vector<double> size(2);
+//     size[0] = 1.0;
+//     size[1] = 1.0;
+
+//     TopologyOptimization::GeneralizedBendersDecomposition gbdTo;
+
+//     gbdTo.AddEquation(equation);
+
+//     gbdTo.SetDimension(2);
+//     gbdTo.SetDomainSize(size);
+//     gbdTo.SetDomainType(Geometry::Box);
+//     gbdTo.SetInitialDiscretizationResolution(0.01);
+//     gbdTo.SetVolumeFraction(0.40);
+
+//     gbdTo.Init();
+//     gbdTo.Optimize();
+//   }
+
+//   PetscFinalize();
+//   Kokkos::finalize();
+// }
 
 int main(int argc, char *argv[]) {
   MPI_Init(&argc, &argv);
