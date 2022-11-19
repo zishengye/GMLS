@@ -45,17 +45,20 @@ include_directories("/opt/compadre/include")
 include_directories(${Trilinos_INCLUDE_DIRS})
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
+include_directories("/opt/gurobi952/linux64/include")
 
 link_directories("/opt/petsc/lib/")
 link_directories("/opt/compadre/lib/")
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
+link_directories("/opt/gurobi952/linux64/lib")
 
 link_libraries("-lpetsc -lstdc++ -lm -lgfortran -ldl -lgomp -ltbb")
 link_libraries("-lcompadre")
 link_libraries(${Trilinos_LIBRARIES})
 link_libraries(${Trilinos_TPL_LIBRARIES})
 link_libraries(${MPI_CXX_LIBRARIES})
+link_libraries("-lgurobi95 -lgurobi_g++5.2")
 
 file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
