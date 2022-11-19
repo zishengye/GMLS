@@ -15,7 +15,7 @@ protected:
 
   DefaultParticleManager particleMgr_;
 
-  Void CalculateSensitivity();
+  virtual Void CalculateSensitivity();
   virtual Void Output();
   virtual Void Output(String outputFileName);
 

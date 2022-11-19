@@ -2,7 +2,9 @@
 #include "Core/Typedef.hpp"
 #include "Geometry/Ghost.hpp"
 #include "TopologyOptimization/TopologyOptimization.hpp"
-#include "petsclog.h"
+
+#include <petsclog.h>
+
 #include <mpi.h>
 
 Void TopologyOptimization::SolidIsotropicMicrostructurePenalization::Output() {
@@ -111,8 +113,8 @@ Void TopologyOptimization::SolidIsotropicMicrostructurePenalization::
     for (auto i = 0; i < density_.extent(0); i++)
       oldDensity_(i) = density_(i);
 
-    for (auto i = 0; i < sensitivity_.extent(0); i++)
-      sensitivity_(i) = density_(i) * sensitivity_(i);
+    // for (auto i = 0; i < sensitivity_.extent(0); i++)
+    //   sensitivity_(i) = density_(i) * sensitivity_(i);
 
     Scalar lowerBound = 0;
     Scalar upperBound = 1e9;
