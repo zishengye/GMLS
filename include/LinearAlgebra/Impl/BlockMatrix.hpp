@@ -94,10 +94,25 @@ Void BlockMatrix<LinearAlgebraBackend>::SetSubMat(
 
 template <class LinearAlgebraBackend>
 Void BlockMatrix<LinearAlgebraBackend>::Assemble() {
+  blockMat_->SetCallbackPointer(this);
+
   for (auto i = 0; i < subMatrix_.size(); i++)
     subMatrix_[i]->Assemble();
 
   blockMat_->Assemble();
+
+  localLhsVectorOffset_.resize(blockRow_ + 1);
+  localRhsVectorOffset_.resize(blockCol_ + 1);
+
+  localLhsVectorOffset_[0] = 0;
+  for (int i = 0; i < blockRow_; i++)
+    localLhsVectorOffset_[i + 1] =
+        localLhsVectorOffset_[i] + subMatrix_[i * blockCol_]->GetLocalRowSize();
+
+  localRhsVectorOffset_[0] = 0;
+  for (int i = 0; i < blockCol_; i++)
+    localRhsVectorOffset_[i + 1] =
+        localRhsVectorOffset_[i] + subMatrix_[i]->GetLocalColSize();
 }
 
 template <class LinearAlgebraBackend>

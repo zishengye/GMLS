@@ -1,4 +1,5 @@
 #include "LinearAlgebra/Impl/Petsc/PetscBlockMatrix.hpp"
+#include "LinearAlgebra/Impl/Petsc/PetscBackend.hpp"
 #include "LinearAlgebra/Impl/Petsc/PetscMatrix.hpp"
 #include "LinearAlgebra/Impl/Petsc/PetscVector.hpp"
 #include "petscksp.h"
@@ -60,6 +61,11 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::SetSubMat(
   subMat_[blockI * blockN_ + blockJ] = mat;
 }
 
+Void LinearAlgebra::Impl::PetscBlockMatrix::SetCallbackPointer(
+    LinearAlgebra::BlockMatrix<LinearAlgebra::Impl::PetscBackend> *ptr) {
+  callbackPtr_ = ptr;
+}
+
 Void LinearAlgebra::Impl::PetscBlockMatrix::Assemble() {
   for (unsigned int i = 0; i < subMat_.size(); i++) {
     subMat_[i]->Assemble();
@@ -87,7 +93,7 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::Assemble() {
   }
 
   MatCreateShell(PETSC_COMM_WORLD, localRow, localCol, PETSC_DECIDE,
-                 PETSC_DECIDE, this, matPtr_.get());
+                 PETSC_DECIDE, (void *)callbackPtr_, matPtr_.get());
   MatShellSetOperation(*matPtr_, MATOP_MULT,
                        (Void(*)(Void))PetscBlockMatrixMatMultWrapper);
 }
@@ -110,17 +116,17 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::MatrixVectorMultiplication(
     VecSet(lhsVector_[i], 0.0);
   }
 
-  PetscReal sum, average;
-  PetscInt length;
-  VecSum(rhsVector_[1], &sum);
-  VecGetArray(rhsVector_[1], &a);
-  VecGetSize(rhsVector_[1], &length);
-  average = sum / (double)length;
-  for (unsigned int i = 0;
-       i < localRhsVectorOffset_[2] - localRhsVectorOffset_[1]; i++) {
-    a[i] -= average;
-  }
-  VecRestoreArray(rhsVector_[1], &a);
+  // PetscReal sum, average;
+  // PetscInt length;
+  // VecSum(rhsVector_[1], &sum);
+  // VecGetArray(rhsVector_[1], &a);
+  // VecGetSize(rhsVector_[1], &length);
+  // average = sum / (double)length;
+  // for (unsigned int i = 0;
+  //      i < localRhsVectorOffset_[2] - localRhsVectorOffset_[1]; i++) {
+  //   a[i] -= average;
+  // }
+  // VecRestoreArray(rhsVector_[1], &a);
 
   for (PetscInt i = 0; i < blockM_; i++) {
     for (PetscInt j = 0; j < blockN_; j++) {
@@ -129,15 +135,15 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::MatrixVectorMultiplication(
     }
   }
 
-  VecSum(lhsVector_[1], &sum);
-  VecGetArray(lhsVector_[1], &a);
-  VecGetSize(lhsVector_[1], &length);
-  average = sum / (double)length;
-  for (unsigned int i = 0;
-       i < localLhsVectorOffset_[2] - localLhsVectorOffset_[1]; i++) {
-    a[i] -= average;
-  }
-  VecRestoreArray(lhsVector_[1], &a);
+  // VecSum(lhsVector_[1], &sum);
+  // VecGetArray(lhsVector_[1], &a);
+  // VecGetSize(lhsVector_[1], &length);
+  // average = sum / (double)length;
+  // for (unsigned int i = 0;
+  //      i < localLhsVectorOffset_[2] - localLhsVectorOffset_[1]; i++) {
+  //   a[i] -= average;
+  // }
+  // VecRestoreArray(lhsVector_[1], &a);
 
   VecGetArray(*(vec2.vecPtr_), &a);
   for (PetscInt i = 0; i < blockM_; i++) {
@@ -209,34 +215,12 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::
   }
   VecRestoreArray(*(x.vecPtr_), &a);
 
-  PetscReal sum, average;
-  PetscInt length;
-  VecSum(rhsVector_[1], &sum);
-  VecGetArray(rhsVector_[1], &a);
-  VecGetSize(rhsVector_[1], &length);
-  average = sum / (double)length;
-  for (unsigned int i = 0;
-       i < localRhsVectorOffset_[2] - localRhsVectorOffset_[1]; i++) {
-    a[i] -= average;
-  }
-  VecRestoreArray(rhsVector_[1], &a);
-
   for (PetscInt i = 0; i < blockM_; i++) {
     VecSet(lhsVector_[i], 0.0);
   }
 
   KSPSolve(a00Ksp_, rhsVector_[0], lhsVector_[0]);
   KSPSolve(a11Ksp_, rhsVector_[1], lhsVector_[1]);
-
-  VecSum(lhsVector_[1], &sum);
-  VecGetArray(lhsVector_[1], &a);
-  VecGetSize(lhsVector_[1], &length);
-  average = sum / (double)length;
-  for (unsigned int i = 0;
-       i < localLhsVectorOffset_[2] - localLhsVectorOffset_[1]; i++) {
-    a[i] -= average;
-  }
-  VecRestoreArray(lhsVector_[1], &a);
 
   VecGetArray(*(y.vecPtr_), &a);
   for (PetscInt i = 0; i < blockM_; i++) {
@@ -251,17 +235,24 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::
 }
 
 PetscErrorCode PetscBlockMatrixMatMultWrapper(Mat mat, Vec x, Vec y) {
-  LinearAlgebra::Impl::PetscBlockMatrix *ctx;
-  MatShellGetContext(mat, &ctx);
+  LinearAlgebra::BlockMatrix<LinearAlgebra::Impl::PetscBackend> *ctx;
+  MatShellGetContext(mat, ((void **)&ctx));
 
-  LinearAlgebra::Impl::PetscVector vec1, vec2;
+  LinearAlgebra::Vector<LinearAlgebra::Impl::PetscBackend> vecX;
+  LinearAlgebra::Vector<LinearAlgebra::Impl::PetscBackend> vecY;
 
-  vec1.Create(x);
-  vec2.Create(x);
+  LinearAlgebra::Impl::PetscVector vecPetscX;
 
-  ctx->MatrixVectorMultiplication(vec1, vec2);
+  vecPetscX.Create(x);
 
-  vec2.Copy(y);
+  vecX.Create(vecPetscX);
+  vecY.Create(vecPetscX);
+
+  ctx->MatrixVectorMultiplication(vecX, vecY);
+
+  vecY.Copy(vecPetscX);
+
+  vecPetscX.Copy(y);
 
   return 0;
 }

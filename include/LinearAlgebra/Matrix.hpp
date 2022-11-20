@@ -48,8 +48,8 @@ public:
   VectorEntry<LinearAlgebraBackend>
   operator*(Vector<LinearAlgebraBackend> &vec);
 
-  Void MatrixVectorMultiplication(Vector<LinearAlgebraBackend> &vec1,
-                                  Vector<LinearAlgebraBackend> &vec2);
+  virtual Void MatrixVectorMultiplication(Vector<LinearAlgebraBackend> &vec1,
+                                          Vector<LinearAlgebraBackend> &vec2);
 
   std::shared_ptr<typename LinearAlgebraBackend::MatrixBase> GetMatrix();
 };

@@ -132,3 +132,22 @@ Void LinearAlgebra::Impl::PetscVector::operator-=(const PetscVector &vec) {
 Void LinearAlgebra::Impl::PetscVector::operator*=(const PetscReal scalar) {
   VecScale(*vecPtr_, scalar);
 }
+
+Void LinearAlgebra::Impl::PetscVector::OrthogonalizeToConstant(
+    const PetscInt start, const PetscInt end) {
+  PetscReal sum, average;
+  PetscInt length = end - start;
+
+  PetscReal *a;
+  VecGetArray(*vecPtr_, &a);
+  sum = 0.0;
+  for (PetscInt i = start; i < end; i++)
+    sum += a[i];
+  MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &length, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+  average = sum / (double)length;
+  for (PetscInt i = start; i < end; i++)
+    a[i] -= average;
+  VecRestoreArray(*vecPtr_, &a);
+}

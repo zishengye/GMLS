@@ -53,6 +53,8 @@ public:
 
   typename LinearAlgebraBackend::VectorBase &GetVector();
 
+  Void OrthogonalizeToConstant(const Integer start, const Integer end);
+
   friend class Matrix<LinearAlgebraBackend>;
   friend class BlockMatrix<LinearAlgebraBackend>;
 };

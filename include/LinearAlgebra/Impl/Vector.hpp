@@ -123,6 +123,12 @@ typename LinearAlgebraBackend::VectorBase &
 Vector<LinearAlgebraBackend>::GetVector() {
   return vec_;
 }
+
+template <class LinearAlgebraBackend>
+Void Vector<LinearAlgebraBackend>::OrthogonalizeToConstant(const Integer start,
+                                                           const Integer end) {
+  vec_.OrthogonalizeToConstant(start, end);
+}
 } // namespace LinearAlgebra
 
 #endif

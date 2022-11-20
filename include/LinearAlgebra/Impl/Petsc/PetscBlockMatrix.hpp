@@ -6,6 +6,7 @@
 #include <petscksp.h>
 
 #include "Core/Typedef.hpp"
+#include "LinearAlgebra/BlockMatrix.hpp"
 #include "LinearAlgebra/Impl/Petsc/Petsc.hpp"
 #include "LinearAlgebra/Impl/Petsc/PetscMatrix.hpp"
 
@@ -29,6 +30,8 @@ protected:
 
   KSP a00Ksp_, a11Ksp_;
 
+  LinearAlgebra::BlockMatrix<LinearAlgebra::Impl::PetscBackend> *callbackPtr_;
+
 public:
   PetscBlockMatrix();
 
@@ -41,6 +44,9 @@ public:
                                          const PetscInt blockJ);
   void SetSubMat(const PetscInt blockI, const PetscInt blockJ,
                  std::shared_ptr<PetscMatrix> mat);
+
+  Void SetCallbackPointer(
+      LinearAlgebra::BlockMatrix<LinearAlgebra::Impl::PetscBackend> *ptr);
 
   virtual Void Assemble();
 

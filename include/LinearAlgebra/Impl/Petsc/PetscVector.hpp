@@ -47,6 +47,8 @@ public:
   Void operator-=(const PetscVector &vec);
   Void operator*=(const PetscReal scalar);
 
+  Void OrthogonalizeToConstant(const PetscInt start, const PetscInt end);
+
   friend class PetscKsp;
   friend class PetscMatrix;
   friend class PetscBlockMatrix;

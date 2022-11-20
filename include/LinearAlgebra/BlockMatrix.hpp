@@ -24,6 +24,9 @@ protected:
 
   std::shared_ptr<typename LinearAlgebraBackend::BlockMatrixBase> blockMat_;
 
+  std::vector<unsigned long> localLhsVectorOffset_;
+  std::vector<unsigned long> localRhsVectorOffset_;
+
 public:
   BlockMatrix();
   ~BlockMatrix();
