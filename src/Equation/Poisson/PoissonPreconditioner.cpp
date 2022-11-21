@@ -3,6 +3,7 @@
 
 #include <Compadre_GMLS.hpp>
 #include <Compadre_PointCloudSearch.hpp>
+#include <memory>
 
 Equation::PoissonPreconditioner::PoissonPreconditioner()
     : MultilevelPreconditioner() {}
@@ -157,7 +158,8 @@ Void Equation::PoissonPreconditioner::ConstructInterpolation(
         Kokkos::Sum<int>(refinedParticleNum));
     Kokkos::fence();
 
-    DefaultMatrix &I = interpolationPtr_[currentLevel];
+    interpolationPtr_[currentLevel] = std::make_shared<DefaultMatrix>();
+    DefaultMatrix &I = *(interpolationPtr_[currentLevel]);
     I.Resize(localTargetParticleNum, localSourceParticleNum);
     Kokkos::parallel_for(
         Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
@@ -613,7 +615,8 @@ Void Equation::PoissonPreconditioner::ConstructRestriction(
     }
 
     // TODO: change to GMLS basis (Currently, restriction is done by average)
-    DefaultMatrix &R = restrictionPtr_[currentLevel];
+    restrictionPtr_[currentLevel] = std::make_shared<DefaultMatrix>();
+    DefaultMatrix &R = *(restrictionPtr_[currentLevel]);
     R.Resize(localTargetParticleNum, localSourceParticleNum);
     std::vector<PetscInt> index;
     std::vector<PetscReal> value;
@@ -822,8 +825,8 @@ Void Equation::PoissonPreconditioner::ConstructSmoother() {
   descriptor.spd = -1;
   descriptor.setFromDatabase = false;
 
-  smootherPtr_[currentLevel].AddLinearSystem(linearSystemsPtr_[currentLevel],
-                                             descriptor);
+  smootherPtr_[currentLevel]->AddLinearSystem(linearSystemsPtr_[currentLevel],
+                                              descriptor);
 
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();

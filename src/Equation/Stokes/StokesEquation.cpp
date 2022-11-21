@@ -923,6 +923,11 @@ Void Equation::StokesEquation::ConstructRhs() {
     for (unsigned int j = 0; j < dimension; j++)
       oldVelocity_(i, j) = velocity_(i, j);
 
+  Kokkos::resize(oldField_, field_.extent(0));
+  for (unsigned int i = 0; i < field_.extent(0); i++) {
+    oldField_(i) = field_(i);
+  }
+
   Kokkos::resize(velocity_, localParticleNum, dimension);
   Kokkos::resize(pressure_, localParticleNum);
   Kokkos::resize(error_, localParticleNum);

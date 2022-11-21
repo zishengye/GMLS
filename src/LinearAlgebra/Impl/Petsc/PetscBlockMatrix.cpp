@@ -116,34 +116,12 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::MatrixVectorMultiplication(
     VecSet(lhsVector_[i], 0.0);
   }
 
-  // PetscReal sum, average;
-  // PetscInt length;
-  // VecSum(rhsVector_[1], &sum);
-  // VecGetArray(rhsVector_[1], &a);
-  // VecGetSize(rhsVector_[1], &length);
-  // average = sum / (double)length;
-  // for (unsigned int i = 0;
-  //      i < localRhsVectorOffset_[2] - localRhsVectorOffset_[1]; i++) {
-  //   a[i] -= average;
-  // }
-  // VecRestoreArray(rhsVector_[1], &a);
-
   for (PetscInt i = 0; i < blockM_; i++) {
     for (PetscInt j = 0; j < blockN_; j++) {
       MatMultAdd(*(subMat_[i * blockN_ + j]->matPtr_), rhsVector_[j],
                  lhsVector_[i], lhsVector_[i]);
     }
   }
-
-  // VecSum(lhsVector_[1], &sum);
-  // VecGetArray(lhsVector_[1], &a);
-  // VecGetSize(lhsVector_[1], &length);
-  // average = sum / (double)length;
-  // for (unsigned int i = 0;
-  //      i < localLhsVectorOffset_[2] - localLhsVectorOffset_[1]; i++) {
-  //   a[i] -= average;
-  // }
-  // VecRestoreArray(lhsVector_[1], &a);
 
   VecGetArray(*(vec2.vecPtr_), &a);
   for (PetscInt i = 0; i < blockM_; i++) {
@@ -182,20 +160,24 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::
 
   // setup preconditioner for diagonal blocks
   KSPCreate(MPI_COMM_WORLD, &a00Ksp_);
-  KSPSetType(a00Ksp_, KSPPREONLY);
+  KSPSetType(a00Ksp_, KSPRICHARDSON);
+  KSPSetTolerances(a00Ksp_, 1e-3, 1e-50, 1e20, 1);
   KSPSetOperators(a00Ksp_, a00, a00);
   PC a00Pc;
   KSPGetPC(a00Ksp_, &a00Pc);
   PCSetType(a00Pc, PCSOR);
+  PCSetFromOptions(a00Pc);
   PCSetUp(a00Pc);
   KSPSetUp(a00Ksp_);
 
   KSPCreate(MPI_COMM_WORLD, &a11Ksp_);
-  KSPSetType(a11Ksp_, KSPPREONLY);
+  KSPSetType(a11Ksp_, KSPRICHARDSON);
+  KSPSetTolerances(a11Ksp_, 1e-3, 1e-50, 1e20, 1);
   KSPSetOperators(a11Ksp_, a11, a11);
   PC a11Pc;
   KSPGetPC(a11Ksp_, &a11Pc);
   PCSetType(a11Pc, PCSOR);
+  PCSetFromOptions(a11Pc);
   PCSetUp(a11Pc);
   KSPSetUp(a11Ksp_);
 }

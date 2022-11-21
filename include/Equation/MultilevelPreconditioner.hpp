@@ -28,14 +28,14 @@ protected:
 
   std::vector<std::shared_ptr<DefaultMatrix>> linearSystemsPtr_;
   std::vector<std::shared_ptr<DefaultMatrix>> adjointLinearSystemsPtr_;
-  std::vector<DefaultMatrix> interpolationPtr_;
-  std::vector<DefaultMatrix> restrictionPtr_;
+  std::vector<std::shared_ptr<DefaultMatrix>> interpolationPtr_;
+  std::vector<std::shared_ptr<DefaultMatrix>> restrictionPtr_;
 
   std::vector<DefaultVector> auxiliaryVectorXPtr_;
   std::vector<DefaultVector> auxiliaryVectorRPtr_;
   std::vector<DefaultVector> auxiliaryVectorBPtr_;
 
-  std::vector<DefaultLinearSolver> smootherPtr_;
+  std::vector<std::shared_ptr<DefaultLinearSolver>> smootherPtr_;
   std::vector<DefaultLinearSolver> adjointSmootherPtr_;
 
   Geometry::Ghost interpolationGhost_, restrictionGhost_;
@@ -45,7 +45,8 @@ public:
 
   ~MultilevelPreconditioner();
 
-  Void ApplyPreconditioningIteration(DefaultVector &x, DefaultVector &y);
+  virtual Void ApplyPreconditioningIteration(DefaultVector &x,
+                                             DefaultVector &y);
   Void ApplyAdjointPreconditioningIteration(DefaultVector &x, DefaultVector &y);
 
   DefaultMatrix &GetInterpolation(const Size level);

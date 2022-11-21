@@ -6,22 +6,26 @@
 #include <vector>
 
 #include "Equation/MultilevelPreconditioner.hpp"
+#include "LinearAlgebra/LinearAlgebra.hpp"
 
 namespace Equation {
 class StokesPreconditioner : public MultilevelPreconditioner {
 protected:
-  std::vector<
-      LinearAlgebra::LinearSolverDescriptor<DefaultLinearAlgebraBackend>>
+  std::vector<std::shared_ptr<
+      LinearAlgebra::LinearSolverDescriptor<DefaultLinearAlgebraBackend>>>
       descriptorList_;
 
 public:
   typedef typename MultilevelPreconditioner::DefaultParticleManager
       DefaultParticleManager;
+  typedef typename LinearAlgebra::BlockMatrix<DefaultLinearAlgebraBackend>
+      DefaultBlockMatrix;
 
   StokesPreconditioner();
   ~StokesPreconditioner();
 
-  Void ApplyPreconditioningIteration(DefaultVector &x, DefaultVector &y);
+  virtual Void ApplyPreconditioningIteration(DefaultVector &x,
+                                             DefaultVector &y);
 
   virtual Void ConstructInterpolation(DefaultParticleManager &particleMgr);
   virtual Void ConstructRestriction(DefaultParticleManager &particleMgr);

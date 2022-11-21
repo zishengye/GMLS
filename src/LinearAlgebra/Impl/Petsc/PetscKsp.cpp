@@ -64,7 +64,8 @@ Void LinearAlgebra::Impl::PetscKsp::AddLinearSystem(
     KSPSetType(*kspPtr_, KSPFGMRES);
   } else if (descriptor.outerIteration == 0) {
     KSPSetType(*kspPtr_, KSPGMRES);
-    KSPSetTolerances(*kspPtr_, 1e-1, 1e-50, 1e20, 500);
+    KSPSetTolerances(*kspPtr_, descriptor.relativeTol, 1e-50, 1e20,
+                     descriptor.maxIter);
   } else {
     KSPSetType(*kspPtr_, KSPPREONLY);
   }

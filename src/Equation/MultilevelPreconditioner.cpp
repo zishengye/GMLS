@@ -1,5 +1,6 @@
 #include "Equation/MultilevelPreconditioner.hpp"
 #include <cstdio>
+#include <memory>
 #include <mpi.h>
 
 Equation::MultilevelPreconditioner::MultilevelPreconditioner() {
@@ -17,7 +18,12 @@ Void Equation::MultilevelPreconditioner::ApplyPreconditioningIteration(
   auxiliaryVectorBPtr_[numLevel - 1] = x;
   for (int i = numLevel - 1; i > 0; i--) {
     // pre-smooth
-    smootherPtr_[i].Solve(auxiliaryVectorBPtr_[i], auxiliaryVectorXPtr_[i]);
+    if (mpiRank_ == 0) {
+      for (int j = 0; j < numLevel - i; j++)
+        printf("  ");
+      printf("Pre-smooth\n");
+    }
+    smootherPtr_[i]->Solve(auxiliaryVectorBPtr_[i], auxiliaryVectorXPtr_[i]);
 
     // get residual
     auxiliaryVectorRPtr_[i] = (*linearSystemsPtr_[i]) * auxiliaryVectorXPtr_[i];
@@ -25,17 +31,23 @@ Void Equation::MultilevelPreconditioner::ApplyPreconditioningIteration(
     auxiliaryVectorRPtr_[i] *= -1.0;
 
     // restrict
-    auxiliaryVectorBPtr_[i - 1] = restrictionPtr_[i] * auxiliaryVectorRPtr_[i];
+    auxiliaryVectorBPtr_[i - 1] =
+        *(restrictionPtr_[i]) * auxiliaryVectorRPtr_[i];
   }
 
   // smooth on the base level
-  smootherPtr_[0].Solve(auxiliaryVectorBPtr_[0], auxiliaryVectorXPtr_[0]);
+  if (mpiRank_ == 0) {
+    for (int j = 0; j < numLevel; j++)
+      printf("  ");
+    printf("Smooth on the base level\n");
+  }
+  smootherPtr_[0]->Solve(auxiliaryVectorBPtr_[0], auxiliaryVectorXPtr_[0]);
 
   // sweep up
   for (int i = 1; i < numLevel; i++) {
     // interpolate
     auxiliaryVectorRPtr_[i] =
-        interpolationPtr_[i] * auxiliaryVectorXPtr_[i - 1];
+        *(interpolationPtr_[i]) * auxiliaryVectorXPtr_[i - 1];
     auxiliaryVectorXPtr_[i] += auxiliaryVectorRPtr_[i];
 
     // get residual
@@ -44,7 +56,12 @@ Void Equation::MultilevelPreconditioner::ApplyPreconditioningIteration(
     auxiliaryVectorRPtr_[i] *= -1.0;
 
     // post smooth
-    smootherPtr_[i].Solve(auxiliaryVectorRPtr_[i], auxiliaryVectorBPtr_[i]);
+    if (mpiRank_ == 0) {
+      for (int j = 0; j < numLevel - i; j++)
+        printf("  ");
+      printf("Post-smooth\n");
+    }
+    smootherPtr_[i]->Solve(auxiliaryVectorRPtr_[i], auxiliaryVectorBPtr_[i]);
     auxiliaryVectorXPtr_[i] += auxiliaryVectorBPtr_[i];
   }
   y = auxiliaryVectorXPtr_[numLevel - 1];
@@ -67,7 +84,8 @@ Void Equation::MultilevelPreconditioner::ApplyAdjointPreconditioningIteration(
     auxiliaryVectorRPtr_[i] *= -1.0;
 
     // restrict
-    auxiliaryVectorBPtr_[i - 1] = restrictionPtr_[i] * auxiliaryVectorRPtr_[i];
+    auxiliaryVectorBPtr_[i - 1] =
+        *(restrictionPtr_[i]) * auxiliaryVectorRPtr_[i];
   }
 
   // smooth on the base level
@@ -78,7 +96,7 @@ Void Equation::MultilevelPreconditioner::ApplyAdjointPreconditioningIteration(
   for (int i = 1; i < numLevel; i++) {
     // interpolate
     auxiliaryVectorRPtr_[i] =
-        interpolationPtr_[i] * auxiliaryVectorXPtr_[i - 1];
+        *(interpolationPtr_[i]) * auxiliaryVectorXPtr_[i - 1];
     auxiliaryVectorXPtr_[i] += auxiliaryVectorRPtr_[i];
 
     // get residual
@@ -96,17 +114,17 @@ Void Equation::MultilevelPreconditioner::ApplyAdjointPreconditioningIteration(
 
 Equation::MultilevelPreconditioner::DefaultMatrix &
 Equation::MultilevelPreconditioner::GetInterpolation(const Size level) {
-  return interpolationPtr_[level];
+  return *(interpolationPtr_[level]);
 }
 
 Equation::MultilevelPreconditioner::DefaultMatrix &
 Equation::MultilevelPreconditioner::GetRestriction(const Size level) {
-  return restrictionPtr_[level];
+  return *(restrictionPtr_[level]);
 }
 
 Equation::MultilevelPreconditioner::DefaultLinearSolver &
 Equation::MultilevelPreconditioner::GetSmoother(const Size level) {
-  return smootherPtr_[level];
+  return *(smootherPtr_[level]);
 }
 
 Equation::MultilevelPreconditioner::DefaultLinearSolver &
@@ -159,7 +177,7 @@ Void Equation::MultilevelPreconditioner::ConstructRestriction(
 }
 
 Void Equation::MultilevelPreconditioner::ConstructSmoother() {
-  smootherPtr_.emplace_back();
+  smootherPtr_.emplace_back(std::make_shared<DefaultLinearSolver>());
 }
 
 Void Equation::MultilevelPreconditioner::ConstructAdjointSmoother() {
