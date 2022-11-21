@@ -25,8 +25,8 @@ TEST(StokesEquationTest, 2DLinearSystemSolving) {
     equation.SetDomainSize(size);
     equation.SetDomainType(Geometry::Box);
     equation.SetMaxRefinementIteration(10);
-    equation.SetOutputLevel(1);
-    equation.SetRefinementMarkRatio();
+    equation.SetOutputLevel(0);
+    equation.SetRefinementMarkRatio(0.8);
     equation.SetVelocityInteriorRhs([](const double x, const double y,
                                        const double z, const unsigned int i) {
       double rhs[2];
