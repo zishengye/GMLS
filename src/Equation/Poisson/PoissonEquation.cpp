@@ -387,7 +387,7 @@ Void Equation::PoissonEquation::InitLinearSystem() {
            "neighbor: %.2f, max ratio: %.2f\n",
            iteCounter, minNeighbor, maxNeighbor,
            meanNeighbor / (double)globalParticleNum, maxRatio);
-    printf("Duration of initializing linear system:%.4fs\n", tEnd - tStart);
+    printf("Duration of initializing linear system: %.4fs\n", tEnd - tStart);
   }
 }
 

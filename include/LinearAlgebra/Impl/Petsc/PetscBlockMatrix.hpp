@@ -30,12 +30,19 @@ protected:
 
   KSP a00Ksp_, a11Ksp_;
 
+  PetscReal a00Timer_, a11Timer_;
+
   LinearAlgebra::BlockMatrix<LinearAlgebra::Impl::PetscBackend> *callbackPtr_;
 
 public:
   PetscBlockMatrix();
 
   ~PetscBlockMatrix();
+
+  Void ClearTimer();
+
+  PetscReal GetA00Timer();
+  PetscReal GetA11Timer();
 
   virtual Void Resize(const PetscInt blockM, const PetscInt blockN,
                       const PetscInt blockSize = 1);

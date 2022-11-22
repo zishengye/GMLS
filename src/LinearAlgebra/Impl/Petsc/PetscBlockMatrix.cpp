@@ -40,6 +40,19 @@ LinearAlgebra::Impl::PetscBlockMatrix::~PetscBlockMatrix() {
   }
 }
 
+Void LinearAlgebra::Impl::PetscBlockMatrix::ClearTimer() {
+  a00Timer_ = 0;
+  a11Timer_ = 0;
+}
+
+PetscReal LinearAlgebra::Impl::PetscBlockMatrix::GetA00Timer() {
+  return a00Timer_;
+}
+
+PetscReal LinearAlgebra::Impl::PetscBlockMatrix::GetA11Timer() {
+  return a11Timer_;
+}
+
 Void LinearAlgebra::Impl::PetscBlockMatrix::Resize(const PetscInt blockM,
                                                    const PetscInt blockN,
                                                    const PetscInt blockSize) {
@@ -166,7 +179,6 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::
   PC a00Pc;
   KSPGetPC(a00Ksp_, &a00Pc);
   PCSetType(a00Pc, PCSOR);
-  PCSetFromOptions(a00Pc);
   PCSetUp(a00Pc);
   KSPSetUp(a00Ksp_);
 
@@ -185,6 +197,8 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::
 Void LinearAlgebra::Impl::PetscBlockMatrix::
     ApplySchurComplementPreconditioningIteration(PetscVector &x,
                                                  PetscVector &y) {
+  double timer1, timer2;
+
   PetscReal *a, *b;
   VecGetArray(*(x.vecPtr_), &a);
   for (PetscInt i = 0; i < blockN_; i++) {
@@ -201,8 +215,40 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::
     VecSet(lhsVector_[i], 0.0);
   }
 
+  Vec a0, a1;
+  VecDuplicate(rhsVector_[0], &a0);
+  VecDuplicate(rhsVector_[1], &a1);
+
+  auto &a01 = *(subMat_[1]->matPtr_);
+  auto &a10 = *(subMat_[2]->matPtr_);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
   KSPSolve(a00Ksp_, rhsVector_[0], lhsVector_[0]);
+  timer2 = MPI_Wtime();
+  a00Timer_ += timer2 - timer1;
+
+  MatMult(a10, lhsVector_[0], a1);
+  VecAXPY(rhsVector_[1], -1.0, a1);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
   KSPSolve(a11Ksp_, rhsVector_[1], lhsVector_[1]);
+  timer2 = MPI_Wtime();
+  a11Timer_ += timer2 - timer1;
+
+  MatMult(a01, lhsVector_[1], a0);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
+  KSPSolve(a00Ksp_, a0, a0);
+  timer2 = MPI_Wtime();
+  a00Timer_ += timer2 - timer1;
+
+  VecAXPY(lhsVector_[0], -1.0, a0);
+
+  VecDestroy(&a0);
+  VecDestroy(&a1);
 
   VecGetArray(*(y.vecPtr_), &a);
   for (PetscInt i = 0; i < blockM_; i++) {

@@ -70,7 +70,10 @@ Void Equation::Equation::InitPreconditioner() {
   solver_.AddLinearSystem(linearSystemsPtr_[refinementIteration_], descriptor_);
 }
 
-Void Equation::Equation::SolveEquation() { solver_.Solve(b_, x_); }
+Void Equation::Equation::SolveEquation() {
+  preconditionerPtr_->ClearTimer();
+  solver_.Solve(b_, x_);
+}
 
 Void Equation::Equation::CalculateError() {
   const LocalIndex localParticleNum = particleMgr_.GetLocalParticleNum();
@@ -543,9 +546,16 @@ Void Equation::Equation::Update() {
       tLinearSystemStart = MPI_Wtime();
       this->SolveEquation();
       tLinearSystemEnd = MPI_Wtime();
-      if (mpiRank_ == 0)
+      if (mpiRank_ == 0) {
+        for (int i = linearSystemsPtr_.size() - 1; i >= 0; i--) {
+          for (unsigned int j = 0; j < linearSystemsPtr_.size() - i; j++)
+            printf("  ");
+          printf("Level: %4d, field relaxation duration: %.4fs\n", i,
+                 preconditionerPtr_->GetFieldRelaxationTimer(i));
+        }
         printf("Duration of solving linear system: %.4fs\n",
                tLinearSystemEnd - tLinearSystemStart);
+      }
     }
     this->CalculateError();
     this->Mark();

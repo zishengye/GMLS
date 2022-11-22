@@ -825,8 +825,10 @@ Void Equation::PoissonPreconditioner::ConstructSmoother() {
   descriptor.spd = -1;
   descriptor.setFromDatabase = false;
 
-  smootherPtr_[currentLevel]->AddLinearSystem(linearSystemsPtr_[currentLevel],
-                                              descriptor);
+  preSmootherPtr_[currentLevel]->AddLinearSystem(
+      linearSystemsPtr_[currentLevel], descriptor);
+  postSmootherPtr_[currentLevel]->AddLinearSystem(
+      linearSystemsPtr_[currentLevel], descriptor);
 
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();

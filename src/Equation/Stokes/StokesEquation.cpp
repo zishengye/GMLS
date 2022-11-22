@@ -2,6 +2,7 @@
 #include "Core/Typedef.hpp"
 #include "Discretization/PolyBasis.hpp"
 #include "Equation/Equation.hpp"
+#include "Equation/Stokes/StokesMatrix.hpp"
 #include "LinearAlgebra/LinearAlgebra.hpp"
 #include "Math/Vec3.hpp"
 
@@ -449,12 +450,12 @@ Void Equation::StokesEquation::InitLinearSystem() {
 
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
-    printf("\nAfter satisfying conditioning of Laplacian  operator\niteration "
+    printf("\nAfter satisfying conditioning of Laplacian operator\niteration "
            "count: %d min neighbor: %d, max neighbor: %d , mean "
            "neighbor: %.2f, max ratio: %.2f\n",
            iteCounter, minNeighbor, maxNeighbor,
            meanNeighbor / (double)globalParticleNum, maxRatio);
-    printf("Duration of initializing linear system:%.4fs\n", tEnd - tStart);
+    printf("Duration of initializing linear system: %.4fs\n", tEnd - tStart);
   }
 }
 
@@ -489,7 +490,7 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
   auto &pu = *(std::static_pointer_cast<DefaultMatrix>(A.GetSubMat(1, 0)));
   auto &pp = *(std::static_pointer_cast<DefaultMatrix>(A.GetSubMat(1, 1)));
 
-  const unsigned int batchSize = (dimension == 2) ? 5000 : 1000;
+  const unsigned int batchSize = (dimension == 2) ? 500 : 100;
   const unsigned int batchNum = localParticleNum / batchSize +
                                 ((localParticleNum % batchSize > 0) ? 1 : 0);
   for (unsigned int batch = 0; batch < batchNum; batch++) {
@@ -982,7 +983,32 @@ Void Equation::StokesEquation::SolveEquation() {
     x_ = preconditionerPtr_->GetInterpolation(currentRefinementLevel) * y;
   }
 
+  for (int i = 0; i < linearSystemsPtr_.size(); i++)
+    std::static_pointer_cast<StokesMatrix>(linearSystemsPtr_[i])->ClearTimer();
+
   Equation::SolveEquation();
+
+  if (mpiRank_ == 0) {
+    for (int i = linearSystemsPtr_.size() - 1; i >= 0; i--) {
+      for (unsigned int j = 0; j < linearSystemsPtr_.size() - i; j++)
+        printf("  ");
+      printf("Level: %4d, stokes matrix multiplication duration: %.4fs\n", i,
+             std::static_pointer_cast<StokesMatrix>(linearSystemsPtr_[i])
+                 ->GetMatrixMultiplicationDuration());
+
+      for (unsigned int j = 0; j < linearSystemsPtr_.size() - i; j++)
+        printf("  ");
+      printf("             stokes matrix smoothing: %.4fs, velocity smoothing: "
+             "%.4fs, pressure smoothing: %.4fs\n",
+             std::static_pointer_cast<StokesMatrix>(linearSystemsPtr_[i])
+                 ->GetMatrixSmoothingDuration(),
+             std::static_pointer_cast<StokesMatrix>(linearSystemsPtr_[i])
+                 ->GetVelocitySmoothingDuration(),
+             std::static_pointer_cast<StokesMatrix>(linearSystemsPtr_[i])
+                 ->GetPressureSmoothingDuration());
+    }
+  }
+
   x_.Copy(field_);
 
   const unsigned int localParticleNum = particleMgr_.GetLocalParticleNum();

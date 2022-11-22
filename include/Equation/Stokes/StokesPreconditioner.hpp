@@ -13,7 +13,7 @@ class StokesPreconditioner : public MultilevelPreconditioner {
 protected:
   std::vector<std::shared_ptr<
       LinearAlgebra::LinearSolverDescriptor<DefaultLinearAlgebraBackend>>>
-      descriptorList_;
+      preSmootherDescriptorList_, postSmootherDescriptorList_;
 
 public:
   typedef typename MultilevelPreconditioner::DefaultParticleManager

@@ -11,11 +11,21 @@
 namespace Equation {
 class StokesMatrix
     : public LinearAlgebra::BlockMatrix<DefaultLinearAlgebraBackend> {
+protected:
+  double matrixMultiplicationDuration_, matrixSmoothingDuration_;
+
 public:
   typedef typename LinearAlgebra::Vector<DefaultLinearAlgebraBackend>
       DefaultVector;
 
 public:
+  Void ClearTimer();
+
+  double GetMatrixMultiplicationDuration();
+  double GetMatrixSmoothingDuration();
+  double GetVelocitySmoothingDuration();
+  double GetPressureSmoothingDuration();
+
   virtual Void MatrixVectorMultiplication(DefaultVector &vec1,
                                           DefaultVector &vec2);
 

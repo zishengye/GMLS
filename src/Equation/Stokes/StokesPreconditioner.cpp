@@ -981,30 +981,51 @@ Void Equation::StokesPreconditioner::ConstructSmoother() {
       std::static_pointer_cast<StokesMatrix>(linearSystemsPtr_[currentLevel]);
   stokesPtr->PrepareSchurComplementPreconditioner();
 
-  descriptorList_.emplace_back(
+  preSmootherDescriptorList_.emplace_back(
       std::make_shared<LinearAlgebra::LinearSolverDescriptor<
           DefaultLinearAlgebraBackend>>());
-  descriptorList_[currentLevel]->setFromDatabase = false;
-  descriptorList_[currentLevel]->outerIteration = 0;
-  descriptorList_[currentLevel]->spd = -1;
+  preSmootherDescriptorList_[currentLevel]->setFromDatabase = false;
   if (currentLevel == 0)
-    descriptorList_[currentLevel]->maxIter = 500;
+    preSmootherDescriptorList_[currentLevel]->outerIteration = 0;
   else
-    descriptorList_[currentLevel]->maxIter = 100;
-  if (currentLevel == 0)
-    descriptorList_[currentLevel]->relativeTol = 1e-3;
-  else
-    descriptorList_[currentLevel]->relativeTol = 1e-1;
-  descriptorList_[currentLevel]->customPreconditioner = true;
+    preSmootherDescriptorList_[currentLevel]->outerIteration = -1;
+  preSmootherDescriptorList_[currentLevel]->spd = -1;
+  preSmootherDescriptorList_[currentLevel]->maxIter = 100;
+  preSmootherDescriptorList_[currentLevel]->relativeTol = 1e-1;
+  preSmootherDescriptorList_[currentLevel]->customPreconditioner = true;
 
-  descriptorList_[currentLevel]->preconditioningIteration =
+  preSmootherDescriptorList_[currentLevel]->preconditioningIteration =
       std::function<Void(DefaultVector &, DefaultVector &)>(
           [=](DefaultVector &x, DefaultVector &y) {
             stokesPtr->ApplyPreconditioningIteration(x, y);
           });
 
-  smootherPtr_[currentLevel]->AddLinearSystem(linearSystemsPtr_[currentLevel],
-                                              *(descriptorList_[currentLevel]));
+  preSmootherPtr_[currentLevel]->AddLinearSystem(
+      linearSystemsPtr_[currentLevel],
+      *(preSmootherDescriptorList_[currentLevel]));
+
+  postSmootherDescriptorList_.emplace_back(
+      std::make_shared<LinearAlgebra::LinearSolverDescriptor<
+          DefaultLinearAlgebraBackend>>());
+  postSmootherDescriptorList_[currentLevel]->setFromDatabase = false;
+  if (currentLevel == 0)
+    postSmootherDescriptorList_[currentLevel]->outerIteration = 0;
+  else
+    postSmootherDescriptorList_[currentLevel]->outerIteration = -1;
+  postSmootherDescriptorList_[currentLevel]->spd = -1;
+  postSmootherDescriptorList_[currentLevel]->maxIter = 100;
+  postSmootherDescriptorList_[currentLevel]->relativeTol = 1e-1;
+  postSmootherDescriptorList_[currentLevel]->customPreconditioner = true;
+
+  postSmootherDescriptorList_[currentLevel]->preconditioningIteration =
+      std::function<Void(DefaultVector &, DefaultVector &)>(
+          [=](DefaultVector &x, DefaultVector &y) {
+            stokesPtr->ApplyPreconditioningIteration(x, y);
+          });
+
+  postSmootherPtr_[currentLevel]->AddLinearSystem(
+      linearSystemsPtr_[currentLevel],
+      *(postSmootherDescriptorList_[currentLevel]));
 
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();

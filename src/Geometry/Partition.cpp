@@ -11,7 +11,7 @@ Void Geometry::Partition::ConstructPartition(const HostRealMatrix &coords,
                                              const HostIndexVector &index) {
   // use Zoltan2 to partition
   Teuchos::ParameterList params("zoltan2 params");
-  params.set("algorithm", "multijagged");
+  params.set("algorithm", "rcb");
   params.set("num_global_parts", mpiSize_);
 
   std::vector<Scalar> x, y, z;

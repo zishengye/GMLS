@@ -10,9 +10,23 @@ Equation::MultilevelPreconditioner::MultilevelPreconditioner() {
 
 Equation::MultilevelPreconditioner::~MultilevelPreconditioner() {}
 
+Void Equation::MultilevelPreconditioner::ClearTimer() {
+  const int numLevel = linearSystemsPtr_.size();
+  fieldRelaxationDuration_.resize(numLevel);
+  for (int i = 0; i < numLevel; i++)
+    fieldRelaxationDuration_[i] = 0;
+}
+
+double Equation::MultilevelPreconditioner::GetFieldRelaxationTimer(
+    const unsigned int level) {
+  return fieldRelaxationDuration_[level];
+}
+
 Void Equation::MultilevelPreconditioner::ApplyPreconditioningIteration(
     DefaultVector &x, DefaultVector &y) {
   const int numLevel = linearSystemsPtr_.size();
+
+  double timer1, timer2;
 
   // sweep down
   auxiliaryVectorBPtr_[numLevel - 1] = x;
@@ -23,7 +37,12 @@ Void Equation::MultilevelPreconditioner::ApplyPreconditioningIteration(
         printf("  ");
       printf("Pre-smooth\n");
     }
-    smootherPtr_[i]->Solve(auxiliaryVectorBPtr_[i], auxiliaryVectorXPtr_[i]);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    timer1 = MPI_Wtime();
+    preSmootherPtr_[i]->Solve(auxiliaryVectorBPtr_[i], auxiliaryVectorXPtr_[i]);
+    timer2 = MPI_Wtime();
+    fieldRelaxationDuration_[i] += timer2 - timer1;
 
     // get residual
     auxiliaryVectorRPtr_[i] = (*linearSystemsPtr_[i]) * auxiliaryVectorXPtr_[i];
@@ -41,7 +60,12 @@ Void Equation::MultilevelPreconditioner::ApplyPreconditioningIteration(
       printf("  ");
     printf("Smooth on the base level\n");
   }
-  smootherPtr_[0]->Solve(auxiliaryVectorBPtr_[0], auxiliaryVectorXPtr_[0]);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
+  postSmootherPtr_[0]->Solve(auxiliaryVectorBPtr_[0], auxiliaryVectorXPtr_[0]);
+  timer2 = MPI_Wtime();
+  fieldRelaxationDuration_[0] += timer2 - timer1;
 
   // sweep up
   for (int i = 1; i < numLevel; i++) {
@@ -61,7 +85,14 @@ Void Equation::MultilevelPreconditioner::ApplyPreconditioningIteration(
         printf("  ");
       printf("Post-smooth\n");
     }
-    smootherPtr_[i]->Solve(auxiliaryVectorRPtr_[i], auxiliaryVectorBPtr_[i]);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    timer1 = MPI_Wtime();
+    postSmootherPtr_[i]->Solve(auxiliaryVectorRPtr_[i],
+                               auxiliaryVectorBPtr_[i]);
+    timer2 = MPI_Wtime();
+    fieldRelaxationDuration_[i] += timer2 - timer1;
+
     auxiliaryVectorXPtr_[i] += auxiliaryVectorBPtr_[i];
   }
   y = auxiliaryVectorXPtr_[numLevel - 1];
@@ -123,8 +154,13 @@ Equation::MultilevelPreconditioner::GetRestriction(const Size level) {
 }
 
 Equation::MultilevelPreconditioner::DefaultLinearSolver &
-Equation::MultilevelPreconditioner::GetSmoother(const Size level) {
-  return *(smootherPtr_[level]);
+Equation::MultilevelPreconditioner::GetPreSmoother(const Size level) {
+  return *(preSmootherPtr_[level]);
+}
+
+Equation::MultilevelPreconditioner::DefaultLinearSolver &
+Equation::MultilevelPreconditioner::GetPostSmoother(const Size level) {
+  return *(postSmootherPtr_[level]);
 }
 
 Equation::MultilevelPreconditioner::DefaultLinearSolver &
@@ -177,7 +213,8 @@ Void Equation::MultilevelPreconditioner::ConstructRestriction(
 }
 
 Void Equation::MultilevelPreconditioner::ConstructSmoother() {
-  smootherPtr_.emplace_back(std::make_shared<DefaultLinearSolver>());
+  preSmootherPtr_.emplace_back(std::make_shared<DefaultLinearSolver>());
+  postSmootherPtr_.emplace_back(std::make_shared<DefaultLinearSolver>());
 }
 
 Void Equation::MultilevelPreconditioner::ConstructAdjointSmoother() {

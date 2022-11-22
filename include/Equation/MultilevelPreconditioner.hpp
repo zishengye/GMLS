@@ -35,8 +35,11 @@ protected:
   std::vector<DefaultVector> auxiliaryVectorRPtr_;
   std::vector<DefaultVector> auxiliaryVectorBPtr_;
 
-  std::vector<std::shared_ptr<DefaultLinearSolver>> smootherPtr_;
+  std::vector<std::shared_ptr<DefaultLinearSolver>> preSmootherPtr_,
+      postSmootherPtr_;
   std::vector<DefaultLinearSolver> adjointSmootherPtr_;
+
+  std::vector<double> fieldRelaxationDuration_;
 
   Geometry::Ghost interpolationGhost_, restrictionGhost_;
 
@@ -45,13 +48,17 @@ public:
 
   ~MultilevelPreconditioner();
 
+  Void ClearTimer();
+  double GetFieldRelaxationTimer(const unsigned int level);
+
   virtual Void ApplyPreconditioningIteration(DefaultVector &x,
                                              DefaultVector &y);
   Void ApplyAdjointPreconditioningIteration(DefaultVector &x, DefaultVector &y);
 
   DefaultMatrix &GetInterpolation(const Size level);
   DefaultMatrix &GetRestriction(const Size level);
-  DefaultLinearSolver &GetSmoother(const Size level);
+  DefaultLinearSolver &GetPreSmoother(const Size level);
+  DefaultLinearSolver &GetPostSmoother(const Size level);
   DefaultLinearSolver &GetAdjointSmoother(const Size level);
 
   Void AddLinearSystem(std::shared_ptr<DefaultMatrix> &mat);
