@@ -1,24 +1,16 @@
 # GMLS Solver
 
-## How to access the source files
-
-```
-git clone wpan@panlab-07.me.wisc.edu:~/git/GMLS_Solver.git
-```
-
-
-
 ## How to build
 
 In the root directory, use
 
-```
+```[cmake]
 cmake ./
 ```
 
 build up all the dependencies and use
 
-```
+```[make]
 make nsmpi -j
 ```
 
@@ -30,7 +22,7 @@ build the executable.
 
 Suggested installation command:
 
-```
+```[bash]
 ./configure --with-cc=gcc --with-cxx=g++ --with-fc=gfortran --with-debugging=0 COPTFLAGS='-O3 -march=native -mtune=native' CXXOPTFLAGS='-O3 -march=native -mtune=native' FOPTFLAGS='-O3 -march=native -mtune=native' --download-mpich --download-fblaslapack --download-superlu_dist --download-mumps --download-scalapack --download-hypre --prefix=/opt/petsc/
 ```
 
@@ -40,15 +32,15 @@ It is suggested to install a standalone Kokkos kernel. One could directly instal
 
 Suggested installation commamd:
 
-```
-sudo ../generate_makefile.bash --prefix=/opt/kokkos --cxxflags="-fPIC" --ldflags="-ldl"
+```[bash]
+../generate_makefile.bash --prefix=/opt/kokkos --cxxflags="-fPIC" --ldflags="-ldl"
 ```
 
 [Compadre](https://github.com/SNLComputation/compadre)
 
 Suggested configure file setup
 
-```
+```[bash]
 #!/bin/bash
 # 
 #
@@ -80,13 +72,14 @@ cmake \
     ..
 ```
 
-[Trilinos]
+```[cmake]
 cmake -D Trilinos_ENABLE_Zoltan2:BOOL=ON -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX_PATH -D Trilinos_ENABLE_Fortran:BOOL=OFF -D BUILD_SHARED_LIBS=ON -D TPL_ENABLE_MPI:BOOL=ON -D Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES=OFF -D Kokkos_ENABLE_OpenMP:BOOL=ON -D Kokkos_ENABLE_SERIAL:BOOL=OFF -D Trilinos_ENABLE_OpenMP:BOOL=ON ../
+```
 
 ## How to execute the program
 
 To invoke the executable, one need to use mpiexec and use "-input" command to transfer executation command for the program. Here is an example
 
-```
+```[bash]
 /opt/petsc/bin/mpiexec -np 4 ./nsmpi -input ./example/stokes_2d.in
 ```
