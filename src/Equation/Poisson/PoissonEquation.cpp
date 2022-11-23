@@ -691,7 +691,7 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
     printf("End of building linear system of physics: Poisson\n");
-    printf("Duration of building linear system is:%.4fs\n", tEnd - tStart);
+    printf("Duration of building linear system is: %.4fs\n", tEnd - tStart);
   }
 }
 
@@ -735,7 +735,7 @@ Void Equation::PoissonEquation::ConstructRhs() {
   x_.Create(field_);
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
-    printf("Duration of building right hand side:%.4fs\n", tEnd - tStart);
+    printf("Duration of building right hand side: %.4fs\n", tEnd - tStart);
   }
 }
 
@@ -1130,7 +1130,7 @@ Void Equation::PoissonEquation::CalculateError() {
 
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
-    printf("Duration of calculating error:%.4fs\n", tEnd - tStart);
+    printf("Duration of calculating error: %.4fs\n", tEnd - tStart);
   }
 }
 

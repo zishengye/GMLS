@@ -892,7 +892,7 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
     printf("End of building linear system of physics: Stokes\n");
-    printf("Duration of building linear system is:%.4fs\n", tEnd - tStart);
+    printf("Duration of building linear system is: %.4fs\n", tEnd - tStart);
   }
 }
 
@@ -970,7 +970,7 @@ Void Equation::StokesEquation::ConstructRhs() {
 
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0) {
-    printf("Duration of building right hand side:%.4fs\n", tEnd - tStart);
+    printf("Duration of building right hand side: %.4fs\n", tEnd - tStart);
   }
 }
 
@@ -1379,7 +1379,7 @@ Void Equation::StokesEquation::CalculateError() {
 
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0)
-    printf("Duration of calculating error:%.4fs\n", tEnd - tStart);
+    printf("Duration of calculating error: %.4fs\n", tEnd - tStart);
 }
 
 Equation::StokesEquation::StokesEquation()
