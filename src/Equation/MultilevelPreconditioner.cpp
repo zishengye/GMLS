@@ -45,7 +45,8 @@ Void Equation::MultilevelPreconditioner::ApplyPreconditioningIteration(
     fieldRelaxationDuration_[i] += timer2 - timer1;
 
     // get residual
-    auxiliaryVectorRPtr_[i] = (*linearSystemsPtr_[i]) * auxiliaryVectorXPtr_[i];
+    linearSystemsPtr_[i]->MatrixVectorMultiplication(auxiliaryVectorXPtr_[i],
+                                                     auxiliaryVectorRPtr_[i]);
     auxiliaryVectorRPtr_[i] -= auxiliaryVectorBPtr_[i];
     auxiliaryVectorRPtr_[i] *= -1.0;
 
@@ -75,7 +76,8 @@ Void Equation::MultilevelPreconditioner::ApplyPreconditioningIteration(
     auxiliaryVectorXPtr_[i] += auxiliaryVectorRPtr_[i];
 
     // get residual
-    auxiliaryVectorRPtr_[i] = (*linearSystemsPtr_[i]) * auxiliaryVectorXPtr_[i];
+    linearSystemsPtr_[i]->MatrixVectorMultiplication(auxiliaryVectorXPtr_[i],
+                                                     auxiliaryVectorRPtr_[i]);
     auxiliaryVectorRPtr_[i] -= auxiliaryVectorBPtr_[i];
     auxiliaryVectorRPtr_[i] *= -1.0;
 
