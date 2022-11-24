@@ -349,7 +349,8 @@ Void Equation::PoissonEquation::InitLinearSystem() {
       linearSystemsPtr_[refinementIteration_]));
   A.Resize(localParticleNum, localParticleNum);
   Kokkos::parallel_for(
-      Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, localParticleNum),
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
+                                                             localParticleNum),
       [&](const int i) {
         std::vector<PetscInt> index;
         const PetscInt currentParticleIndex = i;
@@ -417,12 +418,12 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
   Kokkos::resize(bi_, localParticleNum);
 
   if (kappaFuncType_ == 1) {
-    Kokkos::parallel_for(
-        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, localParticleNum),
-        KOKKOS_LAMBDA(const int i) {
-          kappa_(i) =
-              singleKappaFunc_(coords(i, 0), coords(i, 1), coords(i, 2));
-        });
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+                             0, localParticleNum),
+                         [=](const int i) {
+                           kappa_(i) = singleKappaFunc_(
+                               coords(i, 0), coords(i, 1), coords(i, 2));
+                         });
     Kokkos::fence();
   } else {
     multipleKappaFunc_(coords, spacing, kappa_);
@@ -921,7 +922,7 @@ Void Equation::PoissonEquation::CalculateError() {
   Kokkos::parallel_for(
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              coords.extent(0)),
-      KOKKOS_LAMBDA(const std::size_t i) {
+      [=](const std::size_t i) {
         for (unsigned int j = 0; j < dimension; j++)
           recoveredGradientChunk_(i, j) = 0.0;
         for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
@@ -949,7 +950,7 @@ Void Equation::PoissonEquation::CalculateError() {
   Kokkos::parallel_for(
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              coords.extent(0)),
-      KOKKOS_LAMBDA(const std::size_t i) {
+      [=](const std::size_t i) {
         const double localVolume = pow(spacing(i), dimension);
         double totalNeighborVolume = 0.0;
         error_(i) = 0.0;
@@ -1408,8 +1409,12 @@ Void Equation::PoissonEquation::CalculateSensitivity(
     sensitivity(i) *= pow(targetSpacing(i), dimension);
   }
 
-  if (mpiRank_ == 0)
+  tEnd = MPI_Wtime();
+
+  if (mpiRank_ == 0) {
+    printf("Duration of calculating sensitivity: %.4fs\n", tEnd - tStart);
     printf("End of calculating sensitivity\n");
+  }
   MPI_Barrier(MPI_COMM_WORLD);
 }
 

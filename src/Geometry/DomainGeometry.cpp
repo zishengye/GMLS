@@ -1,4 +1,5 @@
 #include "Geometry/DomainGeometry.hpp"
+#include "Core/Typedef.hpp"
 
 Geometry::DomainGeometry::DomainGeometry() {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank_);
@@ -55,14 +56,14 @@ bool Geometry::DomainGeometry::IsInterior(Scalar x, Scalar y, Scalar z) {
   return false;
 }
 
-Void Geometry::DomainGeometry::IsInterior(Kokkos::View<Scalar **> coords,
-                                          Kokkos::View<bool *> results) {
+Void Geometry::DomainGeometry::IsInterior(HostRealMatrix coords,
+                                          HostBooleanVector results) {
   if (dimension_ == 2) {
     if (shape_ == Box) {
       Kokkos::parallel_for(
-          Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,
-                                                             coords.extent(0)),
-          KOKKOS_LAMBDA(const int i) {
+          Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+              0, coords.extent(0)),
+          [=](const int i) {
             if (coords(i, 0) > -size_[0] / 2.0 &&
                 coords(i, 0) < size_[0] / 2.0 &&
                 coords(i, 1) > -size_[1] / 2.0 && coords(i, 1) < size_[1] / 2.0)
@@ -77,9 +78,9 @@ Void Geometry::DomainGeometry::IsInterior(Kokkos::View<Scalar **> coords,
   if (dimension_ == 3) {
     if (shape_ == Box) {
       Kokkos::parallel_for(
-          Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,
-                                                             coords.extent(0)),
-          KOKKOS_LAMBDA(const int i) {
+          Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+              0, coords.extent(0)),
+          [=](const int i) {
             if (coords(i, 0) > -size_[0] / 2.0 &&
                 coords(i, 0) < size_[0] / 2.0 &&
                 coords(i, 1) > -size_[1] / 2.0 &&
@@ -157,10 +158,11 @@ LocalIndex Geometry::DomainGeometry::EstimateNodeNum(const Scalar spacing) {
   return localBoundaryNodeNum + localInteriorNodeNum;
 }
 
-Void Geometry::DomainGeometry::AssignUniformNode(
-    Kokkos::View<Scalar **> nodeCoords, Kokkos::View<Scalar **> nodeNormal,
-    Kokkos::View<Scalar *> nodeSize, Kokkos::View<std::size_t *> nodeType,
-    const Scalar spacing) {
+Void Geometry::DomainGeometry::AssignUniformNode(HostRealMatrix nodeCoords,
+                                                 HostRealMatrix nodeNormal,
+                                                 HostRealVector nodeSize,
+                                                 HostIndexVector nodeType,
+                                                 const Scalar spacing) {
   if (dimension_ == 2) {
     if (shape_ == Box) {
       LocalIndex xNodeNum = ceil(size_[0] / spacing);

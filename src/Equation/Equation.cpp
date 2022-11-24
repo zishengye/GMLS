@@ -5,6 +5,7 @@
 #include <execution>
 #include <iostream>
 #include <memory>
+#include <mpi.h>
 #include <vector>
 
 #include "Equation/Equation.hpp"
@@ -183,7 +184,7 @@ Void Equation::Equation::Mark() {
   ghost_.ApplyGhost(particleRefinementLevel, ghostParticleRefinementLevel);
 
   HostIndexVector ghostSplitTag;
-  HostIndexVector crossRefinementLevel, ghostCrossRefinementLevel;
+  HostIntVector crossRefinementLevel, ghostCrossRefinementLevel;
   Kokkos::resize(crossRefinementLevel, error_.extent(0));
   int iterationFinished = 1;
   iteCounter = 0;
@@ -304,12 +305,15 @@ Void Equation::Equation::Mark() {
 }
 
 Void Equation::Equation::BuildGhost() {
-  auto &particleCoords = particleMgr_.GetParticleCoords();
-  auto &particleSize = particleMgr_.GetParticleSize();
-  auto &particleIndex = particleMgr_.GetParticleIndex();
-  auto &particleType = particleMgr_.GetParticleType();
+  auto particleCoords = particleMgr_.GetParticleCoords();
+  auto particleSize = particleMgr_.GetParticleSize();
+  auto particleIndex = particleMgr_.GetParticleIndex();
+  auto particleType = particleMgr_.GetParticleType();
   ghost_.Init(particleCoords, particleSize, particleCoords, ghostMultiplier_,
               particleMgr_.GetDimension());
+  MPI_Barrier(MPI_COMM_WORLD);
+  if (mpiRank_ == 0)
+    printf("ghost flag\n");
   ghost_.ApplyGhost(particleCoords, hostGhostParticleCoords_);
   ghost_.ApplyGhost(particleIndex, hostGhostParticleIndex_);
   ghost_.ApplyGhost(particleType, hostGhostParticleType_);
@@ -403,18 +407,20 @@ Void Equation::Equation::ConstructNeighborLists(
   pointCloudSearch.generate2DNeighborListsFromKNNSearch(
       true, coords, neighborLists_, epsilon_, satisfiedNumNeighbor, 1.0);
 
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, localParticleNum),
-      [&](const int i) {
-        int scaling = floor(epsilon_(i) / spacing(i) * 1000 + 0.5) + 1;
-        epsilon_(i) = scaling * 1e-3 * spacing(i);
-        // double minEpsilon = 1.50 * spacing(i);
-        // double minSpacing = 0.50 * spacing(i);
-        // epsilon_(i) = std::max(minEpsilon, epsilon_(i));
-        // unsigned int scaling =
-        //     std::ceil((epsilon_(i) - minEpsilon) / minSpacing);
-        // epsilon_(i) = minEpsilon + scaling * minSpacing;
-      });
+  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+                           0, localParticleNum),
+                       [&](const int i) {
+                         int scaling =
+                             floor(epsilon_(i) / spacing(i) * 1000 + 0.5) + 1;
+                         epsilon_(i) = scaling * 1e-3 * spacing(i);
+                         // double minEpsilon = 1.50 * spacing(i);
+                         // double minSpacing = 0.50 * spacing(i);
+                         // epsilon_(i) = std::max(minEpsilon, epsilon_(i));
+                         // unsigned int scaling =
+                         //     std::ceil((epsilon_(i) - minEpsilon) /
+                         //     minSpacing);
+                         // epsilon_(i) = minEpsilon + scaling * minSpacing;
+                       });
   Kokkos::fence();
 
   // perform neighbor search by epsilon size

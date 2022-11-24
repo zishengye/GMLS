@@ -1,6 +1,7 @@
 #ifndef _Geometry_DomainGeometry_Hpp_
 #define _Geometry_DomainGeometry_Hpp_
 
+#include <Kokkos_Core_fwd.hpp>
 #include <iostream>
 #include <vector>
 
@@ -25,14 +26,11 @@ public:
   ~DomainGeometry();
 
   Boolean IsInterior(Scalar x, Scalar y, Scalar z);
-  Void IsInterior(Kokkos::View<Scalar **> coords,
-                  Kokkos::View<Boolean *> results);
+  Void IsInterior(HostRealMatrix coords, HostBooleanVector results);
   Boolean IsBoundary(Scalar x, Scalar y, Scalar z);
-  Void IsBoundary(Kokkos::View<Scalar **> coords,
-                  Kokkos::View<Boolean *> results);
+  Void IsBoundary(HostRealMatrix coords, HostBooleanVector results);
   Scalar MeasureToBoundary(Scalar x, Scalar y, Scalar z);
-  Void MeasureToBoundary(Kokkos::View<Scalar **> coords,
-                         Kokkos::View<Scalar *> results);
+  Void MeasureToBoundary(HostRealMatrix coords, HostRealVector results);
 
   Void SetType(const SupportedDomainShape shape);
   Void SetDimension(const Size dimension);
@@ -44,10 +42,8 @@ public:
   Scalar GetSize(const LocalIndex sizeIndex);
 
   LocalIndex EstimateNodeNum(const Scalar spacing);
-  Void AssignUniformNode(Kokkos::View<Scalar **> nodeCoords,
-                         Kokkos::View<Scalar **> nodeNormal,
-                         Kokkos::View<Scalar *> nodeSize,
-                         Kokkos::View<std::size_t *> nodeType,
+  Void AssignUniformNode(HostRealMatrix nodeCoords, HostRealMatrix nodeNormal,
+                         HostRealVector nodeSize, HostIndexVector nodeType,
                          const Scalar spacing);
 };
 } // namespace Geometry

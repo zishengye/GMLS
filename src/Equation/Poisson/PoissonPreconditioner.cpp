@@ -3,6 +3,7 @@
 
 #include <Compadre_GMLS.hpp>
 #include <Compadre_PointCloudSearch.hpp>
+#include <Kokkos_Core_fwd.hpp>
 #include <memory>
 
 Equation::PoissonPreconditioner::PoissonPreconditioner()
@@ -72,7 +73,7 @@ Void Equation::PoissonPreconditioner::ConstructInterpolation(
         true, targetParticleCoordsHost, neighborListsHost, epsilonHost,
         satisfiedNumNeighbor, 1.0);
 
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
                              0, localTargetParticleNum),
                          [&](const int i) {
                            double minEpsilon = 1.50 * targetParticleSizeHost(i);
@@ -162,7 +163,7 @@ Void Equation::PoissonPreconditioner::ConstructInterpolation(
     DefaultMatrix &I = *(interpolationPtr_[currentLevel]);
     I.Resize(localTargetParticleNum, localSourceParticleNum);
     Kokkos::parallel_for(
-        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, localTargetParticleNum),
         [&](const int i) {
           std::vector<PetscInt> index;
@@ -435,7 +436,7 @@ Void Equation::PoissonPreconditioner::ConstructRestriction(
         interiorEpsilonHost, satisfiedNumNeighbor, 1.0);
 
     Kokkos::parallel_for(
-        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, localInteriorParticleNum),
         [&](const int i) {
           double minEpsilon = 0.25 * interiorTargetParticleSize(i);
@@ -514,7 +515,7 @@ Void Equation::PoissonPreconditioner::ConstructRestriction(
         boundaryEpsilonHost, satisfiedNumNeighbor, 1.0);
 
     Kokkos::parallel_for(
-        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, localBoundaryParticleNum),
         [&](const int i) {
           double minEpsilon = 0.250005 * boundaryTargetParticleSize(i);

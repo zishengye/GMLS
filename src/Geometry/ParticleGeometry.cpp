@@ -274,7 +274,7 @@ Void Geometry::EulerianParticleManager::BalanceAndIndexInternal() {
     rankParticleNumOffset[i + 1] =
         rankParticleNumOffset[i] + rankParticleNum[i];
   }
-  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
                            0, particleIndex.extent(0)),
                        [&](const int i) {
                          particleIndex(i) = i + rankParticleNumOffset[mpiRank_];
@@ -299,7 +299,7 @@ Void Geometry::EulerianParticleManager::BalanceAndIndexInternal() {
         rankParticleNumOffset[i] + rankParticleNum[i];
   }
 
-  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
                            0, particleIndex.extent(0)),
                        [&](const int i) {
                          particleIndex(i) = i + rankParticleNumOffset[mpiRank_];
@@ -408,8 +408,9 @@ Void Geometry::HierarchicalEulerianParticleManager::RefineInternal(
 
   // estimate number of particles in the next refinement iteration
   Kokkos::parallel_scan(
-      Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, splitTag.extent(0)),
-      KOKKOS_LAMBDA(const int i, int &tNewLocalParticleNum, bool isFinal) {
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+          0, splitTag.extent(0)),
+      [=](const int i, int &tNewLocalParticleNum, bool isFinal) {
         if (isFinal)
           newLocalParticleNum(i) = tNewLocalParticleNum;
         if (splitTag(i) == 0)
@@ -456,7 +457,8 @@ Void Geometry::HierarchicalEulerianParticleManager::RefineInternal(
   Kokkos::resize(hostParticleRefinementLevel_, newParticleNum);
 
   Kokkos::parallel_for(
-      Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, splitTag.extent(0)),
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+          0, splitTag.extent(0)),
       [&](const int i) {
         if (splitTag(i) == 0) {
           for (int j = 0; j < 3; j++) {
@@ -637,9 +639,9 @@ Void Geometry::HierarchicalEulerianParticleManager::Init() {
 
   Kokkos::resize(hostParticleRefinementLevel_, this->GetLocalParticleNum());
   Kokkos::parallel_for(
-      Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
           0, hostParticleRefinementLevel_.extent(0)),
-      KOKKOS_LAMBDA(const int i) { hostParticleRefinementLevel_(i) = 0; });
+      [=](const int i) { hostParticleRefinementLevel_(i) = 0; });
   Kokkos::fence();
 }
 

@@ -59,9 +59,13 @@ Void Geometry::Ghost::Init(const HostRealMatrix &targetCoords,
   MPI_Allgather(&domainHigh[2], 1, MPI_DOUBLE, rankDomain.data() + mpiSize_ * 5,
                 1, MPI_DOUBLE, MPI_COMM_WORLD);
 
-  std::vector<Scalar[3]> rankGhostDomainLow(mpiSize_);
-  std::vector<Scalar[3]> rankGhostDomainHigh(mpiSize_);
+  std::vector<std::vector<double>> rankGhostDomainLow;
+  std::vector<std::vector<double>> rankGhostDomainHigh;
+  rankGhostDomainLow.resize(mpiSize_);
+  rankGhostDomainHigh.resize(mpiSize_);
   for (LocalIndex i = 0; i < mpiSize_; i++) {
+    rankGhostDomainLow.resize(3);
+    rankGhostDomainHigh.resize(3);
     for (int j = 0; j < 3; j++) {
       rankGhostDomainLow[i][j] = rankDomain[i + j * mpiSize_];
       rankGhostDomainHigh[i][j] = rankDomain[i + (j + 3) * mpiSize_];

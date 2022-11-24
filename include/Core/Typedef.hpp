@@ -3,10 +3,10 @@
 
 #include <Compadre_Typedefs.hpp>
 
-typedef scalar_type Scalar;
-typedef local_index_type LocalIndex;
-typedef global_index_type Size;
-typedef global_index_type GlobalIndex;
+typedef double Scalar;
+typedef int LocalIndex;
+typedef std::size_t Size;
+typedef std::size_t GlobalIndex;
 
 typedef void Void;
 typedef bool Boolean;
@@ -38,6 +38,10 @@ typedef Kokkos::View<std::size_t *, Kokkos::DefaultHostExecutionSpace>
     HostIndexVector;
 typedef Kokkos::View<std::size_t *, Kokkos::DefaultExecutionSpace>
     DeviceIndexVector;
+
+typedef Kokkos::View<bool *, Kokkos::DefaultHostExecutionSpace>
+    HostBooleanVector;
+typedef Kokkos::View<bool *, Kokkos::DefaultExecutionSpace> DeviceBooleanVector;
 
 #include <cstdint>
 #include <limits>

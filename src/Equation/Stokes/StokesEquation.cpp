@@ -1186,7 +1186,7 @@ Void Equation::StokesEquation::CalculateError() {
   Kokkos::parallel_for(
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              coords.extent(0)),
-      KOKKOS_LAMBDA(const std::size_t i) {
+      [=](const std::size_t i) {
         for (unsigned int j = 0; j < gradientComponentNum; j++)
           recoveredGradientChunk_(i, j) = 0.0;
         for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
@@ -1217,7 +1217,7 @@ Void Equation::StokesEquation::CalculateError() {
   Kokkos::parallel_for(
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              coords.extent(0)),
-      KOKKOS_LAMBDA(const std::size_t i) {
+      [=](const std::size_t i) {
         const double localVolume = pow(spacing(i), dimension);
         double totalNeighborVolume = 0.0;
         error_(i) = 0.0;

@@ -157,7 +157,7 @@ Void LinearAlgebra::Impl::PetscMatrix::GraphAssemble() {
   std::vector<PetscInt> offDiagNonzero(localRowSize_);
 
   Kokkos::parallel_for(
-      Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, localRowSize_),
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, localRowSize_),
       [&](const unsigned int i) {
         diagNonzero[i] = diagMatrixCol_[i].size();
         offDiagNonzero[i] = offDiagMatrixCol_[i].size();

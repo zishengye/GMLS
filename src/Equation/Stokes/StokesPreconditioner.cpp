@@ -82,7 +82,7 @@ Void Equation::StokesPreconditioner::ConstructInterpolation(
         true, targetParticleCoordsHost, neighborListsHost, epsilonHost,
         satisfiedNumNeighbor, 1.0);
 
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
                              0, localTargetParticleNum),
                          [&](const int i) {
                            double minEpsilon = 1.50 * targetParticleSizeHost(i);
@@ -199,7 +199,7 @@ Void Equation::StokesPreconditioner::ConstructInterpolation(
     Ipp->Resize(localTargetParticleNum, localSourceParticleNum);
 
     Kokkos::parallel_for(
-        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, localTargetParticleNum),
         [&](const int i) {
           std::vector<PetscInt> index;
@@ -534,7 +534,7 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
         interiorEpsilonHost, satisfiedNumNeighbor, 1.0);
 
     Kokkos::parallel_for(
-        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, localInteriorParticleNum),
         [&](const int i) {
           double minEpsilon = 0.25 * interiorTargetParticleSize(i);
@@ -613,7 +613,7 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
         boundaryEpsilonHost, satisfiedNumNeighbor, 1.0);
 
     Kokkos::parallel_for(
-        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, localBoundaryParticleNum),
         [&](const int i) {
           double minEpsilon = 0.250005 * boundaryTargetParticleSize(i);
