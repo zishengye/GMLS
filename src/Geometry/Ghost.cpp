@@ -64,8 +64,8 @@ Void Geometry::Ghost::Init(const HostRealMatrix &targetCoords,
   rankGhostDomainLow.resize(mpiSize_);
   rankGhostDomainHigh.resize(mpiSize_);
   for (LocalIndex i = 0; i < mpiSize_; i++) {
-    rankGhostDomainLow.resize(3);
-    rankGhostDomainHigh.resize(3);
+    rankGhostDomainLow[i].resize(3);
+    rankGhostDomainHigh[i].resize(3);
     for (int j = 0; j < 3; j++) {
       rankGhostDomainLow[i][j] = rankDomain[i + j * mpiSize_];
       rankGhostDomainHigh[i][j] = rankDomain[i + (j + 3) * mpiSize_];

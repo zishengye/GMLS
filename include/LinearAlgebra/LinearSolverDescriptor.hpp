@@ -23,11 +23,11 @@ namespace LinearAlgebra {
  */
 
 template <class LinearAlgebraBackend> struct LinearSolverDescriptor {
-  LocalIndex outerIteration;
-  LocalIndex spd;
-  LocalIndex maxIter;
-  Scalar relativeTol;
-  Boolean setFromDatabase;
+  LocalIndex outerIteration = -1;
+  LocalIndex spd = -1;
+  LocalIndex maxIter = 500;
+  Scalar relativeTol = 1e-3;
+  Boolean setFromDatabase = false;
   Boolean customPreconditioner = false;
 
   std::function<Void(Vector<LinearAlgebraBackend> &,

@@ -7,9 +7,23 @@ set(CMAKE_BUILD_TYPE RELEASE)
 find_package(GTest REQUIRED)
 find_package(MPI)
 
-set(TRILINOS_PATH /home/zishengy/Projects/Trilinos/build/trilinos-cuda)
+message(USE_GPU)
+message("${USE_CPU}")
 
-# set(TRILINOS_PATH /opt/trilinos)
+IF(USE_GPU)
+  set(TRILINOS_PATH /opt/trilinos-cuda)
+ENDIF()
+
+unset(USE_GPU CACHE)
+
+IF(USE_CPU)
+  set(TRILINOS_PATH /opt/trilinos)
+ENDIF()
+
+unset(USE_CPU CACHE)
+
+message("${TRILINOS_PATH}")
+
 find_package(Trilinos PATHS ${TRILINOS_PATH}/lib/cmake/Trilinos ${TRILINOS_PATH} NO_DEFAULT_PATH)
 
 IF(Trilinos_FOUND)
@@ -51,16 +65,12 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${Trilinos_C_COMPILER_FLAGS}")
 
 include_directories("${PROJECT_SOURCE_DIR}/include/")
 include_directories("/opt/petsc/include/")
-
-# include_directories("/opt/compadre/include")
 include_directories(${Trilinos_INCLUDE_DIRS})
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 include_directories("/opt/gurobi952/linux64/include")
 
 link_directories("/opt/petsc/lib/")
-
-# link_directories("/opt/compadre/lib/")
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARIES})
 link_directories("/opt/gurobi952/linux64/lib")
@@ -74,7 +84,7 @@ link_libraries("-lgurobi95 -lgurobi_g++5.2")
 
 file(GLOB_RECURSE sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
-add_compile_options(-O3 -w -fPIC)
+add_compile_options(-O3 -w -fPIC -fopenmp -Wno-deprecated-gpu-targets)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 

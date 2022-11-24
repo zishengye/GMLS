@@ -311,9 +311,6 @@ Void Equation::Equation::BuildGhost() {
   auto particleType = particleMgr_.GetParticleType();
   ghost_.Init(particleCoords, particleSize, particleCoords, ghostMultiplier_,
               particleMgr_.GetDimension());
-  MPI_Barrier(MPI_COMM_WORLD);
-  if (mpiRank_ == 0)
-    printf("ghost flag\n");
   ghost_.ApplyGhost(particleCoords, hostGhostParticleCoords_);
   ghost_.ApplyGhost(particleIndex, hostGhostParticleIndex_);
   ghost_.ApplyGhost(particleType, hostGhostParticleType_);

@@ -1,4 +1,5 @@
 #include "Equation/Stokes/StokesEquation.hpp"
+#include "Kokkos_Core.hpp"
 
 #include <gtest/gtest.h>
 
@@ -8,7 +9,6 @@ int globalArgc;
 char **globalArgv;
 
 TEST(StokesEquationTest, 2DLinearSystemSolving) {
-  Kokkos::initialize(globalArgc, globalArgv);
   PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.txt",
                   PETSC_NULL);
 
@@ -71,11 +71,9 @@ TEST(StokesEquationTest, 2DLinearSystemSolving) {
   }
 
   PetscFinalize();
-  Kokkos::finalize();
 }
 
 TEST(StokesEquationTest, 3DLinearSystemSolving) {
-  Kokkos::initialize(globalArgc, globalArgv);
   PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.txt",
                   PETSC_NULL);
 
@@ -130,7 +128,6 @@ TEST(StokesEquationTest, 3DLinearSystemSolving) {
   }
 
   PetscFinalize();
-  Kokkos::finalize();
 }
 
 int main(int argc, char *argv[]) {
@@ -149,7 +146,11 @@ int main(int argc, char *argv[]) {
     delete listeners.Release(listeners.default_result_printer());
   }
 
+  Kokkos::initialize(globalArgc, globalArgv);
+
   auto result = RUN_ALL_TESTS();
+
+  Kokkos::finalize();
 
   MPI_Finalize();
 

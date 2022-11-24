@@ -32,9 +32,9 @@ Void LinearAlgebra::Impl::PetscVector::Create(const std::vector<Scalar> &vec) {
   localSize_ = vec.size();
 
   VecGetArray(*vecPtr_, &ptr_);
-  for (std::size_t i = 0; i < vec.size(); i++) {
-    ptr_[i] = vec[i];
-  }
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, localSize_),
+      [&](const std::size_t i) { ptr_[i] = vec[i]; });
 }
 
 Void LinearAlgebra::Impl::PetscVector::Create(const Vec &vec) {
@@ -65,9 +65,9 @@ Void LinearAlgebra::Impl::PetscVector::Create(const HostRealVector &vec) {
   VecCreateMPI(MPI_COMM_WORLD, vec.extent(0), PETSC_DECIDE, &*vecPtr_);
 
   VecGetArray(*vecPtr_, &ptr_);
-  for (std::size_t i = 0; i < vec.extent(0); i++) {
-    ptr_[i] = vec(i);
-  }
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, vec.extent(0)),
+      [&](const std::size_t i) { ptr_[i] = vec(i); });
 
   VecGetLocalSize(*vecPtr_, &localSize_);
 }
@@ -77,9 +77,9 @@ Void LinearAlgebra::Impl::PetscVector::Copy(std::vector<Scalar> &vec) {
   VecGetLocalSize(*vecPtr_, &size);
   vec.resize(size);
 
-  for (int i = 0; i < size; i++) {
-    vec[i] = ptr_[i];
-  }
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, size),
+      [&](const std::size_t i) { vec[i] = ptr_[i]; });
 }
 
 Void LinearAlgebra::Impl::PetscVector::Copy(Vec &vec) {
@@ -95,9 +95,9 @@ Void LinearAlgebra::Impl::PetscVector::Copy(HostRealVector &vec) {
   VecGetLocalSize(*vecPtr_, &size);
   Kokkos::resize(vec, size);
 
-  for (PetscInt i = 0; i < size; i++) {
-    vec(i) = ptr_[i];
-  }
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, size),
+      [&](const std::size_t i) { vec(i) = ptr_[i]; });
 }
 
 Void LinearAlgebra::Impl::PetscVector::Clear() {
@@ -117,8 +117,9 @@ Scalar &LinearAlgebra::Impl::PetscVector::operator()(const LocalIndex index) {
 }
 
 Void LinearAlgebra::Impl::PetscVector::operator=(const PetscVector &vec) {
-  for (PetscInt i = 0; i < localSize_; i++)
-    ptr_[i] = vec.ptr_[i];
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, localSize_),
+      [&](const std::size_t i) { ptr_[i] = vec.ptr_[i]; });
 }
 
 Void LinearAlgebra::Impl::PetscVector::operator+=(const PetscVector &vec) {
@@ -141,13 +142,16 @@ Void LinearAlgebra::Impl::PetscVector::OrthogonalizeToConstant(
   PetscReal *a;
   VecGetArray(*vecPtr_, &a);
   sum = 0.0;
-  for (PetscInt i = start; i < end; i++)
-    sum += a[i];
+  Kokkos::parallel_reduce(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(start, end),
+      [&](const std::size_t i, double &tSum) { tSum += a[i]; },
+      Kokkos::Sum<double>(sum));
   MPI_Allreduce(MPI_IN_PLACE, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   MPI_Allreduce(MPI_IN_PLACE, &length, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
   average = sum / (double)length;
-  for (PetscInt i = start; i < end; i++)
-    a[i] -= average;
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(start, end),
+      [&](const std::size_t i) { a[i] -= average; });
   VecRestoreArray(*vecPtr_, &a);
 }
