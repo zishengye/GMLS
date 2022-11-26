@@ -1030,6 +1030,6 @@ Void Equation::StokesPreconditioner::ConstructSmoother() {
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
   if (mpiRank_ == 0)
-    printf("Duration of building Stokes equation smoother:%.4fs\n",
+    printf("Duration of building Stokes equation smoother: %.4fs\n",
            tEnd - tStart);
 }

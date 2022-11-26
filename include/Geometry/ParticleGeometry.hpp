@@ -85,6 +85,7 @@ protected:
   Scalar spacing_;
   LocalIndex mpiSize_, mpiRank_;
   Boolean isPeriodicBCs_;
+  Size dimension_;
 
   Void BalanceAndIndexInternal();
 

@@ -3,6 +3,8 @@
 #include "Discretization/PolyBasis.hpp"
 #include "Equation/Equation.hpp"
 #include "Equation/Stokes/StokesMatrix.hpp"
+#include "Kokkos_ExecPolicy.hpp"
+#include "Kokkos_Parallel_Reduce.hpp"
 #include "LinearAlgebra/LinearAlgebra.hpp"
 #include "Math/Vec3.hpp"
 
@@ -1135,6 +1137,15 @@ Void Equation::StokesEquation::CalculateError() {
 #endif
   const unsigned int batchNum = localParticleNum / batchSize +
                                 ((localParticleNum % batchSize > 0) ? 1 : 0);
+
+  double recoveredGradientDuration, reconstructedGradientDuration,
+      coefficientChunkDuration, generateAlphasDuration;
+  double timer1, timer2, subTimer1, subTimer2;
+
+  generateAlphasDuration = 0.0;
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
   for (unsigned int batch = 0; batch < batchNum; batch++) {
     const unsigned int startParticle = batch * batchSize;
     const unsigned int endParticle =
@@ -1190,6 +1201,7 @@ Void Equation::StokesEquation::CalculateError() {
       batchBasis.setDimensionOfQuadraturePoints(1);
       batchBasis.setQuadratureType("LINE");
 
+      subTimer1 = MPI_Wtime();
       batchBasis.generateAlphas(1, true);
 
       Compadre::Evaluator batchEvaluator(&batchBasis);
@@ -1197,38 +1209,39 @@ Void Equation::StokesEquation::CalculateError() {
       auto batchCoefficients =
           batchEvaluator
               .applyFullPolynomialCoefficientsBasisToDataAllComponents<
-                  double **, Kokkos::HostSpace>(ghostVelocityDevice);
+                  double **, Kokkos::DefaultHostExecutionSpace>(
+                  ghostVelocityDevice);
 
       auto batchGradient =
           batchEvaluator.applyAlphasToDataAllComponentsAllTargetSites<
-              double **, Kokkos::HostSpace>(
+              double **, Kokkos::DefaultHostExecutionSpace>(
               ghostVelocityDevice, Compadre::GradientOfVectorPointEvaluation);
+      subTimer2 = MPI_Wtime();
+      generateAlphasDuration += (subTimer2 - subTimer1);
 
-      // duplicate coefficients
-      particleCounter = 0;
-      for (std::size_t i = startParticle; i < endParticle; i++) {
-        for (unsigned int j = 0; j < coefficientSize; j++)
-          coefficientChunk(i, j) = batchCoefficients(particleCounter, j);
+      // duplicate coefficients and gradients
+      Kokkos::parallel_reduce(
+          Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(startParticle,
+                                                                 endParticle),
+          [&](const std::size_t i, double &tLocalDirectGradientNorm) {
+            for (unsigned int j = 0; j < coefficientSize; j++)
+              coefficientChunk(i, j) = batchCoefficients(i - startParticle, j);
 
-        particleCounter++;
-      }
-
-      // duplicate gradients
-      particleCounter = 0;
-      for (std::size_t i = startParticle; i < endParticle; i++) {
-        for (unsigned int axes = 0; axes < gradientComponentNum; axes++)
-          gradientChunk_(i, axes) = batchGradient(particleCounter, axes);
-
-        particleCounter++;
-      }
-
-      for (std::size_t i = startParticle; i < endParticle; i++) {
-        double localVolume = pow(spacing(i), dimension);
-        for (unsigned int j = 0; j < gradientComponentNum; j++)
-          localDirectGradientNorm += pow(gradientChunk_(i, j), 2) * localVolume;
-      }
+            double localVolume = pow(spacing(i), dimension);
+            for (unsigned int axes = 0; axes < gradientComponentNum; axes++) {
+              gradientChunk_(i, axes) = batchGradient(i - startParticle, axes);
+              tLocalDirectGradientNorm +=
+                  pow(gradientChunk_(i, axes), 2) * localVolume;
+            }
+          },
+          Kokkos::Sum<double>(batchLocalDirectGradientNorm));
+      Kokkos::fence();
+      localDirectGradientNorm += batchLocalDirectGradientNorm;
     }
   }
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer2 = MPI_Wtime();
+  coefficientChunkDuration = timer2 - timer1;
 
   MPI_Allreduce(&localDirectGradientNorm, &globalDirectGradientNorm, 1,
                 MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -1236,82 +1249,103 @@ Void Equation::StokesEquation::CalculateError() {
 
   ghost_.ApplyGhost(coefficientChunk, ghostCoefficientChunk);
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
   // estimate recovered gradient
   Kokkos::resize(recoveredGradientChunk_, localParticleNum,
                  gradientComponentNum);
   HostRealMatrix ghostRecoveredGradientChunk;
 
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
-                                                             coords.extent(0)),
-      [&](const std::size_t i) {
-        for (unsigned int j = 0; j < gradientComponentNum; j++)
-          recoveredGradientChunk_(i, j) = 0.0;
-        for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
-          const std::size_t neighborParticleIndex = neighborLists_(i, j + 1);
-          auto coeffView = Kokkos::subview(ghostCoefficientChunk,
-                                           neighborParticleIndex, Kokkos::ALL);
+  for (unsigned int batch = 0; batch < batchNum; batch++) {
+    const unsigned int startParticle = batch * batchSize;
+    const unsigned int endParticle =
+        std::min((batch + 1) * batchSize, localParticleNum);
+    const unsigned int batchParticleNum = endParticle - startParticle;
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(startParticle,
+                                                               endParticle),
+        [&](const std::size_t i) {
+          for (unsigned int j = 0; j < gradientComponentNum; j++)
+            recoveredGradientChunk_(i, j) = 0.0;
+          for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
+            const std::size_t neighborParticleIndex = neighborLists_(i, j + 1);
+            auto coeffView = Kokkos::subview(
+                ghostCoefficientChunk, neighborParticleIndex, Kokkos::ALL);
 
-          for (unsigned int axes1 = 0; axes1 < dimension; axes1++)
-            for (unsigned int axes2 = 0; axes2 < dimension; axes2++)
-              recoveredGradientChunk_(i, axes1 * dimension + axes2) +=
-                  Discretization::CalDivFreeGrad(
-                      axes1, axes2, dimension,
-                      coords(i, 0) - sourceCoords(neighborParticleIndex, 0),
-                      coords(i, 1) - sourceCoords(neighborParticleIndex, 1),
-                      coords(i, 2) - sourceCoords(neighborParticleIndex, 2),
-                      polyOrder_, ghostEpsilon(neighborParticleIndex),
-                      coeffView);
-        }
+            for (unsigned int axes1 = 0; axes1 < dimension; axes1++)
+              for (unsigned int axes2 = 0; axes2 < dimension; axes2++)
+                recoveredGradientChunk_(i, axes1 * dimension + axes2) +=
+                    Discretization::CalDivFreeGrad(
+                        axes1, axes2, dimension,
+                        coords(i, 0) - sourceCoords(neighborParticleIndex, 0),
+                        coords(i, 1) - sourceCoords(neighborParticleIndex, 1),
+                        coords(i, 2) - sourceCoords(neighborParticleIndex, 2),
+                        polyOrder_, ghostEpsilon(neighborParticleIndex),
+                        coeffView);
+          }
 
-        for (unsigned int j = 0; j < gradientComponentNum; j++)
-          recoveredGradientChunk_(i, j) /= neighborLists_(i, 0);
-      });
+          for (unsigned int j = 0; j < gradientComponentNum; j++)
+            recoveredGradientChunk_(i, j) /= neighborLists_(i, 0);
+        });
+  }
   Kokkos::fence();
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer2 = MPI_Wtime();
+  recoveredGradientDuration = timer2 - timer1;
 
   ghost_.ApplyGhost(recoveredGradientChunk_, ghostRecoveredGradientChunk);
 
-  // estimate the reconstructed gradient and the recovered error
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
-                                                             coords.extent(0)),
-      [&](const std::size_t i) {
-        const double localVolume = pow(spacing(i), dimension);
-        double totalNeighborVolume = 0.0;
-        error_(i) = 0.0;
-        double reconstructedGradient;
-        for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
-          const std::size_t neighborParticleIndex = neighborLists_(i, j + 1);
-
-          double sourceVolume =
-              pow(ghostSpacing(neighborParticleIndex), dimension);
-          totalNeighborVolume += sourceVolume;
-
-          auto coeffView = Kokkos::subview(coefficientChunk, i, Kokkos::ALL);
-
-          for (unsigned int axes1 = 0; axes1 < dimension; axes1++)
-            for (unsigned int axes2 = 0; axes2 < dimension; axes2++) {
-              reconstructedGradient = Discretization::CalDivFreeGrad(
-                  axes1, axes2, dimension,
-                  sourceCoords(neighborParticleIndex, 0) - coords(i, 0),
-                  sourceCoords(neighborParticleIndex, 1) - coords(i, 1),
-                  sourceCoords(neighborParticleIndex, 2) - coords(i, 2),
-                  polyOrder_, epsilon_(i), coeffView);
-
-              error_(i) +=
-                  pow(reconstructedGradient -
-                          ghostRecoveredGradientChunk(
-                              neighborParticleIndex, axes1 * dimension + axes2),
-                      2) *
-                  sourceVolume;
-            }
-        }
-
-        error_(i) /= totalNeighborVolume;
-        error_(i) = sqrt(error_(i) * localVolume);
-      });
-  Kokkos::fence();
   MPI_Barrier(MPI_COMM_WORLD);
+  timer1 = MPI_Wtime();
+  // estimate the reconstructed gradient and the recovered error
+  for (unsigned int batch = 0; batch < batchNum; batch++) {
+    const unsigned int startParticle = batch * batchSize;
+    const unsigned int endParticle =
+        std::min((batch + 1) * batchSize, localParticleNum);
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(startParticle,
+                                                               endParticle),
+        [&](const std::size_t i) {
+          const double localVolume = pow(spacing(i), dimension);
+          double totalNeighborVolume = 0.0;
+          error_(i) = 0.0;
+          double reconstructedGradient;
+          for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
+            const std::size_t neighborParticleIndex = neighborLists_(i, j + 1);
+
+            double sourceVolume =
+                pow(ghostSpacing(neighborParticleIndex), dimension);
+            totalNeighborVolume += sourceVolume;
+
+            auto coeffView = Kokkos::subview(coefficientChunk, i, Kokkos::ALL);
+
+            for (unsigned int axes1 = 0; axes1 < dimension; axes1++)
+              for (unsigned int axes2 = 0; axes2 < dimension; axes2++) {
+                reconstructedGradient = Discretization::CalDivFreeGrad(
+                    axes1, axes2, dimension,
+                    sourceCoords(neighborParticleIndex, 0) - coords(i, 0),
+                    sourceCoords(neighborParticleIndex, 1) - coords(i, 1),
+                    sourceCoords(neighborParticleIndex, 2) - coords(i, 2),
+                    polyOrder_, epsilon_(i), coeffView);
+
+                error_(i) +=
+                    pow(reconstructedGradient - ghostRecoveredGradientChunk(
+                                                    neighborParticleIndex,
+                                                    axes1 * dimension + axes2),
+                        2) *
+                    sourceVolume;
+              }
+          }
+
+          error_(i) /= totalNeighborVolume;
+          error_(i) = sqrt(error_(i) * localVolume);
+        });
+    Kokkos::fence();
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Barrier(MPI_COMM_WORLD);
+  timer2 = MPI_Wtime();
+  reconstructedGradientDuration = timer2 - timer1;
 
   double localError = 0.0;
   double globalError;
@@ -1436,8 +1470,14 @@ Void Equation::StokesEquation::CalculateError() {
   }
 
   tEnd = MPI_Wtime();
-  if (mpiRank_ == 0)
+  if (mpiRank_ == 0) {
     printf("Duration of calculating error: %.4fs\n", tEnd - tStart);
+    printf("Profiling:\n");
+    printf("\tCoefficient duration: %.4fs\n", coefficientChunkDuration);
+    printf("\t\tGenerate alphas duration: %.4fs\n", generateAlphasDuration);
+    printf("\tRecovered duration: %.4fs\n", recoveredGradientDuration);
+    printf("\tReconstructed duration: %.4fs\n", reconstructedGradientDuration);
+  }
 }
 
 Equation::StokesEquation::StokesEquation()

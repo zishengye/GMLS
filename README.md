@@ -23,7 +23,7 @@ build the executable.
 Suggested installation command:
 
 ```[bash]
-./configure --with-cc=mpicc --with-cxx=mpicxx --with-fc=mpif90 --with-debugging=no COPTFLAGS='-O3 -march=native -mtune=native' CXXOPTFLAGS='-O3 -march=native -mtune=native' FOPTFLAGS='-O3 -march=native -mtune=native' --with-blaslapack-dir=/opt/intel/oneapi/mkl/latest/ --download-mumps --download-scalapack --with-openmp --prefix=/opt/petsc/
+./configure --with-cc=mpicc --with-cxx=mpicxx --with-fc=mpif90 --with-debugging=no COPTFLAGS='-fPIC -O3 -march=native -mtune=native' CXXOPTFLAGS='-fPIC -O3 -march=native -mtune=native' FOPTFLAGS='-fPIC -O3 -march=native -mtune=native' --with-blaslapack-dir=/opt/intel/oneapi/mkl/latest/ --with-openmp --with-threadcomm --download-hwloc --prefix=/opt/petsc/
 ```
 
 [Trilinos](https://github.com/trilinos/Trilinos)

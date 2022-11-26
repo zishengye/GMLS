@@ -1,6 +1,8 @@
 #include <fstream>
+#include <mpi.h>
 
 #include "Core/Typedef.hpp"
+#include "Geometry/Cluster.hpp"
 #include "Geometry/DomainGeometry.hpp"
 #include "Geometry/ParticleGeometry.hpp"
 
@@ -66,6 +68,13 @@ Void Geometry::ParticleSet::Balance() {
   partition_.ApplyPartition(hostParticleNormal_);
   partition_.ApplyPartition(hostParticleSize_);
   partition_.ApplyPartition(hostParticleType_);
+
+  // Cluster cluster;
+  // cluster.ConstructCluster(hostParticleCoords_, dimension_, 20);
+  // cluster.ApplyCluster(hostParticleCoords_);
+  // cluster.ApplyCluster(hostParticleNormal_);
+  // cluster.ApplyCluster(hostParticleSize_);
+  // cluster.ApplyCluster(hostParticleType_);
 }
 
 Void Geometry::ParticleSet::Output(const std::string outputFileName,
@@ -134,6 +143,44 @@ Void Geometry::ParticleSet::Output(const std::string outputFileName,
     vtkStream << "POINT_DATA " << globalParticleNum << std::endl;
 
     vtkStream.close();
+  }
+
+  // particle index
+  if (mpiRank_ == 0) {
+    if (isBinary)
+      vtkStream.open(outputFileName,
+                     std::ios::out | std::ios::app | std::ios::binary);
+    else
+      vtkStream.open(outputFileName, std::ios::out | std::ios::app);
+
+    vtkStream << "SCALARS idx int 1" << std::endl
+              << "LOOKUP_TABLE default" << std::endl;
+
+    vtkStream.close();
+  }
+
+  for (int rank = 0; rank < mpiSize_; rank++) {
+    if (rank == mpiRank_) {
+      if (isBinary)
+        vtkStream.open(outputFileName,
+                       std::ios::out | std::ios::app | std::ios::binary);
+      else
+        vtkStream.open(outputFileName, std::ios::out | std::ios::app);
+
+      for (std::size_t i = 0; i < hostParticleIndex_.extent(0); i++) {
+        int x = hostParticleIndex_(i);
+        if (isBinary) {
+          SwapEnd(x);
+          vtkStream.write(reinterpret_cast<char *>(&x), sizeof(float));
+        } else {
+          vtkStream << x << " ";
+        }
+        if (!isBinary)
+          vtkStream << std::endl;
+      }
+      vtkStream.close();
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
   }
 
   // particle normal
@@ -281,6 +328,7 @@ Void Geometry::EulerianParticleManager::BalanceAndIndexInternal() {
                        });
   Kokkos::fence();
 
+  particleSetPtr_->SetDimension(dimension_);
   particleSetPtr_->Balance();
 
   // reindex
@@ -320,6 +368,7 @@ Geometry::EulerianParticleManager::EulerianParticleManager()
 }
 
 Void Geometry::EulerianParticleManager::SetDimension(const Size dimension) {
+  dimension_ = dimension;
   geometryPtr_->SetDimension(dimension);
   particleSetPtr_->SetDimension(dimension);
 }
