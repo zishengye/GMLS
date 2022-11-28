@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Core/Typedef.hpp"
+#include "Geometry/Cluster.hpp"
 #include "Geometry/DomainGeometry.hpp"
 #include "Geometry/Ghost.hpp"
 #include "Geometry/Partition.hpp"
@@ -41,6 +42,7 @@ protected:
   LocalIndex mpiRank_, mpiSize_;
 
   Partition partition_;
+  Cluster cluster_;
 
 public:
   ParticleSet(CoordType coordType = CartesianCoordinates);
@@ -76,6 +78,8 @@ public:
   Void Output(String outputFileName = "output.vtk", Boolean isBinary = true);
 
   Partition &GetPartition();
+
+  Cluster &GetCluster();
 };
 
 class EulerianParticleManager {

@@ -6,6 +6,39 @@
 #include <vector>
 
 namespace Discretization {
+inline void PrepareScratchSpace(const int dimension, const double x,
+                                const double y, const double z, const double h,
+                                const int polyOrder, double *scratchSpace) {
+  if (dimension == 2) {
+    double *xOverH = scratchSpace;
+    double *yOverH = scratchSpace + polyOrder + 1;
+
+    xOverH[0] = 1;
+    yOverH[0] = 1;
+
+    for (int p = 1; p <= polyOrder; ++p) {
+      xOverH[p] = xOverH[p - 1] * (x / h);
+      yOverH[p] = yOverH[p - 1] * (y / h);
+    }
+  }
+
+  if (dimension == 3) {
+    double *xOverH = scratchSpace;
+    double *yOverH = scratchSpace + polyOrder + 1;
+    double *zOverH = scratchSpace + 2 * (polyOrder + 1);
+
+    xOverH[0] = 1;
+    yOverH[0] = 1;
+    zOverH[0] = 1;
+
+    for (int p = 1; p <= polyOrder; ++p) {
+      xOverH[p] = xOverH[p - 1] * (x / h);
+      yOverH[p] = yOverH[p - 1] * (y / h);
+      zOverH[p] = zOverH[p - 1] * (z / h);
+    }
+  }
+}
+
 inline double
 CalScalar(const int dimension, const double x, const double y, const double z,
           const int polyOrder, const double h,
@@ -191,9 +224,9 @@ inline int GetSize(const int degree, const int dimension) {
 
 inline double CalDivFreeGrad(
     const int outputAxes1, const int outputAxes2, const int dimension,
-    const double x, const double y, const double z, const int polyOrder,
-    const double h,
-    Kokkos::View<double *, Kokkos::DefaultHostExecutionSpace> coeff) {
+    const int polyOrder, const double h, double *scratchSpace,
+    Kokkos::View<double **, Kokkos::DefaultHostExecutionSpace> &coeff,
+    const unsigned int coeffIndex) {
   double grad = 0.0;
   double weightOfNewValue = 1.0;
 
@@ -204,21 +237,10 @@ inline double CalDivFreeGrad(
       40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
 
   if (dimension == 3) {
-    std::vector<double> xOverH, yOverH, zOverH;
+    double *xOverH = scratchSpace;
+    double *yOverH = scratchSpace + polyOrder + 1;
+    double *zOverH = scratchSpace + 2 * (polyOrder + 1);
 
-    xOverH.resize(polyOrder + 1);
-    yOverH.resize(polyOrder + 1);
-    zOverH.resize(polyOrder + 1);
-
-    xOverH[0] = 1;
-    yOverH[0] = 1;
-    zOverH[0] = 1;
-
-    for (int i = 1; i <= polyOrder; ++i) {
-      xOverH[i] = xOverH[i - 1] * (x / h);
-      yOverH[i] = yOverH[i - 1] * (y / h);
-      zOverH[i] = zOverH[i - 1] * (z / h);
-    }
     int i = 0;
     for (int d = 0; d < dimension; ++d) {
       if ((d + 1) == dimension) {
@@ -236,10 +258,10 @@ inline double CalDivFreeGrad(
               varPow[outputAxes2]--;
 
               if (varPow[0] < 0 || varPow[1] < 0 || varPow[2] < 0) {
-                grad += coeff[i] * weightOfNewValue * 0.0;
+                grad += coeff(coeffIndex, i) * weightOfNewValue * 0.0;
               } else {
                 alphaF = factorial[varPow[0]] * factorial[varPow[1]];
-                grad += coeff[i] * weightOfNewValue * 1. / h *
+                grad += coeff(coeffIndex, i) * weightOfNewValue * 1. / h *
                         xOverH[varPow[0]] * yOverH[varPow[1]] / alphaF;
               }
               i++;
@@ -247,7 +269,7 @@ inline double CalDivFreeGrad(
           }
         } else {
           for (int j = 0; j < GetSize(polyOrder, dimension - 1); ++j) {
-            grad += coeff[i] * weightOfNewValue * 0;
+            grad += coeff(coeffIndex, i) * weightOfNewValue * 0;
             i++;
           }
         }
@@ -269,11 +291,11 @@ inline double CalDivFreeGrad(
                 varPow[outputAxes2]--;
 
                 if (varPow[0] < 0 || varPow[1] < 0 || varPow[2] < 0) {
-                  grad += coeff[i] * weightOfNewValue * 0.0;
+                  grad += coeff(coeffIndex, i) * weightOfNewValue * 0.0;
                 } else {
                   alphaF = factorial[varPow[0]] * factorial[varPow[1]] *
                            factorial[varPow[2]];
-                  grad += coeff[i] * weightOfNewValue * 1. / h *
+                  grad += coeff(coeffIndex, i) * weightOfNewValue * 1. / h *
                           xOverH[varPow[0]] * yOverH[varPow[1]] *
                           zOverH[varPow[2]] / alphaF;
                 }
@@ -283,7 +305,7 @@ inline double CalDivFreeGrad(
           }
         } else if (outputAxes1 == (d + 1) % 3) {
           for (int j = 0; j < GetSize(polyOrder, dimension); ++j) {
-            grad += coeff[i] * weightOfNewValue * 0;
+            grad += coeff(coeffIndex, i) * weightOfNewValue * 0;
             i++;
           }
         } else {
@@ -301,16 +323,16 @@ inline double CalDivFreeGrad(
                 varPow[d]--;
 
                 if (varPow[0] < 0 || varPow[1] < 0 || varPow[2] < 0) {
-                  grad += coeff[i] * weightOfNewValue * 0.0;
+                  grad += coeff(coeffIndex, i) * weightOfNewValue * 0.0;
                 } else {
                   varPow[outputAxes1]++;
                   varPow[outputAxes2]--;
                   if (varPow[0] < 0 || varPow[1] < 0 || varPow[2] < 0) {
-                    grad += coeff[i] * weightOfNewValue * 0.0;
+                    grad += coeff(coeffIndex, i) * weightOfNewValue * 0.0;
                   } else {
                     alphaF = factorial[varPow[0]] * factorial[varPow[1]] *
                              factorial[varPow[2]];
-                    grad += coeff[i] * weightOfNewValue * -1.0 / h *
+                    grad += coeff(coeffIndex, i) * weightOfNewValue * -1.0 / h *
                             xOverH[varPow[0]] * yOverH[varPow[1]] *
                             zOverH[varPow[2]] / alphaF;
                   }
@@ -323,18 +345,9 @@ inline double CalDivFreeGrad(
       }
     }
   } else if (dimension == 2) {
-    std::vector<double> xOverH, yOverH;
+    double *xOverH = scratchSpace;
+    double *yOverH = scratchSpace + polyOrder + 1;
 
-    xOverH.resize(polyOrder + 1);
-    yOverH.resize(polyOrder + 1);
-
-    xOverH[0] = 1;
-    yOverH[0] = 1;
-
-    for (int i = 1; i <= polyOrder; ++i) {
-      xOverH[i] = xOverH[i - 1] * (x / h);
-      yOverH[i] = yOverH[i - 1] * (y / h);
-    }
     int i = 0;
     for (int d = 0; d < dimension; ++d) {
       if ((d + 1) == dimension) {
@@ -349,17 +362,17 @@ inline double CalDivFreeGrad(
             varPow[outputAxes2]--;
 
             if (varPow[0] < 0 || varPow[1] < 0) {
-              grad += coeff[i] * weightOfNewValue * 0.0;
+              grad += coeff(coeffIndex, i) * weightOfNewValue * 0.0;
             } else {
               alphaF = factorial[varPow[0]];
-              grad += coeff[i] * weightOfNewValue * 1. / h * xOverH[varPow[0]] /
-                      alphaF;
+              grad += coeff(coeffIndex, i) * weightOfNewValue * 1. / h *
+                      xOverH[varPow[0]] / alphaF;
             }
             i++;
           }
         } else {
           for (int j = 0; j < GetSize(polyOrder, dimension - 1); ++j) {
-            grad += coeff[i] * weightOfNewValue * 0;
+            grad += coeff(coeffIndex, i) * weightOfNewValue * 0;
             i++;
           }
         }
@@ -376,10 +389,10 @@ inline double CalDivFreeGrad(
               varPow[outputAxes2]--;
 
               if (varPow[0] < 0 || varPow[1] < 0) {
-                grad += coeff[i] * weightOfNewValue * 0.0;
+                grad += coeff(coeffIndex, i) * weightOfNewValue * 0.0;
               } else {
                 alphaF = factorial[varPow[0]] * factorial[varPow[1]];
-                grad += coeff[i] * weightOfNewValue * 1. / h *
+                grad += coeff(coeffIndex, i) * weightOfNewValue * 1. / h *
                         xOverH[varPow[0]] * yOverH[varPow[1]] / alphaF;
               }
               i++;
@@ -397,15 +410,15 @@ inline double CalDivFreeGrad(
               varPow[d]--;
 
               if (varPow[0] < 0 || varPow[1] < 0) {
-                grad += coeff[i] * weightOfNewValue * 0.0;
+                grad += coeff(coeffIndex, i) * weightOfNewValue * 0.0;
               } else {
                 varPow[outputAxes1]++;
                 varPow[outputAxes2]--;
                 if (varPow[0] < 0 || varPow[1] < 0) {
-                  grad += coeff[i] * weightOfNewValue * 0.0;
+                  grad += coeff(coeffIndex, i) * weightOfNewValue * 0.0;
                 } else {
                   alphaF = factorial[varPow[0]] * factorial[varPow[1]];
-                  grad += coeff[i] * weightOfNewValue * -1.0 / h *
+                  grad += coeff(coeffIndex, i) * weightOfNewValue * -1.0 / h *
                           xOverH[varPow[0]] * yOverH[varPow[1]] / alphaF;
                 }
               }

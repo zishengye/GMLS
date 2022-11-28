@@ -2,7 +2,6 @@
 #include <mpi.h>
 
 #include "Core/Typedef.hpp"
-#include "Geometry/Cluster.hpp"
 #include "Geometry/DomainGeometry.hpp"
 #include "Geometry/ParticleGeometry.hpp"
 
@@ -69,12 +68,11 @@ Void Geometry::ParticleSet::Balance() {
   partition_.ApplyPartition(hostParticleSize_);
   partition_.ApplyPartition(hostParticleType_);
 
-  // Cluster cluster;
-  // cluster.ConstructCluster(hostParticleCoords_, dimension_, 20);
-  // cluster.ApplyCluster(hostParticleCoords_);
-  // cluster.ApplyCluster(hostParticleNormal_);
-  // cluster.ApplyCluster(hostParticleSize_);
-  // cluster.ApplyCluster(hostParticleType_);
+  cluster_.ConstructCluster(hostParticleCoords_, dimension_, 20);
+  cluster_.ApplyCluster(hostParticleCoords_);
+  cluster_.ApplyCluster(hostParticleNormal_);
+  cluster_.ApplyCluster(hostParticleSize_);
+  cluster_.ApplyCluster(hostParticleType_);
 }
 
 Void Geometry::ParticleSet::Output(const std::string outputFileName,
@@ -303,6 +301,8 @@ Void Geometry::ParticleSet::Output(const std::string outputFileName,
 Geometry::Partition &Geometry::ParticleSet::GetPartition() {
   return partition_;
 }
+
+Geometry::Cluster &Geometry::ParticleSet::GetCluster() { return cluster_; }
 
 Void Geometry::EulerianParticleManager::BalanceAndIndexInternal() {
   // repartition for load balancing
@@ -711,6 +711,9 @@ Void Geometry::HierarchicalEulerianParticleManager::Refine(
   // repartition objects defined in hierarchical scheme
   auto &partition = particleSetPtr_->GetPartition();
   partition.ApplyPartition(hostParticleRefinementLevel_);
+
+  auto &cluster = particleSetPtr_->GetCluster();
+  cluster.ApplyCluster(hostParticleRefinementLevel_);
 }
 
 LocalIndex
