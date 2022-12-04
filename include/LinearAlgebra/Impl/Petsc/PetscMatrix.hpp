@@ -51,12 +51,13 @@ public:
   PetscInt GetGlobalColSize() const;
   PetscInt GetGlobalRowSize() const;
 
-  virtual Void SetColIndex(const PetscInt row,
-                           const std::vector<PetscInt> &index);
-  virtual Void Increment(const PetscInt row, const PetscInt col,
-                         const PetscReal value);
-  virtual Void Increment(const PetscInt row, const std::vector<PetscInt> &index,
-                         const std::vector<PetscReal> &value);
+  inline virtual Void SetColIndex(const PetscInt row,
+                                  const std::vector<PetscInt> &index);
+  inline virtual Void Increment(const PetscInt row, const PetscInt col,
+                                const PetscReal value);
+  inline virtual Void Increment(const PetscInt row,
+                                const std::vector<PetscInt> &index,
+                                const std::vector<PetscReal> &value);
 
   virtual Void GraphAssemble();
   virtual Void Assemble();

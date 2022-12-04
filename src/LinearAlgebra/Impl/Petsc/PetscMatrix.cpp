@@ -1,6 +1,7 @@
 #include "LinearAlgebra/Impl/Petsc/PetscMatrix.hpp"
 #include "LinearAlgebra/Impl/Petsc/PetscVector.hpp"
 
+#include <algorithm>
 #include <memory>
 
 #include <mpi.h>
@@ -109,14 +110,22 @@ void LinearAlgebra::Impl::PetscMatrix::SetColIndex(
     const PetscInt row, const std::vector<PetscInt> &index) {
   std::vector<PetscInt> &diagIndex = diagMatrixCol_[row];
   std::vector<PetscInt> &offDiagIndex = offDiagMatrixCol_[row];
-  diagIndex.clear();
-  offDiagIndex.clear();
-  for (auto it = index.begin(); it != index.end(); it++) {
-    if (*it >= colRangeLow_ && *it < colRangeHigh_)
-      diagIndex.push_back(*it - colRangeLow_);
-    else
-      offDiagIndex.push_back(*it);
-  }
+  auto colRangeLowFlag =
+      std::lower_bound(index.begin(), index.end(), colRangeLow_);
+  auto colRangeHighFlag =
+      std::lower_bound(index.begin(), index.end(), colRangeHigh_);
+  std::size_t diagIndexCount = colRangeHighFlag - colRangeLowFlag;
+  std::size_t offDiagIndexCount = index.size() - diagIndexCount;
+  diagIndex.resize(diagIndexCount);
+  offDiagIndex.resize(offDiagIndexCount);
+  auto diagIt = diagIndex.begin();
+  auto offDiagIt = offDiagIndex.begin();
+  for (auto it = index.begin(); it != colRangeLowFlag; it++, offDiagIt++)
+    *offDiagIt = *it;
+  for (auto it = colRangeLowFlag; it != colRangeHighFlag; it++, diagIt++)
+    *diagIt = *it;
+  for (auto it = colRangeHighFlag; it != index.end(); it++, offDiagIt++)
+    *offDiagIt = *it;
 }
 
 Void LinearAlgebra::Impl::PetscMatrix::Increment(const PetscInt row,

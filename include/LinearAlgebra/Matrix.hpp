@@ -35,12 +35,13 @@ public:
   virtual Integer GetGlobalColSize() const;
   virtual Integer GetGlobalRowSize() const;
 
-  virtual Void SetColIndex(const Integer row,
-                           const std::vector<Integer> &colIndex);
-  virtual Void Increment(const Integer row, const Integer col,
-                         const Scalar value);
-  virtual Void Increment(const Integer row, const std::vector<Integer> colIndex,
-                         const std::vector<Scalar> &value);
+  inline virtual Void SetColIndex(const Integer row,
+                                  const std::vector<Integer> &colIndex);
+  inline virtual Void Increment(const Integer row, const Integer col,
+                                const Scalar value);
+  inline virtual Void Increment(const Integer row,
+                                const std::vector<Integer> colIndex,
+                                const std::vector<Scalar> &value);
 
   virtual Void GraphAssemble();
   virtual Void Assemble();
