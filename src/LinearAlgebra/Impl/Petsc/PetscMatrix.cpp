@@ -24,14 +24,14 @@ LinearAlgebra::Impl::PetscMatrix::PetscMatrix() {
   blockSize_ = 1;
   blockStorage_ = 1;
 
-  matPtr_ = std::make_shared<Mat>();
-  *matPtr_ = PETSC_NULL;
+  matSharedPtr_ = std::make_shared<Mat>();
+  *matSharedPtr_ = PETSC_NULL;
 }
 
 LinearAlgebra::Impl::PetscMatrix::~PetscMatrix() {
-  if (matPtr_.use_count() == 1)
-    if (*matPtr_ != PETSC_NULL) {
-      MatDestroy(matPtr_.get());
+  if (matSharedPtr_.use_count() == 1)
+    if (*matSharedPtr_ != PETSC_NULL) {
+      MatDestroy(matSharedPtr_.get());
     }
 }
 
@@ -79,15 +79,15 @@ Void LinearAlgebra::Impl::PetscMatrix::Resize(const PetscInt m,
 }
 
 Void LinearAlgebra::Impl::PetscMatrix::Transpose(PetscMatrix &mat) {
-  MatTranspose(*mat.matPtr_, MAT_INITIAL_MATRIX, matPtr_.get());
+  MatTranspose(*mat.matSharedPtr_, MAT_INITIAL_MATRIX, matSharedPtr_.get());
 }
 
 Void LinearAlgebra::Impl::PetscMatrix::Clear() {
-  if (matPtr_.use_count() == 1 && matPtr_ == PETSC_NULL) {
-    MatDestroy(matPtr_.get());
+  if (matSharedPtr_.use_count() == 1 && matSharedPtr_ == PETSC_NULL) {
+    MatDestroy(matSharedPtr_.get());
   }
 
-  *matPtr_ = PETSC_NULL;
+  *matSharedPtr_ = PETSC_NULL;
 }
 
 PetscInt LinearAlgebra::Impl::PetscMatrix::GetLocalColSize() const {
@@ -123,7 +123,7 @@ void LinearAlgebra::Impl::PetscMatrix::SetColIndex(
   for (auto it = index.begin(); it != colRangeLowFlag; it++, offDiagIt++)
     *offDiagIt = *it;
   for (auto it = colRangeLowFlag; it != colRangeHighFlag; it++, diagIt++)
-    *diagIt = *it;
+    *diagIt = *it - colRangeLow_;
   for (auto it = colRangeHighFlag; it != index.end(); it++, offDiagIt++)
     *offDiagIt = *it;
 }
@@ -140,10 +140,10 @@ Void LinearAlgebra::Impl::PetscMatrix::Increment(
   std::vector<PetscInt> rowIndex(1);
   rowIndex[0] = row + rowRangeLow_;
 
-  if (blockSize_ == 1) {
+  if (blockSize_ == 1)
     MatSetValues(*matPtr_, 1, rowIndex.data(), index.size(), index.data(),
                  value.data(), INSERT_VALUES);
-  } else
+  else
     MatSetValuesBlocked(*matPtr_, 1, rowIndex.data(), index.size(),
                         index.data(), value.data(), INSERT_VALUES);
 }
@@ -174,23 +174,62 @@ Void LinearAlgebra::Impl::PetscMatrix::GraphAssemble() {
   Kokkos::fence();
 
   if (blockSize_ == 1)
-    MatCreateMPIAIJMKL(MPI_COMM_WORLD, localRowSize_, localColSize_,
-                       PETSC_DECIDE, PETSC_DECIDE, 0, diagNonzero.data(), 0,
-                       offDiagNonzero.data(), &*matPtr_);
+    MatCreateAIJ(MPI_COMM_WORLD, localRowSize_, localColSize_, PETSC_DECIDE,
+                 PETSC_DECIDE, 0, diagNonzero.data(), 0, offDiagNonzero.data(),
+                 &*matSharedPtr_);
   else
-    MatCreateBAIJMKL(MPI_COMM_WORLD, blockSize_, localRowSize_ * blockSize_,
-                     localColSize_ * blockSize_, PETSC_DECIDE, PETSC_DECIDE, 0,
-                     diagNonzero.data(), 0, offDiagNonzero.data(), &*matPtr_);
+    MatCreateBAIJ(MPI_COMM_WORLD, blockSize_, localRowSize_ * blockSize_,
+                  localColSize_ * blockSize_, PETSC_DECIDE, PETSC_DECIDE, 0,
+                  diagNonzero.data(), 0, offDiagNonzero.data(),
+                  &*matSharedPtr_);
 
-  MatSetUp(*matPtr_);
+  MatSetUp(*matSharedPtr_);
+  matPtr_ = matSharedPtr_.get();
+
+  MatSetOption(*matSharedPtr_, MAT_NO_OFF_PROC_ENTRIES, PETSC_TRUE);
+
+  // Set indices in advance, this helps the performance of SetValues
+  Mat diagMat;
+  Mat offDiagMat;
+  if (blockSize_ == 1)
+    MatMPIAIJGetSeqAIJ(*matSharedPtr_, &diagMat, &offDiagMat, NULL);
+  else
+    MatMPIBAIJGetSeqBAIJ(*matSharedPtr_, &diagMat, &offDiagMat, NULL);
+
+  std::vector<PetscInt> colIndex;
+  colIndex.resize(diagNumNonzero);
+  auto it = colIndex.begin();
+  for (int i = 0; i < localRowSize_; i++) {
+    for (int j = 0; j < diagMatrixCol_[i].size(); j++) {
+      *it = diagMatrixCol_[i][j];
+      it++;
+    }
+  }
+  if (blockSize_ == 1)
+    MatSeqAIJSetColumnIndices(diagMat, colIndex.data());
+  else
+    MatSeqBAIJSetColumnIndices(diagMat, colIndex.data());
+
+  colIndex.resize(offDiagNumNonzero);
+  it = colIndex.begin();
+  for (int i = 0; i < localRowSize_; i++) {
+    for (int j = 0; j < offDiagMatrixCol_[i].size(); j++) {
+      *it = offDiagMatrixCol_[i][j];
+      it++;
+    }
+  }
+  if (blockSize_ == 1)
+    MatSeqAIJSetColumnIndices(offDiagMat, colIndex.data());
+  else
+    MatSeqBAIJSetColumnIndices(offDiagMat, colIndex.data());
 }
 
 Void LinearAlgebra::Impl::PetscMatrix::Assemble() {
-  MatAssemblyBegin(*matPtr_, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(*matPtr_, MAT_FINAL_ASSEMBLY);
+  MatAssemblyBegin(*matSharedPtr_, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(*matSharedPtr_, MAT_FINAL_ASSEMBLY);
 }
 
 Void LinearAlgebra::Impl::PetscMatrix::MatrixVectorMultiplication(
     PetscVector &vec1, PetscVector &vec2) {
-  MatMult(*matPtr_, *(vec1.vecPtr_), *(vec2.vecPtr_));
+  MatMult(*matSharedPtr_, *(vec1.vecPtr_), *(vec2.vecPtr_));
 }

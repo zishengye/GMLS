@@ -58,7 +58,11 @@ Void Equation::PoissonEquation::InitLinearSystem() {
       "source coords", sourceCoords.extent(0), sourceCoords.extent(1));
   Kokkos::deep_copy(sourceCoordsDevice, sourceCoords);
 
-  const unsigned int batchSize = ((dimension == 2) ? 500 : 100);
+#ifdef KOKKOS_ENABLE_CUDA
+  const unsigned int batchSize = (dimension == 2) ? 200000 : 50000;
+#else
+  const unsigned int batchSize = (dimension == 2) ? 500 : 100;
+#endif
   const unsigned int batchNum = localParticleNum / batchSize +
                                 ((localParticleNum % batchSize > 0) ? 1 : 0);
 
@@ -434,7 +438,11 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
   DefaultMatrix &A = *(std::static_pointer_cast<DefaultMatrix>(
       linearSystemsPtr_[refinementIteration_]));
 
-  const unsigned int batchSize = ((dimension == 2) ? 500 : 100);
+#ifdef KOKKOS_ENABLE_CUDA
+  const unsigned int batchSize = (dimension == 2) ? 200000 : 50000;
+#else
+  const unsigned int batchSize = (dimension == 2) ? 500 : 100;
+#endif
   const unsigned int batchNum = localParticleNum / batchSize +
                                 ((localParticleNum % batchSize > 0) ? 1 : 0);
   for (unsigned int batch = 0; batch < batchNum; batch++) {
@@ -798,7 +806,11 @@ Void Equation::PoissonEquation::CalculateError() {
   Kokkos::resize(gradientChunk_, localParticleNum, dimension);
 
   // get polynomial coefficients and direct gradients
-  const unsigned int batchSize = ((dimension == 2) ? 500 : 100);
+#ifdef KOKKOS_ENABLE_CUDA
+  const unsigned int batchSize = (dimension == 2) ? 50000 : 10000;
+#else
+  const unsigned int batchSize = (dimension == 2) ? 500 : 100;
+#endif
   const unsigned int batchNum = localParticleNum / batchSize +
                                 ((localParticleNum % batchSize > 0) ? 1 : 0);
   for (unsigned int batch = 0; batch < batchNum; batch++) {
@@ -1304,7 +1316,11 @@ Void Equation::PoissonEquation::CalculateSensitivity(
   const unsigned int localParticleNum = particleMgr.GetLocalParticleNum();
 
   // get polynomial coefficients and direct gradients
-  const unsigned int batchSize = ((dimension == 2) ? 500 : 100);
+#ifdef KOKKOS_ENABLE_CUDA
+  const unsigned int batchSize = (dimension == 2) ? 200000 : 50000;
+#else
+  const unsigned int batchSize = (dimension == 2) ? 500 : 100;
+#endif
   const unsigned int batchNum = localParticleNum / batchSize +
                                 ((localParticleNum % batchSize > 0) ? 1 : 0);
   for (unsigned int batch = 0; batch < batchNum; batch++) {

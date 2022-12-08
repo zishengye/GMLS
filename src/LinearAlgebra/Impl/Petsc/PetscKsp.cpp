@@ -69,7 +69,7 @@ Void LinearAlgebra::Impl::PetscKsp::AddLinearSystem(
   } else {
     KSPSetType(*kspPtr_, KSPPREONLY);
   }
-  KSPSetOperators(*kspPtr_, *mat.matPtr_, *mat.matPtr_);
+  KSPSetOperators(*kspPtr_, *mat.matSharedPtr_, *mat.matSharedPtr_);
 
   if (descriptor.setFromDatabase)
     KSPSetFromOptions(*kspPtr_);

@@ -17,9 +17,9 @@ LinearAlgebra::Impl::PetscBlockMatrix::PetscBlockMatrix()
       a11Ksp_(PETSC_NULL) {}
 
 LinearAlgebra::Impl::PetscBlockMatrix::~PetscBlockMatrix() {
-  if (matPtr_.use_count() == 1)
-    if (*matPtr_ != PETSC_NULL)
-      MatDestroy(matPtr_.get());
+  if (matSharedPtr_.use_count() == 1)
+    if (*matSharedPtr_ != PETSC_NULL)
+      MatDestroy(matSharedPtr_.get());
 
   if (schur_ != PETSC_NULL)
     MatDestroy(&schur_);
@@ -106,8 +106,8 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::Assemble() {
   }
 
   MatCreateShell(PETSC_COMM_WORLD, localRow, localCol, PETSC_DECIDE,
-                 PETSC_DECIDE, (void *)callbackPtr_, matPtr_.get());
-  MatShellSetOperation(*matPtr_, MATOP_MULT,
+                 PETSC_DECIDE, (void *)callbackPtr_, matSharedPtr_.get());
+  MatShellSetOperation(*matSharedPtr_, MATOP_MULT,
                        (Void(*)(Void))PetscBlockMatrixMatMultWrapper);
 }
 
@@ -131,7 +131,7 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::MatrixVectorMultiplication(
 
   for (PetscInt i = 0; i < blockM_; i++) {
     for (PetscInt j = 0; j < blockN_; j++) {
-      MatMultAdd(*(subMat_[i * blockN_ + j]->matPtr_), rhsVector_[j],
+      MatMultAdd(*(subMat_[i * blockN_ + j]->matSharedPtr_), rhsVector_[j],
                  lhsVector_[i], lhsVector_[i]);
     }
   }
@@ -153,10 +153,10 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::
   // prepare schur complement matrix
   Mat B, C;
 
-  auto &a00 = *(subMat_[0]->matPtr_);
-  auto &a01 = *(subMat_[1]->matPtr_);
-  auto &a10 = *(subMat_[2]->matPtr_);
-  auto &a11 = *(subMat_[3]->matPtr_);
+  auto &a00 = *(subMat_[0]->matSharedPtr_);
+  auto &a01 = *(subMat_[1]->matSharedPtr_);
+  auto &a10 = *(subMat_[2]->matSharedPtr_);
+  auto &a11 = *(subMat_[3]->matSharedPtr_);
   MatCreate(MPI_COMM_WORLD, &B);
   MatSetType(B, MATAIJMKL);
   MatInvertBlockDiagonalMat(a00, B);
@@ -219,8 +219,8 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::
   VecDuplicate(rhsVector_[0], &a0);
   VecDuplicate(rhsVector_[1], &a1);
 
-  auto &a01 = *(subMat_[1]->matPtr_);
-  auto &a10 = *(subMat_[2]->matPtr_);
+  auto &a01 = *(subMat_[1]->matSharedPtr_);
+  auto &a10 = *(subMat_[2]->matSharedPtr_);
 
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();

@@ -21,7 +21,12 @@ class PetscMatrix {
 protected:
   std::vector<unsigned long> rankColSize_, rankRowSize_;
 
-  std::shared_ptr<Mat> matPtr_;
+  std::shared_ptr<Mat> matSharedPtr_;
+  /*
+    Development note: This repetition of the pointer is required to ensure that
+    the pointer used by the function Increment
+  */
+  Mat *matPtr_;
 
   int mpiRank_, mpiSize_;
 
