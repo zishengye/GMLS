@@ -269,7 +269,8 @@ Void Equation::PoissonPreconditioner::ConstructInterpolation(
         value[0] = 1.0;
       }
 
-      I.Increment(i, index, value);
+      for (int j = 0; j < index.size(); j++)
+        I.Increment(i, index[j], value[j]);
     }
 
     I.Assemble();
@@ -794,7 +795,8 @@ Void Equation::PoissonPreconditioner::ConstructRestriction(
         }
         boundaryCounter++;
       }
-      R.Increment(i, index, value);
+      for (int j = 0; j < index.size(); j++)
+        R.Increment(i, index[j], value[j]);
     }
 
     R.Assemble();

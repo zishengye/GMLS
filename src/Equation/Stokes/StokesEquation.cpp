@@ -383,7 +383,7 @@ Void Equation::StokesEquation::InitLinearSystem() {
           linearSystemsPtr_[refinementIteration_])
           ->GetSubMat(0, 0)));
 
-  uu.Resize(localParticleNum, localParticleNum, dimension);
+  uu.Resize(localParticleNum * dimension, localParticleNum * dimension);
 
   auto &up = *(std::static_pointer_cast<DefaultMatrix>(
       std::static_pointer_cast<StokesMatrix>(
@@ -409,22 +409,36 @@ Void Equation::StokesEquation::InitLinearSystem() {
   for (std::size_t i = 0; i < localParticleNum; i++) {
     const PetscInt currentParticleIndex = i;
     if (particleType(i) == 0) {
-      index.resize(neighborLists_(i, 0));
-      for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
+      const unsigned int numNeighbor = neighborLists_(i, 0);
+      index.resize(numNeighbor);
+      for (std::size_t j = 0; j < numNeighbor; j++) {
         const PetscInt neighborParticleIndex =
             sourceIndex(neighborLists_(i, j + 1));
         index[j] = neighborParticleIndex;
       }
       std::sort(index.begin(), index.end());
-      uu.SetColIndex(currentParticleIndex, index);
       pp.SetColIndex(currentParticleIndex, index);
-      for (unsigned int j = 0; j < dimension; j++) {
+      for (unsigned int j = 0; j < dimension; j++)
         up.SetColIndex(currentParticleIndex * dimension + j, index);
+
+      index.resize(numNeighbor * dimension);
+      for (unsigned int j = 0; j < numNeighbor; j++) {
+        const PetscInt neighborParticleIndex =
+            sourceIndex(neighborLists_(i, j + 1));
+        for (unsigned int k = 0; k < dimension; k++) {
+          index[j * dimension + k] = neighborParticleIndex * dimension + k;
+        }
       }
+      std::sort(index.begin(), index.end());
+      for (unsigned int j = 0; j < dimension; j++)
+        uu.SetColIndex(currentParticleIndex * dimension + j, index);
+
     } else {
       index.resize(1);
-      index[0] = sourceIndex(i);
-      uu.SetColIndex(currentParticleIndex, index);
+      for (unsigned int j = 0; j < dimension; j++) {
+        index[0] = sourceIndex(i) * dimension + j;
+        uu.SetColIndex(currentParticleIndex * dimension + j, index);
+      }
 
       index.resize(neighborLists_(i, 0));
       for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
@@ -606,33 +620,35 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
 
       unsigned int blockStorageSize = dimension * dimension;
 
-      for (unsigned int i = startParticle; i < endParticle; i++) {
-        const unsigned int currentParticleIndex = interiorParticleIndex[i];
-        std::vector<DefaultLinearAlgebraBackend::DefaultInteger> index;
-        std::vector<DefaultLinearAlgebraBackend::DefaultScalar> value;
-        unsigned int numNeighbor =
-            interiorNeighborListsHost(i - startParticle, 0);
-        unsigned int singleRowSize = numNeighbor * dimension;
-        index.resize(numNeighbor);
-        value.resize(numNeighbor * blockStorageSize);
-        for (std::size_t j = 0; j < numNeighbor; j++) {
-          const DefaultLinearAlgebraBackend::DefaultInteger
-              neighborParticleIndex = sourceIndex(
-                  interiorNeighborListsHost(i - startParticle, j + 1));
-          index[j] = neighborParticleIndex;
-          for (unsigned int axes1 = 0; axes1 < dimension; axes1++) {
-            for (unsigned int axes2 = 0; axes2 < dimension; axes2++) {
-              auto alphaIndex = velocitySolutionSet->getAlphaIndex(
-                  i - startParticle,
-                  interiorCurlCurlIndex[axes1 * dimension + axes2]);
-              value[axes1 * singleRowSize + j * dimension + axes2] =
-                  interiorVelocityAlpha(alphaIndex + j);
-            }
-          }
-        }
+      Kokkos::parallel_for(
+          Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>(
+              batchParticleNum, Kokkos::AUTO()),
+          [&](const Kokkos::TeamPolicy<
+              Kokkos::DefaultHostExecutionSpace>::member_type &teamMember) {
+            const int i = teamMember.league_rank() + startParticle;
 
-        uu.Increment(currentParticleIndex, index, value);
-      }
+            const unsigned int currentParticleIndex = interiorParticleIndex[i];
+            unsigned int numNeighbor = neighborLists_(currentParticleIndex, 0);
+            unsigned int singleRowSize = numNeighbor * dimension;
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(teamMember, numNeighbor),
+                [&](const int j) {
+                  const DefaultLinearAlgebraBackend::DefaultInteger
+                      neighborParticleIndex = sourceIndex(
+                          neighborLists_(currentParticleIndex, j + 1));
+                  for (unsigned int axes1 = 0; axes1 < dimension; axes1++) {
+                    for (unsigned int axes2 = 0; axes2 < dimension; axes2++) {
+                      auto alphaIndex = velocitySolutionSet->getAlphaIndex(
+                          i - startParticle,
+                          interiorCurlCurlIndex[axes1 * dimension + axes2]);
+                      uu.Increment(currentParticleIndex * dimension + axes1,
+                                   neighborParticleIndex * dimension + axes2,
+                                   interiorVelocityAlpha(alphaIndex + j));
+                    }
+                  }
+                });
+          });
     }
 
     // pressure-pressure block and velocity-pressure block for interior
@@ -677,40 +693,56 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
                 Compadre::GradientOfScalarPointEvaluation, i, 0, 0, 0);
       }
 
-      for (unsigned int i = startParticle; i < endParticle; i++) {
-        std::vector<PetscInt> index;
-        std::vector<PetscReal> value;
-        const PetscInt currentParticleIndex = interiorParticleIndex[i];
-        const unsigned int numNeighbor =
-            interiorNeighborListsHost(i - startParticle, 0);
-        double Aij = 0.0;
-        index.resize(numNeighbor);
-        value.resize(numNeighbor);
-        for (std::size_t j = 0; j < numNeighbor; j++) {
-          const PetscInt neighborParticleIndex =
-              sourceIndex(interiorNeighborListsHost(i - startParticle, j + 1));
-          auto alphaIndex = pressureSolutionSet->getAlphaIndex(
-              i - startParticle, interiorPressureLaplacianIndex);
-          index[j] = neighborParticleIndex;
-          value[j] = interiorPressureAlpha(alphaIndex + j);
-          Aij -= interiorPressureAlpha(alphaIndex + j);
-        }
-        value[0] = Aij;
+      Kokkos::parallel_for(
+          Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>(
+              batchParticleNum, Kokkos::AUTO()),
+          [&](const Kokkos::TeamPolicy<
+              Kokkos::DefaultHostExecutionSpace>::member_type &teamMember) {
+            const int i = teamMember.league_rank() + startParticle;
+            const PetscInt currentParticleIndex = interiorParticleIndex[i];
+            const unsigned int numNeighbor =
+                interiorNeighborListsHost(i - startParticle, 0);
+            double Aii = 0.0;
+            Kokkos::parallel_reduce(
+                Kokkos::TeamThreadRange(teamMember, numNeighbor),
+                [&](const int j, double &tAii) {
+                  const PetscInt neighborParticleIndex = sourceIndex(
+                      interiorNeighborListsHost(i - startParticle, j + 1));
+                  auto alphaIndex = pressureSolutionSet->getAlphaIndex(
+                      i - startParticle, interiorPressureLaplacianIndex);
 
-        pp.Increment(currentParticleIndex, index, value);
+                  pp.Increment(currentParticleIndex, neighborParticleIndex,
+                               interiorPressureAlpha(alphaIndex + j));
 
-        for (unsigned int k = 0; k < dimension; k++) {
-          Aij = 0.0;
-          for (std::size_t j = 0; j < numNeighbor; j++) {
-            auto alphaIndex = pressureSolutionSet->getAlphaIndex(
-                i - startParticle, interiorPressureGradientIndex[k]);
-            value[j] = -interiorPressureAlpha(alphaIndex + j);
-            Aij += interiorPressureAlpha(alphaIndex + j);
-          }
-          value[0] = Aij;
-          up.Increment(currentParticleIndex * dimension + k, index, value);
-        }
-      }
+                  tAii -= interiorPressureAlpha(alphaIndex + j);
+                },
+                Kokkos::Sum<double>(Aii));
+            teamMember.team_barrier();
+            pp.Increment(currentParticleIndex,
+                         sourceIndex(currentParticleIndex), Aii);
+
+            for (unsigned int k = 0; k < dimension; k++) {
+              Aii = 0.0;
+              Kokkos::parallel_reduce(
+                  Kokkos::TeamThreadRange(teamMember, numNeighbor),
+                  [&](const int j, double &tAii) {
+                    const PetscInt neighborParticleIndex = sourceIndex(
+                        interiorNeighborListsHost(i - startParticle, j + 1));
+                    auto alphaIndex = pressureSolutionSet->getAlphaIndex(
+                        i - startParticle, interiorPressureGradientIndex[k]);
+
+                    up.Increment(currentParticleIndex * dimension + k,
+                                 neighborParticleIndex,
+                                 -interiorPressureAlpha(alphaIndex + j));
+
+                    tAii += interiorPressureAlpha(alphaIndex + j);
+                  },
+                  Kokkos::Sum<double>(Aii));
+              teamMember.team_barrier();
+              up.Increment(currentParticleIndex * dimension + k,
+                           sourceIndex(currentParticleIndex), Aii);
+            }
+          });
     }
   }
 
@@ -743,41 +775,44 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
     Kokkos::View<double ***>::HostMirror tangentBundleHost =
         Kokkos::create_mirror_view(tangentBundleDevice);
 
-    for (unsigned int i = startParticle; i < endParticle; i++) {
-      boundaryEpsilonHost(i - startParticle) =
-          epsilon_(boundaryParticleIndex[i]);
-      for (std::size_t j = 0; j <= neighborLists_(boundaryParticleIndex[i], 0);
-           j++) {
-        boundaryNeighborListsHost(i - startParticle, j) =
-            neighborLists_(boundaryParticleIndex[i], j);
-      }
-      for (unsigned int j = 0; j < dimension; j++) {
-        boundaryParticleCoordsHost(i - startParticle, j) =
-            coords(boundaryParticleIndex[i], j);
-      }
-      if (dimension == 3) {
-        tangentBundleHost(i - startParticle, 0, 0) = 0.0;
-        tangentBundleHost(i - startParticle, 0, 1) = 0.0;
-        tangentBundleHost(i - startParticle, 0, 2) = 0.0;
-        tangentBundleHost(i - startParticle, 1, 0) = 0.0;
-        tangentBundleHost(i - startParticle, 1, 1) = 0.0;
-        tangentBundleHost(i - startParticle, 1, 2) = 0.0;
-        tangentBundleHost(i - startParticle, 2, 0) =
-            normal(boundaryParticleIndex[i], 0);
-        tangentBundleHost(i - startParticle, 2, 1) =
-            normal(boundaryParticleIndex[i], 1);
-        tangentBundleHost(i - startParticle, 2, 2) =
-            normal(boundaryParticleIndex[i], 2);
-      }
-      if (dimension == 2) {
-        tangentBundleHost(i - startParticle, 0, 0) = 0.0;
-        tangentBundleHost(i - startParticle, 0, 1) = 0.0;
-        tangentBundleHost(i - startParticle, 1, 0) =
-            normal(boundaryParticleIndex[i], 0);
-        tangentBundleHost(i - startParticle, 1, 1) =
-            normal(boundaryParticleIndex[i], 1);
-      }
-    }
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(startParticle,
+                                                               endParticle),
+        [&](const int i) {
+          boundaryEpsilonHost(i - startParticle) =
+              epsilon_(boundaryParticleIndex[i]);
+          for (std::size_t j = 0;
+               j <= neighborLists_(boundaryParticleIndex[i], 0); j++) {
+            boundaryNeighborListsHost(i - startParticle, j) =
+                neighborLists_(boundaryParticleIndex[i], j);
+          }
+          for (unsigned int j = 0; j < dimension; j++) {
+            boundaryParticleCoordsHost(i - startParticle, j) =
+                coords(boundaryParticleIndex[i], j);
+          }
+          if (dimension == 3) {
+            tangentBundleHost(i - startParticle, 0, 0) = 0.0;
+            tangentBundleHost(i - startParticle, 0, 1) = 0.0;
+            tangentBundleHost(i - startParticle, 0, 2) = 0.0;
+            tangentBundleHost(i - startParticle, 1, 0) = 0.0;
+            tangentBundleHost(i - startParticle, 1, 1) = 0.0;
+            tangentBundleHost(i - startParticle, 1, 2) = 0.0;
+            tangentBundleHost(i - startParticle, 2, 0) =
+                normal(boundaryParticleIndex[i], 0);
+            tangentBundleHost(i - startParticle, 2, 1) =
+                normal(boundaryParticleIndex[i], 1);
+            tangentBundleHost(i - startParticle, 2, 2) =
+                normal(boundaryParticleIndex[i], 2);
+          }
+          if (dimension == 2) {
+            tangentBundleHost(i - startParticle, 0, 0) = 0.0;
+            tangentBundleHost(i - startParticle, 0, 1) = 0.0;
+            tangentBundleHost(i - startParticle, 1, 0) =
+                normal(boundaryParticleIndex[i], 0);
+            tangentBundleHost(i - startParticle, 1, 1) =
+                normal(boundaryParticleIndex[i], 1);
+          }
+        });
 
     Kokkos::deep_copy(boundaryNeighborListsDevice, boundaryNeighborListsHost);
     Kokkos::deep_copy(boundaryEpsilonDevice, boundaryEpsilonHost);
@@ -786,21 +821,22 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
 
     // velocity-velocity block
     {
-      unsigned int blockStorageSize = dimension * dimension;
-      for (unsigned int i = startParticle; i < endParticle; i++) {
-        std::vector<DefaultLinearAlgebraBackend::DefaultInteger> index;
-        std::vector<DefaultLinearAlgebraBackend::DefaultScalar> value;
-        index.resize(1);
-        index[0] = sourceIndex(boundaryParticleIndex[i]);
-        value.resize(blockStorageSize);
-        for (unsigned int j = 0; j < blockStorageSize; j++) {
-          value[j] = 0.0;
-        }
-        for (unsigned int j = 0; j < dimension; j++) {
-          value[j * dimension + j] = 1.0;
-        }
-        uu.Increment(boundaryParticleIndex[i], index, value);
-      }
+      Kokkos::parallel_for(
+          Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>(
+              batchParticleNum, Kokkos::AUTO()),
+          [&](const Kokkos::TeamPolicy<
+              Kokkos::DefaultHostExecutionSpace>::member_type &teamMember) {
+            const int i = teamMember.league_rank() + startParticle;
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(teamMember, dimension),
+                [&](const int axes1) {
+                  uu.Increment(
+                      boundaryParticleIndex[i] * dimension + axes1,
+                      sourceIndex(boundaryParticleIndex[i]) * dimension + axes1,
+                      1.0);
+                });
+          });
     }
 
     // pressure-pressure block and pressure-velocity block for boundary
@@ -882,59 +918,64 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
         }
       }
 
-      for (unsigned int i = startParticle; i < endParticle; i++) {
-        std::vector<PetscInt> index;
-        std::vector<PetscReal> value;
-        const PetscInt currentParticleIndex = boundaryParticleIndex[i];
-        double Aij = 0.0;
-        const unsigned int numNeighbor =
-            boundaryNeighborListsHost(i - startParticle, 0);
+      Kokkos::parallel_for(
+          Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>(
+              batchParticleNum, Kokkos::AUTO()),
+          [&](const Kokkos::TeamPolicy<
+              Kokkos::DefaultHostExecutionSpace>::member_type &teamMember) {
+            const int i = teamMember.league_rank() + startParticle;
 
-        index.resize(numNeighbor);
-        value.resize(numNeighbor);
+            const PetscInt currentParticleIndex = boundaryParticleIndex[i];
+            double Aii = 0.0;
+            const unsigned int numNeighbor =
+                boundaryNeighborListsHost(i - startParticle, 0);
 
-        bi_(currentParticleIndex) =
-            pressureSolutionSet->getAlpha0TensorTo0Tensor(
-                Compadre::LaplacianOfScalarPointEvaluation, i - startParticle,
-                numNeighbor);
+            bi_(currentParticleIndex) =
+                pressureSolutionSet->getAlpha0TensorTo0Tensor(
+                    Compadre::LaplacianOfScalarPointEvaluation,
+                    i - startParticle, numNeighbor);
 
-        for (std::size_t j = 0; j < numNeighbor; j++) {
-          const PetscInt neighborParticleIndex =
-              sourceIndex(boundaryNeighborListsHost(i - startParticle, j + 1));
-          auto alphaIndex = pressureSolutionSet->getAlphaIndex(
-              i - startParticle, boundaryPressureLaplacianIndex);
-          index[j] = neighborParticleIndex;
-          value[j] = boundaryPressureAlpha(alphaIndex + j);
-          Aij -= boundaryPressureAlpha(alphaIndex + j);
-        }
-        value[0] = Aij;
+            Kokkos::parallel_reduce(
+                Kokkos::TeamThreadRange(teamMember, numNeighbor),
+                [&](const int j, double &tAii) {
+                  const PetscInt neighborParticleIndex = sourceIndex(
+                      boundaryNeighborListsHost(i - startParticle, j + 1));
+                  auto alphaIndex = pressureSolutionSet->getAlphaIndex(
+                      i - startParticle, boundaryPressureLaplacianIndex);
 
-        pp.Increment(currentParticleIndex, index, value);
+                  pp.Increment(currentParticleIndex, neighborParticleIndex,
+                               boundaryPressureAlpha(alphaIndex + j));
 
-        index.resize(dimension * numNeighbor);
-        value.resize(dimension * numNeighbor);
+                  tAii -= boundaryPressureAlpha(alphaIndex + j);
+                },
+                Kokkos::Sum<double>(Aii));
+            teamMember.team_barrier();
+            pp.Increment(currentParticleIndex,
+                         sourceIndex(currentParticleIndex), Aii);
 
-        for (std::size_t j = 0; j < numNeighbor; j++) {
-          const PetscInt neighborParticleIndex =
-              sourceIndex(boundaryNeighborListsHost(i - startParticle, j + 1));
-          for (unsigned int axes2 = 0; axes2 < dimension; axes2++) {
-            index[j * dimension + axes2] =
-                dimension * neighborParticleIndex + axes2;
-            value[j * dimension + axes2] = 0.0;
-            for (unsigned int axes1 = 0; axes1 < dimension; axes1++) {
-              auto alphaIndex = velocitySolutionSet->getAlphaIndex(
-                  i - startParticle,
-                  boundaryCurlCurlIndex[dimension * axes1 + axes2]);
-              value[j * dimension + axes2] +=
-                  normal(currentParticleIndex, axes1) *
-                  boundaryVelocityAlpha(alphaIndex + j);
+            for (unsigned int axes2 = 0; axes2 < dimension; axes2++) {
+              Kokkos::parallel_for(
+                  Kokkos::TeamThreadRange(teamMember, numNeighbor),
+                  [&](const int j) {
+                    const PetscInt neighborParticleIndex = sourceIndex(
+                        boundaryNeighborListsHost(i - startParticle, j + 1));
+
+                    double value = 0.0;
+                    for (unsigned int axes1 = 0; axes1 < dimension; axes1++) {
+                      auto alphaIndex = velocitySolutionSet->getAlphaIndex(
+                          i - startParticle,
+                          boundaryCurlCurlIndex[dimension * axes1 + axes2]);
+                      value += normal(currentParticleIndex, axes1) *
+                               boundaryVelocityAlpha(alphaIndex + j);
+                    }
+                    value *= bi_(currentParticleIndex);
+
+                    pu.Increment(currentParticleIndex,
+                                 dimension * neighborParticleIndex + axes2,
+                                 value);
+                  });
             }
-            value[j * dimension + axes2] *= bi_(currentParticleIndex);
-          }
-        }
-
-        pu.Increment(currentParticleIndex, index, value);
-      }
+          });
     }
   }
 

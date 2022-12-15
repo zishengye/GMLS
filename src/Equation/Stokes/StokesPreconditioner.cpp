@@ -193,7 +193,8 @@ Void Equation::StokesPreconditioner::ConstructInterpolation(
     auto Ipp = I->GetSubMat(1, 1);
 
     // initialize each block
-    Iuu->Resize(localTargetParticleNum, localSourceParticleNum, velocityDof);
+    Iuu->Resize(localTargetParticleNum * dimension,
+                localSourceParticleNum * dimension);
     Iup->Resize(localTargetParticleNum * velocityDof, localSourceParticleNum);
     Ipu->Resize(localTargetParticleNum, localSourceParticleNum * velocityDof);
     Ipp->Resize(localTargetParticleNum, localSourceParticleNum);
@@ -214,8 +215,30 @@ Void Equation::StokesPreconditioner::ConstructInterpolation(
             index[0] = sourceParticleIndexHost(neighborListsHost(i, 1));
           }
           std::sort(index.begin(), index.end());
-          Iuu->SetColIndex(currentParticleIndex, index);
           Ipp->SetColIndex(currentParticleIndex, index);
+
+          if (refinedParticle[i]) {
+            index.resize(neighborListsHost(i, 0) * dimension);
+            for (unsigned int j = 0; j < neighborListsHost(i, 0); j++) {
+              for (unsigned int k = 0; k < dimension; k++)
+                index[j * dimension + k] =
+                    sourceParticleIndexHost(neighborListsHost(i, j + 1)) *
+                        dimension +
+                    k;
+            }
+
+            std::sort(index.begin(), index.end());
+            for (int j = 0; j < dimension; j++)
+              Iuu->SetColIndex(currentParticleIndex * dimension + j, index);
+          } else {
+            index.resize(1);
+            for (int j = 0; j < dimension; j++) {
+              index[0] =
+                  sourceParticleIndexHost(neighborListsHost(i, 1)) * dimension +
+                  j;
+              Iuu->SetColIndex(currentParticleIndex * dimension + j, index);
+            }
+          }
         });
 
     Iuu->GraphAssemble();
@@ -338,6 +361,7 @@ Void Equation::StokesPreconditioner::ConstructInterpolation(
             auto alphaIndex = pressureSolutionSet->getAlphaIndex(
                 refinedCounter, pressureScalarIndex);
             value[j] = interpolationPressureAlpha(alphaIndex + j);
+            Ipp->Increment(i, index[j], value[j]);
           }
 
           for (unsigned int axes1 = 0; axes1 < dimension; axes1++)
@@ -347,6 +371,10 @@ Void Equation::StokesPreconditioner::ConstructInterpolation(
                   velocityAlphasIndex[axes1 * dimension + axes2]);
               blockValue[axes1 * singleRowSize + j * dimension + axes2] =
                   interpolationVelocityAlpha(alphaIndex + j);
+
+              Iuu->Increment(
+                  i * dimension + axes1, index[j] * dimension + axes2,
+                  blockValue[axes1 * singleRowSize + j * dimension + axes2]);
             }
         }
 
@@ -357,14 +385,10 @@ Void Equation::StokesPreconditioner::ConstructInterpolation(
         blockValue.resize(blockStorageSize);
         index[0] = sourceParticleIndexHost(neighborListsHost(i, 1));
         value[0] = 1.0;
-        for (unsigned int j = 0; j < blockStorageSize; j++)
-          blockValue[j] = 0;
+        Ipp->Increment(i, index[0], value[0]);
         for (unsigned int j = 0; j < dimension; j++)
-          blockValue[j * dimension + j] = 1.0;
+          Iuu->Increment(i * dimension + j, index[0] * dimension + j, 1.0);
       }
-
-      Iuu->Increment(i, index, blockValue);
-      Ipp->Increment(i, index, value);
     }
 
     I->Assemble();
@@ -738,7 +762,8 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
     auto Rpp = R->GetSubMat(1, 1);
 
     // initialize each block
-    Ruu->Resize(localTargetParticleNum, localSourceParticleNum, velocityDof);
+    Ruu->Resize(localTargetParticleNum * dimension,
+                localSourceParticleNum * dimension);
     Rup->Resize(localTargetParticleNum * velocityDof, localSourceParticleNum);
     Rpu->Resize(localTargetParticleNum, localSourceParticleNum * velocityDof);
     Rpp->Resize(localTargetParticleNum, localSourceParticleNum);
@@ -762,6 +787,40 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
           index[0] = interiorSourceParticleIndexHost(
               interiorNeighborListsHost(interiorCounter, 1));
         }
+        std::sort(index.begin(), index.end());
+        Rpp->SetColIndex(i, index);
+
+        if (restrictedInteriorParticle[interiorCounter]) {
+          unsigned int numNeighbor =
+              interiorNeighborListsHost(interiorCounter, 0);
+          index.resize(numNeighbor * dimension);
+          for (unsigned int j = 0; j < numNeighbor; j++) {
+            for (unsigned int k = 0; k < dimension; k++)
+              index[j * dimension + k] =
+                  interiorSourceParticleIndexHost(
+                      interiorNeighborListsHost(interiorCounter, j + 1)) *
+                      dimension +
+                  k;
+          }
+
+          std::sort(index.begin(), index.end());
+          for (int j = 0; j < dimension; j++)
+            Ruu->SetColIndex(i * dimension + j, index);
+        } else {
+          index.resize(1);
+          for (int j = 0; j < dimension; j++) {
+            index[0] = interiorSourceParticleIndexHost(
+                interiorNeighborListsHost(interiorCounter, 1));
+            Rpp->SetColIndex(i, index);
+
+            index[0] = interiorSourceParticleIndexHost(
+                           interiorNeighborListsHost(interiorCounter, 1)) *
+                           dimension +
+                       j;
+            Ruu->SetColIndex(i * dimension + j, index);
+          }
+        }
+
         interiorCounter++;
       } else {
         if (restrictedBoundaryParticle[boundaryCounter]) {
@@ -772,16 +831,39 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
             index[j] = boundarySourceParticleIndexHost(
                 boundaryNeighborListsHost(boundaryCounter, j + 1));
           }
+
+          std::sort(index.begin(), index.end());
+          Rpp->SetColIndex(i, index);
+
+          index.resize(numNeighbor * dimension);
+          for (unsigned int j = 0; j < numNeighbor; j++) {
+            for (unsigned int k = 0; k < dimension; k++)
+              index[j * dimension + k] =
+                  boundarySourceParticleIndexHost(
+                      boundaryNeighborListsHost(boundaryCounter, j + 1)) *
+                      dimension +
+                  k;
+          }
+
+          std::sort(index.begin(), index.end());
+          for (int j = 0; j < dimension; j++)
+            Ruu->SetColIndex(i * dimension + j, index);
         } else {
           index.resize(1);
           index[0] = boundarySourceParticleIndexHost(
               boundaryNeighborListsHost(boundaryCounter, 1));
+          Rpp->SetColIndex(i, index);
+
+          for (int j = 0; j < dimension; j++) {
+            index[0] = boundarySourceParticleIndexHost(
+                           boundaryNeighborListsHost(boundaryCounter, 1)) *
+                           dimension +
+                       j;
+            Ruu->SetColIndex(i * dimension + j, index);
+          }
         }
         boundaryCounter++;
       }
-      std::sort(index.begin(), index.end());
-      Ruu->SetColIndex(i, index);
-      Rpp->SetColIndex(i, index);
     }
 
     Ruu->GraphAssemble();
@@ -899,9 +981,11 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
             // value[j] = restrictionInteriorAlpha(alphaIndex + j);
             value[j] = 1.0 / (double)numNeighbor;
 
+            Rpp->Increment(i, index[j], value[j]);
+
             for (unsigned int k = 0; k < dimension; k++)
-              blockValue[k * singleRowSize + j * dimension + k] =
-                  1.0 / (double)numNeighbor;
+              Ruu->Increment(i * dimension + k, index[j] * dimension + k,
+                             1.0 / (double)numNeighbor);
           }
 
           // restrictedInteriorCounter++;
@@ -916,6 +1000,10 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
             blockValue[j] = 0;
           for (unsigned int j = 0; j < dimension; j++)
             blockValue[j * dimension + j] = 1.0;
+
+          Rpp->Increment(i, index[0], 1.0);
+          for (unsigned int j = 0; j < dimension; j++)
+            Ruu->Increment(i * dimension + j, index[0] * dimension + j, 1.0);
         }
         interiorCounter++;
       } else {
@@ -933,9 +1021,14 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
                 boundaryNeighborListsHost(boundaryCounter, j + 1));
             value[j] = 1.0 / (double)numNeighbor;
 
-            for (unsigned int k = 0; k < dimension; k++)
+            Rpp->Increment(i, index[j], value[j]);
+
+            for (unsigned int k = 0; k < dimension; k++) {
               blockValue[k * singleRowSize + j * dimension + k] =
                   1.0 / (double)numNeighbor;
+              Ruu->Increment(i * dimension + k, index[j] * dimension + k,
+                             1.0 / (double)numNeighbor);
+            }
           }
         } else {
           index.resize(1);
@@ -948,12 +1041,13 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
             blockValue[j] = 0;
           for (unsigned int j = 0; j < dimension; j++)
             blockValue[j * dimension + j] = 1.0;
+
+          Rpp->Increment(i, index[0], 1.0);
+          for (unsigned int j = 0; j < dimension; j++)
+            Ruu->Increment(i * dimension + j, index[0] * dimension + j, 1.0);
         }
         boundaryCounter++;
       }
-
-      Ruu->Increment(i, index, blockValue);
-      Rpp->Increment(i, index, value);
     }
 
     R->Assemble();

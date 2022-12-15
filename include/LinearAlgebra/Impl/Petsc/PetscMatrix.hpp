@@ -22,11 +22,6 @@ protected:
   std::vector<unsigned long> rankColSize_, rankRowSize_;
 
   std::shared_ptr<Mat> matSharedPtr_;
-  /*
-    Development note: This repetition of the pointer is required to ensure that
-    the pointer used by the function Increment
-  */
-  Mat *matPtr_;
 
   int mpiRank_, mpiSize_;
 
@@ -34,9 +29,11 @@ protected:
   PetscInt globalColSize_, globalRowSize_;
   PetscInt colRangeLow_, colRangeHigh_;
   PetscInt rowRangeLow_, rowRangeHigh_;
-  PetscInt blockSize_, blockStorage_;
 
   std::vector<std::vector<PetscInt>> diagMatrixCol_, offDiagMatrixCol_;
+  std::vector<PetscInt> diagMatrixColIndex_, offDiagMatrixColIndex_;
+  std::vector<PetscInt> diagMatrixRowOffset_, offDiagMatrixRowOffset_;
+  std::vector<double> diagMatrixVal_, offDiagMatrixVal_;
 
 public:
   PetscMatrix();

@@ -1,9 +1,27 @@
 #include "Geometry/Geometry.hpp"
+#include "Geometry/GeometryItem.hpp"
+#include "Math/Vec3.hpp"
 
 #include <gtest/gtest.h>
 
 int globalArgc;
 char **globalArgv;
+
+TEST(BoundingBoxTest, IsIntersect) {
+  {
+    Geometry::BoundingBoxEntry boundingBoxEntry2D1, boundingBoxEntry2D2;
+    boundingBoxEntry2D1.boundingBoxLow = Math::Vec3(0.0, 0.0, 0.0);
+    boundingBoxEntry2D1.boundingBoxHigh = Math::Vec3(1.0, 1.0, 0.0);
+
+    boundingBoxEntry2D2.boundingBoxLow = Math::Vec3(0.5, 0.5, 0.0);
+    boundingBoxEntry2D2.boundingBoxHigh = Math::Vec3(1.5, 1.5, 0.0);
+
+    Geometry::BoundingBox boundingBox2D1(2, boundingBoxEntry2D1),
+        boundingBox2D2(2, boundingBoxEntry2D2);
+
+    EXPECT_EQ(boundingBox2D1.IsIntersect(boundingBox2D2), true);
+  }
+}
 
 TEST(DomainGeometryTest, IsInterior2D) {
   Kokkos::initialize(globalArgc, globalArgv);

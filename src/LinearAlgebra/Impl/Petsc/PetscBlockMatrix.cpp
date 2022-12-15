@@ -151,25 +151,36 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::MatrixVectorMultiplication(
 Void LinearAlgebra::Impl::PetscBlockMatrix::
     PrepareSchurComplementPreconditioner() {
   // prepare schur complement matrix
-  Mat B, C;
 
   auto &a00 = *(subMat_[0]->matSharedPtr_);
   auto &a01 = *(subMat_[1]->matSharedPtr_);
   auto &a10 = *(subMat_[2]->matSharedPtr_);
   auto &a11 = *(subMat_[3]->matSharedPtr_);
-  MatCreate(MPI_COMM_WORLD, &B);
-  MatSetType(B, MATAIJMKL);
-  MatInvertBlockDiagonalMat(a00, B);
 
-  MatMatMult(B, a01, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &C);
+  // MatDuplicate(a10, MAT_COPY_VALUES, &B);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  MatMatMult(a10, C, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &schur_);
-  MatScale(schur_, -1.0);
-  MatAXPY(schur_, 1.0, a11, DIFFERENT_NONZERO_PATTERN);
+  // Vec diag;
+  // MatCreateVecs(a00, &diag, NULL);
+  // MatGetDiagonal(a00, diag);
+  // VecReciprocal(diag);
 
-  MatDestroy(&B);
-  MatDestroy(&C);
+  // MatDiagonalScale(B, NULL, diag);
+  // PetscPrintf(MPI_COMM_WORLD, "After MatDiagonalScale\n");
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // MatMatMult(B, a01, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &schur_);
+  // PetscPrintf(MPI_COMM_WORLD, "After MatMatMult\n");
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // MatScale(schur_, -1.0);
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // PetscPrintf(MPI_COMM_WORLD, "After MatScale\n");
+  // MatAXPY(schur_, 1.0, a11, DIFFERENT_NONZERO_PATTERN);
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // PetscPrintf(MPI_COMM_WORLD, "After MatAXPY\n");
+
+  // MatDestroy(&B);
+  // VecDestroy(&diag);
+
+  // MPI_Barrier(MPI_COMM_WORLD);
 
   // setup preconditioner for diagonal blocks
   KSPCreate(MPI_COMM_WORLD, &a00Ksp_);

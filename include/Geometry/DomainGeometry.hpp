@@ -8,6 +8,8 @@
 #include "Core/Parallel.hpp"
 #include "Core/Typedef.hpp"
 
+#include "Geometry/GeometryItem.hpp"
+
 namespace Geometry {
 enum SupportedDomainShape { UndefinedDomain, Box, Cylinder, Sphere };
 

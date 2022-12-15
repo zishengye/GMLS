@@ -96,9 +96,6 @@ template <class LinearAlgebraBackend>
 Void BlockMatrix<LinearAlgebraBackend>::Assemble() {
   blockMat_->SetCallbackPointer(this);
 
-  for (auto i = 0; i < subMatrix_.size(); i++)
-    subMatrix_[i]->Assemble();
-
   blockMat_->Assemble();
 
   localLhsVectorOffset_.resize(blockRow_ + 1);

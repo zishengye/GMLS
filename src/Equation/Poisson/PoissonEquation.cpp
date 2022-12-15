@@ -449,6 +449,7 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
     const unsigned int startParticle = batch * batchSize;
     const unsigned int endParticle =
         std::min((batch + 1) * batchSize, localParticleNum);
+    const unsigned int batchParticleNum = endParticle - startParticle;
     unsigned int interiorParticleNum, boundaryParticleNum;
     interiorParticleNum = 0;
     boundaryParticleNum = 0;
@@ -498,7 +499,7 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
         Kokkos::create_mirror_view(tangentBundleDevice);
 
     std::vector<unsigned int> batchMap;
-    batchMap.resize(endParticle - startParticle);
+    batchMap.resize(batchParticleNum);
 
     {
       unsigned int boundaryCounter, interiorCounter;
@@ -629,9 +630,12 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
               Compadre::LaplacianOfScalarPointEvaluation, 0, 0, 0, 0);
 
       Kokkos::parallel_for(
-          Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(startParticle,
-                                                                 endParticle),
-          [&](const int i) {
+          Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>(
+              batchParticleNum, Kokkos::AUTO()),
+          [&](const Kokkos::TeamPolicy<
+              Kokkos::DefaultHostExecutionSpace>::member_type &teamMember) {
+            const int i = teamMember.league_rank() + startParticle;
+
             std::vector<PetscInt> index;
             std::vector<PetscReal> value;
             const unsigned int interiorCounter = batchMap[i - startParticle];
@@ -641,22 +645,24 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
               double Aii = 0.0;
               const unsigned int numNeighbor =
                   interiorNeighborListsHost(interiorCounter, 0);
-              index.resize(numNeighbor);
-              value.resize(numNeighbor);
-              for (std::size_t j = 0; j < numNeighbor; j++) {
-                const PetscInt neighborParticleIndex =
-                    sourceIndex(neighborLists_(i, j + 1));
-                const int neighborIndex = neighborLists_(i, j + 1);
-                auto alphaIndex = interiorSolutionSet->getAlphaIndex(
-                    interiorCounter, interiorLaplacianIndex);
-                double kappaIJ = 0.5 * (kappa_(i) + sourceKappa(neighborIndex));
-                index[j] = neighborParticleIndex;
-                value[j] = kappaIJ * interiorAlpha(alphaIndex + j);
-                Aii -= kappaIJ * interiorAlpha(alphaIndex + j);
-              }
-              value[0] = Aii;
+              Kokkos::parallel_reduce(
+                  Kokkos::TeamThreadRange(teamMember, numNeighbor),
+                  [&](const int j, double &tAii) {
+                    const PetscInt neighborParticleIndex =
+                        sourceIndex(neighborLists_(i, j + 1));
+                    const int neighborIndex = neighborLists_(i, j + 1);
+                    auto alphaIndex = interiorSolutionSet->getAlphaIndex(
+                        interiorCounter, interiorLaplacianIndex);
+                    double kappaIJ =
+                        0.5 * (kappa_(i) + sourceKappa(neighborIndex));
 
-              A.Increment(currentParticleIndex, index, value);
+                    A.Increment(currentParticleIndex, neighborParticleIndex,
+                                kappaIJ * interiorAlpha(alphaIndex + j));
+                    tAii -= kappaIJ * interiorAlpha(alphaIndex + j);
+                  },
+                  Kokkos::Sum<double>(Aii));
+              teamMember.team_barrier();
+              A.Increment(currentParticleIndex, sourceIndex(i), Aii);
             } else {
               if (boundaryType_(coords(i, 0), coords(i, 1), coords(i, 2))) {
                 A.Increment(i, sourceIndex(i), 1.0);
@@ -671,22 +677,24 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
                     Compadre::LaplacianOfScalarPointEvaluation, boundaryCounter,
                     numNeighbor);
 
-                for (std::size_t j = 0; j < numNeighbor; j++) {
-                  const PetscInt neighborParticleIndex =
-                      sourceIndex(neighborLists_(i, j + 1));
-                  const int neighborIndex = neighborLists_(i, j + 1);
-                  auto alphaIndex = boundarySolutionSet->getAlphaIndex(
-                      boundaryCounter, boundaryLaplacianIndex);
-                  double kappaIJ =
-                      0.5 * (kappa_(i) + sourceKappa(neighborIndex));
-                  ;
-                  index[j] = neighborParticleIndex;
-                  value[j] = kappaIJ * boundaryAlpha(alphaIndex + j);
-                  Aii -= kappaIJ * boundaryAlpha(alphaIndex + j);
-                }
-                value[0] = Aii;
+                Kokkos::parallel_reduce(
+                    Kokkos::TeamThreadRange(teamMember, numNeighbor),
+                    [&](const int j, double &tAii) {
+                      const PetscInt neighborParticleIndex =
+                          sourceIndex(neighborLists_(i, j + 1));
+                      const int neighborIndex = neighborLists_(i, j + 1);
+                      auto alphaIndex = boundarySolutionSet->getAlphaIndex(
+                          boundaryCounter, boundaryLaplacianIndex);
+                      double kappaIJ =
+                          0.5 * (kappa_(i) + sourceKappa(neighborIndex));
 
-                A.Increment(currentParticleIndex, index, value);
+                      A.Increment(currentParticleIndex, neighborParticleIndex,
+                                  kappaIJ * boundaryAlpha(alphaIndex + j));
+                      tAii -= kappaIJ * boundaryAlpha(alphaIndex + j);
+                    },
+                    Kokkos::Sum<double>(Aii));
+                teamMember.team_barrier();
+                A.Increment(currentParticleIndex, sourceIndex(i), Aii);
               }
             }
           });

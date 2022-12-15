@@ -65,60 +65,57 @@ TEST(StokesEquationTest, 2DLinearSystemSolving) {
   }
 }
 
-// TEST(StokesEquationTest, 3DLinearSystemSolving) {
-//   {
-//     Equation::StokesEquation equation;
-//     equation.SetErrorTolerance(1e-3);
-//     equation.SetInitialDiscretizationResolution(0.1);
+TEST(StokesEquationTest, 3DLinearSystemSolving) {
+  {
+    Equation::StokesEquation equation;
+    equation.SetErrorTolerance(1e-3);
+    equation.SetInitialDiscretizationResolution(0.1);
 
-//     std::vector<double> size(3);
-//     size[0] = 2.0;
-//     size[1] = 2.0;
-//     size[2] = 2.0;
+    std::vector<double> size(3);
+    size[0] = 2.0;
+    size[1] = 2.0;
+    size[2] = 2.0;
 
-//     equation.SetDimension(3);
-//     equation.SetDomainSize(size);
-//     equation.SetDomainType(Geometry::Box);
-//     equation.SetMaxRefinementIteration(2);
-//     equation.SetOutputLevel(0);
-//     equation.SetRefinementMarkRatio(0.9);
-//     equation.SetVelocityInteriorRhs([](const double x, const double y,
-//                                        const double z, const unsigned int i)
-//                                        {
-//       double rhs[3];
-//       rhs[0] =
-//           3.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z)
-//           + 2.0 * M_PI * sin(2.0 * M_PI * x);
-//       rhs[1] =
-//           -6.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * cos(M_PI * z)
-//           + 2.0 * M_PI * sin(2.0 * M_PI * y);
-//       rhs[2] =
-//           3.0 * pow(M_PI, 2) * cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z)
-//           + 2.0 * M_PI * sin(2.0 * M_PI * z);
+    equation.SetDimension(3);
+    equation.SetDomainSize(size);
+    equation.SetDomainType(Geometry::Box);
+    equation.SetMaxRefinementIteration(3);
+    equation.SetOutputLevel(0);
+    equation.SetRefinementMarkRatio(0.9);
+    equation.SetVelocityInteriorRhs([](const double x, const double y,
+                                       const double z, const unsigned int i) {
+      double rhs[3];
+      rhs[0] =
+          3.0 * pow(M_PI, 2) * sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z) +
+          2.0 * M_PI * sin(2.0 * M_PI * x);
+      rhs[1] =
+          -6.0 * pow(M_PI, 2) * cos(M_PI * x) * sin(M_PI * y) * cos(M_PI * z) +
+          2.0 * M_PI * sin(2.0 * M_PI * y);
+      rhs[2] =
+          3.0 * pow(M_PI, 2) * cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z) +
+          2.0 * M_PI * sin(2.0 * M_PI * z);
 
-//       return rhs[i];
-//     });
-//     equation.SetVelocityBoundaryRhs([](const double x, const double y,
-//                                        const double z, const unsigned int i)
-//                                        {
-//       double rhs[3];
-//       rhs[0] = sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z);
-//       rhs[1] = -2 * cos(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
-//       rhs[2] = cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
+      return rhs[i];
+    });
+    equation.SetVelocityBoundaryRhs([](const double x, const double y,
+                                       const double z, const unsigned int i) {
+      double rhs[3];
+      rhs[0] = sin(M_PI * x) * cos(M_PI * y) * cos(M_PI * z);
+      rhs[1] = -2 * cos(M_PI * x) * sin(M_PI * y) * cos(M_PI * z);
+      rhs[2] = cos(M_PI * x) * cos(M_PI * y) * sin(M_PI * z);
 
-//       return rhs[i];
-//     });
-//     equation.SetPressureInteriorRhs([](const double x, const double y,
-//                                        const double z) {
-//       return -4.0 * pow(M_PI, 2.0) *
-//              (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI *
-//              z));
-//     });
+      return rhs[i];
+    });
+    equation.SetPressureInteriorRhs([](const double x, const double y,
+                                       const double z) {
+      return -4.0 * pow(M_PI, 2.0) *
+             (cos(2.0 * M_PI * x) + cos(2.0 * M_PI * y) + cos(2.0 * M_PI * z));
+    });
 
-//     equation.Init();
-//     equation.Update();
-//   }
-// }
+    equation.Init();
+    equation.Update();
+  }
+}
 
 int main(int argc, char *argv[]) {
   ::testing::InitGoogleTest(&argc, argv);
