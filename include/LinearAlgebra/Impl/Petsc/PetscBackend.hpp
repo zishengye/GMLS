@@ -9,6 +9,8 @@
 #include "LinearAlgebra/Impl/Petsc/PetscMatrix.hpp"
 #include "LinearAlgebra/Impl/Petsc/PetscVector.hpp"
 
+#include <string>
+
 namespace LinearAlgebra {
 namespace Impl {
 class PetscBackend {
@@ -25,7 +27,7 @@ public:
   ~PetscBackend();
 
   static Void LinearAlgebraInitialize(int *argc, char ***args,
-                                      const char file[], const char help[]);
+                                      std::string &fileName);
   static Void LinearAlgebraFinalize();
 };
 } // namespace Impl

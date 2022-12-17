@@ -1,5 +1,6 @@
 #include "Equation/Stokes/StokesEquation.hpp"
 #include "Kokkos_Core.hpp"
+#include "LinearAlgebra/LinearAlgebra.hpp"
 
 #include <gtest/gtest.h>
 
@@ -120,7 +121,9 @@ TEST(StokesEquationTest, 3DLinearSystemSolving) {
 int main(int argc, char *argv[]) {
   ::testing::InitGoogleTest(&argc, argv);
 
-  PetscInitialize(&argc, &argv, "build/petsc_setup.txt", PETSC_NULL);
+  std::string inputFile = "build/petsc_setup.txt";
+  LinearAlgebra::LinearAlgebraInitialize<DefaultLinearAlgebraBackend>(
+      &argc, &argv, inputFile);
 
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -137,7 +140,7 @@ int main(int argc, char *argv[]) {
 
   Kokkos::finalize();
 
-  PetscFinalize();
+  LinearAlgebra::LinearAlgebraFinalize<DefaultLinearAlgebraBackend>();
 
   return result;
 }

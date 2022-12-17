@@ -63,13 +63,6 @@ Void Matrix<LinearAlgebraBackend>::Increment(const Integer row,
 }
 
 template <class LinearAlgebraBackend>
-Void Matrix<LinearAlgebraBackend>::Increment(
-    const Integer row, const std::vector<Integer> colIndex,
-    const std::vector<Scalar> &value) {
-  mat_->Increment(row, colIndex, value);
-}
-
-template <class LinearAlgebraBackend>
 Void Matrix<LinearAlgebraBackend>::GraphAssemble() {
   mat_->GraphAssemble();
 }

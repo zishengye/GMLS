@@ -4,11 +4,12 @@
 #include "Core/Parallel.hpp"
 #include "Core/Typedef.hpp"
 
+#include <string>
+
 namespace LinearAlgebra {
 template <class LinearAlgebraBackend>
-Void LinearAlgebraInitialize(int *argc, char ***args, const char file[],
-                             const char help[]) {
-  LinearAlgebraBackend::LinearAlgebraInitialize(argc, args, file, help);
+Void LinearAlgebraInitialize(int *argc, char ***args, std::string &fileName) {
+  LinearAlgebraBackend::LinearAlgebraInitialize(argc, args, fileName);
 }
 
 template <class LinearAlgebraBackend> Void LinearAlgebraFinalize() {

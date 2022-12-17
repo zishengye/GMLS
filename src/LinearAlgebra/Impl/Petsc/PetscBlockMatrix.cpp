@@ -157,23 +157,6 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::
   auto &a10 = *(subMat_[2]->matSharedPtr_);
   auto &a11 = *(subMat_[3]->matSharedPtr_);
 
-  // Mat B;
-
-  // MatDuplicate(a10, MAT_COPY_VALUES, &B);
-
-  // Vec diag;
-  // MatCreateVecs(a00, &diag, NULL);
-  // MatGetDiagonal(a00, diag);
-  // VecReciprocal(diag);
-
-  // MatDiagonalScale(B, NULL, diag);
-  // MatMatMult(B, a01, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &schur_);
-  // MatScale(schur_, -1.0);
-  // MatAXPY(schur_, 1.0, a11, DIFFERENT_NONZERO_PATTERN);
-
-  // MatDestroy(&B);
-  // VecDestroy(&diag);
-
   // setup preconditioner for diagonal blocks
   KSPCreate(MPI_COMM_WORLD, &a00Ksp_);
   KSPSetType(a00Ksp_, KSPRICHARDSON);

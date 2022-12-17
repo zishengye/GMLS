@@ -145,10 +145,6 @@ Void LinearAlgebra::Impl::PetscMatrix::Increment(const PetscInt row,
   }
 }
 
-Void LinearAlgebra::Impl::PetscMatrix::Increment(
-    const PetscInt row, const std::vector<PetscInt> &index,
-    const std::vector<PetscReal> &value) {}
-
 Void LinearAlgebra::Impl::PetscMatrix::GraphAssemble() {
   unsigned long diagNumNonzero = 0;
   unsigned long offDiagNumNonzero = 0;

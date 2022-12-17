@@ -39,9 +39,6 @@ public:
                                   const std::vector<Integer> &colIndex);
   inline virtual Void Increment(const Integer row, const Integer col,
                                 const Scalar value);
-  inline virtual Void Increment(const Integer row,
-                                const std::vector<Integer> colIndex,
-                                const std::vector<Scalar> &value);
 
   virtual Void GraphAssemble();
   virtual Void Assemble();

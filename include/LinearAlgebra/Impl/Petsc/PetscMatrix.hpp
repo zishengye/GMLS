@@ -57,9 +57,6 @@ public:
                                   const std::vector<PetscInt> &index);
   inline virtual Void Increment(const PetscInt row, const PetscInt col,
                                 const PetscReal value);
-  inline virtual Void Increment(const PetscInt row,
-                                const std::vector<PetscInt> &index,
-                                const std::vector<PetscReal> &value);
 
   virtual Void GraphAssemble();
   virtual Void Assemble();
