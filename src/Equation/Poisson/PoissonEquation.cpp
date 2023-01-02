@@ -356,12 +356,12 @@ Void Equation::PoissonEquation::InitLinearSystem() {
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,
                                                              localParticleNum),
       [&](const int i) {
-        std::vector<PetscInt> index;
-        const PetscInt currentParticleIndex = i;
+        std::vector<DefaultInteger> index;
+        const DefaultInteger currentParticleIndex = i;
         if (particleType(i) == 0) {
           index.resize(neighborLists_(i, 0));
           for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
-            const PetscInt neighborParticleIndex =
+            const DefaultInteger neighborParticleIndex =
                 sourceIndex(neighborLists_(i, j + 1));
             index[j] = neighborParticleIndex;
           }
@@ -372,7 +372,7 @@ Void Equation::PoissonEquation::InitLinearSystem() {
           } else {
             index.resize(neighborLists_(i, 0));
             for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
-              const PetscInt neighborParticleIndex =
+              const DefaultInteger neighborParticleIndex =
                   sourceIndex(neighborLists_(i, j + 1));
               index[j] = neighborParticleIndex;
             }
@@ -636,11 +636,11 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
               Kokkos::DefaultHostExecutionSpace>::member_type &teamMember) {
             const int i = teamMember.league_rank() + startParticle;
 
-            std::vector<PetscInt> index;
-            std::vector<PetscReal> value;
+            std::vector<DefaultInteger> index;
+            std::vector<DefaultScalar> value;
             const unsigned int interiorCounter = batchMap[i - startParticle];
             const unsigned int boundaryCounter = batchMap[i - startParticle];
-            const PetscInt currentParticleIndex = i;
+            const DefaultInteger currentParticleIndex = i;
             if (particleType(i) == 0) {
               double Aii = 0.0;
               const unsigned int numNeighbor =
@@ -648,7 +648,7 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
               Kokkos::parallel_reduce(
                   Kokkos::TeamThreadRange(teamMember, numNeighbor),
                   [&](const int j, double &tAii) {
-                    const PetscInt neighborParticleIndex =
+                    const DefaultInteger neighborParticleIndex =
                         sourceIndex(neighborLists_(i, j + 1));
                     const int neighborIndex = neighborLists_(i, j + 1);
                     auto alphaIndex = interiorSolutionSet->getAlphaIndex(
@@ -680,7 +680,7 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
                 Kokkos::parallel_reduce(
                     Kokkos::TeamThreadRange(teamMember, numNeighbor),
                     [&](const int j, double &tAii) {
-                      const PetscInt neighborParticleIndex =
+                      const DefaultInteger neighborParticleIndex =
                           sourceIndex(neighborLists_(i, j + 1));
                       const int neighborIndex = neighborLists_(i, j + 1);
                       auto alphaIndex = boundarySolutionSet->getAlphaIndex(

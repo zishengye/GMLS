@@ -53,7 +53,7 @@ LinearAlgebra::Impl::PetscKsp::~PetscKsp() {
 }
 
 Void LinearAlgebra::Impl::PetscKsp::AddLinearSystem(
-    PetscMatrix &mat,
+    std::shared_ptr<PetscMatrix> matPtr,
     const LinearSolverDescriptor<LinearAlgebra::Impl::PetscBackend>
         &descriptor) {
   if (*kspPtr_ != PETSC_NULL)
@@ -69,7 +69,7 @@ Void LinearAlgebra::Impl::PetscKsp::AddLinearSystem(
   } else {
     KSPSetType(*kspPtr_, KSPPREONLY);
   }
-  KSPSetOperators(*kspPtr_, *mat.matSharedPtr_, *mat.matSharedPtr_);
+  KSPSetOperators(*kspPtr_, *matPtr->matSharedPtr_, *matPtr->matSharedPtr_);
 
   if (descriptor.setFromDatabase)
     KSPSetFromOptions(*kspPtr_);
@@ -113,7 +113,7 @@ Void LinearAlgebra::Impl::PetscKsp::Solve(PetscVector &b, PetscVector &x) {
     PetscReal norm1, norm2;
     VecNorm(residual, NORM_2, &norm2);
     VecNorm(*b.vecPtr_, NORM_2, &norm1);
-    PetscPrintf(PETSC_COMM_WORLD, "The residual norm in the post check: %f\n",
+    PetscPrintf(MPI_COMM_WORLD, "The residual norm in the post check: %f\n",
                 norm2 / norm1);
     VecDestroy(&residual);
 
@@ -121,7 +121,7 @@ Void LinearAlgebra::Impl::PetscKsp::Solve(PetscVector &b, PetscVector &x) {
     PetscMemoryGetCurrentUsage(&mem);
     MPI_Allreduce(&mem, &maxMem, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &mem, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD,
+    PetscPrintf(MPI_COMM_WORLD,
                 "Current memory usage %.2f GB, maximum memory usage: %.2f GB\n",
                 mem / 1e9, maxMem / 1e9);
   }

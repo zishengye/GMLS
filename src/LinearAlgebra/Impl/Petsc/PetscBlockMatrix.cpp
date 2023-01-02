@@ -105,8 +105,8 @@ Void LinearAlgebra::Impl::PetscBlockMatrix::Assemble() {
     VecCreateMPI(MPI_COMM_WORLD, tLocalCol, PETSC_DECIDE, &rhsVector_[i]);
   }
 
-  MatCreateShell(PETSC_COMM_WORLD, localRow, localCol, PETSC_DECIDE,
-                 PETSC_DECIDE, (void *)callbackPtr_, matSharedPtr_.get());
+  MatCreateShell(MPI_COMM_WORLD, localRow, localCol, PETSC_DECIDE, PETSC_DECIDE,
+                 (void *)callbackPtr_, matSharedPtr_.get());
   MatShellSetOperation(*matSharedPtr_, MATOP_MULT,
                        (Void(*)(Void))PetscBlockMatrixMatMultWrapper);
 }

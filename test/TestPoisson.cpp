@@ -184,10 +184,6 @@ char **globalArgv;
 // }
 
 TEST(PoissonEquationTest, 2DKappaDifference) {
-  Kokkos::initialize(globalArgc, globalArgv);
-  PetscInitialize(&globalArgc, &globalArgv, "build/petsc_setup.txt",
-                  PETSC_NULL);
-
   {
     Equation::PoissonEquation equation;
     equation.SetErrorTolerance(1e-3);
@@ -206,7 +202,7 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
     equation.SetDimension(2);
     equation.SetDomainSize(size);
     equation.SetDomainType(Geometry::Box);
-    equation.SetMaxRefinementIteration(4);
+    equation.SetMaxRefinementIteration(3);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio(1.0);
     equation.SetBoundaryType(
@@ -257,9 +253,6 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
     equation.Init();
     equation.Update();
   }
-
-  PetscFinalize();
-  Kokkos::finalize();
 }
 
 // TEST(PoissonEquationTest, 2DHybridBoundaryCondition) {
@@ -399,8 +392,11 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
 // }
 
 int main(int argc, char *argv[]) {
-  MPI_Init(&argc, &argv);
   ::testing::InitGoogleTest(&argc, argv);
+
+  std::string inputFile = "build/petsc_setup.txt";
+  LinearAlgebra::LinearAlgebraInitialize<DefaultLinearAlgebraBackend>(
+      &argc, &argv, inputFile);
 
   globalArgc = argc;
   globalArgv = argv;
@@ -414,9 +410,13 @@ int main(int argc, char *argv[]) {
     delete listeners.Release(listeners.default_result_printer());
   }
 
+  Kokkos::initialize(argc, argv);
+
   auto result = RUN_ALL_TESTS();
 
-  MPI_Finalize();
+  Kokkos::finalize();
+
+  LinearAlgebra::LinearAlgebraFinalize<DefaultLinearAlgebraBackend>();
 
   return result;
 }

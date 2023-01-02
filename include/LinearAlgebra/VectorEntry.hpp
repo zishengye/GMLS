@@ -1,6 +1,8 @@
 #ifndef _LinearAlgebra_VectorEntry_Hpp_
 #define _LinearAlgebra_VectorEntry_Hpp_
 
+#include <memory>
+
 #include "Core/Typedef.hpp"
 #include "LinearAlgebra/LinearAlgebraDec.hpp"
 
@@ -30,15 +32,15 @@ public:
 
   ~VectorEntry();
 
-  Void InsertLeftMatrixOperand(Matrix<LinearAlgebraBackend> &mat);
-  Void InsertLeftVectorOperand(Vector<LinearAlgebraBackend> &vec);
-  Void InsertRightVectorOperand(Vector<LinearAlgebraBackend> &vec);
+  inline Void InsertLeftMatrixOperand(Matrix<LinearAlgebraBackend> &mat);
+  inline Void InsertLeftVectorOperand(Vector<LinearAlgebraBackend> &vec);
+  inline Void InsertRightVectorOperand(Vector<LinearAlgebraBackend> &vec);
 
-  Boolean ExistLeftMatrixOperand();
+  inline Boolean ExistLeftMatrixOperand();
 
-  Matrix<LinearAlgebraBackend> &GetLeftMatrixOperand();
-  Vector<LinearAlgebraBackend> &GetLeftVectorOperand();
-  Vector<LinearAlgebraBackend> &GetRightVectorOperand();
+  inline Matrix<LinearAlgebraBackend> &GetLeftMatrixOperand();
+  inline Vector<LinearAlgebraBackend> &GetLeftVectorOperand();
+  inline Vector<LinearAlgebraBackend> &GetRightVectorOperand();
 };
 
 } // namespace LinearAlgebra

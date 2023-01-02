@@ -166,8 +166,8 @@ Void Equation::PoissonPreconditioner::ConstructInterpolation(
         Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, localTargetParticleNum),
         [&](const int i) {
-          std::vector<PetscInt> index;
-          const PetscInt currentParticleIndex = i;
+          std::vector<DefaultInteger> index;
+          const DefaultInteger currentParticleIndex = i;
           if (refinedParticle[i]) {
             index.resize(neighborListsHost(i, 0));
             for (unsigned int j = 0; j < neighborListsHost(i, 0); j++) {
@@ -246,8 +246,8 @@ Void Equation::PoissonPreconditioner::ConstructInterpolation(
     const unsigned int scalarIndex = solutionSet->getAlphaColumnOffset(
         Compadre::ScalarPointEvaluation, 0, 0, 0, 0);
 
-    std::vector<PetscInt> index;
-    std::vector<PetscReal> value;
+    std::vector<DefaultInteger> index;
+    std::vector<DefaultScalar> value;
     refinedCounter = 0;
     for (unsigned int i = 0; i < localTargetParticleNum; i++) {
       if (refinedParticle[i]) {
@@ -620,8 +620,8 @@ Void Equation::PoissonPreconditioner::ConstructRestriction(
     restrictionPtr_[currentLevel] = std::make_shared<DefaultMatrix>();
     DefaultMatrix &R = *(restrictionPtr_[currentLevel]);
     R.Resize(localTargetParticleNum, localSourceParticleNum);
-    std::vector<PetscInt> index;
-    std::vector<PetscReal> value;
+    std::vector<DefaultInteger> index;
+    std::vector<DefaultScalar> value;
     interiorCounter = 0;
     boundaryCounter = 0;
     for (unsigned int i = 0; i < localTargetParticleNum; i++) {
@@ -827,6 +827,7 @@ Void Equation::PoissonPreconditioner::ConstructSmoother() {
     descriptor.outerIteration = -1;
   descriptor.spd = -1;
   descriptor.setFromDatabase = false;
+  descriptor.relativeTol = 1e-3;
 
   preSmootherPtr_[currentLevel]->AddLinearSystem(
       linearSystemsPtr_[currentLevel], descriptor);

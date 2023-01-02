@@ -2,8 +2,10 @@
 #define _LinearAlgebra_Impl_LinearSolver_Hpp_
 
 #include "LinearAlgebra/LinearSolverDescriptor.hpp"
+
 #include <cstdio>
 #include <mpi.h>
+
 namespace LinearAlgebra {
 template <class LinearAlgebraBackend>
 LinearSolver<LinearAlgebraBackend>::LinearSolver() {}
@@ -13,9 +15,9 @@ LinearSolver<LinearAlgebraBackend>::~LinearSolver() {}
 
 template <class LinearAlgebraBackend>
 Void LinearSolver<LinearAlgebraBackend>::AddLinearSystem(
-    std::shared_ptr<Matrix<LinearAlgebraBackend>> mat,
+    std::shared_ptr<Matrix<LinearAlgebraBackend>> matPtr,
     const LinearSolverDescriptor<LinearAlgebraBackend> &descriptor) {
-  solver_.AddLinearSystem(*(mat->GetMatrix()), descriptor);
+  solver_.AddLinearSystem(matPtr->GetMatrix(), descriptor);
 
   if (descriptor.outerIteration > 0) {
     int mpiRank;

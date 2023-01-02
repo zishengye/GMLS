@@ -12,7 +12,7 @@
 namespace LinearAlgebra {
 namespace Impl {
 class PetscKsp {
-private:
+protected:
   std::shared_ptr<KSP> kspPtr_;
 
   Boolean postCheck_;
@@ -24,7 +24,7 @@ public:
   ~PetscKsp();
 
   Void AddLinearSystem(
-      PetscMatrix &mat,
+      std::shared_ptr<PetscMatrix> matPtr,
       const LinearSolverDescriptor<LinearAlgebra::Impl::PetscBackend>
           &descriptor);
 

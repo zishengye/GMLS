@@ -1,7 +1,7 @@
 #ifndef _Typedef_Hpp_
 #define _Typedef_Hpp_
 
-#include <Compadre_Typedefs.hpp>
+#include <Kokkos_Core.hpp>
 
 typedef double Scalar;
 typedef int LocalIndex;

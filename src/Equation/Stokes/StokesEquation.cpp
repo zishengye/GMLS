@@ -405,14 +405,14 @@ Void Equation::StokesEquation::InitLinearSystem() {
           ->GetSubMat(1, 1)));
   pp.Resize(localParticleNum, localParticleNum);
 
-  std::vector<PetscInt> index;
+  std::vector<DefaultInteger> index;
   for (std::size_t i = 0; i < localParticleNum; i++) {
-    const PetscInt currentParticleIndex = i;
+    const DefaultInteger currentParticleIndex = i;
     if (particleType(i) == 0) {
       const unsigned int numNeighbor = neighborLists_(i, 0);
       index.resize(numNeighbor);
       for (std::size_t j = 0; j < numNeighbor; j++) {
-        const PetscInt neighborParticleIndex =
+        const DefaultInteger neighborParticleIndex =
             sourceIndex(neighborLists_(i, j + 1));
         index[j] = neighborParticleIndex;
       }
@@ -423,7 +423,7 @@ Void Equation::StokesEquation::InitLinearSystem() {
 
       index.resize(numNeighbor * dimension);
       for (unsigned int j = 0; j < numNeighbor; j++) {
-        const PetscInt neighborParticleIndex =
+        const DefaultInteger neighborParticleIndex =
             sourceIndex(neighborLists_(i, j + 1));
         for (unsigned int k = 0; k < dimension; k++) {
           index[j * dimension + k] = neighborParticleIndex * dimension + k;
@@ -442,7 +442,7 @@ Void Equation::StokesEquation::InitLinearSystem() {
 
       index.resize(neighborLists_(i, 0));
       for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
-        const PetscInt neighborParticleIndex =
+        const DefaultInteger neighborParticleIndex =
             sourceIndex(neighborLists_(i, j + 1));
         index[j] = neighborParticleIndex;
       }
@@ -451,7 +451,7 @@ Void Equation::StokesEquation::InitLinearSystem() {
 
       index.resize(dimension * neighborLists_(i, 0));
       for (std::size_t j = 0; j < neighborLists_(i, 0); j++) {
-        const PetscInt neighborParticleIndex =
+        const DefaultInteger neighborParticleIndex =
             sourceIndex(neighborLists_(i, j + 1));
         for (unsigned int k = 0; k < dimension; k++) {
           index[j * dimension + k] = neighborParticleIndex * dimension + k;
@@ -699,14 +699,15 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
           [&](const Kokkos::TeamPolicy<
               Kokkos::DefaultHostExecutionSpace>::member_type &teamMember) {
             const int i = teamMember.league_rank() + startParticle;
-            const PetscInt currentParticleIndex = interiorParticleIndex[i];
+            const DefaultInteger currentParticleIndex =
+                interiorParticleIndex[i];
             const unsigned int numNeighbor =
                 interiorNeighborListsHost(i - startParticle, 0);
             double Aii = 0.0;
             Kokkos::parallel_reduce(
                 Kokkos::TeamThreadRange(teamMember, numNeighbor),
                 [&](const int j, double &tAii) {
-                  const PetscInt neighborParticleIndex = sourceIndex(
+                  const DefaultInteger neighborParticleIndex = sourceIndex(
                       interiorNeighborListsHost(i - startParticle, j + 1));
                   auto alphaIndex = pressureSolutionSet->getAlphaIndex(
                       i - startParticle, interiorPressureLaplacianIndex);
@@ -726,7 +727,7 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
               Kokkos::parallel_reduce(
                   Kokkos::TeamThreadRange(teamMember, numNeighbor),
                   [&](const int j, double &tAii) {
-                    const PetscInt neighborParticleIndex = sourceIndex(
+                    const DefaultInteger neighborParticleIndex = sourceIndex(
                         interiorNeighborListsHost(i - startParticle, j + 1));
                     auto alphaIndex = pressureSolutionSet->getAlphaIndex(
                         i - startParticle, interiorPressureGradientIndex[k]);
@@ -925,7 +926,8 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
               Kokkos::DefaultHostExecutionSpace>::member_type &teamMember) {
             const int i = teamMember.league_rank() + startParticle;
 
-            const PetscInt currentParticleIndex = boundaryParticleIndex[i];
+            const DefaultInteger currentParticleIndex =
+                boundaryParticleIndex[i];
             double Aii = 0.0;
             const unsigned int numNeighbor =
                 boundaryNeighborListsHost(i - startParticle, 0);
@@ -938,7 +940,7 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
             Kokkos::parallel_reduce(
                 Kokkos::TeamThreadRange(teamMember, numNeighbor),
                 [&](const int j, double &tAii) {
-                  const PetscInt neighborParticleIndex = sourceIndex(
+                  const DefaultInteger neighborParticleIndex = sourceIndex(
                       boundaryNeighborListsHost(i - startParticle, j + 1));
                   auto alphaIndex = pressureSolutionSet->getAlphaIndex(
                       i - startParticle, boundaryPressureLaplacianIndex);
@@ -957,7 +959,7 @@ Void Equation::StokesEquation::ConstructLinearSystem() {
               Kokkos::parallel_for(
                   Kokkos::TeamThreadRange(teamMember, numNeighbor),
                   [&](const int j) {
-                    const PetscInt neighborParticleIndex = sourceIndex(
+                    const DefaultInteger neighborParticleIndex = sourceIndex(
                         boundaryNeighborListsHost(i - startParticle, j + 1));
 
                     double value = 0.0;

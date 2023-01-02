@@ -1,10 +1,6 @@
 #ifndef _LinearAlgebra_Impl_BlockMatrix_Hpp_
 #define _LinearAlgebra_Impl_BlockMatrix_Hpp_
 
-#include <type_traits>
-
-template <typename T> struct fail : std::false_type {};
-
 #include "LinearAlgebra/BlockMatrix.hpp"
 namespace LinearAlgebra {
 template <class LinearAlgebraBackend>

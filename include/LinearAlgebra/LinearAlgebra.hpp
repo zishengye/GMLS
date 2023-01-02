@@ -17,8 +17,13 @@ template <class LinearAlgebraBackend> Void LinearAlgebraFinalize() {
 }
 } // namespace LinearAlgebra
 
+#ifdef USE_PETSC
 #include "LinearAlgebra/Impl/Petsc/PetscBackend.hpp"
 typedef LinearAlgebra::Impl::PetscBackend DefaultLinearAlgebraBackend;
+#else
+#include "LinearAlgebra/Impl/Default/DefaultBackend.hpp"
+typedef LinearAlgebra::Impl::DefaultBackend DefaultLinearAlgebraBackend;
+#endif
 
 #include "LinearAlgebra/BlockMatrix.hpp"
 #include "LinearAlgebra/LinearSolver.hpp"

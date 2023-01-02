@@ -21,7 +21,7 @@ public:
   ~LinearSolver();
 
   virtual Void AddLinearSystem(
-      std::shared_ptr<Matrix<LinearAlgebraBackend>> mat,
+      std::shared_ptr<Matrix<LinearAlgebraBackend>> matPtr,
       const LinearSolverDescriptor<LinearAlgebraBackend> &descriptor);
   virtual Void Solve(Vector<LinearAlgebraBackend> &b,
                      Vector<LinearAlgebraBackend> &x);

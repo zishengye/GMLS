@@ -30,6 +30,8 @@ Void Equation::StokesMatrix::MatrixVectorMultiplication(DefaultVector &x,
   MPI_Barrier(MPI_COMM_WORLD);
   timer1 = MPI_Wtime();
 
+  printf("start of Matrix vector multiplication of stokes matrix\n");
+
   x.OrthogonalizeToConstant(localRhsVectorOffset_[1], localRhsVectorOffset_[2]);
   BlockMatrix::MatrixVectorMultiplication(x, y);
   y.OrthogonalizeToConstant(localLhsVectorOffset_[1], localLhsVectorOffset_[2]);

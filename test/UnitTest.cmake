@@ -23,3 +23,7 @@ target_link_libraries(TestTopologyOptimization ${GTEST_LIBRARIES} -pthread GmlsM
 add_executable(TestStokes ${TEST_SOURCE_DIR}/TestStokes.cpp)
 target_include_directories(TestStokes PUBLIC ${GTEST_INCLUDE_DIRS})
 target_link_libraries(TestStokes ${GTEST_LIBRARIES} -pthread GmlsModule)
+
+add_executable(TestDefault ${TEST_SOURCE_DIR}/TestDefault.cpp)
+target_include_directories(TestDefault PUBLIC ${GTEST_INCLUDE_DIRS})
+target_link_libraries(TestDefault ${GTEST_LIBRARIES} -pthread GmlsModule)

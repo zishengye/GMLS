@@ -1,6 +1,7 @@
 #include "Equation/Stokes/StokesPreconditioner.hpp"
 #include "Equation/MultilevelPreconditioner.hpp"
 #include "Equation/Stokes/StokesMatrix.hpp"
+#include "LinearAlgebra/LinearAlgebra.hpp"
 
 #include <Compadre_GMLS.hpp>
 #include <Compadre_PointCloudSearch.hpp>
@@ -203,8 +204,8 @@ Void Equation::StokesPreconditioner::ConstructInterpolation(
         Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
             0, localTargetParticleNum),
         [&](const int i) {
-          std::vector<PetscInt> index;
-          const PetscInt currentParticleIndex = i;
+          std::vector<DefaultInteger> index;
+          const DefaultInteger currentParticleIndex = i;
           if (refinedParticle[i]) {
             index.resize(neighborListsHost(i, 0));
             for (unsigned int j = 0; j < neighborListsHost(i, 0); j++) {
@@ -342,8 +343,8 @@ Void Equation::StokesPreconditioner::ConstructInterpolation(
 
     const unsigned int blockStorageSize = dimension * dimension;
 
-    std::vector<PetscInt> index;
-    std::vector<PetscReal> value, blockValue;
+    std::vector<DefaultInteger> index;
+    std::vector<DefaultScalar> value, blockValue;
     refinedCounter = 0;
     for (unsigned int i = 0; i < localTargetParticleNum; i++) {
       if (refinedParticle[i]) {
@@ -396,9 +397,9 @@ Void Equation::StokesPreconditioner::ConstructInterpolation(
 
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
-  PetscPrintf(PETSC_COMM_WORLD,
-              "Duration of building Stokes equation interpolation:%.4fs\n",
-              tEnd - tStart);
+  if (mpiRank_ == 0)
+    printf("Duration of building Stokes equation interpolation:%.4fs\n",
+           tEnd - tStart);
 }
 
 Void Equation::StokesPreconditioner::ConstructRestriction(
@@ -768,8 +769,8 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
     Rpu->Resize(localTargetParticleNum, localSourceParticleNum * velocityDof);
     Rpp->Resize(localTargetParticleNum, localSourceParticleNum);
 
-    std::vector<PetscInt> index;
-    std::vector<PetscReal> value, blockValue;
+    std::vector<DefaultInteger> index;
+    std::vector<DefaultScalar> value, blockValue;
     interiorCounter = 0;
     boundaryCounter = 0;
     for (unsigned int i = 0; i < localTargetParticleNum; i++) {
@@ -1055,9 +1056,9 @@ Void Equation::StokesPreconditioner::ConstructRestriction(
 
   MPI_Barrier(MPI_COMM_WORLD);
   tEnd = MPI_Wtime();
-  PetscPrintf(PETSC_COMM_WORLD,
-              "Duration of building Stokes equation restriction:%.4fs\n",
-              tEnd - tStart);
+  if (mpiRank_ == 0)
+    printf("Duration of building Stokes equation restriction:%.4fs\n",
+           tEnd - tStart);
 }
 
 Void Equation::StokesPreconditioner::ConstructSmoother() {

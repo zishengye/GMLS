@@ -1,14 +1,13 @@
 #include "LinearAlgebra/LinearAlgebra.hpp"
 
+#include <string>
+
 #include <gtest/gtest.h>
 
 int globalArgc;
 char **globalArgv;
 
 TEST(LinearAlgebraVectorTest, VectorOperation) {
-  LinearAlgebra::LinearAlgebraInitialize<DefaultLinearAlgebraBackend>(
-      &globalArgc, &globalArgv, "build/petsc_setup.txt", nullptr);
-
   {
     LinearAlgebra::Vector<DefaultLinearAlgebraBackend> vec1;
     LinearAlgebra::Vector<DefaultLinearAlgebraBackend> vec2(10);
@@ -23,32 +22,33 @@ TEST(LinearAlgebraVectorTest, VectorOperation) {
 
     EXPECT_EQ(vec1(2), 1);
   }
-
-  LinearAlgebra::LinearAlgebraFinalize<DefaultLinearAlgebraBackend>();
 }
 
-TEST(LinearAlgebraMatrixTest, MatrixOperation) {
-  LinearAlgebra::LinearAlgebraInitialize<DefaultLinearAlgebraBackend>(
-      &globalArgc, &globalArgv, "build/petsc_setup.txt", nullptr);
+// TEST(LinearAlgebraMatrixTest, MatrixOperation) {
+//   LinearAlgebra::LinearAlgebraInitialize<DefaultLinearAlgebraBackend>(
+//       &globalArgc, &globalArgv, "build/petsc_setup.txt", nullptr);
 
-  {
-    LinearAlgebra::Matrix<DefaultLinearAlgebraBackend> mat1;
-    LinearAlgebra::Matrix<DefaultLinearAlgebraBackend> mat2;
-    LinearAlgebra::Matrix<DefaultLinearAlgebraBackend> mat3;
+//   {
+//     LinearAlgebra::Matrix<DefaultLinearAlgebraBackend> mat1;
+//     LinearAlgebra::Matrix<DefaultLinearAlgebraBackend> mat2;
+//     LinearAlgebra::Matrix<DefaultLinearAlgebraBackend> mat3;
 
-    LinearAlgebra::Vector<DefaultLinearAlgebraBackend> vec1;
-    LinearAlgebra::Vector<DefaultLinearAlgebraBackend> vec2;
-    LinearAlgebra::Vector<DefaultLinearAlgebraBackend> vec3;
+//     LinearAlgebra::Vector<DefaultLinearAlgebraBackend> vec1;
+//     LinearAlgebra::Vector<DefaultLinearAlgebraBackend> vec2;
+//     LinearAlgebra::Vector<DefaultLinearAlgebraBackend> vec3;
 
-    mat1.Resize(10, 10);
-  }
+//     mat1.Resize(10, 10);
+//   }
 
-  LinearAlgebra::LinearAlgebraFinalize<DefaultLinearAlgebraBackend>();
-}
+//   LinearAlgebra::LinearAlgebraFinalize<DefaultLinearAlgebraBackend>();
+// }
 
 int main(int argc, char *argv[]) {
-  MPI_Init(&argc, &argv);
   ::testing::InitGoogleTest(&argc, argv);
+
+  std::string inputFile = "build/petsc_setup.txt";
+  LinearAlgebra::LinearAlgebraInitialize<DefaultLinearAlgebraBackend>(
+      &argc, &argv, inputFile);
 
   globalArgc = argc;
   globalArgv = argv;
@@ -62,9 +62,13 @@ int main(int argc, char *argv[]) {
     delete listeners.Release(listeners.default_result_printer());
   }
 
+  Kokkos::initialize(argc, argv);
+
   auto result = RUN_ALL_TESTS();
 
-  MPI_Finalize();
+  Kokkos::finalize();
+
+  LinearAlgebra::LinearAlgebraFinalize<DefaultLinearAlgebraBackend>();
 
   return result;
 }

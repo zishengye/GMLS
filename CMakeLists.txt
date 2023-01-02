@@ -7,9 +7,6 @@ set(CMAKE_BUILD_TYPE RELEASE)
 find_package(GTest REQUIRED)
 find_package(MPI)
 
-message(USE_GPU)
-message("${USE_CPU}")
-
 IF(USE_GPU)
   set(TRILINOS_PATH /opt/trilinos-cuda)
 ENDIF()
@@ -19,8 +16,6 @@ unset(USE_GPU CACHE)
 IF(USE_CPU)
   set(TRILINOS_PATH /opt/trilinos)
 ENDIF()
-
-unset(USE_CPU CACHE)
 
 message("${TRILINOS_PATH}")
 

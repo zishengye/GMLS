@@ -31,6 +31,9 @@ public:
   typedef typename LinearAlgebra::LinearSolver<DefaultLinearAlgebraBackend>
       DefaultLinearSolver;
 
+  typedef typename DefaultLinearAlgebraBackend::DefaultInteger DefaultInteger;
+  typedef typename DefaultLinearAlgebraBackend::DefaultScalar DefaultScalar;
+
 protected:
   double globalError_, globalNormalizedError_, errorTolerance_, markRatio_;
   Size maxRefinementIteration_, refinementIteration_;
