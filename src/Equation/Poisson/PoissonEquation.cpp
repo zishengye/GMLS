@@ -439,7 +439,7 @@ Void Equation::PoissonEquation::ConstructLinearSystem() {
       linearSystemsPtr_[refinementIteration_]));
 
 #ifdef KOKKOS_ENABLE_CUDA
-  const unsigned int batchSize = (dimension == 2) ? 200000 : 50000;
+  const unsigned int batchSize = (dimension == 2) ? 100000 : 5000;
 #else
   const unsigned int batchSize = (dimension == 2) ? 500 : 100;
 #endif
@@ -815,7 +815,7 @@ Void Equation::PoissonEquation::CalculateError() {
 
   // get polynomial coefficients and direct gradients
 #ifdef KOKKOS_ENABLE_CUDA
-  const unsigned int batchSize = (dimension == 2) ? 200000 : 10000;
+  const unsigned int batchSize = (dimension == 2) ? 100000 : 5000;
 #else
   const unsigned int batchSize = (dimension == 2) ? 500 : 100;
 #endif
@@ -1325,7 +1325,7 @@ Void Equation::PoissonEquation::CalculateSensitivity(
 
   // get polynomial coefficients and direct gradients
 #ifdef KOKKOS_ENABLE_CUDA
-  const unsigned int batchSize = (dimension == 2) ? 200000 : 50000;
+  const unsigned int batchSize = (dimension == 2) ? 100000 : 5000;
 #else
   const unsigned int batchSize = (dimension == 2) ? 500 : 100;
 #endif

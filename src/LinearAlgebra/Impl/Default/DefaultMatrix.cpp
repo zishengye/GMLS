@@ -922,33 +922,45 @@ Void LinearAlgebra::Impl::DefaultMatrix::SorPreconditioning(DefaultVector &b,
 
   for (int i = 0; i < hostMultiColorReordering.extent(0) - 1; i++) {
     if (i != 0) {
-      LocalIndex rowSize =
+      LocalIndex numRow =
           hostMultiColorReordering(i + 1) - hostMultiColorReordering(i);
+      LocalIndex rowPerTeam = 20;
+      LocalIndex rowByTeam = static_cast<LocalIndex>(std::ceil(
+          static_cast<Scalar>(numRow) / static_cast<Scalar>(rowPerTeam)));
+
       Kokkos::parallel_for(
-          Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(rowSize,
+          Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(rowByTeam,
                                                             Kokkos::AUTO()),
           KOKKOS_LAMBDA(
               const Kokkos::TeamPolicy<
                   Kokkos::DefaultExecutionSpace>::member_type &teamMember) {
-            const LocalIndex row =
-                teamMember.league_rank() + hostMultiColorReordering(i);
-            const LocalIndex rowIndex = deviceMultiColorReorderingRow(row);
-            const GlobalIndex colSize = deviceDiagMatrixRowIndex(rowIndex + 1) -
-                                        deviceDiagMatrixRowIndex(rowIndex);
+            const LocalIndex teamWork = teamMember.league_rank() * rowPerTeam +
+                                        hostMultiColorReordering(i);
 
-            Scalar sum;
-            Kokkos::parallel_reduce(
-                Kokkos::TeamThreadRange(teamMember, colSize),
-                [&](const GlobalIndex j, Scalar &tSum) {
-                  GlobalIndex offset = deviceDiagMatrixRowIndex(rowIndex) + j;
-                  tSum += deviceDiagMatrixValue(offset) *
-                          xVector(deviceDiagMatrixColIndex(offset));
-                },
-                Kokkos::Sum<Scalar>(sum));
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(teamMember, rowPerTeam),
+                [&](const LocalIndex j) {
+                  const LocalIndex row = teamWork + j;
+                  if (row > hostMultiColorReordering(i + 1))
+                    return;
+
+                  const LocalIndex rowIndex =
+                      deviceMultiColorReorderingRow(row);
+
+                  Scalar sum = 0.0;
+                  Kokkos::parallel_reduce(
+                      Kokkos::ThreadVectorRange(
+                          teamMember, deviceDiagMatrixRowIndex(rowIndex),
+                          deviceDiagMatrixRowIndex(rowIndex + 1)),
+                      [&](const GlobalIndex k, Scalar &tSum) {
+                        tSum += deviceDiagMatrixValue(k) *
+                                xVector(deviceDiagMatrixColIndex(k));
+                      },
+                      Kokkos::Sum<Scalar>(sum));
+                  yVector(rowIndex) -= sum;
+                });
             teamMember.team_barrier();
-            yVector(rowIndex) -= sum;
           });
-      Kokkos::fence();
     }
 
     Kokkos::parallel_for(

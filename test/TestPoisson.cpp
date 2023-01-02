@@ -202,7 +202,7 @@ TEST(PoissonEquationTest, 2DKappaDifference) {
     equation.SetDimension(2);
     equation.SetDomainSize(size);
     equation.SetDomainType(Geometry::Box);
-    equation.SetMaxRefinementIteration(3);
+    equation.SetMaxRefinementIteration(4);
     equation.SetOutputLevel(1);
     equation.SetRefinementMarkRatio(1.0);
     equation.SetBoundaryType(
