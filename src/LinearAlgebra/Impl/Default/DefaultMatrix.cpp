@@ -19,28 +19,37 @@ Void LinearAlgebra::Impl::SequentialMatrixMultiplication(DeviceIndexVector &ia,
                                                          DeviceRealVector &a,
                                                          DeviceRealVector &x,
                                                          DeviceRealVector &y) {
-  LocalIndex rowSize = ia.extent(0) - 1;
+  LocalIndex rowPerTeam = 20;
+  LocalIndex numRow = ia.extent(0) - 1;
+  LocalIndex rowByTeam = static_cast<LocalIndex>(
+      std::ceil(static_cast<Scalar>(numRow) / static_cast<Scalar>(rowPerTeam)));
 
   int mpiRank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
 
   Kokkos::parallel_for(
-      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(rowSize,
+      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(rowByTeam,
                                                         Kokkos::AUTO()),
       KOKKOS_LAMBDA(
           const Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type
               &teamMember) {
-        const LocalIndex i = teamMember.league_rank();
-        const GlobalIndex colSize = ia(i + 1) - ia(i);
+        const LocalIndex teamWork = teamMember.league_rank() * rowPerTeam;
 
-        y(i) = 0.0;
-        Kokkos::parallel_reduce(
-            Kokkos::TeamThreadRange(teamMember, colSize),
-            [&](const GlobalIndex j, Scalar &tSum) {
-              GlobalIndex offset = ia(i) + j;
-              tSum += a(offset) * x(ja(offset));
-            },
-            Kokkos::Sum<Scalar>(y(i)));
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(teamMember, rowPerTeam),
+            [&](const LocalIndex j) {
+              const LocalIndex row = teamWork + j;
+              if (row >= numRow)
+                return;
+
+              y(row) = 0.0;
+              Kokkos::parallel_reduce(
+                  Kokkos::ThreadVectorRange(teamMember, ia(row), ia(row + 1)),
+                  [&](const GlobalIndex k, Scalar &tSum) {
+                    tSum += a(k) * x(ja(k));
+                  },
+                  Kokkos::Sum<Scalar>(y(row)));
+            });
         teamMember.team_barrier();
       });
   Kokkos::fence();
@@ -49,30 +58,39 @@ Void LinearAlgebra::Impl::SequentialMatrixMultiplication(DeviceIndexVector &ia,
 Void LinearAlgebra::Impl::SequentialMatrixMultiplicationAddition(
     DeviceIndexVector &ia, DeviceIndexVector &ja, DeviceRealVector &a,
     DeviceRealVector &x, DeviceRealVector &y) {
-  LocalIndex rowSize = ia.extent(0) - 1;
+  LocalIndex rowPerTeam = 20;
+  LocalIndex numRow = ia.extent(0) - 1;
+  LocalIndex rowByTeam = static_cast<LocalIndex>(
+      std::ceil(static_cast<Scalar>(numRow) / static_cast<Scalar>(rowPerTeam)));
 
   int mpiRank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
 
   Kokkos::parallel_for(
-      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(rowSize,
+      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(rowByTeam,
                                                         Kokkos::AUTO()),
       KOKKOS_LAMBDA(
           const Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type
               &teamMember) {
-        const LocalIndex i = teamMember.league_rank();
-        const LocalIndex colSize = ia(i + 1) - ia(i);
+        const LocalIndex teamWork = teamMember.league_rank() * rowPerTeam;
 
-        Scalar sum = 0.0;
-        Kokkos::parallel_reduce(
-            Kokkos::TeamThreadRange(teamMember, colSize),
-            [&](const GlobalIndex j, Scalar &tSum) {
-              GlobalIndex offset = ia(i) + j;
-              tSum += a(offset) * x(ja(offset));
-            },
-            Kokkos::Sum<Scalar>(sum));
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(teamMember, rowPerTeam),
+            [&](const LocalIndex j) {
+              const LocalIndex row = teamWork + j;
+              if (row >= numRow)
+                return;
+
+              Scalar sum = 0.0;
+              Kokkos::parallel_reduce(
+                  Kokkos::ThreadVectorRange(teamMember, ia(row), ia(row + 1)),
+                  [&](const GlobalIndex k, Scalar &tSum) {
+                    tSum += a(k) * x(ja(k));
+                  },
+                  Kokkos::Sum<Scalar>(sum));
+              y(row) += sum;
+            });
         teamMember.team_barrier();
-        y(i) += sum;
       });
   Kokkos::fence();
 }
@@ -171,7 +189,7 @@ Void LinearAlgebra::Impl::DefaultMatrix::FindSeqDiagOffset() {
       Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, localRowSize_),
       [&](const unsigned int row) {
         std::size_t low = hostDiagMatrixRowIndex(row);
-        std::size_t high = hostDiagMatrixRowIndex(row + 1) - 1;
+        std::size_t high = hostDiagMatrixRowIndex(row + 1);
         std::size_t offset = (low + high) / 2;
         GlobalIndex target = row;
         while (true) {
@@ -903,36 +921,35 @@ Void LinearAlgebra::Impl::DefaultMatrix::SorPreconditioning(DefaultVector &b,
   auto &deviceSeqDiagOffset = *deviceSeqDiagOffsetPtr_;
 
   for (int i = 0; i < hostMultiColorReordering.extent(0) - 1; i++) {
-    // if (i != 0) {
-    //   LocalIndex rowSize =
-    //       hostMultiColorReordering(i + 1) - hostMultiColorReordering(i);
-    //   Kokkos::parallel_for(
-    //       Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(rowSize,
-    //                                                         Kokkos::AUTO()),
-    //       KOKKOS_LAMBDA(
-    //           const Kokkos::TeamPolicy<
-    //               Kokkos::DefaultExecutionSpace>::member_type &teamMember) {
-    //         const LocalIndex row =
-    //             teamMember.league_rank() + hostMultiColorReordering(i);
-    //         const LocalIndex rowIndex = deviceMultiColorReorderingRow(row);
-    //         const GlobalIndex colSize = deviceDiagMatrixRowIndex(rowIndex +
-    //         1) -
-    //                                     deviceDiagMatrixRowIndex(rowIndex);
+    if (i != 0) {
+      LocalIndex rowSize =
+          hostMultiColorReordering(i + 1) - hostMultiColorReordering(i);
+      Kokkos::parallel_for(
+          Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(rowSize,
+                                                            Kokkos::AUTO()),
+          KOKKOS_LAMBDA(
+              const Kokkos::TeamPolicy<
+                  Kokkos::DefaultExecutionSpace>::member_type &teamMember) {
+            const LocalIndex row =
+                teamMember.league_rank() + hostMultiColorReordering(i);
+            const LocalIndex rowIndex = deviceMultiColorReorderingRow(row);
+            const GlobalIndex colSize = deviceDiagMatrixRowIndex(rowIndex + 1) -
+                                        deviceDiagMatrixRowIndex(rowIndex);
 
-    //         Scalar sum;
-    //         Kokkos::parallel_reduce(
-    //             Kokkos::TeamThreadRange(teamMember, colSize),
-    //             [&](const GlobalIndex j, Scalar &tSum) {
-    //               GlobalIndex offset = deviceDiagMatrixRowIndex(rowIndex) +
-    //               j; tSum += deviceDiagMatrixValue(offset) *
-    //                       xVector(deviceDiagMatrixColIndex(offset));
-    //             },
-    //             Kokkos::Sum<Scalar>(sum));
-    //         teamMember.team_barrier();
-    //         yVector(rowIndex) -= sum;
-    //       });
-    //   Kokkos::fence();
-    // }
+            Scalar sum;
+            Kokkos::parallel_reduce(
+                Kokkos::TeamThreadRange(teamMember, colSize),
+                [&](const GlobalIndex j, Scalar &tSum) {
+                  GlobalIndex offset = deviceDiagMatrixRowIndex(rowIndex) + j;
+                  tSum += deviceDiagMatrixValue(offset) *
+                          xVector(deviceDiagMatrixColIndex(offset));
+                },
+                Kokkos::Sum<Scalar>(sum));
+            teamMember.team_barrier();
+            yVector(rowIndex) -= sum;
+          });
+      Kokkos::fence();
+    }
 
     Kokkos::parallel_for(
         Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(
