@@ -19,13 +19,70 @@ Void LinearAlgebra::Impl::SequentialMatrixMultiplication(DeviceIndexVector &ia,
                                                          DeviceRealVector &a,
                                                          DeviceRealVector &x,
                                                          DeviceRealVector &y) {
+  /*
+    @inproceedings{merrill2016merge,
+    title={Merge-based parallel sparse matrix-vector multiplication},
+    author={Merrill, Duane and Garland, Michael},
+    booktitle={SC'16: Proceedings of the International Conference for High
+    Performance Computing, Networking, Storage and Analysis},
+    pages={678--689}, year={2016}, organization={IEEE}
+    }
+   */
+
   LocalIndex rowPerTeam = 20;
   LocalIndex numRow = ia.extent(0) - 1;
   LocalIndex rowByTeam = static_cast<LocalIndex>(
       std::ceil(static_cast<Scalar>(numRow) / static_cast<Scalar>(rowPerTeam)));
 
+  const LocalIndex nnzMax = 10240;
+  LocalIndex nnz = ja.extent(0);
+  LocalIndex numParts = static_cast<LocalIndex>(
+      std::ceil(static_cast<Scalar>(nnz) / static_cast<Scalar>(nnzMax)));
+
   int mpiRank;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
+
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, numRow),
+      [&](const int i) { y(i) = 0.0; });
+  Kokkos::fence();
+
+  Kokkos::parallel_for(
+      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(numParts,
+                                                        Kokkos::AUTO()),
+      KOKKOS_LAMBDA(
+          const Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type
+              &teamMember) {
+        // find coordinate on team level
+        const LocalIndex teamWorkStart = teamMember.league_rank() * nnzMax;
+        const LocalIndex teamWorkEnd =
+            std::min(teamMember.league_rank() * nnzMax, nnz);
+
+        LocalIndex teamWorkStartCoordX, teamWorkStartCoordY;
+        LocalIndex teamWorkEndCoordX, teamWorkEndCoordY;
+
+        {
+          LocalIndex splitMin = 0;
+          LocalIndex splitMax = numRow;
+
+          while (splitMin < splitMax) {
+            LocalIndex splitPivot = (splitMin + splitMax) >> 1;
+            if (ia[splitPivot] <= ja[teamWorkStart - splitPivot - 1]) {
+              splitMin = splitPivot + 1;
+            } else {
+              splitMax = splitPivot;
+            }
+          }
+        }
+
+        teamMember.team_barrier();
+      });
+  Kokkos::fence();
+
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, numRow),
+      [&](const int i) { y(i) = 0.0; });
+  Kokkos::fence();
 
   Kokkos::parallel_for(
       Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>(rowByTeam,

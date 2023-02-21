@@ -1,6 +1,8 @@
 #ifndef _LinearAlgebra_Impl_Default_DefaultMatrix_Hpp_
 #define _LinearAlgebra_Impl_Default_DefaultMatrix_Hpp_
 
+#include <KokkosSparse_CrsMatrix.hpp>
+#include <Kokkos_Cuda.hpp>
 #include <memory>
 #include <vector>
 
